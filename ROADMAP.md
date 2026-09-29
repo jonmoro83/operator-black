@@ -147,6 +147,9 @@ Decided against for now.
 - Setup: scheduled deload as a clear choice (As needed · After every cycle · After
   every 2 cycles) with a preview of the next deload and retest dates. "As needed" plus
   retest every 3 cycles matches the 18-week program summary (retest week of 2/8/2027).
+- Deload check-in on Today in weeks 5–6 of every second cycle (first: 12/14–12/25/2026):
+  current setting, next deload date, a two-cycle recap, Keep or change. Can be turned
+  off in Setup.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
