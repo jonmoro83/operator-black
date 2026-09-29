@@ -1,6 +1,19 @@
 name = "operator-black"
-pages_build_output_dir = "public"
+main = "src/worker.js"
 compatibility_date = "2026-09-01"
+
+# Only reachable at operatorblack.com, which sits behind Cloudflare Access.
+# No *.workers.dev or preview URLs, so there's no way around the login screen.
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "operatorblack.com", custom_domain = true },
+]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"
@@ -9,10 +22,10 @@ database_id = "3dd5211d-2fd9-43ea-ae95-cc4c4bc7e28f"
 migrations_dir = "migrations"
 
 [vars]
-# From Zero Trust → Settings → Custom Pages (team domain) and the Access application's
+# From Zero Trust → Settings (team domain) and the Access application's
 # Overview tab (Application Audience tag). Both are public identifiers, not secrets.
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
 # Optional extra lock (comma-separated emails allowed through, checked after Access):
 # set it as a secret so your email stays out of the repo —
-#   npx wrangler pages secret put ALLOWED_EMAILS --project-name operator-black
+#   npx wrangler secret put ALLOWED_EMAILS

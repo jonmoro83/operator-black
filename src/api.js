@@ -1,4 +1,4 @@
-// Operator + Black API — Cloudflare Pages Function backed by D1.
+// Operator + Black API — Worker route handler backed by D1.
 //
 //   GET  /api/state            → { plan, logs: { "YYYY-MM-DD": {...} } }
 //   PUT  /api/doc/plan/main    → replace the plan document
@@ -12,7 +12,7 @@
 const DOC_PATH = /^(plan\/main|logs\/\d{4}-\d{2}-\d{2})$/;
 const MAX_BYTES = 256 * 1024;
 
-export async function onRequest({ request, env }) {
+export async function handleApi(request, env) {
   const denied = await authorize(request, env);
   if (denied) return denied;
 

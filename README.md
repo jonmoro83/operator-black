@@ -4,14 +4,15 @@ Training log for Tactical Barbell's **Operator** strength template plus the **Bl
 conditioning protocol. It runs 6-week cycles with no end date, schedules deloads and
 retests automatically, calculates working weights and plates, and logs every session.
 
-Hosted on Cloudflare Pages at **operatorblack.com**, with storage in D1 and sign-in
+Hosted as a Cloudflare Worker at **operatorblack.com**, with storage in D1 and sign-in
 through Cloudflare Access.
 
 ```
 public/index.html           the whole app (vanilla JS, no build step)
-functions/api/[[path]].js   API: /api/state, /api/doc/<path>, /api/export
+src/worker.js               entry: /api/* → API, everything else → public/
+src/api.js                  API: /api/state, /api/doc/<path>, /api/export
 migrations/0001_init.sql    D1 schema (one JSON document per row)
-wrangler.toml               Pages + D1 + Access config
+wrangler.toml               Worker, static assets, D1, custom domain, Access config
 ```
 
 ## Local development
@@ -20,29 +21,27 @@ wrangler.toml               Pages + D1 + Access config
 npm install
 cp .dev.vars.example .dev.vars      # skips the Access check locally
 npm run db:migrate:local
-npm run dev                         # http://localhost:8788
+npm run dev                         # http://localhost:8787
 ```
 
-## First-time Cloudflare setup
+## Deploys
 
-1. **Log in:** `npx wrangler login`
-2. **Create the database:** `npx wrangler d1 create operator-black`. Paste the
-   `database_id` it prints into `wrangler.toml`.
-3. **Create the table:** `npm run db:migrate:remote`
-4. **Create the Pages project:** Dashboard → Workers & Pages → Create → Pages →
-   *Connect to Git* → pick `jonmoro83/operator-black`.
-   - Framework preset: None · Build command: *(empty)* · Output directory: `public`
-   - The D1 binding comes from `wrangler.toml`. No dashboard setup is needed for it.
-5. **Custom domain:** in the Pages project, open Custom domains → Set up →
-   `operatorblack.com` (optionally add `www.operatorblack.com` too).
-6. **Lock it down with Cloudflare Access** (Zero Trust → Access → Applications → Add →
-   Self-hosted):
-   - Add **both** hostnames: `operatorblack.com` and `operator-black.pages.dev`
-     (plus `*.operator-black.pages.dev` for preview deploys).
-   - Policy: Allow → Include → Emails → your email. Login method: One-time PIN.
-   - Copy the **Application Audience (AUD) tag** into `ACCESS_AUD` and your team
-     domain (`<team>.cloudflareaccess.com`) into `ACCESS_TEAM_DOMAIN` in
-     `wrangler.toml`, then commit and push.
+Every push to `main` deploys through Workers Builds (the Worker is connected to this
+repo in the dashboard). `wrangler.toml` attaches **operatorblack.com** as a custom
+domain; `workers_dev` and preview URLs are off, so the only way in is through the
+Access login.
+
+## First-time Cloudflare setup (done once)
+
+1. `npx wrangler login`
+2. `npx wrangler d1 create operator-black`, then paste the `database_id` into `wrangler.toml`
+3. `npm run db:migrate:remote`
+4. Dashboard → Workers & Pages → Create → Import a repository → this repo
+   (deploy command `npx wrangler deploy`)
+5. Zero Trust → Access → Applications → Add → Self-hosted, hostname `operatorblack.com`,
+   policy Allow → Emails → your email, login method One-time PIN
+6. Put the team domain (`<team>.cloudflareaccess.com`) and the application's **AUD tag**
+   into `ACCESS_TEAM_DOMAIN` / `ACCESS_AUD` in `wrangler.toml` and push.
 
 The API rejects every request until those two values are set. Every request must
 also carry a valid Access token, so the app can't be read or written around the
