@@ -7,9 +7,6 @@ Update it as things ship. Last updated 2026-09-29.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **Login page branding:** `public/brand/logo.png` is deployed. It shows on the Access
-  login page once Zero Trust has an application for `operatorblack.com/brand` with a
-  **Bypass → Everyone** policy, and the logo URL is set under Custom Pages → Login page.
 - **Adding a person:** Zero Trust → Access → Applications → Operator Black → policy →
   add their email. Nothing else is needed; they start at their own bridge week.
 - **Existing data is claimed on your first sign-in** after the per-user change (from
@@ -135,6 +132,10 @@ Decided against for now.
   Access email; legacy data claimed by the owner; phone cache reset on user switch.
 - Programs: archive the current program and start over (carry maxes or bridge week),
   with read-only archived programs viewable from History, Status and Plan.
+
+**Login page**
+- Branded Access login page: public `/brand/logo.png` via a Bypass → Everyone
+  Access application for `operatorblack.com/brand/*`; everything else stays locked.
 
 **Export**
 - CSV export (Setup): sessions (one row per day) and lifts (one row per lift per
