@@ -132,6 +132,13 @@ computed week, session and prescription): **sessions** (one row per day) and **l
 plan of the program it belongs to. On iPhone they open the share sheet; elsewhere they
 download.
 
+## Restore
+
+`POST /api/backups/<name>/restore` or `POST /api/restore` (an uploaded backup or export
+file) replaces the user's plan, logs and programs in one D1 batch, after saving a
+`YYYY-MM-DD-before-restore-HHMMSS` backup. Setup → Backups has Restore buttons and
+Restore from a file.
+
 ## Backups
 
 A cron trigger (Sundays 09:00 UTC) saves a full JSON copy of the plan and every log to

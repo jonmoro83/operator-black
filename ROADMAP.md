@@ -39,20 +39,6 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
-In progress (started 2026-09-29):
-
-- **Welcome setup for new people:** guided first run (units, bodyweight, start date,
-  bridge week or known maxes, Lift 3, conditioning tool, deload cadence).
-- **Lifting session mode:** full-screen, one set at a time: big weight, plates, tap
-  Done, rest starts, next set; summary and RPE at the end.
-- **Visual plate loader + plate inventory:** drawn barbell in bumper colors; plate
-  math only uses the plates your gym has.
-- **Restore from backup:** restore any automatic backup or a downloaded file, with a
-  safety backup taken first.
-- **Spoken cues:** interval changes and rest ends read aloud.
-
-Later:
-
 - **Tune the end-of-cycle review after Cycle 1** (review due Fri 11/13/2026). Check
   whether the grinder / missed-set / RPE thresholds suggested sensible changes.
 - **Automated tests for the calculations:** schedule engine (rules, inserts, locked
@@ -179,6 +165,16 @@ Decided against for now.
 - Deload check-in on Today in weeks 5–6 of every second cycle (first: 12/14–12/25/2026):
   current setting, next deload date, a two-cycle recap, Keep or change. Can be turned
   off in Setup.
+
+**Gym flow, onboarding, restore (2026-09-29)**
+- Welcome setup for new people (units, bodyweight, Lift 3, start week, bridge week or
+  known 1RM/5RM maxes, conditioning tool, deload cadence); re-run from Setup.
+- Lifting session mode: full-screen, one set at a time with drawn plates, ramp and
+  working rests on the same screen, ±weight, grinder, accessories, summary + RPE.
+- Visual plate loader in bumper colors and a plate inventory; unloadable targets flagged
+  with the nearest load.
+- Restore any backup or a downloaded file, with a time-stamped safety backup first.
+- Spoken cues for interval changes and rest ends (toggle).
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
