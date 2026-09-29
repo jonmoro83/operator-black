@@ -52,6 +52,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .brand h1{white-space:nowrap;flex-shrink:0;margin:0;font-family:var(--f-display);font-stretch:125%;font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
 .brand h1 span{color:var(--accent)}
 #status{font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
+.upd{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent-bg);color:var(--ink);border-radius:8px;padding:8px 10px 8px 12px;font-size:13.5px;font-weight:600}
 #status.link{text-decoration:underline;cursor:pointer}
 #status.err{color:var(--red)}
 nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
@@ -269,6 +270,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 <header>
   <div class="hd">
     <div class="brand"><h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div></div>
+    <div id="upd" class="upd" hidden><span>A new version of the app is ready.</span><button class="btn sm primary" id="upd-go">Reload</button></div>
     <nav id="nav" aria-label="Sections">
       <button data-view="today">Today</button>
       <button data-view="status">Status</button>
@@ -1195,6 +1197,29 @@ async function holdScreen(on){
     else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
   }catch(e){wakeLock=null}
 }
+/* ---------- app updates ---------- */
+// The server stamps each page with its fingerprint. On open, on return from the
+// background and every 30 min, compare it with what's deployed now; if they differ,
+// offer a reload. Reloading is safe: data, unsent changes and the timer live on the phone.
+const APP_VER=(document.querySelector('meta[name="app-version"]')||{}).content||null;
+const upd={latest:null,at:null,tag:null,checked:null,err:null,busy:false,lastCheck:0};
+async function checkUpdate(manual){
+  if(!manual&&Date.now()-upd.lastCheck<60000) return;
+  upd.lastCheck=Date.now(); upd.busy=!!manual; if(manual&&view==='setup') render();
+  try{ const v=await api('GET','/version'); Object.assign(upd,{latest:v.page,at:v.deployedAt,tag:v.tag,checked:Date.now(),err:null}) }
+  catch(e){ upd.err=navigator.onLine===false?'Offline. Check again when you have signal.':'Couldn’t check for updates.' }
+  upd.busy=false; showUpdate(); if(view==='setup') render();
+}
+function updateAvailable(){return !!(APP_VER&&upd.latest&&upd.latest!==APP_VER&&APP_VER!=='dev')}
+function showUpdate(){document.getElementById('upd').hidden=!updateAvailable()}
+function applyUpdate(){
+  const go=()=>location.reload();
+  try{ navigator.serviceWorker&&navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{}).finally(go) }catch(e){ go() }
+}
+document.getElementById('upd-go').addEventListener('click',applyUpdate);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false) });
+setInterval(()=>checkUpdate(false),30*60*1000);
+
 /* ---------- rest alerts (push) ---------- */
 // When alerts are on for this device, every rest schedules a push for its end time on
 // the server, so the phone is notified even when locked or in another app.
@@ -1478,6 +1503,13 @@ function vSetup(){
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
     h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
+  {
+    const fmtAt=t=>{if(!t)return '';const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})};
+    const status=!APP_VER||APP_VER==='dev'?'Version unknown in this preview.':!upd.latest?(upd.err||'Not checked yet.'):updateAvailable()?'A newer version is available.':'You’re on the latest version.';
+    h+=`<div class="card"><h2>About this app</h2><dl class="kv"><dt>This app</dt><dd class="mono">${esc((APP_VER||'—').slice(0,8))}</dd><dt>Latest</dt><dd><span class="mono">${esc((upd.latest||'—').slice(0,8))}</span>${upd.at?` <span class="small muted">· deployed ${esc(fmtAt(upd.at))}${upd.tag?' · '+esc(upd.tag):''}</span>`:''}</dd></dl>
+    <div class="small">${esc(status)}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
+    <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div></div>`;
+  }
   const accs=plan.acc||{};
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
@@ -1577,6 +1609,8 @@ document.getElementById('main').addEventListener('click',e=>{
       mutatePlan(p=>{p.cycleMaxes[c+1]=Object.assign({},p.cycleMaxes[c+1]||{},chosen);p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),set:chosen}})});
     } else mutatePlan(p=>{p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),dismissed:true}})});
     reviewSel={}; return}
+  if(a==='updcheck'){checkUpdate(true);return}
+  if(a==='updnow'){applyUpdate();return}
   if(a==='alerton'){enableAlerts();return}
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
@@ -1616,6 +1650,7 @@ render();
 if(rest) showRest();
 connect();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+setTimeout(()=>checkUpdate(false),2000);
 })();
 </script>
 </body>

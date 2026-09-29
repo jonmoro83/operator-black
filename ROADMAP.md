@@ -110,6 +110,10 @@ Decided against for now.
 - Background rest alerts via Web Push: Durable Object alarm at the rest's end time,
   rescheduled on ±30s/skip/new set, test button in Setup.
 
+**Updates**
+- Update-available banner on the home-screen app (page fingerprint vs deployed),
+  plus About this app in Setup with a manual check.
+
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
 - End-of-cycle review with suggested max changes, applied on approval.

@@ -6,7 +6,7 @@
     "dev": "wrangler dev",
     "db:migrate:local": "wrangler d1 migrations apply operator-black --local",
     "db:migrate:remote": "wrangler d1 migrations apply operator-black --remote",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy --tag $(git rev-parse --short HEAD)"
   },
   "devDependencies": {
     "wrangler": "^4.143.1"

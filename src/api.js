@@ -7,6 +7,7 @@
 //   GET  /api/backups          → list automatic backups (newest first)
 //   GET  /api/backups/<name>   → download one backup
 //   POST /api/backups          → take a backup now
+//   GET  /api/version          → fingerprint of the current page + deploy info
 //   GET  /api/push/key         → VAPID public key for pushManager.subscribe
 //   GET  /api/push/status      → devices with alerts on, pending alarm time
 //   POST /api/push/subscribe | unsubscribe | schedule | cancel | test
@@ -38,6 +39,12 @@ export async function handleApi(request, env) {
     });
   }
 
+  if (route === "version" && request.method === "GET") {
+    const page = await env.ASSETS.fetch(new Request(new URL("/", request.url)));
+    const etag = (page.headers.get("etag") || "").replace(/^W\//, "").replace(/"/g, "").slice(0, 16) || "dev";
+    const meta = env.CF_VERSION_METADATA || {};
+    return json({ page: etag, deployedAt: meta.timestamp || null, tag: meta.tag || null }, 200, { "cache-control": "no-store" });
+  }
   if (route === "push/key" && request.method === "GET") {
     return json({ key: vapidPublicKey(env) });
   }

@@ -5,6 +5,10 @@ export { RestAlerts } from "./alerts.js";
 
 const CANONICAL_HOST = "operatorblack.com";
 
+export function pageVersion(etag) {
+  return (etag || "").replace(/^W\//, "").replace(/"/g, "").slice(0, 16) || "dev";
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -13,7 +17,16 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return handleApi(request, env);
-    return env.ASSETS.fetch(request);
+    const res = await env.ASSETS.fetch(request);
+    // Stamp the page with its own fingerprint (the asset's ETag) so the app can tell
+    // whether a newer page has been deployed since it loaded.
+    if (res.status === 200 && (res.headers.get("content-type") || "").includes("text/html")) {
+      const ver = pageVersion(res.headers.get("etag"));
+      return new HTMLRewriter()
+        .on("head", { element(el) { el.append(`<meta name="app-version" content="${ver}">`, { html: true }); } })
+        .transform(res);
+    }
+    return res;
   },
 
   async scheduled(event, env, ctx) {

@@ -31,6 +31,10 @@ id = "999b995f858d491698b2218e3c18e29d"
 [triggers]
 crons = ["0 9 * * SUN"]  # Sundays 09:00 UTC
 
+# Deploy info (time, git tag) for Setup's "About this app".
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
 # Rest alerts: a Durable Object per user holds push subscriptions and the pending alarm.
 [[durable_objects.bindings]]
 name = "ALERTS"

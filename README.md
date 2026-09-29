@@ -63,6 +63,16 @@ Operator Black → session duration; 1 month is the max). When one expires, the 
 still opens from cache, the status line reads "Signed out · tap to sign in,"
 and tapping it goes to the login page.
 
+## Updates on the home-screen app
+
+The Worker stamps every page it serves with the page's fingerprint (its asset ETag) in
+`<meta name="app-version">`. The app compares that with `GET /api/version` when it
+opens, when it comes back from the background, and every 30 minutes, and shows a
+"new version is ready · Reload" banner if they differ. Backend-only deploys don't
+change the fingerprint, so they don't trigger it. Setup → About this app shows both
+versions and the deploy time. Deploy with `npm run deploy` to tag the version with
+the git commit.
+
 ## Rest alerts
 
 Setup → Rest alerts subscribes the device to Web Push (home-screen app on iOS 16.4+).
