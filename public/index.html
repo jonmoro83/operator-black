@@ -372,6 +372,7 @@ function isBarbell(k){return k!=='pull'&&k!=='wpu'}
 function isBW(k){return k==='wpu'}
 // Which Lift 3 variant a session uses: a per-day swap wins, otherwise the rotation rule.
 function l3Auto(date){
+  const fw=weekOf(date); if(fw&&fw.l3&&fw.l3[dow(date)]) return fw.l3[dow(date)];
   const on=l3On(); if(on.length===1) return on[0];
   const mode=(plan.l3||{}).mode||'same';
   if(mode==='same') return on.includes(plan.l3.primary)?plan.l3.primary:on[0];
@@ -399,10 +400,15 @@ function e1rm(w,r){w=+w;r=+r;if(!w||!r)return null;return w/(PCT5[r]||1/(1+r/30)
 function u(){return plan.unit||'lb'}
 
 /* ---------------- schedule engine ---------------- */
-function* ruleSeq(p){
-  if(p.bridge) yield {kind:'bridge'};
-  for(let c=1;;c++){
-    for(let w=1;w<=6;w++) yield {kind:'cycle',cycle:c,w};
+// The rule sequence (bridge, 6-week cycles, rule deloads/retests). `from` resumes it
+// after the locked weeks: {c, w} continues cycle c at week w; phase 'rule' means
+// cycle c just finished and its deload/retest check comes next.
+function* ruleSeq(p,from){
+  let c=1,w=1,ruleFirst=false;
+  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
+  for(;;c++,w=1){
+    if(!ruleFirst) for(;w<=6;w++) yield {kind:'cycle',cycle:c,w};
+    ruleFirst=false;
     const t=+p.testEvery>0&&c%+p.testEvery===0, d=+p.deloadEvery>0&&c%+p.deloadEvery===0;
     if(t&&!p.skips['test@'+c]) yield {kind:'test',after:c,rule:'test@'+c};
     else if(d&&!p.skips['deload@'+c]) yield {kind:'deload',after:c,rule:'deload@'+c};
@@ -412,13 +418,22 @@ let wcache={v:-1,list:[]};
 function weeks(minIdx){
   const need=Math.max(minIdx||0, idxOf(todayStr())+160, 60);
   if(wcache.v===planV&&wcache.list.length>need) return wcache.list;
-  const out=[], g=ruleSeq(plan); let m=plan.startMonday, cw=0, lastC=0;
+  // Past weeks are locked in plan.frozen (see freezePast), so settings changes only
+  // re-plan from the current week on. Locked weeks form a prefix from the start date.
+  const out=[], fz=plan.frozen||{}; let g=null, m=plan.startMonday, cw=0, lastC=0, resume=null;
   for(let i=0;i<=need+10;i++){
-    let wk; const ins=plan.inserts[m];
-    if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
+    let wk;
+    if(!g&&fz[m]){
+      wk=Object.assign({},fz[m],{locked:true});
+      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<6?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
+    } else {
+      if(!g) g=ruleSeq(plan,resume);
+      const ins=plan.inserts[m];
+      if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
+    }
     wk=Object.assign({},wk,{monday:m,idx:i});
-    if(wk.kind==='cycle'){wk.plyoIdx=cw++;lastC=wk.cycle}
-    wk.refCycle=wk.after||lastC||1;
+    if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
+    if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
     out.push(wk); m=addDays(m,7);
   }
   // for tests/inserts, find the cycle that follows
@@ -427,13 +442,35 @@ function weeks(minIdx){
 }
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
+function wkRx(wk){return wk.rx||(wk.kind==='cycle'?plan.wave[wk.w-1]:plan.deload)}
+// Lock every week that has fully passed: its type, cycle/week, prescription and Lift 3
+// picks. A cycle whose last week is locked also gets its maxes locked.
+function freezePast(){
+  const cur=idxOf(todayStr()); if(cur<=0) return false;
+  const list=weeks(cur+1), fz=plan.frozen||(plan.frozen={}), lm=plan.lockedMax||(plan.lockedMax={});
+  let changed=false;
+  for(let i=0;i<cur&&i<list.length;i++){
+    const wk=list[i]; if(fz[wk.monday]) continue;
+    const f={kind:wk.kind};
+    for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle']) if(wk[key]!=null) f[key]=wk[key];
+    if(wk.kind==='cycle'||wk.kind==='deload'){f.rx=clone(wkRx(wk));f.l3={0:l3Auto(wk.monday),2:l3Auto(addDays(wk.monday,2))}}
+    fz[wk.monday]=f; changed=true;
+    if(changed) planV++;
+  }
+  for(const f of Object.values(fz)) if(f.kind==='cycle'&&f.w===6&&!lm[f.cycle]){
+    const mx=maxFor(f.cycle), o={}; for(const k of LK) if(mx[k]) o[k]=mx[k].v; lm[f.cycle]=o; changed=true; planV++;
+  }
+  if(changed) queueWrite('plan/main',()=>plan);
+  return changed;
+}
 let mcache={v:-1,m:{}};
 function maxFor(c){
   if(mcache.v!==planV) mcache={v:planV,m:{}};
   if(mcache.m[c]) return mcache.m[c];
-  const o=(plan.cycleMaxes||{})[c]||{}, prev=c>1?maxFor(c-1):null, r={};
+  const o=(plan.cycleMaxes||{})[c]||{}, lk=(plan.lockedMax||{})[c]||{}, prev=c>1?maxFor(c-1):null, r={};
   for(const k of LK){
     if(o[k]!=null&&o[k]!=='') r[k]={v:+o[k],src:'set'};
+    else if(lk[k]!=null) r[k]={v:+lk[k],src:'lock'};
     else if(c===1) r[k]=plan.maxes[k]!=null&&plan.maxes[k]!==''?{v:+plan.maxes[k],src:'base'}:null;
     else r[k]=prev[k]?{v:prev[k].v+(+plan.inc[k]||0),src:'proj'}:null;
   }
@@ -441,8 +478,7 @@ function maxFor(c){
 }
 function rx(wk,k){
   let s,r,p,c;
-  if(wk.kind==='cycle'){const v=plan.wave[wk.w-1];s=+v.s;r=+v.r;p=+v.p;c=wk.cycle}
-  else {const v=plan.deload;s=+v.s;r=+v.r;p=+v.p;c=wk.refCycle}
+  const v=wkRx(wk);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
   if(k==='dead'&&wk.kind!=='cycle') s=1;
   const m=maxFor(c)[k];
   return {s,r,p,c,m,w:m?loadFor(k,m.v,p,sel):null,t:wk.kind==='cycle'?tier(p):'light'};
@@ -486,8 +522,8 @@ function dayPlan(date){
 }
 function weekTitle(wk){
   if(!wk) return 'Before start';
-  if(wk.kind==='cycle'){const v=plan.wave[wk.w-1];return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
-  if(wk.kind==='deload') return {t:'Deload week',chip:plan.deload.s+'×'+plan.deload.r+' @ '+plan.deload.p+'%',cls:'light'};
+  if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
+  if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
   return {t:'Off week',chip:'Rest',cls:''};
@@ -608,6 +644,7 @@ async function connect(){
   if(!loaded) setStatus('Loading…');
   try{
     const st=await api('GET','/state'); signedOut=false; loaded=true; applyState(st);
+    if(freezePast()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
   }
   catch(e){
@@ -685,6 +722,7 @@ function vToday(){
   const wt=weekTitle(wk);
   h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'?`<span class="small muted">Plyo: ${plyoPhase(wk).name}</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}</div>`;
   h+=banners(wk,dp);
+  if(sel===todayStr()){const rc=reviewCycleFor(sel);if(rc) h+=reviewCard(rc)}
   h+=checkinCard(sel);
   h+=sessionHtml(wk,dp);
   return h;
@@ -806,7 +844,7 @@ function suggestions(date){
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), wk=weekOf(date), dp=dayPlan(date), out=[];
   if(!lv) return out;
   const add=(tone,title,text,act)=>out.push({tone,title,text,act});
-  const heavy=wk&&wk.kind==='cycle'&&tier(+plan.wave[wk.w-1].p)==='heavy';
+  const heavy=wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
   const hicFmt=(dp.t==='hic'||dp.t==='plyohic')?effFmt(date):null;
   // today's session
   if(dp.t==='lift'){
@@ -877,7 +915,7 @@ function checkinCard(date){
 function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.length?a:ACC[day]}
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
-  const v=plan.wave[wk.w-1];
+  const v=wkRx(wk);
   if(wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const L=lg(sel).acc||[];
   return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>`).join('')}</div></div>`;
@@ -956,6 +994,72 @@ function footer(active){
   if(!active) return '';
   const L=lg(sel);
   return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label></div>`;
+}
+
+/* ---------- end-of-cycle review ---------- */
+// Operator has no autoregulation. At the end of each cycle this reads what you logged
+// (grinders, missed sets, effort on heavy weeks, readiness) and suggests next cycle's
+// max per lift. Nothing changes until you apply it.
+let reviewSel={};
+function reviewCycleFor(date){
+  const wk=weekOf(date); if(!wk) return null;
+  let c=null;
+  if(wk.kind==='cycle'&&wk.w===6&&dow(date)>=4) c=wk.cycle;
+  else if(wk.kind==='cycle'&&wk.w<=2&&wk.cycle>1) c=wk.cycle-1;
+  else if(wk.kind!=='cycle'&&wk.kind!=='bridge'&&wk.refCycle) c=wk.refCycle;
+  if(!c||(plan.reviews||{})[c]) return null;
+  return c;
+}
+function cycleStats(c){
+  const list=weeks(), stats={}, rd=[];
+  for(const wk of list){
+    if(wk.kind!=='cycle'||wk.cycle!==c) continue;
+    const heavy=tier(+wkRx(wk).p)==='heavy', p=+wkRx(wk).p;
+    for(let i=0;i<7;i++){
+      const d=addDays(wk.monday,i), L=logs[d]; if(!L) continue;
+      const r=readiness(L.checkin||{}); if(r!=null) rd.push(r);
+      const dp=dayPlan(d); if(dp.t!=='lift') continue;
+      for(const k of dp.lifts){
+        const x=(L.lifts||{})[k]; if(!x) continue;
+        const sets=Array.isArray(x.sets)?x.sets:[], ticked=sets.filter(Boolean).length;
+        if(!ticked&&!x.grinder) continue;
+        const need=k==='dead'?1:+wkRx(wk).s;
+        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[]});
+        S.n++; if(x.grinder){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        if(L.done&&ticked<need) S.missed++;
+        if(heavy&&L.rpe) S.rpe.push(+L.rpe);
+      }
+    }
+  }
+  return {stats, readiness:rd.length?rd.reduce((a,b)=>a+b,0)/rd.length:null};
+}
+function reviewOptions(k,cur){
+  const inc=+plan.inc[k]||0, rd=+plan.round[k]||5;
+  return {reduce:floorTo(cur*.95,rd), hold:cur, standard:cur+inc, bigger:cur+inc+rd};
+}
+function recommend(S,rdAvg){
+  if(!S||S.n<3) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
+  const rpe=S.rpe.length?S.rpe.reduce((a,b)=>a+b,0)/S.rpe.length:null;
+  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).join(' · ');
+  if(S.missed>=3||S.lightGrind>=2) return ['reduce',bits+'. Grinding at moderate weights means the max is too high.'];
+  if(S.missed>=1||S.heavyGrind>=1||S.grind>=2) return ['hold',bits+'. Repeat this max and own it.'];
+  if(rpe!=null&&rpe<=7&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. Heavy weeks moved easily.'];
+  return ['standard',bits+'. On track.'];
+}
+function reviewCard(c){
+  const {stats,readiness:rdAvg}=cycleStats(c), mx=maxFor(c), nxt=(plan.cycleMaxes||{})[c+1]||{};
+  const lifts=activeLifts().filter(k=>mx[k]);
+  if(!Object.keys(stats).length) return '';
+  const lbl={reduce:'Lower 5%',hold:'Hold',standard:'Standard',bigger:'Bigger jump'};
+  let h=`<div class="card"><div class="lift-h"><h3>Cycle ${c} review</h3><span class="chip blue">Next: Cycle ${c+1}</span></div><p class="small muted" style="margin:0">Suggested from your grinders, missed sets and effort on heavy weeks${rdAvg!=null?` (average readiness ${Math.round(rdAvg)})`:''}. Pick next cycle’s max for each lift, then apply.</p>`;
+  for(const k of lifts){
+    const cur=mx[k].v, opts=reviewOptions(k,cur), [rec,why]=recommend(stats[k],rdAvg), preset=nxt[k]!=null&&nxt[k]!=='';
+    const choice=reviewSel[k]||(preset?'keep':rec);
+    const fmt=v=>isBW(k)?'+'+n(v):n(v);
+    h+=`<div class="stack" style="gap:6px;border-top:1px solid var(--line);padding-top:10px"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="small muted mono">now ${fmt(cur)}</span></div><div class="small muted">${esc(why)}</div><div class="seg">${preset?`<button class="segb${choice==='keep'?' on':''}" data-act="rvsel" data-lift="${k}" data-v="keep">Keep ${fmt(+nxt[k])} (set)</button>`:''}${Object.entries(opts).map(([o,v])=>`<button class="segb${choice===o?' on':''}" data-act="rvsel" data-lift="${k}" data-v="${o}">${lbl[o]} ${fmt(v)}${o===rec?' ★':''}</button>`).join('')}</div></div>`;
+  }
+  h+=`<div class="row"><button class="btn primary" data-act="rvapply" data-c="${c}">Apply to Cycle ${c+1}</button><button class="btn ghost" data-act="rvdismiss" data-c="${c}">Dismiss</button><span class="small muted">★ = suggested</span></div></div>`;
+  return h;
 }
 
 /* ---------- rest timer ---------- */
@@ -1220,11 +1324,22 @@ function vSetup(){
   <div class="grid2"><label class="f">Deload after every N cycles (0 = never)${pIn('deloadEvery',plan.deloadEvery)}</label><label class="f">Retest after every N cycles (0 = never)${pIn('testEvery',plan.testEvery)}</label></div>
   <p class="small muted" style="margin:0">A retest week doubles as a deload: 3 easy days, then heavy singles. When both land on the same cycle, the retest wins.</p>
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
-  <div class="banner"><div class="small">Changing the start date, bridge week, or these rules re-plans the whole calendar from the start. Logged sessions stay on their dates.</div></div></div>`;
-  h+=`<div class="card"><h2>Backup</h2><p class="small muted" style="margin:0">Download everything (plan, maxes and every logged session) as one JSON file.</p><div><a class="btn" href="/api/export">Download backup</a></div></div>`;
+  <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
+  const bk=backups.list;
+  h+=`<div class="card"><h2>Backups</h2><p class="small muted" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday and kept for 26 weeks.</p>
+  ${backups.err?`<div class="small muted">${esc(backups.err)}</div>`:!bk?'<div class="small muted">Loading backups…</div>':bk.length?`<div class="tbl-wrap"><table><thead><tr><th>Backup</th><th class="n">Sessions</th><th class="n">Size</th><th></th></tr></thead><tbody>${bk.slice(0,6).map(x=>`<tr><td>${esc(x.name.replace('-manual',''))}${x.name.endsWith('-manual')?' <span class="chip">manual</span>':''}</td><td class="n">${x.logs??'—'}</td><td class="n">${x.bytes?Math.max(1,Math.round(x.bytes/1024))+' KB':'—'}</td><td class="n"><a class="btn sm ghost" href="/api/backups/${encodeURIComponent(x.name)}">Download</a></td></tr>`).join('')}</tbody></table></div>`:'<div class="small muted">No backups yet. The first automatic one runs Sunday.</div>'}
+  <div class="row"><button class="btn" data-act="backupnow" ${backups.busy?'disabled':''}>${backups.busy?'Backing up…':'Back up now'}</button><a class="btn ghost" href="/api/export">Download current data</a></div></div>`;
+  if(!backups.list&&!backups.busy&&!backups.err&&!backups.loading) loadBackups();
   return h;
 }
 let calc5={};
+const backups={list:null,err:null,busy:false,loading:false};
+async function loadBackups(){
+  backups.loading=true;
+  try{const r=await api('GET','/backups');backups.list=r.backups;backups.err=null}
+  catch(e){backups.err=e&&(e.status===401||e.status===403)?'Sign in again to see backups.':navigator.onLine===false?'Backups need a connection.':'Couldn’t load backups.'}
+  backups.loading=false; if(view==='setup') render();
+}
 
 function vGuide(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
@@ -1245,6 +1360,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.pbind){
     let v=val(t);
     if(t.dataset.pbind==='startMonday'){ if(!v) return; v=mondayOf(v); }
+    if(t.dataset.pbind==='startMonday'||t.dataset.pbind==='bridge'){ plan.frozen={}; plan.lockedMax={}; }
     setPlan(t.dataset.pbind,v);
   }
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
@@ -1282,6 +1398,16 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
     if(arr[i]&&sel===todayStr()){unlockAudio();const nx=nextAfterSet(k,arr);if(nx!==undefined)startRest(k,nx);else stopRest()}
     render();return}
+  if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
+  if(a==='rvapply'||a==='rvdismiss'){
+    const c=+b.dataset.c;
+    if(a==='rvapply'){
+      const {stats,readiness:rdAvg}=cycleStats(c), mx=maxFor(c), chosen={};
+      for(const k of activeLifts()){ if(!mx[k]) continue; const ch=reviewSel[k]||((((plan.cycleMaxes||{})[c+1]||{})[k]!=null)?'keep':recommend(stats[k],rdAvg)[0]); if(ch!=='keep') chosen[k]=reviewOptions(k,mx[k].v)[ch]; }
+      mutatePlan(p=>{p.cycleMaxes[c+1]=Object.assign({},p.cycleMaxes[c+1]||{},chosen);p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),set:chosen}})});
+    } else mutatePlan(p=>{p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),dismissed:true}})});
+    reviewSel={}; return}
+  if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
   if(a==='mod'){setLog(sel,'hic.mod',b.dataset.v);render();return}
   if(a==='l3swap'){const v=b.dataset.v;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});

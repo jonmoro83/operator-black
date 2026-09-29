@@ -23,6 +23,14 @@ database_name = "operator-black"
 database_id = "3dd5211d-2fd9-43ea-ae95-cc4c4bc7e28f"
 migrations_dir = "migrations"
 
+# Weekly backups: a full JSON copy of plan + logs, kept for 26 weeks.
+[[kv_namespaces]]
+binding = "BACKUPS"
+id = "999b995f858d491698b2218e3c18e29d"
+
+[triggers]
+crons = ["0 9 * * 0"]  # Sundays 09:00 UTC
+
 [vars]
 # From Zero Trust → Settings (team domain) and the Access application's
 # Overview tab (Application Audience tag). Both are public identifiers, not secrets.

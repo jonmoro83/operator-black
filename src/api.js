@@ -4,6 +4,9 @@
 //   PUT  /api/doc/plan/main    → replace the plan document
 //   PUT  /api/doc/logs/<date>  → replace one day's log
 //   GET  /api/export           → everything, as a downloadable JSON file
+//   GET  /api/backups          → list automatic backups (newest first)
+//   GET  /api/backups/<name>   → download one backup
+//   POST /api/backups          → take a backup now
 //
 // Every request must carry a valid Cloudflare Access JWT (Cf-Access-Jwt-Assertion).
 // Set ACCESS_TEAM_DOMAIN and ACCESS_AUD in wrangler.toml. For local dev only,
@@ -27,6 +30,26 @@ export async function handleApi(request, env) {
     return json({ exportedAt: new Date().toISOString(), ...(await readAll(env)) }, 200, {
       "cache-control": "no-store",
       "content-disposition": `attachment; filename="operator-black-${day}.json"`,
+    });
+  }
+
+  if (route === "backups" && request.method === "GET") {
+    return json({ backups: await listBackups(env) }, 200, { "cache-control": "no-store" });
+  }
+  if (route === "backups" && request.method === "POST") {
+    return json(await backupNow(env), 200);
+  }
+  if (route.startsWith("backups/") && request.method === "GET") {
+    const name = route.slice(8);
+    if (!/^\d{4}-\d{2}-\d{2}(-manual)?$/.test(name)) return json({ error: "Unknown backup." }, 404);
+    const body = await env.BACKUPS.get(BACKUP_PREFIX + name);
+    if (!body) return json({ error: "Backup not found." }, 404);
+    return new Response(body, {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "content-disposition": `attachment; filename="operator-black-backup-${name}.json"`,
+        "cache-control": "no-store",
+      },
     });
   }
 
@@ -57,6 +80,36 @@ export async function handleApi(request, env) {
   }
 
   return json({ error: "Not found." }, 404);
+}
+
+/* ---------------- backups (Workers KV) ---------------- */
+
+const BACKUP_PREFIX = "backup:";
+const KEEP_BACKUPS = 26;
+
+export async function backupNow(env, { manual = true } = {}) {
+  const day = new Date().toISOString().slice(0, 10);
+  const name = manual ? `${day}-manual` : day;
+  const data = { backedUpAt: new Date().toISOString(), ...(await readAll(env)) };
+  const body = JSON.stringify(data);
+  await env.BACKUPS.put(BACKUP_PREFIX + name, body, {
+    metadata: { bytes: body.length, logs: Object.keys(data.logs).length, at: data.backedUpAt },
+  });
+  // prune the oldest beyond the retention window
+  const all = await listBackups(env);
+  for (const old of all.slice(KEEP_BACKUPS)) await env.BACKUPS.delete(BACKUP_PREFIX + old.name);
+  return { name, bytes: body.length, logs: Object.keys(data.logs).length };
+}
+
+async function listBackups(env) {
+  const out = [];
+  let cursor;
+  do {
+    const page = await env.BACKUPS.list({ prefix: BACKUP_PREFIX, cursor });
+    for (const k of page.keys) out.push({ name: k.name.slice(BACKUP_PREFIX.length), ...(k.metadata || {}) });
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  return out.sort((a, b) => ((b.at || b.name) > (a.at || a.name) ? 1 : -1));
 }
 
 async function readAll(env) {

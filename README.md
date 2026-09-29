@@ -59,7 +59,23 @@ Operator Black → session duration; 1 month is the max). When one expires, the 
 still opens from cache, the status line reads "Signed out · tap to sign in,"
 and tapping it goes to the login page.
 
+## History is locked
+
+Once a week has passed, its plan (cycle/week, prescription, Lift 3 picks) is stored in
+`plan.frozen`, and a finished cycle's maxes in `plan.lockedMax`. Changing rules, the
+wave or maxes only re-plans from the current week on. Changing the start date or the
+bridge week clears the lock and re-plans everything.
+
+## End-of-cycle review
+
+From Friday of week 6 until two weeks into the next cycle, Today shows a review per
+lift built from grinders, missed sets, heavy-week RPE and readiness: lower 5%, hold,
+standard increment, or a bigger jump. Nothing changes until you apply it; choices are
+written to `plan.cycleMaxes[next]` and recorded in `plan.reviews`.
+
 ## Backups
 
-Setup → **Download backup** saves everything as JSON. D1 also keeps 30 days of
-point-in-time history: `npx wrangler d1 time-travel info operator-black`.
+A cron trigger (Sundays 09:00 UTC) saves a full JSON copy of the plan and every log to
+the `operator-black-backups` Workers KV namespace and keeps the newest 26. Setup →
+Backups lists them with download links and has **Back up now**. D1 also keeps 30 days
+of point-in-time history: `npx wrangler d1 time-travel info operator-black`.
