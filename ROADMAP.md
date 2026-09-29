@@ -12,6 +12,10 @@ Known gaps and things to verify. Fix or close these before starting new features
   the lock screen (Setup → Rest alerts → Send a test), and the interval timer on the
   bike. Confirmed so far: home-screen install, Access login in the installed app, the
   update banner.
+- **Spoken cues with the phone locked:** relying on Siri **Announce Notifications**
+  (Settings → Notifications → Announce Notifications → Operator, with AirPods). Confirm
+  that iOS lists the home-screen app there and reads the alerts; alert text is worded
+  for speech. If it doesn't work, see the audio-track idea.
 - **Confirm the first live backup.** The KV store is still empty (checked 2026-09-29);
   the first automatic backup runs Sunday 09:00 UTC, or tap Setup → Back up now.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
@@ -51,6 +55,9 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 Not committed to. Roughly in order of how useful they'd be.
 
+- **Locked-phone audio track** (only if Siri announcements don't work): build each
+  interval session as one timed audio file (beeps + pre-recorded voice clips) that keeps
+  playing when locked. Likely pauses your music on iPhone.
 - **Move a session:** "move to tomorrow", shifting a day's session within the week with
   a warning if two lifting days end up back to back.
 - **Guided warm-up:** the 12–15 min warm-up as a checklist with hold timers.

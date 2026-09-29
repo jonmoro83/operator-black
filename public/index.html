@@ -1587,7 +1587,8 @@ function ivPush(){
   const now=Date.now(), el=ivElapsed(), list=[]; let acc=0;
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
-    if(nx) list.push({at,title:nx.k==='work'?(nx.l==='Pickup'?'Pickup · 15 s':'Go hard · '+(nx.sub||'')):nx.l+' · '+mmss(nx.s),body:nx.k==='work'?mmss(nx.s)+' hard':(nx.sub||'')});
+    // Worded to be read aloud (Siri Announce Notifications): no symbols or clock times.
+    if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
   if(list.length) api('POST','/push/schedule',{alerts:list.slice(0,80)}).catch(()=>{});
@@ -1626,9 +1627,9 @@ function ivRender(){
     ivLast.left=left;
   }
 }
+function durText(t){const m=Math.floor(t/60),sec=t%60,mins=m+(m===1?' minute':' minutes');return t<60?t+' seconds':sec?mins+' '+sec+' seconds':mins}
 function ivSpeech(seg){
-  const m=Math.floor(seg.s/60), sec=seg.s%60, mins=m+(m===1?' minute':' minutes');
-  const dur=seg.s<60?seg.s+' seconds':sec?mins+' '+sec+' seconds':mins;
+  const dur=durText(seg.s);
   if(seg.l==='Pickup') return 'Pickup. '+dur+'.';
   if(seg.k==='work') return (seg.sub?seg.sub+'. ':'')+'Go hard. '+dur+'.';
   if(seg.l==='Warm-up') return 'Warm up. Easy for '+dur+'.';
@@ -1746,7 +1747,7 @@ function syncPush(){
   clearTimeout(pushTimer);
   pushTimer=setTimeout(()=>{
     if(rest&&!rest.done){
-      const body=rest.next?'Go: '+rest.next:rest.lbl.replace(/^Rest · /,'')+' rest is over.';
+      const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
       api('POST','/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body}).catch(()=>{});
     } else api('POST','/push/cancel').catch(()=>{});
   },300);
