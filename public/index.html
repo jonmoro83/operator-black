@@ -483,7 +483,7 @@ const DEF={
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   cardio:{def:'echo'},
-  askDeload:true,
+  askDeload:true, voice:false,
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
@@ -1149,7 +1149,7 @@ function hicCard(dp,note){
     h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${mmss(ivTotal(segs))} total</span></div>`;
     if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
-    h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label></div>`;
+    h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label></div>`;
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
   if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
@@ -1324,7 +1324,15 @@ function deloadCheckCard(c){
 // locking, the app being backgrounded, or a reload.
 let rest=LS.get('ob.rest'), restTick=null, audioCtx=null, wakeLock=null;
 function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
+// Spoken cues (Setup / timer card). iOS only speaks after a first utterance inside a
+// tap, so unlockAudio primes it with a silent one.
+let voicePrimed=false;
+function say(text){
+  if(!plan.voice||!('speechSynthesis' in window)) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1.05; u.pitch=1; speechSynthesis.speak(u) }catch(e){}
+}
 function unlockAudio(){
+  try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
     if(navigator.audioSession) navigator.audioSession.type='transient';
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
@@ -1418,13 +1426,23 @@ function ivRender(){
   document.getElementById('iv-pause').textContent=iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
   if(!iv.paused){
-    if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){tone(1320,.45);vib([300])} else {tone(660,.45);vib([150,80,150])} } ivLast.idx=p.i; }
+    if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){tone(1320,.45);vib([300])} else {tone(660,.45);vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) } ivLast.idx=p.i; }
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ tone(880,.12); }
     ivLast.left=left;
   }
 }
+function ivSpeech(seg){
+  const m=Math.floor(seg.s/60), sec=seg.s%60, mins=m+(m===1?' minute':' minutes');
+  const dur=seg.s<60?seg.s+' seconds':sec?mins+' '+sec+' seconds':mins;
+  if(seg.l==='Pickup') return 'Pickup. '+dur+'.';
+  if(seg.k==='work') return (seg.sub?seg.sub+'. ':'')+'Go hard. '+dur+'.';
+  if(seg.l==='Warm-up') return 'Warm up. Easy for '+dur+'.';
+  if(seg.l==='Cool-down') return 'Cool down. '+dur+' easy.';
+  if(seg.l==='Steady') return 'Steady pace for '+dur+'.';
+  return 'Easy. '+dur+'.';
+}
 function ivFinish(){
-  if(!iv.done){iv.done=true;LS.set('ob.iv',iv);tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);holdScreen(false);
+  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);holdScreen(false);
     const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     if(iv.fmt==='liss') setLog(iv.date,'hic.min',Math.round(ivTotal(iv.segs)/60));
@@ -1560,7 +1578,8 @@ function tickRest(){
   document.getElementById('rest-next').textContent=left>0?(rest.next?'Next: '+rest.next:''):(rest.next?'Go: '+rest.next:'Rest done');
   document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
   el.classList.toggle('done',left===0);
-  if(left===0&&!rest.done){rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false)}
+  if(left===10&&rest.dur>20&&!rest.said10){rest.said10=true;say('Ten seconds')}
+  if(left===0&&!rest.done){rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false);setTimeout(()=>say(rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700)}
   // clear a finished timer after two minutes if nobody dismisses it
   if(left===0&&leftMs<-120000) stopRest();
 }
@@ -1920,6 +1939,7 @@ function vSetup(){
     else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
     else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
+    h+=`<label class="check"><input type="checkbox" id="p-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues while the app is open: interval changes (“Round 3 of 8. Go hard.”) and rest ends (“Rest over. Squat, set 2.”)</label>`;
     h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {
