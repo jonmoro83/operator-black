@@ -47,6 +47,18 @@ The API rejects every request until those two values are set. Every request must
 also carry a valid Access token, so the app can't be read or written around the
 login screen.
 
+## Offline and home screen
+
+`public/sw.js` caches the app so it opens with no signal, and the page keeps a copy
+of your data plus a queue of unsent changes in localStorage. Changes made offline
+upload when the phone reconnects. Bump `VERSION` in `sw.js` when you change icons or
+the manifest.
+
+Cloudflare Access sessions expire (Zero Trust → Access → Applications →
+Operator Black → session duration; 1 month is the max). When one expires, the app
+still opens from cache, the status line reads "Signed out. Tap here to sign in,"
+and tapping it goes to the login page.
+
 ## Backups
 
 Setup → **Download backup** saves everything as JSON. D1 also keeps 30 days of

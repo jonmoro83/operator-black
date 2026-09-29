@@ -9,6 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Operator">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAtKADAAQAAAABAAAAtAAAAABW1ZZ5AAAJ3klEQVR4Ae2dW48cRxmGq6qnZ2Z3bEy8wfZaOITEcWIIF/wHiGT+BULkBgkRXweJHxAhY4mbKP8CchFxy0WkKIoAmRyIDQqRDwSyMuvdOfSheHucRCvtVE+N6Kru/vZtjeTRVPmr732/pw8z3Vuld3bPKW50YJUDZtWH/IwOVA4QDnLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HCIfTGjYQDjLgdIBwOK1hA+EgA04HBs6WzjVYZQtly9V5aaN0opRe3Rr1077kud6UnsBhc2VGeuuKGZ5fQmCPKNOAplzcs9M7ymZKt6oIeeqh3r5shruOPB/Y6W1lFy3necS+mretWlmT19EmmwGL9OJPzfYVh6fgY1EcvJ/ffd3O/uHoczRimPc21+NvpxdfNpMXgIhSRwn+ckSbl4cfZnffsNOPlE6//LSj/ybbpycdTe1xWrbQw/PDp39ptp9bnlNwWln5MmZ8yUy+U/z3bVVMlY5+fsH5Lt0ZPv2qmVxd5lk48tR6dDGZvFjuv6OKgxby3KTYnb8gtUVy9poeX1LlfPW++IVaq8qZ2Xo2eeKHCsf2+JvNkyd+gAQ88pzr8VPJzrV28tzEmY7DYXGpYSbf9fURFTr1PWVwuF51SN/Elw37Is+0GtqTS5tXoswoep6byeo4HPj+kS5N9FRllR61c82BC2EM7Q9llWfXrzk6D0dFxUaHgY06ezLn2W2joTfq7JlAw916AUfDmhnO04EWvspil8lx+eg4HuDHrIHuxI9Zng420q2bnsSGA1iMtXpxOLgwSI4ftfAl9V9F8VFWHJTlIP7X0UbqvHmQ3NqJMc8Pk28kqz25l8OTfGYVdpuYW1Q4QMYzafLy6e3L6SDVK4qPHSiz9pO8eGP/8NYiT+N6EdP3r8bKLHaV9Cent58aJDWefJzlr+8f3smKmHwc33u/SrvhNzgqPJmYV86cujpM8X5u7ezYCx+iCQBdPzO5NDBFDy7a/i+XIBAyXzkzgeR6T2AarIOB6BZtiwcHDp4vbY2+NUhAQL28hVXnkuTa9th1XVL/33vUCoE/2h5DLCTXbzAN1sFA2Fjfs8HWSHBAEI6Zl9MEvyr7bLmyz6WDYXXmieeFT2KN9rEQiDMsxPqEhXXPptWpx6u3T8R1fSLBgTQwErzA/ex1KVXt2D1w5woXRF69fSJ2rw+kQWB1g85PJKwbaTyaEG+LOVY8VRypEQcIRyM2ygxCOGTWtRFVhKMRG2UGIRwy69qIKsLRiI0ygxAOmXVtRBXhaMRGmUEIh8y6NqKKcDRio8wghENmXRtRFfV5jkYyrg9SlnY6nS6fAo/5MAgebB6knvdI6gV0qVUUHGVZXjh/9scv/SwxOmalcPN4kdnfvff1h/PSxGQyMEmi4CiKcvfC2eu/+PkgHdmIdBitHx3O/nj91t5da/Dn3FI2UXCgKDitzGazQQE2/G6EN1FIwIFBY47YRNbrY/CCdL1HJ7YH4TixpV8vnHCs9+jE9iAcJ7b064UTjvUendge0r6tGKPH43H8r7J5iYlYBP3EsdwhRMGBvya8d//fv75xs5Ufwfb2vm/MBUkPzIuCwxhz/8HnN2/+tpWfz7929bXk1EXnfIc9PDmJggP+47SytbXVChzyTiu8IO3hHh0rZcIRy+kejkM4eli0WCkTjlhO93AcwtHDosVKmXDEcrqH4xCOHhYtVsqEI5bTPRyHcPSwaLFSJhyxnO7hOISjh0WLlXI8ODBHIuYh9ZycGHe/sS5GG0tjxDJ+Oc5jjZ63+mEdJmkVONUknnSAsL9lueeD+1iCAHP2Lqz1hClqSRsaDNIgEJ5ArE9IWIe5nWGjV2+fiOv6xDtyYLrqt6ZzzE68nECyLi90eFAUbx7OMA96Xb/+t0Hg7w9nELvWE8wjCOv+MJ3HnPU7HhwY6bOivPHw0QeLDO+hdnzshQ+xf9zJ8hsPDz7Ny0Q4GwoCIRNi/57lNZ7AhvcXGayDgfEKtpwJM94OiLnMP86KX+3tX0kHu46J8T8rig+XE+NjNtZ4mbU3Ejy5tche3dt/Pl0/MX7kyeBjP+yDed0zpf60yN9b4N8V2+MlNWIePFckEfcjiMWfy707x3Oo9Z7ETSvykeOxOBwQlnvAiTgweNazm57EPIV5GsVuXXGAcHSlEh3Mo/NwYAXycuG9SD2Wpp5Xi5bH3zAohvb97q0rUa3kuYkzHYcDJs6xvrfvaqB6UB58oErAEfmCBnlm1dBYQNRn00l5iDz9YfIJ2nyfjsOBKifFf960838uV5etKblWZlxOb+efv9XOeq06xdDl9I5HniPIgShIa76ejUbs/Fr2WGCkeFge/NWMLul0p9o18cnxlyrKR3/OPv2NWtz13X0b9bFalb7YLw/+Ykbf1MMnlR6uSLJaLKWEFuRp55+0k+cmqvXO7rlN+rfUF8uA65HeesYMzy93uKOz9uA6Iy8X9y32WpzFPQ/sgXRUeabLPHdX5VmUiwd2dru64Gg3Tz/5PYGjEoOVigrnHxtWxxIcpWvOO35+NNCrL3mul+p3AbU+ToQeuIvpef8yQjI1Q/QlzxoJXzR1/oJ0vQT2COUA4QjlrIC4hENAEUNJIByhnBUQl3AIKGIoCYQjlLMC4hIOAUUMJYFwhHJWQFzCIaCIoSQQjlDOCohLOAQUMZQEwhHKWQFxCYeAIoaSQDhCOSsgLuEQUMRQEghHKGcFxCUcAooYSgLhCOWsgLiEQ0ARQ0kgHKGcFRCXcAgoYigJhCOUswLiEg4BRQwlgXCEclZAXMIhoIihJBCOUM4KiEs4BBQxlATCEcpZAXEJh4AihpJAOEI5KyAu4RBQxFASCEcoZwXEJRwCihhKAuEI5ayAuIRDQBFDSSAcoZwVEJdwCChiKAmEI5SzAuISDgFFDCWBcIRyVkBcwiGgiKEkEI5QzgqISzgEFDGUBMIRylkBcQmHgCKGkkA4QjkrIC7hEFDEUBIIRyhnBcQlHAKKGEoC4QjlrIC4hENAEUNJIByhnBUQl3AIKGIoCYQjlLMC4hIOAUUMJYFwhHJWQNz/AS0Pi+xTnobpAAAAAElFTkSuQmCC">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Operator + Black</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +51,8 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .brand h1{margin:0;font-family:var(--f-display);font-stretch:125%;font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
 .brand h1 span{color:var(--accent)}
-#status{font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap}
+#status{font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+#status.link{text-decoration:underline;cursor:pointer}
 #status.err{color:var(--red)}
 nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
 nav button{all:unset;cursor:pointer;padding:8px 12px 10px;font-weight:650;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
@@ -105,6 +109,23 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 .plates{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
 .ramp{display:flex;flex-wrap:wrap;gap:4px 6px;font-family:var(--f-mono);font-size:13px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
+/* rest timer */
+#rest{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12);padding-bottom:env(safe-area-inset-bottom,0px)}
+.rest-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:8px 12px;align-items:center}
+.rest-txt{grid-area:txt;display:flex;flex-direction:column;min-width:0}
+#rest-lbl{font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+#rest-next{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rest-time{grid-area:time;font-family:var(--f-display);font-stretch:68%;font-weight:850;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.rest-btns{grid-area:btns;display:flex;gap:8px}
+.rest-btns .btn{flex:1}
+.rest-bar{height:4px;background:var(--sunk)}
+.rest-bar i{display:block;height:100%;width:0;background:var(--accent)}
+#rest.done{background:var(--green-bg)}
+#rest.done .rest-time{color:var(--green)}
+#rest.done .rest-bar i{background:var(--green)}
+body.timing .wrap{padding-bottom:150px}
+.restsel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.restsel .segb{padding:5px 10px;font-size:13px}
 /* status dashboard */
 .cyc{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
 .cyc div{border-radius:6px;padding:6px 4px;text-align:center;font-size:11.5px;font-weight:700;border:2px solid transparent;display:flex;flex-direction:column;gap:1px}
@@ -251,6 +272,18 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 </header>
 <div class="wrap"><main id="main"></main></div>
 <div id="tip" role="status" hidden></div>
+<div id="rest" hidden aria-live="polite">
+  <div class="rest-in">
+    <div class="rest-txt"><span id="rest-lbl"></span><span id="rest-next"></span></div>
+    <div id="rest-time" class="rest-time">0:00</div>
+    <div class="rest-btns">
+      <button class="btn sm" data-rest="-30" aria-label="30 seconds less">−30s</button>
+      <button class="btn sm" data-rest="30" aria-label="30 seconds more">+30s</button>
+      <button class="btn sm primary" data-rest="stop" id="rest-stop">Skip</button>
+    </div>
+  </div>
+  <div class="rest-bar"><i id="rest-fill"></i></div>
+</div>
 
 <script>
 (function(){
@@ -288,6 +321,7 @@ const DEF={
   deloadEvery:2, testEvery:3,
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
+  rest:{squat:3,bench:3,pull:2,dead:3},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
 
@@ -426,42 +460,61 @@ function effFmt(date){const L=logs[date];const dp=dayPlan(date);return (L&&L.hic
 
 /* ---------------- persistence ---------------- */
 // One JSON document per path (plan/main, logs/YYYY-MM-DD), stored in D1 behind /api.
+// The phone keeps its own copy (ob.cache) so the app opens offline, and an outbox of
+// unsent documents (ob.outbox) so changes made offline survive closing the app.
 // Writes are debounced per document; failed writes retry until they land.
 const writers={};
-let loaded=false;
-function pending(path){const w=writers[path];return !!(w&&(w.dirty||w.busy||w.timer))}
-function anyPending(){return Object.keys(writers).some(pending)}
+let loaded=false, signedOut=false;
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+let outbox=LS.get('ob.outbox')||{};
+function saveOutbox(){LS.set('ob.outbox',outbox)}
+let cacheTimer=null;
+function saveCache(){clearTimeout(cacheTimer);cacheTimer=setTimeout(()=>LS.set('ob.cache',{plan,logs}),800)}
+function pending(path){const w=writers[path];return !!(w&&(w.dirty||w.busy||w.timer))||!!outbox[path]}
+function anyPending(){return Object.keys(writers).some(pending)||Object.keys(outbox).length>0}
+function waitingCount(){return Object.keys(outbox).length}
 async function api(method,path,body){
-  const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',
+  const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',
     headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+  // An expired Access session answers with a redirect to the login page.
+  if(r.type==='opaqueredirect'){const e=new Error('signed out');e.status=401;throw e}
   if(!r.ok){const e=new Error('HTTP '+r.status);e.status=r.status;throw e}
   return r.status===204?null:r.json();
 }
 function errText(e){
-  if(e&&(e.status===401||e.status===403)) return 'Signed out. Reload to sign in again.';
+  if(e&&(e.status===401||e.status===403)) return 'Signed out. Tap here to sign in.';
   if(e&&e.status===413) return 'That entry is too large to save.';
+  const w=waitingCount();
   if(e&&e.status) return 'Server error ('+e.status+'). Retrying…';
-  return 'Offline. Changes will save when you reconnect.';
+  return 'Offline'+(w?' · '+w+' change'+(w>1?'s':'')+' waiting':'. Changes save when you reconnect.');
 }
 function queueWrite(path,get){
   if(!loaded){setStatus('Still loading. Wait a moment, then try again.',true);return}
   const w=writers[path]||(writers[path]={});
   w.get=get;w.dirty=true;clearTimeout(w.timer);
-  setStatus('Saving…');
+  outbox[path]=clone(get()); saveOutbox(); saveCache();
+  setStatus(navigator.onLine===false?errText(null):'Saving…',navigator.onLine===false);
   w.timer=setTimeout(()=>{w.timer=null;flush(path)},500);
 }
 async function flush(path){
-  const w=writers[path]; if(w.busy){w.again=true;return} if(!w.dirty)return;
+  const w=writers[path]||(writers[path]={get:()=>outbox[path]});
+  if(w.busy){w.again=true;return} if(!w.dirty)return;
   w.dirty=false;w.busy=true;
-  try{ await api('PUT','/doc/'+path,clone(w.get())); if(!anyPendingExcept(path)) setStatus('Saved') }
+  const body=clone(w.get()), sent=JSON.stringify(body);
+  try{
+    await api('PUT','/doc/'+path,body);
+    if(outbox[path]&&JSON.stringify(outbox[path])===sent){delete outbox[path];saveOutbox()}
+    signedOut=false; if(!anyPendingExcept(path)) setStatus('Saved');
+  }
   catch(e){
+    if(e&&(e.status===401||e.status===403)) signedOut=true;
     setStatus(errText(e),true);
-    if(!(e&&(e.status===401||e.status===403||e.status===413))){ w.dirty=true; clearTimeout(w.timer); w.timer=setTimeout(()=>{w.timer=null;flush(path)},5000) }
+    if(!(e&&e.status===413)){ w.dirty=true; clearTimeout(w.timer); w.timer=setTimeout(()=>{w.timer=null;flush(path)},signedOut?30000:5000) }
   }
   w.busy=false; if(w.dirty&&!w.timer||w.again){w.again=false;flush(path)}
 }
-function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))}
-function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':''}
+function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))||Object.keys(outbox).some(p=>p!==path)}
+function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut)}
 function setLog(date,path,v){ if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
@@ -476,16 +529,38 @@ function applyState(st){
     if(pending('logs/'+id)) continue;
     if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true}
   }
+  saveCache();
   if(changed) render();
 }
+// Open instantly from the phone's copy, with any unsent changes laid on top.
+function loadLocal(){
+  const c=LS.get('ob.cache');
+  if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; }
+  for(const [path,doc] of Object.entries(outbox)){
+    if(path==='plan/main') plan=deepMerge(clone(DEF),doc);
+    else if(path.startsWith('logs/')) logs[path.slice(5)]=doc;
+    const w=writers[path]={get:()=>path==='plan/main'?plan:logs[path.slice(5)],dirty:true};
+  }
+  planV++;
+  if(c||Object.keys(outbox).length) loaded=true;
+  return !!c;
+}
+function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>p==='plan/main'?plan:logs[p.slice(5)]});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}
 async function connect(){
   if(!loaded) setStatus('Loading…');
-  try{ applyState(await api('GET','/state')); loaded=true; if(!anyPending()) setStatus('Saved') }
-  catch(e){ setStatus(loaded?errText(e):(e&&(e.status===401||e.status===403)?'Signed out. Reload to sign in again.':'Couldn’t load your log. Check your connection and reload.'),true) }
+  try{
+    const st=await api('GET','/state'); signedOut=false; loaded=true; applyState(st);
+    flushAll(); if(!anyPending()) setStatus('Saved');
+  }
+  catch(e){
+    if(e&&(e.status===401||e.status===403)) signedOut=true;
+    setStatus(loaded?errText(e):(signedOut?'Signed out. Tap here to sign in.':'Couldn’t load your log. Check your connection and reload.'),true);
+  }
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') connect() });
-window.addEventListener('online',()=>{ for(const p of Object.keys(writers)) if(writers[p].dirty){clearTimeout(writers[p].timer);writers[p].timer=null;flush(p)} connect() });
-window.addEventListener('beforeunload',e=>{ if(anyPending()){e.preventDefault();e.returnValue=''} });
+window.addEventListener('online',()=>{ flushAll(); connect() });
+window.addEventListener('offline',()=>setStatus(errText(null),true));
+document.getElementById('status').addEventListener('click',()=>{ if(signedOut) location.replace('/') });
 
 /* ---------------- rendering helpers ---------------- */
 function numIn(bind,val,ph,attrs){return `<input type="number" inputmode="decimal" step="any" id="in-${bind.replace(/\./g,'-')}" data-bind="${bind}" data-type="num" value="${val??''}" placeholder="${esc(ph??'')}" ${attrs||''}>`}
@@ -606,7 +681,9 @@ function liftCard(wk,k,dp){
   } else h+=`<div class="muted">No max entered for ${esc(liftName(k))}.</div>`;
   h+=`<div class="sets">`;
   for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${isDead&&i>0?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}</small></button>`;
-  h+=`</div><div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;align-items:center;gap:8px">Working weight${numIn('lifts.'+k+'.used',L.used,r.w?n(r.w):'','class="num-in"')}</label></div>`;
+  const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
+  h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book says 5 min.</span>':''}</div>`;
+  h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;align-items:center;gap:8px">Working weight${numIn('lifts.'+k+'.used',L.used,r.w?n(r.w):'','class="num-in"')}</label></div>`;
   if(L.grinder&&r.w&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
   h+=warmupLog(k,ramp(k,T,r.t,dp.deload),T?`Calculated from today's working weight (${n(T)} ${u()}). Change the working weight above and the warm-ups recalculate.`:'');
@@ -805,6 +882,77 @@ function footer(active){
   if(!active) return '';
   const L=lg(sel);
   return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label></div>`;
+}
+
+/* ---------- rest timer ---------- */
+// State lives in localStorage with an absolute end time, so it survives the phone
+// locking, the app being backgrounded, or a reload.
+let rest=LS.get('ob.rest'), restTick=null, audioCtx=null, wakeLock=null;
+function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
+function unlockAudio(){
+  try{
+    if(navigator.audioSession) navigator.audioSession.type='transient';
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const b=audioCtx.createBuffer(1,1,22050), s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0);
+  }catch(e){}
+}
+function beep(){
+  try{
+    if(!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
+    const t0=audioCtx.currentTime;
+    [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
+  }catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
+}
+async function holdScreen(on){
+  try{
+    if(on&&!wakeLock&&navigator.wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})}
+    else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
+  }catch(e){wakeLock=null}
+}
+function startRest(k,next){
+  const secs=restMins(k)*60;
+  rest={k,lbl:'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
+  LS.set('ob.rest',rest); holdScreen(true); showRest();
+}
+function stopRest(){rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;holdScreen(false);showRest()}
+function showRest(){
+  const el=document.getElementById('rest');
+  if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
+  el.hidden=false;document.body.classList.add('timing');
+  document.getElementById('rest-lbl').textContent=rest.lbl;
+  if(!restTick) restTick=setInterval(tickRest,250);
+  tickRest();
+}
+function tickRest(){
+  if(!rest) return;
+  const el=document.getElementById('rest'), leftMs=rest.end-Date.now(), left=Math.max(0,Math.ceil(leftMs/1000));
+  document.getElementById('rest-time').textContent=Math.floor(left/60)+':'+pad(left%60);
+  document.getElementById('rest-fill').style.width=Math.min(100,Math.max(0,100*(1-leftMs/(rest.dur*1000))))+'%';
+  document.getElementById('rest-next').textContent=left>0?(rest.next?'Next: '+rest.next:''):(rest.next?'Go: '+rest.next:'Rest done');
+  document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
+  el.classList.toggle('done',left===0);
+  if(left===0&&!rest.done){rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false)}
+  // clear a finished timer after two minutes if nobody dismisses it
+  if(left===0&&leftMs<-120000) stopRest();
+}
+document.getElementById('rest').addEventListener('click',e=>{
+  const b=e.target.closest('[data-rest]'); if(!b||!rest) return; const v=b.dataset.rest;
+  if(v==='stop') return stopRest();
+  unlockAudio();
+  rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
+  rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
+  LS.set('ob.rest',rest); holdScreen(true); tickRest();
+});
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ if(!rest.done) holdScreen(true); tickRest() } });
+function nextAfterSet(k,sets){
+  const wk=weekOf(sel), dp=dayPlan(sel); if(!wk||dp.t!=='lift') return null;
+  const r=rx(wk,k), isDead=k==='dead'&&wk.kind==='cycle', nSets=isDead?3:r.s;
+  for(let i=0;i<nSets;i++) if(!sets[i]) return liftName(k)+' · set '+(i+1)+(isDead&&i>0?' (optional)':'');
+  const li=dp.lifts.indexOf(k);
+  for(let j=li+1;j<dp.lifts.length;j++){const s2=((lg(sel).lifts||{})[dp.lifts[j]]||{}).sets||[];if(!s2[0])return liftName(dp.lifts[j])+' · set 1'}
+  return undefined; // nothing left: no rest needed
 }
 
 /* ---------- status dashboard ---------- */
@@ -1037,7 +1185,12 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
     openWarm.add(k); setLog(sel,'lifts.'+k+'.warmup',W); render(); return}
-  if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);render();return}
+  if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
+    if(arr[i]&&sel===todayStr()){unlockAudio();const nx=nextAfterSet(k,arr);if(nx!==undefined)startRest(k,nx);else stopRest()}
+    render();return}
+  if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
+    if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest()}
+    return}
   if(a==='done'){setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
   if(a==='insert'){mutatePlan(p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
@@ -1050,8 +1203,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}
 });
 
+loadLocal();
 render();
+if(rest) showRest();
 connect();
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 })();
 </script>
 </body>
