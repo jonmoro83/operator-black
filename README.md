@@ -123,6 +123,14 @@ lift built from grinders, missed sets, heavy-week RPE and readiness: lower 5%, h
 standard increment, or a bigger jump. Nothing changes until you apply it; choices are
 written to `plan.cycleMaxes[next]` and recorded in `plan.reviews`.
 
+## CSV export
+
+Setup → Export to a spreadsheet builds two CSVs on the device (so rows carry the
+computed week, session and prescription): **sessions** (one row per day) and **lifts**
+(one row per lift per session, plus test results). Every date is evaluated against the
+plan of the program it belongs to. On iPhone they open the share sheet; elsewhere they
+download.
+
 ## Backups
 
 A cron trigger (Sundays 09:00 UTC) saves a full JSON copy of the plan and every log to

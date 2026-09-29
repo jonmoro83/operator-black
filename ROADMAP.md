@@ -66,8 +66,6 @@ Not committed to. Roughly in order of how useful they'd be.
   estimated 1RM from logged top sets.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
-- **CSV export** of sessions for spreadsheets. (Apple Health can't be read from a web
-  app; importing would need an iOS Shortcut export.)
 - **Split `index.html` into modules** with a small build step once it gets harder to
   change safely. It's ~1,400 lines today.
 - **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
@@ -134,6 +132,11 @@ Decided against for now.
   Access email; legacy data claimed by the owner; phone cache reset on user switch.
 - Programs: archive the current program and start over (carry maxes or bridge week),
   with read-only archived programs viewable from History, Status and Plan.
+
+**Export**
+- CSV export (Setup): sessions (one row per day) and lifts (one row per lift per
+  session, prescribed vs working, warm-ups, tests with est. 1RM), across every
+  program, via the share sheet on iPhone.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
