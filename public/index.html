@@ -108,6 +108,13 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 .big{font-family:var(--f-display);font-stretch:68%;font-weight:850;font-size:52px;line-height:.95;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .big small{font-size:18px;font-weight:700;color:var(--muted);font-stretch:100%;margin-left:4px}
 .plates{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+svg.loader{display:block;width:100%;max-width:300px;height:auto}
+svg.loader.big{max-width:420px}
+.bar-shaft,.bar-sleeve{fill:var(--muted);opacity:.55}
+.bar-collar{fill:var(--ink);opacity:.7}
+.plate{stroke:var(--surface);stroke-width:1}
+.plate.pr{fill:var(--red)}.plate.pb{fill:var(--accent)}.plate.py{fill:var(--yellow)}.plate.pg{fill:var(--green)}
+.plate.pw{fill:var(--surface);stroke:var(--ink);stroke-width:1.2}.plate.pc{fill:var(--muted)}
 .ramp{display:flex;flex-wrap:wrap;gap:4px 6px;font-family:var(--f-mono);font-size:13px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
 /* interval timer: full screen on the bike, or a bar at the bottom */
@@ -477,6 +484,7 @@ const DEF={
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   cardio:{def:'echo'},
   askDeload:true,
+  plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
 
@@ -847,17 +855,34 @@ function ramp(k,W,t,deload){
   else {st=[[0,10],[40,5],[55,3],[70,3]]; if(t!=='light') st.push([85,1]); if(t==='heavy') st.push([90,1]);}
   return st.map(([p,r])=>({w:p===0?bar:(k==='pull'?rnd(W*p/100,inc):Math.max(bar,rnd(W*p/100,inc))),r,lbl:p===0?'Bar':p+'%'}));
 }
+// Plates per side from the gym's inventory (Setup). Greedy is exact for standard sets;
+// if a target can't be loaded, `rem` is what's left over per side.
+const ALL_PLATES={lb:[55,45,35,25,10,5,2.5,1.25],kg:[25,20,15,10,5,2.5,1.25]};
+function plateSet(){const v=((plan.plates||{})[u()]||[]).map(Number).filter(x=>ALL_PLATES[u()].includes(x));return (v.length?v:ALL_PLATES[u()]).sort((a,b)=>b-a)}
+function sidePlates(W){
+  const bar=+plan.bar; let side=(W-bar)/2; const out=[];
+  if(!(W>0)||side<=0) return {list:out,rem:0,bar:side<0};
+  for(const p of plateSet()) while(side>=p-1e-9){out.push(p);side-=p}
+  return {list:out,rem:side>0.01?Math.round(side*100)/100:0};
+}
+function loadable(W){const sp=sidePlates(W);return sp.rem?Math.round((W-2*sp.rem)*100)/100:W}
 function plates(W){
-  const bar=+plan.bar; let side=(W-bar)/2; if(side<=0) return 'Empty bar';
-  const P=u()==='kg'?[25,20,15,10,5,2.5,1.25]:[45,35,25,10,5,2.5], out=[];
-  for(const p of P) while(side>=p-1e-9){out.push(p);side-=p}
-  return 'Per side: '+out.join(' + ')+(side>0.01?' + '+n(side):'');
+  const sp=sidePlates(W); if(!sp.list.length&&!sp.rem) return 'Empty bar';
+  return 'Per side: '+(sp.list.join(' + ')||'none')+(sp.rem?` · can’t load ${n(sp.rem)} more with your plates (nearest: ${n(loadable(W))})`:'');
 }
 function platesShort(W){
-  const bar=+plan.bar; let side=(W-bar)/2; if(!(W>0)) return ''; if(side<=0) return 'bar';
-  const P=u()==='kg'?[25,20,15,10,5,2.5,1.25]:[45,35,25,10,5,2.5], out=[];
-  for(const p of P) while(side>=p-1e-9){out.push(p);side-=p}
-  return out.join(' + ')+(side>0.01?' + '+n(side):'')+' / side';
+  const sp=sidePlates(W); if(!(W>0)) return ''; if(!sp.list.length&&!sp.rem) return 'bar';
+  return (sp.list.join(' + ')||'—')+' / side'+(sp.rem?' (+'+n(sp.rem)+' short)':'');
+}
+// A drawn half-barbell: collar, then plates from the heaviest inward, in bumper colors.
+function plateCls(p){return u()==='kg'?{25:'pr',20:'pb',15:'py',10:'pg',5:'pw',2.5:'pr',1.25:'pc'}[p]:{55:'pr',45:'pb',35:'py',25:'pg',10:'pw',5:'pr',2.5:'pc',1.25:'pc'}[p]}
+function plateDims(p){const big=u()==='kg'?10:25;const h=p>=big?60:p>=(u()==='kg'?5:10)?42:p>=(u()==='kg'?2.5:5)?32:26;const w=u()==='kg'?{25:13,20:12,15:10,10:8,5:6,2.5:5,1.25:4}[p]:{55:14,45:13,35:11,25:9,10:7,5:6,2.5:5,1.25:4}[p];return {w,h}}
+function plateSvg(W,big){
+  const sp=sidePlates(W); if(!(W>0)) return '';
+  let x=52, g='';
+  for(const p of sp.list){const d=plateDims(p);g+=`<rect class="plate ${plateCls(p)}" x="${x}" y="${(70-d.h)/2}" width="${d.w}" height="${d.h}" rx="2"><title>${n(p)} ${u()}</title></rect>`;x+=d.w+1.5}
+  const lbl=sp.list.length?sp.list.map(n).join(' + '):'bar only';
+  return `<svg class="loader${big?' big':''}" viewBox="0 0 ${Math.max(200,x+30)} 70" role="img" aria-label="Per side: ${esc(lbl)}"><rect class="bar-shaft" x="0" y="32" width="44" height="6" rx="1"/><rect class="bar-collar" x="44" y="26" width="7" height="18" rx="1.5"/><rect class="bar-sleeve" x="51" y="31" width="${Math.max(120,x-40)}" height="8" rx="1"/>${g}</svg>`;
 }
 function testRamp(k,W,isRm5){
   if(isBW(k)) return W==null?[]:W>0?[{w:0,r:5,lbl:'BW'},{w:rnd(W*.5,plan.round[k]),r:2,lbl:'50%'},{w:rnd(W*.75,plan.round[k]),r:1,lbl:'75%'}]:[{w:0,r:3,lbl:'BW'}];
@@ -955,6 +980,7 @@ function liftCard(wk,k,dp){
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
+    if(bar) h+=plateSvg(T);
     if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${n(latestBw(sel))} ${u()} bodyweight.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!latestBw(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
@@ -1877,6 +1903,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Program</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
   <div class="grid4"><label class="f">Units<select id="p-unit" data-pbind="unit"><option value="lb"${u()==='lb'?' selected':''}>lb</option><option value="kg"${u()==='kg'?' selected':''}>kg</option></select></label><label class="f">Bar weight${pIn('bar',plan.bar)}</label><label class="f">Bodyweight${pIn('bodyweight',plan.bodyweight)}</label><label class="f">Percent of<select id="p-basis" data-pbind="basis"><option value="1rm"${plan.basis!=='tm'?' selected':''}>True 1RM</option><option value="tm"${plan.basis==='tm'?' selected':''}>Training max</option></select></label></div>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Plates your gym has (${u()})</div><div class="seg">${ALL_PLATES[u()].map(v=>`<button class="segb${plateSet().includes(v)?' on':''}" data-act="platetoggle" data-v="${v}" aria-pressed="${plateSet().includes(v)}">${n(v)}</button>`).join('')}</div><div class="small muted">Plate math only uses these. If a weight can’t be loaded exactly, the lift card says so and shows the nearest you can load.</div></div>
   ${plan.basis==='tm'?`<label class="f" style="max-width:200px">Training max % of 1RM${pIn('tmPct',plan.tmPct)}</label>`:''}
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Round working weights to</div><div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}${pIn('round.'+k,plan.round[k])}</label>`).join('')}</div></div></div>`;
   const on=l3On(), L3=plan.l3||{};
@@ -1985,6 +2012,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // an archived program is read-only: only navigation works
   if(a==='csv'){exportCsv(b.dataset.v);return}
   if(a==='dlcheck'){const wk=weekOf(sel),c=wk&&wk.cycle,v=b.dataset.v;if(!c)return;mutatePlan(p=>{if(v!=='keep')p.deloadEvery=+v;p.deloadChecks=Object.assign({},p.deloadChecks||{},{[c]:{at:realToday(),choice:v==='keep'?+p.deloadEvery||0:+v}})});return}
+  if(a==='platetoggle'){const v=+b.dataset.v,cur=plateSet();const next=cur.includes(v)?cur.filter(x=>x!==v):[...cur,v];if(!next.length)return;mutatePlan(p=>{p.plates=Object.assign({},p.plates||{},{[u()]:next.sort((a,b)=>b-a)})});return}
   if(a==='deloadevery'&&!viewing){const v=+b.dataset.v;if((+plan.deloadEvery||0)===v)return;mutatePlan(p=>{p.deloadEvery=v});return}
   if(viewing&&!['go','open','view','more','updcheck','updnow','rvsel'].includes(a)){readOnly();return}
   if(a==='prognew'){newProg={name:'Block '+((plan.programSeq||1)+1),start:addDays(mondayOf(realToday()),7),mode:'carry'};render();return}
