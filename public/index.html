@@ -211,6 +211,10 @@ details.px[open]>summary>span:first-child::after{content:" ▾"}
 .wkdots i.missed{background:var(--red-bg);border-color:var(--red);color:var(--red)}
 .wkdots i.today{border-color:var(--accent);color:var(--accent)}
 .wkdots i.rest{border-style:dashed;opacity:.6}
+.sub-h{margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.check>span:first-of-type{flex:1;min-width:0}
+.pwu{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start}
+.pwu .wu-chk{height:32px;width:38px}
 .sm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 @media (min-width:620px){.sm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .sm{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -469,6 +473,48 @@ const PLIB={
     cues:'Land and leave. Imagine the floor is hot. Target roughly a quarter-second on the ground; if you sink into a deep squat before jumping, the box is too high.',
     errors:'Jumping off the box instead of stepping, which changes the landing force unpredictably. Using too high a box: the single most common error, and it converts an elastic drill into a heavy eccentric one. Pausing on landing.',
     note:'Highest-stress movement in the program. If your vertical rebound off the box is lower than a normal standing vertical jump, the box is too high. Lower it. Start at 12 inches even if that feels trivially easy.'}
+};
+// The 12–15 min warm-up as a checklist. `s` marks the 7-minute short version.
+const WARMUP=[
+  {g:'Raise temp',n:'Bike, rower or easy jog',d:'4–5 min',s:1},
+  {g:'Breathe / reset',n:'90/90 breathing (back, feet on bench or wall)',d:'5 breaths',s:1},
+  {g:'Breathe / reset',n:'Cat / cow',d:'8–10 slow reps',s:1},
+  {g:'Spine / t-spine',n:'Thread the needle',d:'6–8 per side'},
+  {g:'Spine / t-spine',n:'Open book (side-lying rotation)',d:'8 per side'},
+  {g:'Spine / t-spine',n:'Quadruped t-spine extension',d:'8 per side'},
+  {g:'Hips',n:'90/90 hip switches, seated',d:'10 switches',s:1},
+  {g:'Hips',n:'90/90 lean-forward hold',d:'20–30 sec per side'},
+  {g:'Hips',n:'Couch stretch',d:'45–60 sec per side',s:1},
+  {g:'Hips',n:'Frog stretch, gentle rocking',d:'10 rocks'},
+  {g:'Hips',n:'World’s greatest stretch',d:'5 per side'},
+  {g:'Activate',n:'Leg swings, both directions',d:'10 each way per leg'},
+  {g:'Activate',n:'Band pull-aparts + shoulder dislocates',d:'15 each',s:1},
+  {g:'Activate',n:'Glute bridge or bodyweight squat',d:'10 reps'}
+];
+// Mobility to finish each session. The program notes keep deep holds out of the warm-up
+// and put them after training, so each session type ends with what it actually loaded.
+const MOB={
+  lift:{name:'Hips and t-spine',why:'Squats three times a week plus riding: hips first.',items:[
+    ['Couch stretch','60–90 sec per side'],['90/90 lean-forward hold','45 sec per side'],
+    ['Figure-4 glute stretch','45 sec per side'],['Thread the needle or open book','8 per side'],
+    ['Child’s pose with lat reach','45 sec per side']]},
+  dead:{name:'Posterior chain',why:'After deadlifts: decompress and open the hamstrings.',items:[
+    ['Dead hang from the bar','20–30 sec'],['Standing forward fold, soft knees','45–60 sec'],
+    ['Supine hamstring stretch (strap or doorway)','45 sec per side'],['Couch stretch','60–90 sec per side'],
+    ['Figure-4 glute stretch','45 sec per side'],['Cat / cow, slow','8–10 reps']]},
+  hic:{name:'Hip flexors and calves',why:'Riding in the same position compounds with squats. This is the antidote.',items:[
+    ['Couch stretch','60–90 sec per side'],['Standing quad stretch','45 sec per side'],
+    ['Straight-leg calf stretch against a wall','45 sec per side'],['Figure-4 glute stretch','45 sec per side'],
+    ['Seated forward fold','45–60 sec']]},
+  plyo:{name:'Ankles and calves',why:'Jumping loads the Achilles and calves hardest.',items:[
+    ['Straight-leg calf stretch (gastroc)','45 sec per side'],['Bent-knee calf stretch (soleus)','45 sec per side'],
+    ['Knee-to-wall ankle mobilisation','10 reps per side'],['Foot / arch roll on a ball','60 sec per side'],
+    ['Couch stretch','60–90 sec per side']]},
+  off:{name:'Full mobility',why:'No training today: the best day for the long holds.',items:[
+    ['Couch stretch','90 sec per side'],['Frog stretch, gentle rocking','2 min'],
+    ['90/90 switches and lean holds','45 sec per side'],['Pigeon or figure-4','60–90 sec per side'],
+    ['Thoracic extension over a foam roller','10 slow reps'],['Dead hang','30 sec'],
+    ['Diaphragmatic breathing, legs up the wall','2–3 min']]}
 };
 const PLYO_WARMUP=[['pogo','Pogo hops','3 × 10','Wakes up the ankle spring; short, fast ground contacts'],['askip','Ankle skips','2 × 20 m','Rhythm and elastic timing through the calf and Achilles'],['broad','Submaximal broad jumps','3 × 1 at ~70%','Rehearses the landing pattern before full effort']];
 const PLYO=[
@@ -966,29 +1012,59 @@ function banners(wk,dp){
 function sessionHtml(wk,dp){
   let h='';
   const note=dp.note?`<p class="muted small" style="margin:0">${esc(dp.note)}</p>`:'';
-  if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Save deep stretching for today if you want it.')}</p></div>`+footer(false) }
+  if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+mobCard(sel,dp)+footer(false) }
   if(dp.t==='lift'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
-    h+=`<details class="plain card"><summary>Warm-up · 12–15 min</summary>${warmupShort()}</details>`;
+    h+=warmupCard(sel);
     for(const k of dp.lifts) h+=liftCard(wk,k,dp);
     h+=accCard(wk,dp);
-    return h+footer(true);
+    return h+mobCard(sel,dp)+footer(true);
   }
-  if(dp.t==='hic') return h+hicCard(dp,note)+footer(true);
-  if(dp.t==='plyohic') return h+plyoCard(wk,dp)+`<div class="divider">Rest 10 min</div>`+hicCard(dp,'')+footer(true);
+  if(dp.t==='hic') return h+hicCard(dp,note)+mobCard(sel,dp)+footer(true);
+  if(dp.t==='plyohic') return h+plyoCard(wk,dp)+`<div class="divider">Rest 10 min</div>`+hicCard(dp,'')+mobCard(sel,dp)+footer(true);
   if(dp.t==='rm5'||dp.t==='test'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     if(dp.note) h+=`<div class="banner info"><div>${esc(dp.note)}</div></div>`;
     if(dp.jumps) h+=jumpCard('First, before any lifting.');
-    h+=`<details class="plain card"><summary>Warm-up · 12–15 min</summary>${warmupShort()}</details>`;
+    h+=warmupCard(sel);
     for(const k of dp.lifts) h+=testCard(k,dp.t==='rm5'?5:1,dp.t==='rm5');
     if(dp.pullups) h+=`<div class="card"><h3>Max unassisted pull-ups</h3><p class="muted small" style="margin:0">The number the Lift 3 substitution was aimed at. One all-out set, full hang to chin over bar.</p><label class="f">Reps${numIn('pullups',lg(sel).pullups,'0','class="num-in"')}</label>${bestPullups()}</div>`;
     if(dp.apply) h+=applyCard(wk);
-    return h+footer(true);
+    return h+mobCard(sel,dp)+footer(true);
   }
-  if(dp.t==='plyobase') return h+jumpCard('Baselines. Three good attempts each, keep the best.')+footer(true);
-  if(dp.t==='convert') return h+convertCard(wk)+footer(false);
+  if(dp.t==='plyobase') return h+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
+  if(dp.t==='convert') return h+convertCard(wk)+mobCard(sel,dp)+footer(false);
   return h;
+}
+function mobKind(dp){
+  if(dp.t==='plyohic'||dp.t==='plyobase') return 'plyo';
+  if(dp.t==='hic') return 'hic';
+  if(dp.t==='off'||dp.t==='convert'||dp.t==='pre') return 'off';
+  return (dp.lifts||[]).includes('dead')?'dead':'lift';
+}
+function mobList(kind){const a=(plan.mob||{})[kind];return Array.isArray(a)&&a.length?a.map(x=>Array.isArray(x)?x:[x,'']):MOB[kind].items}
+function checkRow(bind,on,name,dose){return `<label class="check"><input type="checkbox" id="c-${bind.replace(/\./g,'-')}" data-bind="${bind}" ${on?'checked':''}> <span>${esc(name)}</span>${dose?`<span class="mono small muted">${esc(dose)}</span>`:''}</label>`}
+function warmupCard(date){
+  const W=lg(date).warmup||[], short=!!lg(date).warmShort;
+  const idx=WARMUP.map((x,i)=>i).filter(i=>!short||WARMUP[i].s);
+  const done=idx.filter(i=>W[i]).length;
+  let rows='', g=null;
+  for(const i of idx){ const x=WARMUP[i]; if(x.g!==g){g=x.g;rows+=`<h4 class="sub-h">${esc(g)}</h4>`} rows+=checkRow('warmup.'+i,W[i],x.n,x.d); }
+  return `<details class="plain card" data-px="gwu"${openPx.has('gwu')?' open':''}><summary><b>Warm-up</b> · ${done} of ${idx.length} done · ${short?'7 min':'12–15 min'}</summary>
+  <div class="stack" style="margin-top:10px">
+    <div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full · 12–15 min</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short · 7 min</button></div></div>
+    ${rows}
+    <div class="small muted">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
+    ${done?`<div><button class="btn sm ghost" data-act="wclear">Clear</button></div>`:''}
+  </div></details>`;
+}
+function mobCard(date,dp){
+  const kind=mobKind(dp), M=MOB[kind], items=mobList(kind), L=lg(date).mobility||[], done=items.filter((_,i)=>L[i]).length;
+  return `<details class="plain card" data-px="mob"${openPx.has('mob')?' open':''}><summary><b>Mobility</b> · ${done} of ${items.length} done · ${esc(M.name)}</summary>
+  <div class="stack" style="margin-top:10px"><div class="small muted">${esc(M.why)} Hold each one easy; this is the place for the longer holds.</div>
+    ${items.map(([n,d],i)=>checkRow('mobility.'+i,L[i],n,d)).join('')}
+    ${done?`<div><button class="btn sm ghost" data-act="mclear">Clear</button></div>`:''}
+  </div></details>`;
 }
 function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
 function liftCard(wk,k,dp){
@@ -1195,7 +1271,7 @@ function plyoCard(wk,dp){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work, before HIC.</div>`;
   const pb=plyoPullback(sel);
   if(pb.length&&!cut) h+=`<div class="banner warn"><div class="small"><b>Pull-back check:</b> ${esc(pb.join('; '))}. The program says cut the session in half (or warm-up only). Cut, don’t skip.</div></div>`;
-  h+=`<details class="plain" data-px="wu"${openPx.has('wu')?' open':''}><summary>Warm-up · about 8 min, not counted</summary><div class="stack" style="margin-top:8px">${PLYO_WARMUP.map(([id,l,d,why])=>`<details class="px" data-px="wu-${id}"${openPx.has('wu-'+id)?' open':''}><summary><span>${l}</span><span class="mono small">${d}</span></summary><div class="small muted" style="margin:4px 0 6px">${why}</div>${plyoEntry(id)}</details>`).join('')}</div></details>`;
+  h+=`<details class="plain" data-px="wu"${openPx.has('wu')?' open':''}><summary>Warm-up · ${(L.warm||[]).filter(Boolean).length} of ${PLYO_WARMUP.length} done · about 8 min, not counted</summary><div class="stack" style="margin-top:8px">${PLYO_WARMUP.map(([id,l,d,why],i)=>`<div class="pwu"><button class="wu-chk${(L.warm||[])[i]?' on':''}" data-act="pwu" data-i="${i}" aria-pressed="${!!(L.warm||[])[i]}" aria-label="${esc(l)} done">✓</button><details class="px" data-px="wu-${id}"${openPx.has('wu-'+id)?' open':''}><summary><span>${l}</span><span class="mono small">${d}</span></summary><div class="small muted" style="margin:4px 0 6px">${why}</div>${plyoEntry(id)}</details></div>`).join('')}</div></details>`;
   h+=`<div class="stack" style="gap:12px">`;
   ph.ex.forEach((e,i)=>{
     const n0=plyoSets(e,cut), sets=((L.sets||[])[i])||[];
@@ -1460,6 +1536,7 @@ function lsSteps(date){
       steps.push({k,type:'test',isRm5,w:tgt,r:isRm5?5:1});
     }
     if(dp.pullups) steps.push({type:'pullups'});
+    steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
     steps.push({type:'finish',test:true});
     return steps;
   }
@@ -1474,6 +1551,7 @@ function lsSteps(date){
   }
   const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
   if(!dp.deload&&!heavy&&dp.acc) steps.push({type:'acc'});
+  steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
 }
@@ -1486,7 +1564,9 @@ function lsStepDone(st){
   return false;
 }
 function wuListFor(date,k){const W=((lg(date).lifts||{})[k]||{}).warmup;return Array.isArray(W)?W:W?Object.keys(W).reduce((a,i)=>(a[+i]=W[i],a),[]):[]}
-function lsFirstOpen(){const st=lsSteps(ls.date);const i=st.findIndex(x=>['warm','work','test','pullups'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
+function lsFirstOpen(){const st=lsSteps(ls.date);
+  if(!st.some(x=>['warm','work','test','pullups'].includes(x.type)&&lsStepDone(x))) return 0;
+  const i=st.findIndex(x=>['warm','work','test','pullups'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
 function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); holdScreen(true); lsShow(); }
 function lsClose(){ ls=null; LS.set('ob.ls',null); if(!rest||rest.done) holdScreen(false); lsShow(); render(); }
 function lsShow(){
@@ -1539,6 +1619,15 @@ function lsRender(){
     if(next&&next.type==='warm') h+=`<div class="small muted" style="text-align:center">Next: ${esc(liftName(next.k))} warm-ups</div>`;
   } else if(st.type==='pullups'){
     h+=`<div class="ls-card"><div class="ls-lift">Max pull-ups</div><div class="small muted">One all-out set, full hang to chin over bar.</div><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-pu" data-lsin="pullups" value="${lg(ls.date).pullups??''}"></label></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
+  } else if(st.type==='gwarm'||st.type==='mob'){
+    const isW=st.type==='gwarm', short=!!lg(ls.date).warmShort;
+    const items=isW?WARMUP.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||WARMUP[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
+    const flags=(isW?lg(ls.date).warmup:lg(ls.date).mobility)||[], done=items.filter(([i])=>flags[i]).length;
+    h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
+      <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
+      ${isW?`<div class="seg"><button class="segb${short?'':' on'}" data-ls="wfull">Full</button><button class="segb${short?' on':''}" data-ls="wshort">Short</button></div>`:`<div class="small muted">${esc(MOB[mobKind(dp)].why)}</div>`}
+      <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
+      <button class="btn primary ls-done" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button>`;
   } else if(st.type==='acc'){
     const A=lg(ls.date).acc||[];
     h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">2–3 movements, 2–3 sets, a couple of reps short of failure.</div><div class="stack">${accList(dp.acc).map((a,i)=>`<button class="btn${A[i]?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-i="${i}">${A[i]?'✓ ':''}${esc(a)}</button>`).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
@@ -1578,6 +1667,8 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const A=[...(lg(ls.date).acc||[])]; A[+b.dataset.i]=!A[+b.dataset.i]; setLog(ls.date,'acc',A); return lsRender() }
+  if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
+  if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
   if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }
   if(a==='finish'){ if(!lg(ls.date).done) setLog(ls.date,'done',true); stopRest(); say('Session done. Nice work.'); return lsClose() }
   if(a==='t-'||a==='t+'){ const inc=+plan.round[st.k]||5, base=st.w!=null?st.w:0; setLog(ls.date,'test.'+st.k+'.target',Math.max(isBW(st.k)?-500:+plan.bar||0,base+(a==='t+'?inc:-inc))); return lsRender() }
@@ -1973,12 +2064,13 @@ function eachDateInPrograms(fn){
   } finally { plan=savedPlan; viewing=savedViewing; sel=savedSel; planV++; }
 }
 function sessionsCsv(){
-  const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','bodyweight_'+U,'hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
+  const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','bodyweight_'+U,'hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'warmup_done','mobility_done','plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), c=L.checkin||{}, H=L.hic||{}, P=L.plyo||{}, J=L.jumps||{};
     const hasHic=dp.t==='hic'||dp.t==='plyohic'||L.hic, f=hasHic?effFmt(d):null, mod=hasHic?modOf(d):null, met=f&&mod?metricFor(mod,f):null;
     rows.push([d,prog,wk?weekTitle(wk).t:'',dp.short||'',L.done?'yes':'',L.rpe??'',readiness(c)??'',c.sleepH??'',c.sleepQ??'',c.energy??'',c.soreness??'',c.stress??'',c.protein??'',c.fuel??'',c.water??'',c.alcohol??'',c.bw??'',
       f?HIC[f].name:'',mod?(mod==='other'&&H.what?H.what:MOD[mod].name):'',met?(H[met[0]]??''):'',met&&H[met[0]]!=null?met[1]:'',H.min??'',H.rounds??'',H.load??'',
+      (L.warmup||[]).filter(Boolean).length||'',(L.mobility||[]).filter(Boolean).length||'',
       dp.t==='plyohic'&&wk?plyoPhase(wk).name:'',P.contacts??'',P.mark??'',P.best??'',J.broad??'',J.vertical??'',J.triple??'',L.pullups??'',L.notes??'']);
   });
   return csvText(rows);
@@ -2202,6 +2294,8 @@ function vSetup(){
     <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
     <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div></div>`;
   }
+  const mobs=plan.mob||{};
+  h+=`<div class="card"><h2>Mobility</h2><p class="small muted" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
@@ -2295,6 +2389,7 @@ document.addEventListener('input',e=>{
   }
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
+  else if(t.dataset.mobday){ const d=t.dataset.mobday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.mob=Object.assign({},plan.mob||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.accday){ const d=t.dataset.accday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.acc=Object.assign({},plan.acc||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
 });
 (function(){
@@ -2307,7 +2402,7 @@ document.addEventListener('input',e=>{
 })();
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.dataset&&d.dataset.px){d.open?openPx.add(d.dataset.px):openPx.delete(d.dataset.px);return}if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
-document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.np) render(); });
+document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.np) render(); });
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)});
 document.getElementById('main').addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
@@ -2372,6 +2467,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
+  if(a==='wshort'){const v=b.dataset.v==='1';if(!!lg(sel).warmShort===v)return;setLog(sel,'warmShort',v);render();return}
+  if(a==='wclear'){setLog(sel,'warmup',[]);render();return}
+  if(a==='mclear'){setLog(sel,'mobility',[]);render();return}
+  if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='pset'){
     const i=+b.dataset.i,j=+b.dataset.j, wk=weekOf(sel), dp=dayPlan(sel), ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
     const arr=[...(((L.sets||[])[i])||[])]; arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;

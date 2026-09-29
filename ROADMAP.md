@@ -187,6 +187,15 @@ Decided against for now.
 - Restore any backup or a downloaded file, with a time-stamped safety backup first.
 - Spoken cues for interval changes and rest ends (toggle).
 
+**Warm-up and mobility (2026-09-29)**
+- Warm-up checklist on every lifting and test day (full 12–15 min or the 7-min short
+  version), with progress in the summary; plyo warm-up drills get check-offs too.
+- Mobility block at the end of every session, matched to what the day loaded (hips /
+  posterior chain / hip flexors + calves / ankles / full on rest days), editable in
+  Setup, with check-offs.
+- Both appear as steps in session mode (warm-up first, mobility last) and as counts in
+  the sessions CSV.
+
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
 - End-of-cycle review with suggested max changes, applied on approval.

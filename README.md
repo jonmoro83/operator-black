@@ -92,6 +92,14 @@ change the fingerprint, so they don't trigger it. Setup → About this app shows
 versions and the deploy time. Deploy with `npm run deploy` to tag the version with
 the git commit.
 
+## Warm-up and mobility
+
+`WARMUP` (14 items, `s` marks the 7-minute short version) renders as a checklist on
+lifting and test days; `MOB` holds one block per session type (`lift`, `dead`, `hic`,
+`plyo`, `off`) chosen by `mobKind(dayPlan)` and overridable per person in
+`plan.mob[kind]` (Setup → Mobility). Ticks live in the day's log as `warmup[]`,
+`mobility[]` and `plyo.warm[]`; session mode shows both as its first and last steps.
+
 ## Interval timer
 
 HIC and LISS cards have a guided timer built from the Black formats (MAP 1:00/1:00 ×8–10,
