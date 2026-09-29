@@ -7,6 +7,8 @@ retests automatically, calculates working weights and plates, and logs every ses
 Hosted as a Cloudflare Worker at **operatorblack.com**, with storage in D1 and sign-in
 through Cloudflare Access.
 
+Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
+
 ```
 public/index.html           the whole app (vanilla JS, no build step)
 src/worker.js               entry: /api/* → API, everything else → public/
