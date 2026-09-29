@@ -1,39 +1,47 @@
 // Operator + Black API — Worker route handler backed by D1.
 //
-//   GET  /api/state            → { plan, logs: { "YYYY-MM-DD": {...} } }
-//   PUT  /api/doc/plan/main    → replace the plan document
-//   PUT  /api/doc/logs/<date>  → replace one day's log
-//   GET  /api/export           → everything, as a downloadable JSON file
-//   GET  /api/backups          → list automatic backups (newest first)
-//   GET  /api/backups/<name>   → download one backup
-//   POST /api/backups          → take a backup now
-//   GET  /api/version          → fingerprint of the current page + deploy info
-//   GET  /api/push/key         → VAPID public key for pushManager.subscribe
-//   GET  /api/push/status      → devices with alerts on, pending alarm time
+// Every document belongs to the signed-in Cloudflare Access user (their email, taken
+// from the verified Access JWT, never from anything the page sends).
+//
+//   GET  /api/state               → { user, plan, logs: {date: {...}}, programs: {id: {...}} }
+//   PUT  /api/doc/plan/main       → replace the current program's plan
+//   PUT  /api/doc/logs/<date>     → replace one day's log
+//   PUT  /api/doc/programs/<id>   → store an archived program
+//   GET  /api/export              → everything of yours, as a downloadable JSON file
+//   GET  /api/backups             → list your automatic backups (newest first)
+//   GET  /api/backups/<name>      → download one backup
+//   POST /api/backups             → take a backup now
+//   GET  /api/version             → fingerprint of the current page + deploy info
+//   GET  /api/push/key            → VAPID public key for pushManager.subscribe
+//   GET  /api/push/status         → your devices with alerts on, pending alarm time
 //   POST /api/push/subscribe | unsubscribe | schedule | cancel | test
 //
 // Every request must carry a valid Cloudflare Access JWT (Cf-Access-Jwt-Assertion).
 // Set ACCESS_TEAM_DOMAIN and ACCESS_AUD in wrangler.toml. For local dev only,
-// DEV_ALLOW_ANON=1 in .dev.vars skips the check.
+// DEV_ALLOW_ANON=1 in .dev.vars skips the check (user = x-dev-user header, DEV_USER,
+// or dev@local).
 
 import { vapidPublicKey } from "./webpush.js";
 
-const DOC_PATH = /^(plan\/main|logs\/\d{4}-\d{2}-\d{2})$/;
+const DOC_PATH = /^(plan\/main|logs\/\d{4}-\d{2}-\d{2}|programs\/[a-z0-9-]{1,40})$/;
 const MAX_BYTES = 256 * 1024;
+const LEGACY = "__legacy__";
 
 export async function handleApi(request, env) {
-  const denied = await authorize(request, env);
-  if (denied) return denied;
+  const auth = await authorize(request, env);
+  if (auth instanceof Response) return auth;
+  const user = auth.user;
+  await claimLegacy(env, user);
 
   const route = new URL(request.url).pathname.replace(/^\/api\/?/, "");
 
   if (route === "state" && request.method === "GET") {
-    return json(await readAll(env), 200, { "cache-control": "no-store" });
+    return json({ user, ...(await readAll(env, user)) }, 200, { "cache-control": "no-store" });
   }
 
   if (route === "export" && request.method === "GET") {
     const day = new Date().toISOString().slice(0, 10);
-    return json({ exportedAt: new Date().toISOString(), ...(await readAll(env)) }, 200, {
+    return json({ exportedAt: new Date().toISOString(), user, ...(await readAll(env, user)) }, 200, {
       "cache-control": "no-store",
       "content-disposition": `attachment; filename="operator-black-${day}.json"`,
     });
@@ -52,20 +60,21 @@ export async function handleApi(request, env) {
     const op = route.slice(5);
     const allowed = { status: "GET", subscribe: "POST", unsubscribe: "POST", schedule: "POST", cancel: "POST", test: "POST" };
     if (allowed[op] !== request.method) return json({ error: "Not found." }, 404);
-    const stub = env.ALERTS.get(env.ALERTS.idFromName("main"));
+    // one alerts object per person: their devices, their queue
+    const stub = env.ALERTS.get(env.ALERTS.idFromName("user:" + user));
     return stub.fetch(new Request(`https://alerts/${op}`, { method: request.method, body: request.method === "POST" ? await request.text() : undefined }));
   }
 
   if (route === "backups" && request.method === "GET") {
-    return json({ backups: await listBackups(env) }, 200, { "cache-control": "no-store" });
+    return json({ backups: await listBackups(env, user) }, 200, { "cache-control": "no-store" });
   }
   if (route === "backups" && request.method === "POST") {
-    return json(await backupNow(env), 200);
+    return json(await backupNow(env, user), 200);
   }
   if (route.startsWith("backups/") && request.method === "GET") {
     const name = route.slice(8);
     if (!/^\d{4}-\d{2}-\d{2}(-manual)?$/.test(name)) return json({ error: "Unknown backup." }, 404);
-    const body = await env.BACKUPS.get(BACKUP_PREFIX + name);
+    const body = await env.BACKUPS.get((await backupPrefix(user)) + name);
     if (!body) return json({ error: "Backup not found." }, 404);
     return new Response(body, {
       headers: {
@@ -94,10 +103,10 @@ export async function handleApi(request, env) {
     }
 
     await env.DB.prepare(
-      `INSERT INTO docs (path, data, updated_at) VALUES (?1, ?2, ?3)
-       ON CONFLICT(path) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
+      `INSERT INTO docs (user, path, data, updated_at) VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT(user, path) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
     )
-      .bind(path, JSON.stringify(body), Date.now())
+      .bind(user, path, JSON.stringify(body), Date.now())
       .run();
     return new Response(null, { status: 204 });
   }
@@ -105,42 +114,72 @@ export async function handleApi(request, env) {
   return json({ error: "Not found." }, 404);
 }
 
+/* ---------------- legacy single-user data ---------------- */
+
+// Rows from before per-user data sit under '__legacy__'. The first sign-in by an
+// address listed in the LEGACY_OWNERS secret takes them over. Nobody else can.
+let legacyChecked = false;
+async function claimLegacy(env, user) {
+  if (legacyChecked) return;
+  const owners = (env.LEGACY_OWNERS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM docs WHERE user = ?1").bind(LEGACY).first();
+  if (!row || !row.n) return void (legacyChecked = true);
+  if (!owners.includes(user)) return;
+  const mine = await env.DB.prepare("SELECT COUNT(*) AS n FROM docs WHERE user = ?1").bind(user).first();
+  if (mine && mine.n) return; // already has data of their own; leave the legacy rows alone
+  await env.DB.prepare("UPDATE docs SET user = ?1 WHERE user = ?2").bind(user, LEGACY).run();
+  legacyChecked = true;
+}
+
 /* ---------------- backups (Workers KV) ---------------- */
 
-const BACKUP_PREFIX = "backup:";
 const KEEP_BACKUPS = 26;
 
-export async function backupNow(env, { manual = true } = {}) {
+// Backup keys carry a short hash of the email rather than the email itself.
+async function backupPrefix(user) {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(user)));
+  return "backup:" + Array.from(h.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("") + ":";
+}
+
+export async function backupNow(env, user, { manual = true } = {}) {
   const day = new Date().toISOString().slice(0, 10);
   const name = manual ? `${day}-manual` : day;
-  const data = { backedUpAt: new Date().toISOString(), ...(await readAll(env)) };
+  const data = { backedUpAt: new Date().toISOString(), user, ...(await readAll(env, user)) };
   const body = JSON.stringify(data);
-  await env.BACKUPS.put(BACKUP_PREFIX + name, body, {
+  const prefix = await backupPrefix(user);
+  await env.BACKUPS.put(prefix + name, body, {
     metadata: { bytes: body.length, logs: Object.keys(data.logs).length, at: data.backedUpAt },
   });
-  // prune the oldest beyond the retention window
-  const all = await listBackups(env);
-  for (const old of all.slice(KEEP_BACKUPS)) await env.BACKUPS.delete(BACKUP_PREFIX + old.name);
+  const all = await listBackups(env, user);
+  for (const old of all.slice(KEEP_BACKUPS)) await env.BACKUPS.delete(prefix + old.name);
   return { name, bytes: body.length, logs: Object.keys(data.logs).length };
 }
 
-async function listBackups(env) {
-  const out = [];
+/** Weekly cron: back up everyone who has data. */
+export async function backupEveryone(env) {
+  const { results } = await env.DB.prepare("SELECT DISTINCT user FROM docs WHERE user != ?1").bind(LEGACY).all();
+  for (const r of results) await backupNow(env, r.user, { manual: false });
+}
+
+async function listBackups(env, user) {
+  const prefix = await backupPrefix(user),
+    out = [];
   let cursor;
   do {
-    const page = await env.BACKUPS.list({ prefix: BACKUP_PREFIX, cursor });
-    for (const k of page.keys) out.push({ name: k.name.slice(BACKUP_PREFIX.length), ...(k.metadata || {}) });
+    const page = await env.BACKUPS.list({ prefix, cursor });
+    for (const k of page.keys) out.push({ name: k.name.slice(prefix.length), ...(k.metadata || {}) });
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
   return out.sort((a, b) => ((b.at || b.name) > (a.at || a.name) ? 1 : -1));
 }
 
-async function readAll(env) {
-  const { results } = await env.DB.prepare("SELECT path, data FROM docs").all();
-  const out = { plan: null, logs: {} };
+async function readAll(env, user) {
+  const { results } = await env.DB.prepare("SELECT path, data FROM docs WHERE user = ?1").bind(user).all();
+  const out = { plan: null, logs: {}, programs: {} };
   for (const row of results) {
     if (row.path === "plan/main") out.plan = JSON.parse(row.data);
     else if (row.path.startsWith("logs/")) out.logs[row.path.slice(5)] = JSON.parse(row.data);
+    else if (row.path.startsWith("programs/")) out.programs[row.path.slice(9)] = JSON.parse(row.data);
   }
   return out;
 }
@@ -154,8 +193,11 @@ function json(data, status = 200, headers = {}) {
 
 /* ---------------- Cloudflare Access ---------------- */
 
+// Returns {user} for a verified request, or a Response to send back.
 async function authorize(request, env) {
-  if (env.DEV_ALLOW_ANON === "1") return null;
+  if (env.DEV_ALLOW_ANON === "1") {
+    return { user: (request.headers.get("x-dev-user") || env.DEV_USER || "dev@local").toLowerCase() };
+  }
   if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) {
     return json({ error: "Cloudflare Access is not configured for this site." }, 503);
   }
@@ -163,14 +205,16 @@ async function authorize(request, env) {
   if (!token) return json({ error: "Sign in required." }, 401);
   try {
     const claims = await verifyAccessJwt(token, env);
+    const email = String(claims.email || "").trim().toLowerCase();
+    if (!email) return json({ error: "Your sign-in has no email address." }, 403);
     const allowed = (env.ALLOWED_EMAILS || "")
       .split(",")
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
-    if (allowed.length && !allowed.includes(String(claims.email || "").toLowerCase())) {
+    if (allowed.length && !allowed.includes(email)) {
       return json({ error: "This account is not allowed." }, 403);
     }
-    return null;
+    return { user: email };
   } catch {
     return json({ error: "Invalid sign-in token." }, 403);
   }

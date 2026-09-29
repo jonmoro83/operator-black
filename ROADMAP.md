@@ -7,6 +7,13 @@ Update it as things ship. Last updated 2026-09-29.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
+- **Adding a person:** Zero Trust → Access → Applications → Operator Black → policy →
+  add their email. Nothing else is needed; they start at their own bridge week.
+- **Existing data is claimed on your first sign-in** after the per-user change (from
+  the iCloud or Gmail address). Rest alerts re-register automatically on that visit.
+- **Conditioning "last/best" across programs** only counts sessions whose format and
+  activity are stored. Programs archived by the app stamp them automatically.
+
 - **Automatic deploys don't fire.** Pushing to `main` doesn't start a Workers Builds
   run. Deploys go out with `npx wrangler deploy`. Either reconnect the repo under
   Workers & Pages → operator-black → Settings → Build, or disconnect it.
@@ -121,6 +128,12 @@ Decided against for now.
 - Guided HIC/LISS timer from the Black formats with round picker, optional warm-up
   pickups and cool-down, full-screen or minimized display, 3-2-1 beeps, screen wake,
   lock-screen alerts for every interval change, and result logging at the end.
+
+**People and programs**
+- Per-user data: every document, backup and alert store is scoped to the signed-in
+  Access email; legacy data claimed by the owner; phone cache reset on user switch.
+- Programs: archive the current program and start over (carry maxes or bridge week),
+  with read-only archived programs viewable from History, Status and Plan.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.

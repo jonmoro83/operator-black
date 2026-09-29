@@ -15,7 +15,7 @@ src/worker.js               entry: /api/* → API, everything else → public/
 src/api.js                  API: state, docs, export, backups, push
 src/alerts.js               RestAlerts Durable Object: push subscriptions + alert queue
 src/webpush.js              Web Push encryption (RFC 8291) and VAPID signing (RFC 8292)
-migrations/0001_init.sql    D1 schema (one JSON document per row)
+migrations/                 D1 schema: one JSON document per (user, path) row
 wrangler.toml               Worker, static assets, D1, custom domain, Access config
 ```
 
@@ -62,6 +62,24 @@ Cloudflare Access sessions expire (Zero Trust → Access → Applications →
 Operator Black → session duration; 1 month is the max). When one expires, the app
 still opens from cache, the status line reads "Signed out · tap to sign in,"
 and tapping it goes to the login page.
+
+## People and programs
+
+**Each person's data is their own.** The API takes the user from the verified Access
+JWT (email) and scopes every read and write to it: plan, logs, archived programs,
+backups (KV keys use a hash of the email) and rest alerts (one Durable Object per
+person). To add someone, add their email to the Access policy; their first visit
+starts at their own bridge week. Rows from before per-user data were parked under
+`__legacy__` and are claimed by the first sign-in from an address in the
+`LEGACY_OWNERS` secret. If a different person signs in on the same phone, the app
+drops the previous person's local copy and unsent changes.
+
+**Programs.** Setup → Programs archives the current program (its whole plan, locked
+weeks, maxes and reviews) to `programs/<id>` with an end date, and starts a new one
+either carrying the latest maxes or with a bridge week (old maxes shown as reference).
+Logs stay keyed by date; programs never overlap, so a log belongs to whichever
+program's dates contain it. History, Status and Plan have a program picker; an archived
+program opens read-only, with "today" set to its last day.
 
 ## Updates on the home-screen app
 

@@ -1,6 +1,6 @@
 // Entry point: www redirects to the bare domain, /api/* goes to the API,
-// everything else is a static file from public/. The weekly cron takes a backup.
-import { handleApi, backupNow } from "./api.js";
+// everything else is a static file from public/. The weekly cron backs up every user.
+import { handleApi, backupEveryone } from "./api.js";
 export { RestAlerts } from "./alerts.js";
 
 const CANONICAL_HOST = "operatorblack.com";
@@ -30,6 +30,6 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(backupNow(env, { manual: false }));
+    ctx.waitUntil(backupEveryone(env));
   },
 };

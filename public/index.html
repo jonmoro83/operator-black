@@ -141,6 +141,8 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 #iv.mini .iv-btns .btn{padding:8px;font-size:14px}
 body.iv-mini .wrap{padding-bottom:190px}
 .ivset{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+/* archived program: read-only */
+.ro input,.ro select,.ro textarea,.ro .setb,.ro .segb:not(.pv),.ro .wu-chk,.ro [data-act="ivstart"]{pointer-events:none;opacity:.7}
 /* rest timer */
 #rest{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12);padding-bottom:env(safe-area-inset-bottom,0px)}
 .rest-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:8px 12px;align-items:center}
@@ -479,6 +481,10 @@ const DEF={
 
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
+// Archived programs (id → {id, name, startMonday, end, archivedAt, plan}). While one is
+// being viewed, `plan` is its frozen copy, `stash` holds the current plan, and every
+// write is refused.
+let programs={}, viewing=null, stash=null;
 let view='today', sel=todayStr(), planShow=26;
 try{ const v=localStorage.getItem('ob.view'); if(v) view=v; }catch(e){}
 
@@ -488,7 +494,12 @@ function pad(n){return String(n).padStart(2,'0')}
 function D(s){const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)}
 function S(t){return new Date(t).toISOString().slice(0,10)}
 function addDays(s,n){return S(D(s)+n*864e5)}
-function todayStr(){const n=new Date();return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())}
+function realToday(){const n=new Date();return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())}
+// In an archived program, "today" is its last day, so every view shows it as it ended.
+function todayStr(){const t=realToday();return viewing&&viewing.end<t?viewing.end:t}
+// The dates that belong to the program on screen (programs never overlap).
+function inProgram(d){return d>=plan.startMonday&&(!viewing||d<=viewing.end)}
+function progLogs(){return Object.entries(logs).filter(([d])=>inProgram(d))}
 function dow(s){return (new Date(D(s)).getUTCDay()+6)%7}
 function mondayOf(s){return addDays(s,-dow(s))}
 function fmtD(s,withDow){const d=new Date(D(s));const t=(d.getUTCMonth()+1)+'/'+d.getUTCDate();return withDow?DAYN[dow(s)]+' '+t:t}
@@ -677,10 +688,12 @@ function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
 function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
 function metricFor(mod,fmt){const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
 function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
-function hicSessions(){
+// Conditioning results. `all` spans every program (for "last/best" comparisons);
+// otherwise only the program on screen.
+function hicSessions(all){
   const out=[];
   for(const [d,L] of Object.entries(logs)){
-    if(!L.hic) continue; const f=effFmt(d); if(!f) continue;
+    if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
     const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
     if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
   }
@@ -698,7 +711,11 @@ const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return 
 let outbox=LS.get('ob.outbox')||{};
 function saveOutbox(){LS.set('ob.outbox',outbox)}
 let cacheTimer=null;
-function saveCache(){clearTimeout(cacheTimer);cacheTimer=setTimeout(()=>LS.set('ob.cache',{plan,logs}),800)}
+function saveCache(){clearTimeout(cacheTimer);cacheTimer=setTimeout(()=>LS.set('ob.cache',{plan:stash?stash.plan:plan,logs,programs}),800)}
+// Who's signed in. Everything on the server is theirs alone; the phone's copy is wiped
+// if a different person signs in on the same device.
+let me=LS.get('ob.user');
+function docFor(path){return path==='plan/main'?(stash?stash.plan:plan):path.startsWith('programs/')?programs[path.slice(9)]:logs[path.slice(5)]}
 function pending(path){const w=writers[path];return !!(w&&(w.dirty||w.busy||w.timer))||!!outbox[path]}
 function anyPending(){return Object.keys(writers).some(pending)||Object.keys(outbox).length>0}
 function waitingCount(){return Object.keys(outbox).length}
@@ -744,13 +761,20 @@ async function flush(path){
 }
 function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))||Object.keys(outbox).some(p=>p!==path)}
 function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut)}
-function setLog(date,path,v){ if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
-function setPlan(path,v){ setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
-function mutatePlan(fn){ fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
+function readOnly(){ if(viewing){ setStatus('Archived program · read-only',true); render(); return true } return false }
+function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
+function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
+function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 
 function applyState(st){
   let changed=false;
-  if(!pending('plan/main')){
+  for(const [id,d] of Object.entries(st.programs||{})){
+    if(pending('programs/'+id)) continue;
+    if(JSON.stringify(d)!==JSON.stringify(programs[id])){programs[id]=d;changed=true}
+  }
+  if(stash){ // viewing an archive: refresh the current plan behind it
+    if(!pending('plan/main')&&st.plan) stash.plan=deepMerge(clone(DEF),st.plan);
+  } else if(!pending('plan/main')){
     const next=st.plan?deepMerge(clone(DEF),st.plan):clone(DEF);
     if(JSON.stringify(next)!==JSON.stringify(plan)){plan=next;planV++;changed=true}
   }
@@ -764,23 +788,38 @@ function applyState(st){
 // Open instantly from the phone's copy, with any unsent changes laid on top.
 function loadLocal(){
   const c=LS.get('ob.cache');
-  if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; }
+  if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; programs=c.programs||{}; }
   for(const [path,doc] of Object.entries(outbox)){
     if(path==='plan/main') plan=deepMerge(clone(DEF),doc);
     else if(path.startsWith('logs/')) logs[path.slice(5)]=doc;
-    const w=writers[path]={get:()=>path==='plan/main'?plan:logs[path.slice(5)],dirty:true};
+    else if(path.startsWith('programs/')) programs[path.slice(9)]=doc;
+    writers[path]={get:()=>docFor(path),dirty:true};
   }
   planV++;
   if(c||Object.keys(outbox).length) loaded=true;
   return !!c;
 }
-function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>p==='plan/main'?plan:logs[p.slice(5)]});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}
+function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>docFor(p)});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}
+// A different person signed in on this phone: drop the previous person's local copy
+// and unsent changes so nothing of theirs is shown or uploaded to the new account.
+function switchUser(user){
+  for(const w of Object.values(writers)) clearTimeout(w.timer);
+  for(const k of Object.keys(writers)) delete writers[k];
+  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null);
+  plan=clone(DEF); logs={}; programs={}; stash=null; viewing=null; planV++;
+  rest=null; iv=null; showRest(); ivShow();
+  me=user; LS.set('ob.user',user);
+}
 async function connect(){
   if(!loaded) setStatus('Loading…');
   try{
-    const st=await api('GET','/state'); signedOut=false; loaded=true; applyState(st);
-    if(freezePast()) render();
+    const st=await api('GET','/state'); signedOut=false;
+    if(st.user&&me&&st.user!==me) switchUser(st.user);
+    if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
+    loaded=true; applyState(st);
+    if(!viewing&&freezePast()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
+    healAlerts();
   }
   catch(e){
     if(e&&(e.status===401||e.status===403)) signedOut=true;
@@ -842,7 +881,8 @@ function render(){
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');
-  m.innerHTML=({today:vToday,status:vStatus,plan:vPlan,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
+  m.classList.toggle('ro',!!viewing);
+  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
   if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
 }
 
@@ -1057,7 +1097,7 @@ function accCard(wk,dp){
 }
 function lastHic(fmt,mod,before){
   let best=null,last=null;
-  for(const x of hicSessions()){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
+  for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
     if(!last||x.d>last.d) last=x; if(!best||x.v>best.v) best=x; }
   return {best,last};
 }
@@ -1123,14 +1163,14 @@ function jumpCard(sub){
   return `<div class="card"><h3>Jump tests</h3><p class="muted small" style="margin:0">${sub}</p><div class="grid3"><label class="f">Broad jump (in)${numIn('jumps.broad',J.broad,'')}</label><label class="f">Vertical (in)${numIn('jumps.vertical',J.vertical,'')}</label><label class="f">Triple jump (in)${numIn('jumps.triple',J.triple,'')}</label></div></div>`;
 }
 function testCard(k,defReps,isRm5){
-  const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=estMax(k,T.w,reps,sel), cur=currentMax(k);
+  const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=estMax(k,T.w,reps,sel), cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);
   const bw=latestBw(sel);
   const est=cur==null?null:isBW(k)?(bw?floorTo((bw+cur)*(isRm5?.87:1)-bw,plan.round[k]):null):(isRm5?floorTo(cur*.87,plan.round[k]):cur);
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${isRm5?'5RM · 2 in reserve':'Heavy single'}${isBW(k)?' · added weight':''}</span></div>
   <div class="grid4"><label class="f">Target${numIn('test.'+k+'.target',T.target,est?n(est):'')}</label><label class="f">Result weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
   ${warmupLog(k,testRamp(k,tgt,isRm5),tgt!=null?`Calculated from a target of ${isBW(k)?fmtLoad(k,tgt):n(tgt)} ${u()}${T.target?'':T.w?' (your result)':' (from your current max)'}.`:'')}
-  <div class="small muted">${isRm5?'If the bar slows, you have found your number. Bad day: take the lower number.':'Work up in singles. Stop when the bar slows.'}${cur!=null?' Current max: <span class="mono">'+(isBW(k)?'+':'')+n(cur)+'</span>.':''}${k==='pull'?' Note the machine and pin setting.':''}${isBW(k)?' Enter the weight you added (0 for bodyweight). Uses your latest bodyweight.':''}</div></div>`;
+  <div class="small muted">${isRm5?'If the bar slows, you have found your number. Bad day: take the lower number.':'Work up in singles. Stop when the bar slows.'}${cur!=null?(currentMax(k)==null?' Last program’s max: ':' Current max: ')+'<span class="mono">'+(isBW(k)?'+':'')+n(cur)+'</span>.':''}${k==='pull'?' Note the machine and pin setting.':''}${isBW(k)?' Enter the weight you added (0 for bodyweight). Uses your latest bodyweight.':''}</div></div>`;
 }
 function currentMax(k){const wk=weekOf(sel);if(!wk)return null;const c=wk.kind==='cycle'?wk.cycle:wk.refCycle;const m=maxFor(c)[k];return m?m.v:null}
 function bestPullups(){let b=null;for(const [d,L] of Object.entries(logs)) if(d<sel&&L.pullups&&(!b||+L.pullups>b.v)) b={d,v:+L.pullups};return b?`<div class="small muted">Previous best: <span class="mono">${b.v}</span> on ${fmtD(b.d,true)}</div>`:''}
@@ -1399,6 +1439,16 @@ function alertsSupport(){
 }
 function alertsOn(){return !!LS.get('ob.push')&&window.Notification&&Notification.permission==='granted'}
 function b64uBytes(str){const b=str.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(str.length/4)*4,'=');return Uint8Array.from(atob(b),c=>c.charCodeAt(0))}
+// If this device thinks alerts are on but the server has no subscription for this
+// person (e.g. after the move to per-user alert stores), quietly register it again.
+async function healAlerts(){
+  if(!alertsOn()) return;
+  try{
+    const st=await api('GET','/push/status'); if(st.devices) return;
+    const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription();
+    if(sub) await api('POST','/push/subscribe',{subscription:sub.toJSON()}); else LS.set('ob.push',null);
+  }catch(e){}
+}
 async function enableAlerts(){
   alerts.busy=true; alerts.msg=null; render();
   try{
@@ -1539,7 +1589,7 @@ function vStatus(){
   const curC=wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle);
   h+=`<div class="card"><div class="lift-h"><h3>Strength</h3><span class="small muted">Max by cycle · hollow = next cycle, projected</span></div><div class="sm-grid">`;
   for(const k of activeLifts()){
-    const pts=[];for(let c=1;c<=curC+1;c++){const m=maxFor(c)[k];if(m)pts.push({y:m.v,xl:'C'+c,hollow:c>curC,tip:`Cycle ${c}: ${n(m.v)} ${u()}${m.src==='set'?' (tested/set)':m.src==='proj'?' (projected)':''}`})}
+    const pts=[];for(let c=1;c<=curC+(viewing?0:1);c++){const m=maxFor(c)[k];if(m)pts.push({y:m.v,xl:'C'+c,hollow:c>curC,tip:`Cycle ${c}: ${n(m.v)} ${u()}${m.src==='set'?' (tested/set)':m.src==='proj'?' (projected)':''}`})}
     const cur=maxFor(curC)[k], base=maxFor(1)[k];
     h+=`<div class="sm"><div class="sm-h"><b>${esc(liftName(k))}</b>${cur?`<span class="v">${n(cur.v)}<small>${u()}${base&&cur.v!==base.v?` · ${cur.v>base.v?'+':''}${n(cur.v-base.v)} since C1`:''}</small></span>`:''}</div>${pts.length?lineChart(pts,{label:liftName(k)+' max by cycle',minStep:+plan.round[k]||5}):'<div class="none">No max entered yet.</div>'}</div>`;
   }
@@ -1562,9 +1612,9 @@ function vStatus(){
     h+=`</div>`;
   }
   // --- body + recovery
-  const bw=Object.entries(logs).filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-60);
+  const bw=progLogs().filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-60);
   const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
-  const jm=Object.entries(logs).map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+  const jm=progLogs().map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
   h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
   h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
   h+=`<div class="sm"><div class="sm-h"><b>Bodyweight</b>${bw.length?`<span class="v">${r1(bw[bw.length-1].v)}<small>${u()}${bw.length>1?` · ${bw[bw.length-1].v-bw[0].v>0?'+':''}${r1(bw[bw.length-1].v-bw[0].v)} since ${fmtD(bw[0].d)}`:''}</small></span>`:''}</div>${bw.length>=2?lineChart(bw.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()}`})),{label:'Bodyweight',minStep:1}):'<div class="none">Log bodyweight in the daily check-in.</div>'}</div>`;
@@ -1572,6 +1622,82 @@ function vStatus(){
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   return h;
 }
+/* ---------- programs: archive and start over ---------- */
+// Logs are stored by date and programs never overlap, so a program is just a start
+// date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
+// included) into programs/<id> with an end date; nothing about the logs changes.
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds'];
+let newProg=null;
+function progName(p){p=p||plan;return p.programName||('Block '+(p.programSeq||1))}
+function archiveList(){return Object.values(programs).sort((a,b)=>a.startMonday<b.startMonday?1:-1)}
+function enterArchive(id){
+  const p=programs[id]; if(!p) return;
+  if(!stash) stash={plan,sel};
+  plan=deepMerge(clone(DEF),p.plan); viewing=p; planV++;
+  if(sel>p.end||sel<p.startMonday) sel=p.end;
+  openWarm.clear(); openPx.clear(); render(); window.scrollTo(0,0);
+}
+function exitArchive(){
+  if(!stash){render();return}
+  plan=stash.plan; sel=realToday(); stash=null; viewing=null; planV++;
+  render(); window.scrollTo(0,0);
+}
+function archiveBanner(){
+  if(!viewing) return '';
+  return `<div class="banner info"><div><b>Viewing ${esc(viewing.name)}</b> · ${fmtD(viewing.startMonday)} – ${fmtD(viewing.end)} · archived, read-only</div><div><button class="btn sm primary" data-act="progexit">Back to current program</button></div></div>`;
+}
+function programPicker(){
+  const list=archiveList(); if(!list.length) return '';
+  const cur=stash?stash.plan:plan;
+  return `<div class="restsel"><span>Program</span><div class="seg"><button class="segb pv${!viewing?' on':''}" data-act="progexit">${esc(progName(cur))} (current)</button>${list.map(p=>`<button class="segb pv${viewing&&viewing.id===p.id?' on':''}" data-act="progview" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div></div>`;
+}
+// Maxes to carry into a new program: next cycle's if a review or retest already set
+// them, otherwise the current cycle's.
+function carryMaxes(){
+  const wk=weekOf(realToday()); let c=1;
+  if(wk) c=wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle||1);
+  const cur=maxFor(c), nx=maxFor(c+1), out={};
+  for(const k of LK){const pick=nx[k]&&nx[k].src==='set'?nx[k]:cur[k]; if(pick) out[k]=pick.v}
+  return out;
+}
+function programsCard(){
+  if(viewing) return '';
+  const list=archiveList(), cm=carryMaxes();
+  let h=`<div class="card"><h2>Programs</h2><div class="grid2"><label class="f">Current program<input type="text" id="p-pname" data-pbind="programName" value="${esc(plan.programName||'')}" placeholder="${esc(progName())}"></label><label class="f">Started<input type="text" value="${fmtLong(plan.startMonday)}" disabled></label></div>`;
+  if(list.length) h+=`<div class="stack small">${list.map(p=>`<div class="row between"><span><b>${esc(p.name)}</b> <span class="muted">${fmtD(p.startMonday)}–${fmtD(p.end)}</span></span><button class="btn sm" data-act="progview" data-id="${p.id}">View</button></div>`).join('')}</div>`;
+  if(!newProg) h+=`<div><button class="btn" data-act="prognew">Start a new program…</button></div>`;
+  else {
+    const carried=activeLifts().filter(k=>cm[k]!=null).map(k=>esc(liftName(k))+' '+(isBW(k)?'+':'')+n(cm[k])).join(' · ')||'no maxes yet';
+    h+=`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">
+    <div class="grid2"><label class="f">New program name<input type="text" id="np-name" data-np="name" value="${esc(newProg.name)}"></label><label class="f">Starts (week of)<input type="date" id="np-start" data-np="start" value="${newProg.start}"></label></div>
+    <label class="check"><input type="radio" name="np-mode" id="np-carry" data-np="mode" value="carry" ${newProg.mode==='carry'?'checked':''}> <span>Carry my maxes forward <span class="small muted">(${carried})</span></span></label>
+    <label class="check"><input type="radio" name="np-mode" id="np-bridge" data-np="mode" value="bridge" ${newProg.mode==='bridge'?'checked':''}> <span>Start with a bridge week and re-test <span class="small muted">(your current maxes show on test days for reference)</span></span></label>
+    <p class="small muted" style="margin:0">${esc(progName())} will be archived. Its calendar, maxes, reviews and every logged session stay viewable here and from History, Status and Plan. Your settings (Lift 3, accessories, rest times, conditioning, wave and deload rules) carry over.</p>
+    ${newProg.err?`<div class="banner warn"><div class="small">${esc(newProg.err)}</div></div>`:''}
+    <div class="row"><button class="btn primary" data-act="progstart">${newProg.arm?'Tap again to confirm':'Archive and start '+esc(newProg.name||'new program')}</button><button class="btn ghost" data-act="progcancel">Cancel</button></div></div>`;
+  }
+  return h+`</div>`;
+}
+function startProgram(){
+  const np=newProg, start=mondayOf(np.start||realToday());
+  if(start<=plan.startMonday){np.err='The new program has to start after '+fmtLong(plan.startMonday)+'.';np.arm=false;render();return}
+  if(start<mondayOf(realToday())){np.err='Pick this week or a later one. Past weeks belong to the current program.';np.arm=false;render();return}
+  const end=addDays(start,-1), oldName=progName();
+  // Stamp format and activity on this program's conditioning entries so they keep
+  // their meaning once the plan that implied them is archived.
+  for(const [d,L] of Object.entries(logs)) if(d>=plan.startMonday&&d<=end&&L.hic){const f=effFmt(d);if(f&&!L.hic.format)setLog(d,'hic.format',f);if(!L.hic.mod)setLog(d,'hic.mod',modOf(d))}
+  let id='p-'+plan.startMonday.replace(/-/g,''); while(programs[id]) id+='b';
+  programs[id]={id,name:oldName,startMonday:plan.startMonday,end,archivedAt:realToday(),plan:clone(plan)};
+  queueWrite('programs/'+id,()=>programs[id]);
+  const cm=carryMaxes(), keep={}; for(const k of PREF_KEYS) if(plan[k]!==undefined) keep[k]=clone(plan[k]);
+  const next=deepMerge(clone(DEF),keep);
+  next.startMonday=start; next.programName=np.name||('Block '+((plan.programSeq||1)+1)); next.programSeq=(plan.programSeq||1)+1;
+  if(np.mode==='carry'){next.bridge=false;next.maxes=Object.assign({},clone(DEF.maxes),cm)}
+  else {next.bridge=true;next.maxes=clone(DEF.maxes);next.prevMaxes=cm}
+  plan=next; planV++; queueWrite('plan/main',()=>plan);
+  newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
+}
+
 function vPlan(){
   const t=todayStr(), ti=Math.max(0,idxOf(t)), list=weeks(ti+planShow+2), from=Math.max(0,ti-4), to=ti+planShow;
   let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="small muted" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
@@ -1604,13 +1730,13 @@ function vHistory(){
   const list=weeks(), range={};
   for(const w of list){ if(w.kind==='cycle'){ (range[w.cycle]||(range[w.cycle]={a:w.monday,b:w.monday})).b=w.monday } }
   let h=`<div class="card"><h2>Maxes by cycle</h2><p class="small muted" style="margin:0">Type a number to override a cycle. Blank cells follow the previous cycle plus the increment. Later cycles update automatically.</p><div class="tbl-wrap"><table><thead><tr><th>Cycle</th><th>Dates</th>${activeLifts().map(k=>`<th class="n">${esc(liftName(k))}</th>`).join('')}</tr></thead><tbody>`;
-  for(let c=1;c<=curC+2;c++){
+  for(let c=1;c<=curC+(viewing?0:2);c++){
     const m=maxFor(c), r=range[c], o=plan.cycleMaxes[c]||{};
     h+=`<tr class="${c===curC?'cur':c<curC?'past':''}"><td><b>${c}</b></td><td class="small mono">${r?fmtD(r.a)+'–'+fmtD(addDays(r.b,4)):''}</td>${activeLifts().map(k=>c===1&&(o[k]==null||o[k]==='')?`<td class="n"><span title="Set in Setup">${m[k]?n(m[k].v):'—'}</span></td>`:`<td class="n"><input type="number" inputmode="decimal" step="any" id="cm-${c}-${k}" data-cmax="${c}.${k}" value="${o[k]??''}" placeholder="${m[k]?n(m[k].v):''}" aria-label="Cycle ${c} ${esc(liftName(k))}"></td>`).join('')}</tr>`;
   }
   h+=`</tbody></table></div></div>`;
   // Recovery
-  const cis=Object.entries(logs).filter(([d,L])=>L.checkin&&readiness(L.checkin)!=null).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,14);
+  const cis=progLogs().filter(([d,L])=>L.checkin&&readiness(L.checkin)!=null).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,14);
   h+=`<div class="card"><h2>Recovery</h2>`;
   if(!cis.length) h+=`<div class="empty">No check-ins yet. Answer the daily check-in on the Today tab and your readiness trend shows up here.</div>`;
   else{
@@ -1632,12 +1758,12 @@ function vHistory(){
   }
   h+=`</div>`;
   // Jumps
-  const jm=Object.entries(logs).filter(([d,L])=>(L.plyo&&(L.plyo.best||L.plyo.mark))||(L.jumps&&(L.jumps.broad||L.jumps.vertical))).sort((a,b)=>a[0]<b[0]?1:-1);
+  const jm=progLogs().filter(([d,L])=>(L.plyo&&(L.plyo.best||L.plyo.mark))||(L.jumps&&(L.jumps.broad||L.jumps.vertical))).sort((a,b)=>a[0]<b[0]?1:-1);
   h+=`<div class="card"><h2>Jumps</h2>`;
   h+=jm.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Broad</th><th class="n">Vertical</th><th class="n">Triple</th></tr></thead><tbody>${jm.slice(0,15).map(([d,L])=>`<tr><td>${fmtD(d,true)}</td><td class="n">${n((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark)))}</td><td class="n">${n(L.jumps&&L.jumps.vertical)}</td><td class="n">${n(L.jumps&&L.jumps.triple)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No jumps logged yet. Thursday's first broad jump and test-week jumps land here.</div>`;
   h+=`</div>`;
   // Sessions
-  const ss=Object.entries(logs).filter(([d,L])=>L.done||L.notes).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,20);
+  const ss=progLogs().filter(([d,L])=>L.done||L.notes).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,20);
   h+=`<div class="card"><h2>Recent sessions</h2>`+(ss.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Session</th><th class="n">RPE</th><th>Notes</th></tr></thead><tbody>${ss.map(([d,L])=>`<tr><td><button class="btn sm ghost" data-act="open" data-date="${d}">${fmtD(d,true)}</button></td><td>${esc(dayPlan(d).short||'')}</td><td class="n">${L.rpe||'—'}</td><td class="small">${esc((L.notes||'').slice(0,80))}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">Sessions you mark done appear here.</div>`)+`</div>`;
   return h;
 }
@@ -1647,6 +1773,7 @@ function vSetup(){
   let h=`<div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
+  h+=programsCard();
   h+=`<div class="card"><h2>Program</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
   <div class="grid4"><label class="f">Units<select id="p-unit" data-pbind="unit"><option value="lb"${u()==='lb'?' selected':''}>lb</option><option value="kg"${u()==='kg'?' selected':''}>kg</option></select></label><label class="f">Bar weight${pIn('bar',plan.bar)}</label><label class="f">Bodyweight${pIn('bodyweight',plan.bodyweight)}</label><label class="f">Percent of<select id="p-basis" data-pbind="basis"><option value="1rm"${plan.basis!=='tm'?' selected':''}>True 1RM</option><option value="tm"${plan.basis==='tm'?' selected':''}>Training max</option></select></label></div>
@@ -1671,7 +1798,7 @@ function vSetup(){
   {
     const fmtAt=t=>{if(!t)return '';const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})};
     const status=!APP_VER||APP_VER==='dev'?'Version unknown in this preview.':!upd.latest?(upd.err||'Not checked yet.'):updateAvailable()?'A newer version is available.':'You’re on the latest version.';
-    h+=`<div class="card"><h2>About this app</h2><dl class="kv"><dt>This app</dt><dd class="mono">${esc((APP_VER||'—').slice(0,8))}</dd><dt>Latest</dt><dd><span class="mono">${esc((upd.latest||'—').slice(0,8))}</span>${upd.at?` <span class="small muted">· deployed ${esc(fmtAt(upd.at))}${upd.tag?' · '+esc(upd.tag):''}</span>`:''}</dd></dl>
+    h+=`<div class="card"><h2>About this app</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'—')} <a class="small" href="/cdn-cgi/access/logout">Sign out</a></dd><dt>This app</dt><dd class="mono">${esc((APP_VER||'—').slice(0,8))}</dd><dt>Latest</dt><dd><span class="mono">${esc((upd.latest||'—').slice(0,8))}</span>${upd.at?` <span class="small muted">· deployed ${esc(fmtAt(upd.at))}${upd.tag?' · '+esc(upd.tag):''}</span>`:''}</dd></dl>
     <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
     <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div></div>`;
   }
@@ -1723,6 +1850,8 @@ function vGuide(){
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
+  if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
   if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); }
   else if(t.dataset.pbind){
     let v=val(t);
@@ -1744,10 +1873,17 @@ document.addEventListener('input',e=>{
 })();
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.dataset&&d.dataset.px){d.open?openPx.add(d.dataset.px):openPx.delete(d.dataset.px);return}if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
-document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday) render(); });
+document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.np) render(); });
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)});
 document.getElementById('main').addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
+  if(a==='progview'){enterArchive(b.dataset.id);return}
+  if(a==='progexit'){exitArchive();return}
+  // an archived program is read-only: only navigation works
+  if(viewing&&!['go','open','view','more','updcheck','updnow','rvsel'].includes(a)){readOnly();return}
+  if(a==='prognew'){newProg={name:'Block '+((plan.programSeq||1)+1),start:addDays(mondayOf(realToday()),7),mode:'carry'};render();return}
+  if(a==='progcancel'){newProg=null;render();return}
+  if(a==='progstart'){if(!newProg.arm){newProg.arm=true;newProg.err=null;render();setTimeout(()=>{if(newProg&&newProg.arm){newProg.arm=false;render()}},4000);return} startProgram();return}
   if(a==='go'){sel=b.dataset.date;openWarm.clear();openPx.clear();render();return}
   if(a==='open'){sel=b.dataset.date;view='today';render();window.scrollTo(0,0);return}
   if(a==='view'){view=b.dataset.view;render();window.scrollTo(0,0);return}
