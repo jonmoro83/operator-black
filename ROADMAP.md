@@ -143,6 +143,11 @@ Decided against for now.
   session, prescribed vs working, warm-ups, tests with est. 1RM), across every
   program, via the share sheet on iPhone.
 
+**Deload choice**
+- Setup: scheduled deload as a clear choice (As needed · After every cycle · After
+  every 2 cycles) with a preview of the next deload and retest dates. "As needed" plus
+  retest every 3 cycles matches the 18-week program summary (retest week of 2/8/2027).
+
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
 - End-of-cycle review with suggested max changes, applied on approval.
