@@ -7,6 +7,9 @@ Update it as things ship. Last updated 2026-09-29.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
+- **Login page branding:** `public/brand/logo.png` is deployed. It shows on the Access
+  login page once Zero Trust has an application for `operatorblack.com/brand` with a
+  **Bypass → Everyone** policy, and the logo URL is set under Custom Pages → Login page.
 - **Adding a person:** Zero Trust → Access → Applications → Operator Black → policy →
   add their email. Nothing else is needed; they start at their own bridge week.
 - **Existing data is claimed on your first sign-in** after the per-user change (from
