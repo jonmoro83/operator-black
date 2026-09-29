@@ -31,11 +31,22 @@ id = "999b995f858d491698b2218e3c18e29d"
 [triggers]
 crons = ["0 9 * * SUN"]  # Sundays 09:00 UTC
 
+# Rest alerts: a Durable Object per user holds push subscriptions and the pending alarm.
+[[durable_objects.bindings]]
+name = "ALERTS"
+class_name = "RestAlerts"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RestAlerts"]
+
 [vars]
 # From Zero Trust → Settings (team domain) and the Access application's
 # Overview tab (Application Audience tag). Both are public identifiers, not secrets.
 ACCESS_TEAM_DOMAIN = "jon-morozowski.cloudflareaccess.com"
 ACCESS_AUD = "75eca489f609e8c2c9a376b294cf4db656d4f1c2c0f33ef6eb5e4503951636e7"
+# VAPID "sub" claim for push. The private key is the VAPID_JWK secret.
+VAPID_SUBJECT = "https://operatorblack.com"
 # Optional extra lock (comma-separated emails allowed through, checked after Access):
 # set it as a secret so your email stays out of the repo —
 #   npx wrangler secret put ALLOWED_EMAILS

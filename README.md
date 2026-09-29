@@ -12,7 +12,9 @@ Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
 ```
 public/index.html           the whole app (vanilla JS, no build step)
 src/worker.js               entry: /api/* → API, everything else → public/
-src/api.js                  API: /api/state, /api/doc/<path>, /api/export
+src/api.js                  API: state, docs, export, backups, push
+src/alerts.js               RestAlerts Durable Object: push subscriptions + rest alarm
+src/webpush.js              Web Push encryption (RFC 8291) and VAPID signing (RFC 8292)
 migrations/0001_init.sql    D1 schema (one JSON document per row)
 wrangler.toml               Worker, static assets, D1, custom domain, Access config
 ```
@@ -60,6 +62,15 @@ Cloudflare Access sessions expire (Zero Trust → Access → Applications →
 Operator Black → session duration; 1 month is the max). When one expires, the app
 still opens from cache, the status line reads "Signed out · tap to sign in,"
 and tapping it goes to the login page.
+
+## Rest alerts
+
+Setup → Rest alerts subscribes the device to Web Push (home-screen app on iOS 16.4+).
+Each rest schedules a Durable Object alarm for its end time; skip, ±30s and new sets
+reschedule or cancel it, and the alarm pushes a notification to every subscribed
+device. The VAPID private key is the `VAPID_JWK` Worker secret
+(`npx wrangler secret put VAPID_JWK`; a local one lives in `.dev.vars`). Rotating it
+means every device has to turn alerts on again.
 
 ## History is locked
 

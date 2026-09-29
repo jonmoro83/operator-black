@@ -11,8 +11,9 @@ Known gaps and things to verify. Fix or close these before starting new features
   run. Deploys go out with `npx wrangler deploy`. Either reconnect the repo under
   Workers & Pages → operator-black → Settings → Build, or disconnect it.
 - **iPhone testing pending:** home-screen install, offline launch, Access login inside
-  the installed app, the rest-timer beep (ringer switch, backgrounding), and whether
-  the screen stays awake during rest.
+  the installed app, the rest-timer beep (ringer switch, backgrounding), whether the
+  screen stays awake during rest, and **rest alerts arriving on the lock screen**
+  (Setup → Rest alerts → Send a test).
 - **Access session length.** Set the Operator Black application's session duration to
   1 month so the phone doesn't ask for a login code every day.
 - **Confirm the first live backup.** The KV store is empty until the first Sunday run
@@ -28,8 +29,12 @@ Known gaps and things to verify. Fix or close these before starting new features
   - Wave weeks 5–6 (sources disagree: 3×5 @ 85% / 3×2 @ 95% vs 3×3 @ 85% / 3×1 @ 95%).
   - The deload prescription (2×5 @ 60%), bridge/retest day layout, and deadlift and
     test ramps are app choices, not from the book.
-  - Plyo exercise picks are placeholders. Replace them with the Plyometric Program PDF
-    library.
+- **Plyo PDF is a 10-week block with a week-10 jump retest.** The app runs its three
+  phases back to back (9-week rotation) and tests jumps in the program's retest weeks
+  instead, as the 18-week summary does.
+- **Rest alerts fire even with the app open**, so you get the in-app beep and a
+  notification together. iOS expects every push to show a notification, so this is
+  deliberate.
 
 ## Next up
 
@@ -45,16 +50,10 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 Not committed to. Roughly in order of how useful they'd be.
 
-- **AI coach (Claude API):** a weekly summary of training, readiness and trends, and
-  answers to questions like "why is my squat stalling?" Needs an Anthropic API key,
-  about a few cents a week.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
-- **Rest-timer alerts in the background** via Web Push (iOS 16.4+ installed web apps).
-  Needs a push subscription and a scheduled sender in the Worker.
 - **Per-set effort:** RPE or "fast/slow" per working set, feeding the cycle review.
 - **More Status charts:** weekly conditioning minutes, an adherence calendar heatmap,
   estimated 1RM from logged top sets.
-- **Plyo library in the app:** setup, cues and common errors for each jump, from the PDF.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
 - **CSV export** of sessions for spreadsheets. (Apple Health can't be read from a web
@@ -62,6 +61,13 @@ Not committed to. Roughly in order of how useful they'd be.
 - **Split `index.html` into modules** with a small build step once it gets harder to
   change safely. It's ~1,400 lines today.
 - **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
+
+## Parked
+
+Decided against for now.
+
+- **AI coach (Claude API):** weekly summary and Q&A over the training log. Not feasible
+  right now because of API cost. Revisit if that changes.
 
 ## Shipped
 
@@ -96,6 +102,13 @@ Not committed to. Roughly in order of how useful they'd be.
 - Editable accessory lists (arms on Monday).
 - Conditioning activities beyond the Echo bike, each with its own measure;
   like-for-like progress only.
+
+**Plyos and alerts**
+- Plyo program and exercise library from Plyometric_Program_Thursday.pdf: per-phase
+  sessions with set ticks and program rest times, inline library entries, pull-back
+  check, full library in the Guide.
+- Background rest alerts via Web Push: Durable Object alarm at the rest's end time,
+  rescheduled on ±30s/skip/new set, test button in Setup.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.

@@ -1195,12 +1195,61 @@ async function holdScreen(on){
     else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
   }catch(e){wakeLock=null}
 }
+/* ---------- rest alerts (push) ---------- */
+// When alerts are on for this device, every rest schedules a push for its end time on
+// the server, so the phone is notified even when locked or in another app.
+const alerts={msg:null,busy:false};
+function alertsSupport(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+    const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+    return ios&&!navigator.standalone?'install':'unsupported';
+  }
+  if(Notification.permission==='denied') return 'denied';
+  return 'ok';
+}
+function alertsOn(){return !!LS.get('ob.push')&&window.Notification&&Notification.permission==='granted'}
+function b64uBytes(str){const b=str.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(str.length/4)*4,'=');return Uint8Array.from(atob(b),c=>c.charCodeAt(0))}
+async function enableAlerts(){
+  alerts.busy=true; alerts.msg=null; render();
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){alerts.msg=perm==='denied'?'Notifications are blocked. Turn them on in iOS Settings → Notifications → Operator.':'Notifications weren’t allowed. Tap Turn on again to retry.';return}
+    const reg=await navigator.serviceWorker.ready, {key}=await api('GET','/push/key');
+    let sub=await reg.pushManager.getSubscription();
+    try{ if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)}) }
+    catch(e){ if(sub) await sub.unsubscribe(); sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)}) }
+    await api('POST','/push/subscribe',{subscription:sub.toJSON()});
+    LS.set('ob.push',sub.endpoint); alerts.msg='Rest alerts are on for this device.';
+  }catch(e){ alerts.msg=e&&e.status?'The server refused the subscription ('+e.status+'). Try again.':'Couldn’t turn on alerts. Check your connection and try again.' }
+  finally{ alerts.busy=false; render() }
+}
+async function disableAlerts(){
+  alerts.busy=true; render();
+  try{ const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription(); if(sub){ await api('POST','/push/unsubscribe',{endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe() } }catch(e){}
+  LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; render();
+}
+async function testAlert(){
+  try{ await api('POST','/push/schedule',{at:Date.now()+8000,title:'Test alert',body:'Rest alerts work. This is what the end of a rest looks like.'}); alerts.msg='Test alert coming in 8 seconds. Lock your phone now to see it on the lock screen.' }
+  catch(e){ alerts.msg='Couldn’t send the test. Check your connection.' }
+  render();
+}
+let pushTimer=null;
+function syncPush(){
+  if(!alertsOn()) return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(()=>{
+    if(rest&&!rest.done){
+      const body=rest.next?'Go: '+rest.next:rest.lbl.replace(/^Rest · /,'')+' rest is over.';
+      api('POST','/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body}).catch(()=>{});
+    } else api('POST','/push/cancel').catch(()=>{});
+  },300);
+}
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
-  LS.set('ob.rest',rest); holdScreen(true); showRest();
+  LS.set('ob.rest',rest); holdScreen(true); showRest(); syncPush();
 }
-function stopRest(){rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;holdScreen(false);showRest()}
+function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;holdScreen(false);showRest();if(was)syncPush()}
 function showRest(){
   const el=document.getElementById('rest');
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
@@ -1227,7 +1276,7 @@ document.getElementById('rest').addEventListener('click',e=>{
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
-  LS.set('ob.rest',rest); holdScreen(true); tickRest();
+  LS.set('ob.rest',rest); holdScreen(true); tickRest(); syncPush();
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ if(!rest.done) holdScreen(true); tickRest() } });
 function nextAfterSet(k,sets){
@@ -1419,6 +1468,16 @@ function vSetup(){
   ${on.length>1?`<div class="grid2"><label class="f">Rotation<select id="l3-mode" data-pbind="l3.mode">${[['same','Same every session'],['alt-day','Alternate Monday ↔ Wednesday'],['alt-week','Alternate each week'],['alt-cycle','Alternate each cycle']].map(([v,l])=>`<option value="${v}"${L3.mode===v?' selected':''}>${l}</option>`).join('')}</select></label>${L3.mode==='same'||!L3.mode?`<label class="f">Default<select id="l3-primary" data-pbind="l3.primary">${on.map(k=>`<option value="${k}"${L3.primary===k?' selected':''}>${esc(liftName(k))}</option>`).join('')}</select></label>`:''}</div>`:''}
   ${on.includes('pull')?`<div class="grid2"><label class="f">Pulldown name<input type="text" id="p-l3" data-pbind="lift3Name" value="${esc(plan.lift3Name)}"></label><label class="f">Machine and pin setting<input type="text" id="p-mn" data-pbind="machineNote" value="${esc(plan.machineNote)}" placeholder="e.g. Hammer Strength pulldown, seat 4"></label></div>`:''}
   ${on.some(k=>plan.maxes[k]==null||plan.maxes[k]==='')?`<div class="banner warn"><div class="small">Add a 1RM above for ${on.filter(k=>plan.maxes[k]==null||plan.maxes[k]==='').map(liftName).join(' and ')}. Until then its sessions show no working weight.</div></div>`:''}</div>`;
+  {
+    const sup=alertsSupport(), on=alertsOn();
+    h+=`<div class="card"><div class="lift-h"><h2>Rest alerts</h2>${on?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div><p class="small muted" style="margin:0">A notification when each rest ends, even with the phone locked or another app open. Set per device.</p>`;
+    if(sup==='install') h+=`<div class="banner info"><div class="small">On iPhone, alerts only work in the home-screen app. In Safari tap <b>Share → Add to Home Screen</b>, open Operator from there, then turn alerts on. Needs iOS 16.4 or later.</div></div>`;
+    else if(sup==='unsupported') h+=`<div class="small muted">This browser can’t receive push notifications.</div>`;
+    else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
+    else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
+    if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
+    h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
+  }
   const accs=plan.acc||{};
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
@@ -1518,6 +1577,9 @@ document.getElementById('main').addEventListener('click',e=>{
       mutatePlan(p=>{p.cycleMaxes[c+1]=Object.assign({},p.cycleMaxes[c+1]||{},chosen);p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),set:chosen}})});
     } else mutatePlan(p=>{p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),dismissed:true}})});
     reviewSel={}; return}
+  if(a==='alerton'){enableAlerts();return}
+  if(a==='alertoff'){disableAlerts();return}
+  if(a==='alerttest'){testAlert();return}
   if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
   if(a==='mod'){setLog(sel,'hic.mod',b.dataset.v);render();return}
   if(a==='l3swap'){const v=b.dataset.v;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
@@ -1535,7 +1597,7 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
-    if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest()}
+    if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}
   if(a==='done'){setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}

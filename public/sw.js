@@ -6,7 +6,7 @@
 // - /api is never cached here. The page keeps its own copy of your data and a queue
 //   of unsent changes in localStorage.
 
-const VERSION = "ob-v1";
+const VERSION = "ob-v2";
 const SHELL = ["/", "/icon.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
@@ -94,3 +94,35 @@ function withTimeout(promise, ms) {
     promise.then((v) => (clearTimeout(t), resolve(v)), (e) => (clearTimeout(t), reject(e)));
   });
 }
+
+// Rest alerts: the server pushes {title, body} when a rest ends.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: "Rest done" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Rest done", {
+      body: data.body || "",
+      tag: "rest",
+      renotify: true,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      vibrate: [200, 100, 200],
+      data: { url: "/" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    (async () => {
+      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const w of wins) if ("focus" in w) return w.focus();
+      return self.clients.openWindow("/");
+    })()
+  );
+});

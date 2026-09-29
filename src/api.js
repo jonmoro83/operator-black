@@ -7,10 +7,15 @@
 //   GET  /api/backups          → list automatic backups (newest first)
 //   GET  /api/backups/<name>   → download one backup
 //   POST /api/backups          → take a backup now
+//   GET  /api/push/key         → VAPID public key for pushManager.subscribe
+//   GET  /api/push/status      → devices with alerts on, pending alarm time
+//   POST /api/push/subscribe | unsubscribe | schedule | cancel | test
 //
 // Every request must carry a valid Cloudflare Access JWT (Cf-Access-Jwt-Assertion).
 // Set ACCESS_TEAM_DOMAIN and ACCESS_AUD in wrangler.toml. For local dev only,
 // DEV_ALLOW_ANON=1 in .dev.vars skips the check.
+
+import { vapidPublicKey } from "./webpush.js";
 
 const DOC_PATH = /^(plan\/main|logs\/\d{4}-\d{2}-\d{2})$/;
 const MAX_BYTES = 256 * 1024;
@@ -31,6 +36,17 @@ export async function handleApi(request, env) {
       "cache-control": "no-store",
       "content-disposition": `attachment; filename="operator-black-${day}.json"`,
     });
+  }
+
+  if (route === "push/key" && request.method === "GET") {
+    return json({ key: vapidPublicKey(env) });
+  }
+  if (route.startsWith("push/")) {
+    const op = route.slice(5);
+    const allowed = { status: "GET", subscribe: "POST", unsubscribe: "POST", schedule: "POST", cancel: "POST", test: "POST" };
+    if (allowed[op] !== request.method) return json({ error: "Not found." }, 404);
+    const stub = env.ALERTS.get(env.ALERTS.idFromName("main"));
+    return stub.fetch(new Request(`https://alerts/${op}`, { method: request.method, body: request.method === "POST" ? await request.text() : undefined }));
   }
 
   if (route === "backups" && request.method === "GET") {
