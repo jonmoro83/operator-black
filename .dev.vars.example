@@ -1,0 +1,2 @@
+# Copy to .dev.vars for local development (npm run dev). Never deploy this.
+DEV_ALLOW_ANON=1

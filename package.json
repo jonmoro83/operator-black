@@ -1,0 +1,14 @@
+{
+  "name": "operator-black",
+  "private": true,
+  "description": "Operator strength + Black conditioning training log",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "db:migrate:local": "wrangler d1 migrations apply operator-black --local",
+    "db:migrate:remote": "wrangler d1 migrations apply operator-black --remote",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^4.59.1"
+  }
+}
