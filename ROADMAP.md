@@ -39,6 +39,20 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
+In progress (started 2026-09-29):
+
+- **Welcome setup for new people:** guided first run (units, bodyweight, start date,
+  bridge week or known maxes, Lift 3, conditioning tool, deload cadence).
+- **Lifting session mode:** full-screen, one set at a time: big weight, plates, tap
+  Done, rest starts, next set; summary and RPE at the end.
+- **Visual plate loader + plate inventory:** drawn barbell in bumper colors; plate
+  math only uses the plates your gym has.
+- **Restore from backup:** restore any automatic backup or a downloaded file, with a
+  safety backup taken first.
+- **Spoken cues:** interval changes and rest ends read aloud.
+
+Later:
+
 - **Tune the end-of-cycle review after Cycle 1** (review due Fri 11/13/2026). Check
   whether the grinder / missed-set / RPE thresholds suggested sensible changes.
 - **Automated tests for the calculations:** schedule engine (rules, inserts, locked
@@ -50,6 +64,21 @@ Known gaps and things to verify. Fix or close these before starting new features
 ## Ideas
 
 Not committed to. Roughly in order of how useful they'd be.
+
+- **Move a session:** "move to tomorrow", shifting a day's session within the week with
+  a warning if two lifting days end up back to back.
+- **Guided warm-up:** the 12–15 min warm-up as a checklist with hold timers.
+- **PR board + celebration:** heaviest single, best calories per format, best broad
+  jump, most pull-ups, with a small "PR!" moment when one falls.
+- **Monday summary:** last week's sessions, PRs and readiness, plus what's coming.
+- **7-day bodyweight average:** trend and targets from a rolling average.
+- **Travel week:** swap barbell lifts for dumbbell/bodyweight versions for a week and
+  keep that week out of the cycle review.
+- **Launch screen on iPhone:** branded splash instead of a white flash.
+- **Theme switch:** Light / Dark / Auto and a high-contrast gym mode with bigger buttons.
+- **Small touches:** set-tick animation, session finish card, nicer empty states.
+- **Calendar feed:** the plan in iPhone Calendar with weights, auto-updating.
+- **Share with a partner or coach:** opt-in, read-only progress view.
 
 - **Standing triple jump in the plyo library:** hop, step, jump from a two-foot start;
   the PDF lists it as a test but has no library entry. Add an ⓘ entry to the jump-test
