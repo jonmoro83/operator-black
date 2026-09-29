@@ -179,6 +179,9 @@ Decided against for now.
   known 1RM/5RM maxes, conditioning tool, deload cadence); re-run from Setup.
 - Lifting session mode: full-screen, one set at a time with drawn plates, ramp and
   working rests on the same screen, ±weight, grinder, accessories, summary + RPE.
+- Session mode on test days (bridge 5RMs, retest singles): ramp to the target (or a
+  typed target when there's no max yet), log weight × reps with a live est. 1RM,
+  3+ min rest between lifts, max pull-ups, results summary.
 - Visual plate loader in bumper colors and a plate inventory; unloadable targets flagged
   with the nearest load.
 - Restore any backup or a downloaded file, with a time-stamped safety backup first.
