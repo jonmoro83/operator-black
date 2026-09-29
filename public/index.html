@@ -49,9 +49,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:1
 header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
 .hd{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:12px 0;display:flex;flex-direction:column;gap:10px}
 .brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.brand h1{margin:0;font-family:var(--f-display);font-stretch:125%;font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
+.brand h1{white-space:nowrap;flex-shrink:0;margin:0;font-family:var(--f-display);font-stretch:125%;font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
 .brand h1 span{color:var(--accent)}
-#status{font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+#status{font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
 #status.link{text-decoration:underline;cursor:pointer}
 #status.err{color:var(--red)}
 nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
@@ -302,6 +302,18 @@ const HIC={
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'}
 };
+// Activities for HIC/LISS days. Each logs the measure that makes sense for it:
+// [field, unit] for HIC and for LISS. Results only compare within one activity + format.
+const MOD={
+  echo:{name:'Echo bike',hic:['cal','cal'],liss:['cal','cal'],wu:'5 min easy spin, then 3 × 15 s at HIC pace with 45 s easy between.'},
+  rower:{name:'Rower',hic:['cal','cal'],liss:['dist','m'],wu:'5 min easy row, then 3 × 15 s at HIC pace with 45 s easy between.'},
+  ski:{name:'Ski erg',hic:['cal','cal'],liss:['dist','m'],wu:'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'},
+  run:{name:'Run / sprints',hic:['dist','m'],liss:['dist','mi'],wu:'5 min jog, leg swings, then 3–4 strides building up to HIC pace.',tip:'Running adds impact. Keep hard efforts smooth (about 90%) on MAP, threshold and long intervals, and save true sprints for anaerobic days. Hills are easier on the legs than flat sprints.'},
+  cycle:{name:'Cycling',hic:['watts','avg W'],liss:['dist','mi'],wu:'10 min easy spin, then 3 × 15 s at HIC pace.'},
+  ruck:{name:'Ruck',hic:['dist','mi'],liss:['dist','mi'],load:true,tip:'Build ruck load gradually, starting around 10–15% of bodyweight. Rucking loads the back and hips, so keep it easy before heavy squat or deadlift days.'},
+  swim:{name:'Swim',hic:['dist','yd'],liss:['dist','yd'],wu:'200 easy, then 4 × 25 building to HIC pace.'},
+  other:{name:'Other',hic:null,liss:null}
+};
 const PLYO=[
   {name:'Extensive',desc:'Bilateral, stick every landing',ex:[['Box jump, step down','4 × 5',20],['Broad jump, stick','4 × 5',20],['Lateral hurdle hop, stick','4 × 5',20]]},
   {name:'Unilateral + reactive',desc:'Single-leg work and quick ground contacts',ex:[['Single-leg box jump','3 × 4 / side',24],['Alternating bounds','4 × 6',24],['Lateral bound, stick','3 × 4 / side',24],['Hurdle hops, reactive','2 × 4',8]]},
@@ -326,6 +338,7 @@ const DEF={
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
+  cardio:{def:'echo'},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
 
@@ -454,9 +467,9 @@ function dayPlan(date){
     {t:'hic',fmt:'liss',short:'LISS',note:'Optional. Take it off if you feel flat.'},
     {t:'off',short:'Off'}][d];
   if(wk.kind==='test') return [
-    {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min conversational spin.'},
+    {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     {t:'off',short:'Easy',note:'Easy day. Mobility only: the warm-up hip and t-spine work.'},
-    {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min conversational spin.'},
+    {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     {t:'test',lifts:['squat','bench'],jumps:true,short:'Test'},
     {t:'off',short:'Off'},
     {t:'test',lifts:['dead',...l3On()],pullups:true,apply:true,short:'Test'},
@@ -467,7 +480,7 @@ function dayPlan(date){
     {t:'hic',fmt:'map',baseline:true,short:'HIC',note:'Baseline: 8 × 1 min. Record total calories.'},
     {t:'plyobase',short:'Jumps'},
     {t:'rm5',lifts:['dead',l3On()[0]],short:'5RM'},
-    l3On().length>1?{t:'rm5',lifts:l3On().slice(1),short:'5RM+Spin',note:'Test these first (two per day keeps the numbers honest), then a 30–40 min easy spin.'}:{t:'hic',fmt:'liss',short:'Spin',note:'30–40 min easy spin.'},
+    l3On().length>1?{t:'rm5',lifts:l3On().slice(1),short:'5RM+Spin',note:'Test these first (two per day keeps the numbers honest), then 30–40 min of easy cardio.'}:{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
     {t:'convert',short:'Maxes'}][d];
   return {t:'off',short:'Off',note:'Off week. Walk, sleep, eat. The plan resumes next Monday.'};
 }
@@ -488,6 +501,20 @@ function holidays(y){
 }
 function holidayOn(date){return holidays(+date.slice(0,4))[date]||null}
 function effFmt(date){const L=logs[date];const dp=dayPlan(date);return (L&&L.hic&&L.hic.format)||dp.fmt}
+function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
+// Sessions logged before activities existed have calories but no activity: they were on the Echo bike.
+function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
+function metricFor(mod,fmt){const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
+function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
+function hicSessions(){
+  const out=[];
+  for(const [d,L] of Object.entries(logs)){
+    if(!L.hic) continue; const f=effFmt(d); if(!f) continue;
+    const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
+    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
+  }
+  return out.sort((a,b)=>a.d<b.d?-1:1);
+}
 
 /* ---------------- persistence ---------------- */
 // One JSON document per path (plan/main, logs/YYYY-MM-DD), stored in D1 behind /api.
@@ -513,14 +540,14 @@ async function api(method,path,body){
   return r.status===204?null:r.json();
 }
 function errText(e){
-  if(e&&(e.status===401||e.status===403)) return 'Signed out. Tap here to sign in.';
-  if(e&&e.status===413) return 'That entry is too large to save.';
+  if(e&&(e.status===401||e.status===403)) return 'Signed out · tap to sign in';
+  if(e&&e.status===413) return 'Entry too large to save';
   const w=waitingCount();
-  if(e&&e.status) return 'Server error ('+e.status+'). Retrying…';
-  return 'Offline'+(w?' · '+w+' change'+(w>1?'s':'')+' waiting':'. Changes save when you reconnect.');
+  if(e&&e.status) return 'Server error '+e.status+' · retrying';
+  return 'Offline'+(w?' · '+w+' waiting':' · saved on phone');
 }
 function queueWrite(path,get){
-  if(!loaded){setStatus('Still loading. Wait a moment, then try again.',true);return}
+  if(!loaded){setStatus('Still loading…',true);return}
   const w=writers[path]||(writers[path]={});
   w.get=get;w.dirty=true;clearTimeout(w.timer);
   outbox[path]=clone(get()); saveOutbox(); saveCache();
@@ -585,7 +612,7 @@ async function connect(){
   }
   catch(e){
     if(e&&(e.status===401||e.status===403)) signedOut=true;
-    setStatus(loaded?errText(e):(signedOut?'Signed out. Tap here to sign in.':'Couldn’t load your log. Check your connection and reload.'),true);
+    setStatus(loaded?errText(e):(signedOut?'Signed out · tap to sign in':'Can’t reach server · reload'),true);
   }
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') connect() });
@@ -700,7 +727,7 @@ function sessionHtml(wk,dp){
   if(dp.t==='convert') return h+convertCard(wk)+footer(false);
   return h;
 }
-function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Echo bike easy, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
+function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
 function liftCard(wk,k,dp){
   const r=rx(wk,k), L=(lg(sel).lifts||{})[k]||{}, sets=L.sets||[];
   const isDead=k==='dead'&&wk.kind==='cycle';
@@ -791,10 +818,10 @@ function suggestions(date){
   }
   if(hicFmt&&hicFmt!=='liss'){
     const low={map:'8 rounds instead of 10',anaerobic:'6 rounds instead of 8',threshold:'3 rounds instead of 4',long:'4 rounds instead of 5'}[hicFmt];
-    const last=lastHic(hicFmt,date).last;
-    if(lv.k==='go') add('go','Push the conditioning',last?`Last ${HIC[hicFmt].name}: ${last.c} cal. Try to beat it by a few calories.`:`Go hard and record your calories as a baseline.`);
+    const hm=modOf(date), last=lastHic(hicFmt,hm,date).last;
+    if(lv.k==='go') add('go','Push the conditioning',last?`Last ${HIC[hicFmt].name} (${MOD[hm].name}): ${n(last.v)} ${last.u}. Try to beat it.`:`Go hard and record your result as a baseline.`);
     else if(lv.k==='care') add('care','Conditioning: low end of the range',`Do ${low}. Hold the same pace, just fewer rounds.`);
-    else add('stop','Swap today’s HIC to LISS','30–45 min conversational. Change the format in the bike card so your calorie history stays clean.');
+    else add('stop','Swap today’s HIC to LISS','30–45 min conversational. Change the format in the conditioning card so your history stays clean.');
   }
   if(dp.t==='plyohic'&&(lv.k==='stop'||c.soreness>=4)) add('care','Plyos: halve the contacts','Cut, don’t skip. Tick “halve the contacts” and drop depth jumps today. Stop the moment a jump comes up short.');
   if(dp.t==='test'||dp.t==='rm5'){
@@ -808,13 +835,13 @@ function suggestions(date){
   const recent=[];for(let i=0;i<7;i++){const d=addDays(date,-i),x=ci(d);if(x.sleepH!=null&&x.sleepH!=='')recent.push(+x.sleepH)}
   if(recent.length>=3){const avg=recent.reduce((a,b)=>a+b,0)/recent.length;if(avg<tgt-1) add('care',`Sleep averaging ${avg.toFixed(1)} h`,`That’s your biggest recovery lever. Set a fixed wake time, keep the room cool and dark, screens off 30 min before bed, and no HIC within 3 h of bedtime. Aim for ${tgt} h.`)}
   if(c.stress>=4) add('care','High stress counts as training load','Do the required sessions but drop anything optional: swap Saturday HIC to LISS and skip extra sets.');
-  if(c.soreness>=4&&(dp.t==='lift'||dp.t==='test')) add('care','Very sore','Add 5 minutes to the bike warm-up and extra hip work; soreness usually eases once warm. Sharp or joint pain is different: skip that lift.');
+  if(c.soreness>=4&&(dp.t==='lift'||dp.t==='test')) add('care','Very sore','Add 5 minutes to the cardio warm-up and extra hip work; soreness usually eases once warm. Sharp or joint pain is different: skip that lift.');
   // nutrition
   const pt=proteinTarget(date);
   if(c.protein==='no'||c.protein==='close') add('care','Protein',pt?`Aim for about ${pt} g today: 4 meals of ~${Math.round(pt/4/5)*5} g. Easy wins: Greek yogurt, eggs, chicken, lean beef, a whey shake.`:'Add your bodyweight (in Setup or below) to get a daily protein target.');
   const training=dp.t!=='off'&&dp.t!=='convert';
   if(c.fuel==='under'&&training) add('care','Fuel the session',`Under-eating shows up first in conditioning numbers. Eat carbs 2–3 h before training (rice, oats, potatoes, fruit)${plan.goal==='lose'?'. You can stay in a deficit, just put most of your carbs around training':''}.`);
-  if(c.water==='no') add('care','Hydrate','Start with 16–24 oz of water now, and add 16–24 oz for each hour of hard bike work. A pinch of salt helps on HIC days.');
+  if(c.water==='no') add('care','Hydrate','Start with 16–24 oz of water now, and add 16–24 oz for each hour of hard conditioning. A pinch of salt helps on HIC days.');
   if(c.alcohol==='lots') add('care','After a big night','Expect lower HIC numbers and don’t chase a PR. Extra water and a solid breakfast.');
   // trends
   let lowDays=0;for(let i=0;i<7;i++){const x=readiness(ci(addDays(date,-i)));if(x!=null&&x<55)lowDays++}
@@ -855,19 +882,28 @@ function accCard(wk,dp){
   const L=lg(sel).acc||[];
   return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>`).join('')}</div></div>`;
 }
-function lastHic(fmt,before){
+function lastHic(fmt,mod,before){
   let best=null,last=null;
-  for(const [d,L] of Object.entries(logs)){ if(d>=before||!L.hic||!L.hic.cal) continue; if(effFmt(d)!==fmt) continue;
-    if(!last||d>last.d) last={d,c:+L.hic.cal}; if(!best||+L.hic.cal>best.c) best={d,c:+L.hic.cal}; }
+  for(const x of hicSessions()){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
+    if(!last||x.d>last.d) last=x; if(!best||x.v>best.v) best=x; }
   return {best,last};
 }
 function hicCard(dp,note){
-  const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], hist=lastHic(f,sel);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Echo bike · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
+  const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f);
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
-  if(f!=='liss') h+=`<div class="small muted">Warm-up: 5 min easy spin, then 3 × 15 s at HIC pace with 45 s easy between.</div>`;
-  h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label><label class="f">${f==='liss'?'Minutes':'Total calories'}${numIn(f==='liss'?'hic.min':'hic.cal',f==='liss'?L.min:L.cal,'')}</label></div>`;
-  if(f!=='liss'){h+= hist.last?`<div class="small muted">Last ${H.name}: <span class="mono">${hist.last.c}</span> cal on ${fmtD(hist.last.d,true)} · Best <span class="mono">${hist.best.c}</span></div>`:`<div class="small muted">First logged ${H.name} session. Keep the format fixed so calories are comparable.</div>`}
+  h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
+  if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
+  if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
+  if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
+  h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
+  if(mod==='other') h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
+  if(f==='liss') h+=`<label class="f">Minutes${numIn('hic.min',L.min,'')}</label>`;
+  if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
+  if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
+  h+=`</div>`;
+  if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
+    h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hist.best.v)}</span></div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
   return h+`</div>`;
 }
 function plyoCard(wk,dp){
@@ -1060,13 +1096,22 @@ function vStatus(){
   }
   h+=`</div></div>`;
   // --- conditioning
-  h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Echo bike calories per session</span></div><div class="sm-grid">`;
-  for(const f of ['map','anaerobic','threshold','long']){
-    const xs=Object.entries(logs).filter(([d,L])=>L.hic&&L.hic.cal&&effFmt(d)===f).map(([d,L])=>({d,c:+L.hic.cal})).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
-    const best=xs.reduce((m,x)=>Math.max(m,x.c),0);
-    h+=`<div class="sm"><div class="sm-h"><b>${HIC[f].name}</b>${xs.length?`<span class="v">${best}<small>best</small></span>`:''}</div>${xs.length>=2?lineChart(xs.map(x=>({y:x.c,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${x.c} cal`})),{label:HIC[f].name+' calories',minStep:1}):`<div class="none">${xs.length?'One session logged. The trend appears after the second.':'No sessions logged yet.'}</div>`}</div>`;
+  {
+    const all=hicSessions(), hs=all.filter(x=>x.f!=='liss'&&x.v!=null), groups={};
+    for(const x of hs)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
+    const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,6);
+    const since=addDays(t,-27), mix={}; for(const x of all) if(x.d>=since) mix[x.mod]=(mix[x.mod]||0)+1;
+    h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Per session, by activity and format</span></div>`;
+    h+=Object.keys(mix).length?`<div class="row" style="gap:6px"><span class="small muted">Last 4 weeks:</span>${Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`<span class="chip">${MOD[m].name} · ${c}</span>`).join('')}</div>`:'';
+    if(!keys.length) h+=`<div class="sm"><div class="none">No HIC sessions logged yet. Results you log on HIC days show up here.</div></div>`;
+    else{
+      h+=`<div class="sm-grid">`;
+      for(const key of keys){const xs=groups[key].slice(-24),[m,f]=key.split('|'),best=xs.reduce((a,x)=>Math.max(a,x.v),0),un=xs[xs.length-1].u;
+        h+=`<div class="sm"><div class="sm-h"><b>${MOD[m].name} · ${HIC[f].name}</b><span class="v">${n(best)}<small>${esc(un)} best</small></span></div>${xs.length>=2?lineChart(xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:MOD[m].name+' '+HIC[f].name,minStep:1}):'<div class="none">One session logged. The trend appears after the second.</div>'}</div>`}
+      h+=`</div>`;
+    }
+    h+=`</div>`;
   }
-  h+=`</div></div>`;
   // --- body + recovery
   const bw=Object.entries(logs).filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-60);
   const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
@@ -1127,12 +1172,14 @@ function vHistory(){
   }
   h+=`</div>`;
   // HIC
-  const hic=Object.entries(logs).filter(([d,L])=>L.hic&&L.hic.cal).map(([d,L])=>({d,f:effFmt(d),c:+L.hic.cal})).sort((a,b)=>a.d<b.d?1:-1);
+  const hic=hicSessions().reverse();
   h+=`<div class="card"><h2>Conditioning</h2>`;
-  if(!hic.length) h+=`<div class="empty">No HIC sessions logged yet. Calories you enter on HIC days show up here, grouped by format.</div>`;
+  if(!hic.length) h+=`<div class="empty">No conditioning logged yet. Results you enter on HIC and LISS days show up here.</div>`;
   else{
-    h+=`<div class="grid4">${['map','anaerobic','threshold','long'].map(f=>{const xs=hic.filter(x=>x.f===f);const b=xs.reduce((m,x)=>Math.max(m,x.c),0);return `<div class="stack" style="gap:2px"><span class="small muted">${HIC[f].name}</span><span class="big" style="font-size:32px">${xs.length?b:'—'}</span><span class="small muted">${xs.length?'best · '+xs.length+' logged':'none yet'}</span></div>`}).join('')}</div>`;
-    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th class="n">Cal</th></tr></thead><tbody>${hic.slice(0,15).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td class="n">${x.c}</td></tr>`).join('')}</tbody></table></div>`;
+    const groups={};for(const x of hic) if(x.f!=='liss'&&x.v!=null)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
+    const top=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,4);
+    if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:32px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
+    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
   }
   h+=`</div>`;
   // Jumps
@@ -1164,6 +1211,7 @@ function vSetup(){
   ${on.some(k=>plan.maxes[k]==null||plan.maxes[k]==='')?`<div class="banner warn"><div class="small">Add a 1RM above for ${on.filter(k=>plan.maxes[k]==null||plan.maxes[k]==='').map(liftName).join(' and ')}. Until then its sessions show no working weight.</div></div>`:''}</div>`;
   const accs=plan.acc||{};
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
+  h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
   h+=`<div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${n(latestBw(todayStr()))} ${u()} bodyweight.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
   h+=`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p><div class="tbl-wrap"><table><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${plan.wave.map((v,i)=>`<tr><td><b>${i+1}</b></td><td class="n">${pIn('wave.'+i+'.s',v.s)}</td><td class="n">${pIn('wave.'+i+'.r',v.r)}</td><td class="n">${pIn('wave.'+i+'.p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`).join('')}</tbody></table></div></div>`;
@@ -1182,7 +1230,7 @@ function vGuide(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
-  <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Log calories for a fixed format. That's your progression marker.</li><li>Watch hip flexors and saddle position: five bike sessions a week compounds with squats and deadlifts.</li><li>Thursday plyos are your only impact loading. Keep them when busy.</li></ul></div>
+  <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul></div>
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Phases rotate every 3 training weeks: Extensive (~60 contacts) → Unilateral + reactive (~80) → Elastic with depth jumps (~90). Deload weeks use the extensive set at half volume.</p><ul class="tight"><li><b>Watch distance, not set count.</b> If any jump drops more than 5% off your first broad jump, the session is over.</li><li><b>Every rep maximal or near it.</b> If you're breathing hard, you're doing conditioning.</li><li><b>Cut, don't skip.</b> After a hard lifting week, halve the contacts.</li></ul><p class="small muted">Exercise picks in the app are suggestions. Your Plyometric Program PDF has the full library with cues.</p></div>
   <div class="card guide"><h3>Accessories</h3><ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3><p>Deload weeks drop to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}% (deadlift 1 set), swap all HIC to LISS, halve plyos and drop accessories. Retest weeks take three easy days, then heavy singles split across Thursday (squat, bench, jumps) and Saturday (deadlift, Lift 3, max pull-ups). Saturday's card feeds results into the next cycle.</p><p>Need a deload sooner? Add one from the Plan tab, or from the warning on Today after repeated hard sessions.</p></div>
@@ -1193,7 +1241,7 @@ function vGuide(){
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.bind) setLog(sel,t.dataset.bind,val(t));
+  if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); }
   else if(t.dataset.pbind){
     let v=val(t);
     if(t.dataset.pbind==='startMonday'){ if(!v) return; v=mondayOf(v); }
@@ -1234,6 +1282,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
     if(arr[i]&&sel===todayStr()){unlockAudio();const nx=nextAfterSet(k,arr);if(nx!==undefined)startRest(k,nx);else stopRest()}
     render();return}
+  if(a==='mod'){setLog(sel,'hic.mod',b.dataset.v);render();return}
   if(a==='l3swap'){const v=b.dataset.v;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest()}

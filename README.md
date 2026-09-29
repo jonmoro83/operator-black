@@ -56,7 +56,7 @@ the manifest.
 
 Cloudflare Access sessions expire (Zero Trust → Access → Applications →
 Operator Black → session duration; 1 month is the max). When one expires, the app
-still opens from cache, the status line reads "Signed out. Tap here to sign in,"
+still opens from cache, the status line reads "Signed out · tap to sign in,"
 and tapping it goes to the login page.
 
 ## Backups
