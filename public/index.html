@@ -105,6 +105,43 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 .plates{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
 .ramp{display:flex;flex-wrap:wrap;gap:4px 6px;font-family:var(--f-mono);font-size:13px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
+/* status dashboard */
+.cyc{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.cyc div{border-radius:6px;padding:6px 4px;text-align:center;font-size:11.5px;font-weight:700;border:2px solid transparent;display:flex;flex-direction:column;gap:1px}
+.cyc div small{font-weight:500;font-family:var(--f-mono);font-size:10.5px}
+.cyc .past{opacity:.55}
+.cyc .now{border-color:var(--ink)}
+.miles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.miles{grid-template-columns:minmax(0,1fr)}}
+.mile{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mile .big{font-size:34px}
+.mile .l{font-size:12px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
+.wkdots{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.wkdots div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted)}
+.wkdots i{font-style:normal;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;border:2px solid var(--line);color:var(--muted)}
+.wkdots i.done{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.wkdots i.missed{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.wkdots i.today{border-color:var(--accent);color:var(--accent)}
+.wkdots i.rest{border-style:dashed;opacity:.6}
+.sm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media (min-width:620px){.sm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sm{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sm-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sm-h b{font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.sm-h .v{font-family:var(--f-display);font-stretch:70%;font-weight:850;font-size:26px;font-variant-numeric:tabular-nums}
+.sm-h .v small{font-size:13px;color:var(--muted);font-stretch:100%;font-weight:600;margin-left:3px}
+.sm svg{width:100%;height:auto;display:block;overflow:visible}
+.sm .none{font-size:13px;color:var(--muted);padding:18px 0;border-top:1px dashed var(--line)}
+.ch-grid{stroke:var(--line);stroke-width:1}
+.ch-ax{fill:var(--muted);font-family:var(--f-mono);font-size:10px}
+.ch-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ch-area{fill:var(--accent);opacity:.08}
+.ch-pt{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.ch-pt.hollow{fill:var(--surface);stroke:var(--accent);stroke-dasharray:2 2}
+.ch-end{fill:var(--ink);font-family:var(--f-mono);font-size:11px;font-weight:600}
+.ch-hit{fill:transparent;cursor:pointer}
+.ch-hit:focus-visible{outline:none;stroke:var(--accent);stroke-width:2}
+#tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;font-family:var(--f-mono);padding:5px 8px;border-radius:6px;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px))}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .segb{all:unset;cursor:pointer;padding:7px 12px;border-radius:8px;border:1px solid var(--line);font-size:14px;font-weight:600;background:var(--bg);min-width:20px;text-align:center}
 .segb.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -204,6 +241,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
     <div class="brand"><h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div></div>
     <nav id="nav" aria-label="Sections">
       <button data-view="today">Today</button>
+      <button data-view="status">Status</button>
       <button data-view="plan">Plan</button>
       <button data-view="history">History</button>
       <button data-view="setup">Setup</button>
@@ -212,6 +250,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
   </div>
 </header>
 <div class="wrap"><main id="main"></main></div>
+<div id="tip" role="status" hidden></div>
 
 <script>
 (function(){
@@ -496,7 +535,7 @@ function render(){
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');
-  m.innerHTML=({today:vToday,plan:vPlan,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
+  m.innerHTML=({today:vToday,status:vStatus,plan:vPlan,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
   if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
 }
 
@@ -768,6 +807,91 @@ function footer(active){
   return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label></div>`;
 }
 
+/* ---------- status dashboard ---------- */
+function lineChart(pts,o){
+  o=o||{};
+  const W=300,H=118,L=36,R=40,T=10,B=22, iw=W-L-R, ih=H-T-B;
+  const ys=pts.map(p=>p.y);
+  let lo=o.min!=null?o.min:Math.min(...ys), hi=o.max!=null?o.max:Math.max(...ys);
+  if(hi===lo){hi+=Math.max(1,Math.abs(hi)*.05);lo-=Math.max(1,Math.abs(lo)*.05)}
+  if(o.min==null||o.max==null){const pad=(hi-lo)*.15;if(o.min==null)lo-=pad;if(o.max==null)hi+=pad}
+  const step=Math.max(nice((hi-lo)/3),o.minStep||0); lo=Math.floor(lo/step)*step; hi=Math.ceil(hi/step)*step;
+  const x=i=>L+(pts.length===1?iw/2:i*iw/(pts.length-1)), y=v=>T+ih-(v-lo)/(hi-lo)*ih;
+  let g='';
+  for(let v=lo;v<=hi+1e-9;v+=step){const yy=y(v).toFixed(1);g+=`<line class="ch-grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text class="ch-ax" x="${L-6}" y="${(+yy+3.5).toFixed(1)}" text-anchor="end">${fmtTick(v)}</text>`}
+  const solid=pts.filter(p=>!p.hollow);
+  const lastSolid=pts.length-1-[...pts].reverse().findIndex(p=>!p.hollow);
+  const seg=(a,b)=>pts.slice(a,b+1).map((p,j)=>(j?'L':'M')+x(a+j).toFixed(1)+' '+y(p.y).toFixed(1)).join(' ');
+  const path=seg(0,lastSolid), proj=lastSolid<pts.length-1?`<path class="ch-line" stroke-dasharray="4 4" d="${seg(lastSolid,pts.length-1)}"/>`:'';
+  const area=solid.length>1?`<path class="ch-area" d="M${x(0).toFixed(1)} ${(T+ih)} ${pts.slice(0,lastSolid+1).map((p,i)=>'L'+x(i).toFixed(1)+' '+y(p.y).toFixed(1)).join(' ')} L${x(lastSolid).toFixed(1)} ${T+ih} Z"/>`:'';
+  const xl=`<text class="ch-ax" x="${x(0)}" y="${H-5}" text-anchor="${pts.length===1?'middle':'start'}">${esc(pts[0].xl)}</text>`+(pts.length>1?`<text class="ch-ax" x="${x(pts.length-1)}" y="${H-5}" text-anchor="end">${esc(pts[pts.length-1].xl)}</text>`:'');
+  const dense=pts.length>16;
+  const dots=pts.map((p,i)=>dense&&i!==pts.length-1?'':`<circle class="ch-pt${p.hollow?' hollow':''}" cx="${x(i).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="4"/>`).join('');
+  const hits=pts.map((p,i)=>`<circle class="ch-hit" tabindex="0" cx="${x(i).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="12" data-tip="${esc(p.tip)}"><title>${esc(p.tip)}</title></circle>`).join('');
+  const e=pts[pts.length-1], end=`<text class="ch-end" x="${(x(pts.length-1)+8).toFixed(1)}" y="${(y(e.y)+4).toFixed(1)}">${esc(o.endLabel?o.endLabel(e):fmtTick(e.y))}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label||'')}">${g}${area}<path class="ch-line" d="${path}"/>${proj}${dots}${xl}${end}${hits}</svg>`;
+}
+function r1(v){return String(Math.round(v*10)/10)}
+function nice(r){const e=Math.pow(10,Math.floor(Math.log10(r||1))),f=r/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e}
+function fmtTick(v){return Math.abs(v)>=1000?(Math.round(v/100)/10)+'k':String(Math.round(v*10)/10)}
+function sessState(d,t){const p=dayPlan(d);if(['off','pre','convert'].includes(p.t))return 'rest';if(lg(d).done)return 'done';if(d<t)return 'missed';if(d===t)return 'today';return 'upcoming'}
+function vStatus(){
+  const t=todayStr(), wk=weekOf(t);
+  if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
+  const list=weeks(), ci0=wk.idx;
+  let h='';
+  // --- where you are
+  const wt=weekTitle(wk);
+  h+=`<div class="card"><div class="lift-h"><h2>${wt.t}</h2><span class="chip ${wt.cls}">${wt.chip}</span></div>`;
+  if(wk.kind==='cycle'){
+    const first=ci0-(wk.w-1);
+    h+=`<div class="cyc" aria-label="Cycle ${wk.cycle} progress">${plan.wave.map((v,i)=>{const cls=tier(+v.p);return `<div class="chip ${cls}${i<wk.w-1?' past':''}${i===wk.w-1?' now':''}" style="border-radius:6px">W${i+1}<small>${v.s}×${v.r} ${v.p}%</small></div>`}).join('')}</div>`;
+    h+=`<div class="small muted">Day ${dow(t)+1} of week ${wk.w}. Cycle ${wk.cycle} ends ${fmtD(addDays(list[first+5].monday,4),true)}.</div>`;
+  }
+  const nextOf=kind=>{for(let i=ci0+1;i<list.length;i++){if(kind==='cycle'?(list[i].kind==='cycle'&&list[i].w===1):list[i].kind===kind)return list[i]}return null};
+  const days=w=>w?Math.round((D(w.monday)-D(t))/864e5):null;
+  const nd=nextOf('deload'), nt=nextOf('test'), nc=nextOf('cycle');
+  const mile=(l,w,sub)=>`<div class="mile"><span class="l">${l}</span>${w?`<span class="big">${days(w)}<small style="font-size:14px;color:var(--muted);margin-left:4px">days</small></span><span class="small muted">${sub(w)}</span>`:'<span class="small muted">Not scheduled</span>'}</div>`;
+  h+=`<div class="miles">${mile('Next cycle',nc,w=>'Cycle '+w.cycle+' · '+fmtD(w.monday,true))}${mile('Next deload',nd,w=>fmtD(w.monday,true))}${mile('Next retest',nt,w=>fmtD(w.monday,true))}</div>`;
+  const trained=list.slice(0,ci0).filter(w=>w.kind==='cycle').length;
+  h+=`<div class="small muted">${trained} training week${trained===1?'':'s'} completed since ${fmtD(plan.startMonday)}.</div></div>`;
+  // --- this week + adherence
+  const mon=mondayOf(t);
+  let wd='';for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t),p=dayPlan(d);wd+=`<div><i class="${st}" aria-label="${DAYN[i]}: ${st}">${st==='done'?'✓':st==='missed'?'✕':st==='rest'?'–':'•'}</i>${DAYN[i]}<span style="font-size:10px">${esc(p.short||'')}</span></div>`}
+  const adh=(from,to)=>{let d0=0,n0=0;for(let d=from;d<=to;d=addDays(d,1)){if(d<plan.startMonday)continue;const st=sessState(d,t);if(st==='rest'||st==='upcoming'||st==='today')continue;n0++;if(st==='done')d0++}return {d:d0,n:n0}};
+  const yest=addDays(t,-1), wkA=adh(mon,yest), a4=adh(addDays(mon,-28),yest), all=adh(plan.startMonday,yest);
+  let tw=0,td=0;for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t);if(st!=='rest'){tw++;if(st==='done')td++}}
+  const pct=a=>a.n?Math.round(a.d/a.n*100)+'%':'—';
+  h+=`<div class="card"><div class="lift-h"><h3>This week</h3><span class="small muted mono">${td}/${tw} sessions</span></div><div class="wkdots">${wd}</div>
+  <div class="miles"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">All time</span><span class="big">${pct(all)}</span><span class="small muted">${all.d} of ${all.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div></div>`;
+  // --- strength
+  const curC=wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle);
+  h+=`<div class="card"><div class="lift-h"><h3>Strength</h3><span class="small muted">Max by cycle · hollow = next cycle, projected</span></div><div class="sm-grid">`;
+  for(const k of LK){
+    const pts=[];for(let c=1;c<=curC+1;c++){const m=maxFor(c)[k];if(m)pts.push({y:m.v,xl:'C'+c,hollow:c>curC,tip:`Cycle ${c}: ${n(m.v)} ${u()}${m.src==='set'?' (tested/set)':m.src==='proj'?' (projected)':''}`})}
+    const cur=maxFor(curC)[k], base=maxFor(1)[k];
+    h+=`<div class="sm"><div class="sm-h"><b>${esc(liftName(k))}</b>${cur?`<span class="v">${n(cur.v)}<small>${u()}${base&&cur.v!==base.v?` · ${cur.v>base.v?'+':''}${n(cur.v-base.v)} since C1`:''}</small></span>`:''}</div>${pts.length?lineChart(pts,{label:liftName(k)+' max by cycle',minStep:+plan.round[k]||5}):'<div class="none">No max entered yet.</div>'}</div>`;
+  }
+  h+=`</div></div>`;
+  // --- conditioning
+  h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Echo bike calories per session</span></div><div class="sm-grid">`;
+  for(const f of ['map','anaerobic','threshold','long']){
+    const xs=Object.entries(logs).filter(([d,L])=>L.hic&&L.hic.cal&&effFmt(d)===f).map(([d,L])=>({d,c:+L.hic.cal})).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+    const best=xs.reduce((m,x)=>Math.max(m,x.c),0);
+    h+=`<div class="sm"><div class="sm-h"><b>${HIC[f].name}</b>${xs.length?`<span class="v">${best}<small>best</small></span>`:''}</div>${xs.length>=2?lineChart(xs.map(x=>({y:x.c,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${x.c} cal`})),{label:HIC[f].name+' calories',minStep:1}):`<div class="none">${xs.length?'One session logged. The trend appears after the second.':'No sessions logged yet.'}</div>`}</div>`;
+  }
+  h+=`</div></div>`;
+  // --- body + recovery
+  const bw=Object.entries(logs).filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-60);
+  const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
+  const jm=Object.entries(logs).map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&L.plyo.mark)||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+  h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
+  h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
+  h+=`<div class="sm"><div class="sm-h"><b>Bodyweight</b>${bw.length?`<span class="v">${r1(bw[bw.length-1].v)}<small>${u()}${bw.length>1?` · ${bw[bw.length-1].v-bw[0].v>0?'+':''}${r1(bw[bw.length-1].v-bw[0].v)} since ${fmtD(bw[0].d)}`:''}</small></span>`:''}</div>${bw.length>=2?lineChart(bw.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()}`})),{label:'Bodyweight',minStep:1}):'<div class="none">Log bodyweight in the daily check-in.</div>'}</div>`;
+  h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
+  h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
+  return h;
+}
 function vPlan(){
   const t=todayStr(), ti=Math.max(0,idxOf(t)), list=weeks(ti+planShow+2), from=Math.max(0,ti-4), to=ti+planShow;
   let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="small muted" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
@@ -885,6 +1009,14 @@ document.addEventListener('input',e=>{
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
 });
+(function(){
+  const tip=document.getElementById('tip');
+  const show=el=>{const r=el.getBoundingClientRect();tip.textContent=el.dataset.tip;tip.style.left=(r.left+r.width/2)+'px';tip.style.top=(r.top)+'px';tip.hidden=false};
+  const hide=()=>{tip.hidden=true};
+  document.addEventListener('pointerover',e=>{const el=e.target.closest&&e.target.closest('.ch-hit');el?show(el):hide()});
+  document.addEventListener('focusin',e=>{const el=e.target.closest&&e.target.closest('.ch-hit');el?show(el):hide()});
+  window.addEventListener('scroll',hide,{passive:true});
+})();
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc) render(); });
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)});
