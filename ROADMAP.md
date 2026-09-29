@@ -13,9 +13,10 @@ Known gaps and things to verify. Fix or close these before starting new features
   bike. Confirmed so far: home-screen install, Access login in the installed app, the
   update banner.
 - **Spoken cues with the phone locked:** relying on Siri **Announce Notifications**
-  (Settings → Notifications → Announce Notifications → Operator, with AirPods). Confirm
-  that iOS lists the home-screen app there and reads the alerts; alert text is worded
-  for speech. If it doesn't work, see the audio-track idea.
+  (Settings → Notifications → Announce Notifications → Operator, with AirPods).
+  Confirmed 2026-09-29: iOS lists the home-screen app there. Still to confirm: Siri
+  reads the alerts aloud (Setup → Rest alerts → Send a test, lock the phone). Alert
+  text is worded for speech. If it doesn't work, see the audio-track idea.
 - **Confirm the first live backup.** The KV store is still empty (checked 2026-09-29);
   the first automatic backup runs Sunday 09:00 UTC, or tap Setup → Back up now.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
