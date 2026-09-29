@@ -69,7 +69,7 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .between{justify-content:space-between}
 .stack{display:flex;flex-direction:column;gap:8px}
-.btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:8px;font-weight:650;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:8px;font-weight:650;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .btn:hover{border-color:var(--muted)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.sm{padding:5px 10px;font-size:13px}
@@ -117,6 +117,23 @@ svg.loader.big{max-width:420px}
 .plate.pw{fill:var(--surface);stroke:var(--ink);stroke-width:1.2}.plate.pc{fill:var(--muted)}
 .ramp{display:flex;flex-wrap:wrap;gap:4px 6px;font-family:var(--f-mono);font-size:13px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
+/* lifting session mode */
+#ls{position:fixed;inset:0;z-index:28;background:var(--bg);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);overflow-y:auto}
+.ls-in{max-width:620px;margin:0 auto;padding-inline:16px;padding-block:12px 24px;display:flex;flex-direction:column;gap:12px;min-height:100%}
+.ls-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ls-prog{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}.ls-prog i{display:block;height:100%;background:var(--accent)}
+.ls-lift{font-family:var(--f-display);font-stretch:118%;font-weight:900;font-size:clamp(24px,7vw,34px);letter-spacing:.04em;text-transform:uppercase;line-height:1.05}
+.ls-kind{font-weight:700;color:var(--muted)}
+.ls-kind.work{color:var(--accent)}
+.ls-w{font-family:var(--f-display);font-stretch:62%;font-weight:900;font-size:clamp(96px,30vw,168px);line-height:.85;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ls-w small{font-size:.22em;font-stretch:100%;color:var(--muted);font-weight:700;margin-left:6px;letter-spacing:0}
+.ls-reps{font-family:var(--f-display);font-stretch:80%;font-weight:850;font-size:34px}
+.ls-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.ls-rest{background:var(--accent-bg);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ls-rest.done{background:var(--green-bg)}
+.ls-rest b{font-family:var(--f-display);font-stretch:68%;font-weight:900;font-size:48px;line-height:1;font-variant-numeric:tabular-nums}
+.ls-done{padding:18px!important;font-size:19px!important;width:100%}
+.ls-row{display:flex;gap:8px;flex-wrap:wrap}.ls-row .btn{flex:1}
 /* interval timer: full screen on the bike, or a bar at the bottom */
 #iv{position:fixed;inset:0;z-index:30;background:var(--sunk);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex}
 #iv.work{background:var(--red-bg)}
@@ -323,6 +340,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 </header>
 <div class="wrap"><main id="main"></main></div>
 <div id="tip" role="status" hidden></div>
+<div id="ls" hidden aria-live="polite"><div class="ls-in" id="ls-in"></div></div>
 <div id="iv" hidden aria-live="polite">
   <div class="iv-in">
     <div class="iv-top"><span id="iv-title"></span><button class="btn sm ghost" id="iv-size" aria-label="Minimize timer">Minimize</button></div>
@@ -948,6 +966,7 @@ function sessionHtml(wk,dp){
   const note=dp.note?`<p class="muted small" style="margin:0">${esc(dp.note)}</p>`:'';
   if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Save deep stretching for today if you want it.')}</p></div>`+footer(false) }
   if(dp.t==='lift'){
+    if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     h+=`<details class="plain card"><summary>Warm-up · 12–15 min</summary>${warmupShort()}</details>`;
     for(const k of dp.lifts) h+=liftCard(wk,k,dp);
     h+=accCard(wk,dp);
@@ -1354,6 +1373,120 @@ async function holdScreen(on){
     else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
   }catch(e){wakeLock=null}
 }
+/* ---------- lifting session mode ---------- */
+// One set at a time on lifting days. Steps are rebuilt from the plan and the day's log
+// on every render, so edits (working weight, warm-ups) flow straight through.
+let ls=LS.get('ob.ls'), lsTick=null;
+function lsSteps(date){
+  const wk=weekOf(date), dp=dayPlan(date); if(!wk||dp.t!=='lift') return [];
+  const steps=[];
+  for(const k of dp.lifts){
+    const r=rx(wk,k), L=(lg(date).lifts||{})[k]||{}, T=L.used!=null&&L.used!==''?+L.used:r.w;
+    if(T==null) continue;
+    if(ls&&ls.warm!==false){ ramp(k,T,r.t,dp.deload).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:x.w,r:x.r,lbl:x.lbl})) }
+    const isDead=k==='dead'&&wk.kind==='cycle', nS=isDead?3:r.s;
+    for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:isDead&&j>0,pct:r.p});
+  }
+  const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
+  if(!dp.deload&&!heavy&&dp.acc) steps.push({type:'acc'});
+  steps.push({type:'finish'});
+  return steps;
+}
+function lsStepDone(st){
+  const L=(lg(ls.date).lifts||{})[st.k]||{};
+  if(st.type==='warm') return !!((wuListFor(ls.date,st.k)[st.j]||{}).done);
+  if(st.type==='work') return !!((L.sets||[])[st.j]);
+  return false;
+}
+function wuListFor(date,k){const W=((lg(date).lifts||{})[k]||{}).warmup;return Array.isArray(W)?W:W?Object.keys(W).reduce((a,i)=>(a[+i]=W[i],a),[]):[]}
+function lsFirstOpen(){const st=lsSteps(ls.date);const i=st.findIndex(x=>(x.type==='warm'||x.type==='work')&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
+function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); holdScreen(true); lsShow(); }
+function lsClose(){ ls=null; LS.set('ob.ls',null); if(!rest||rest.done) holdScreen(false); lsShow(); render(); }
+function lsShow(){
+  const el=document.getElementById('ls');
+  if(!ls||viewing){el.hidden=true;clearInterval(lsTick);lsTick=null;document.body.style.overflow='';return}
+  el.hidden=false; document.body.style.overflow='hidden';
+  if(!lsTick) lsTick=setInterval(lsRestTick,250);
+  lsRender();
+}
+function lsRestHtml(){
+  if(!rest) return '';
+  const left=Math.max(0,Math.ceil((rest.end-Date.now())/1000));
+  return `<div class="ls-rest${left===0?' done':''}" id="ls-rest"><div><div class="small" style="font-weight:700">${esc(rest.lbl)}</div><b id="ls-rest-t">${Math.floor(left/60)}:${pad(left%60)}</b></div><div class="ls-row" style="flex:0 0 auto"><button class="btn sm" data-ls="r-30">−30s</button><button class="btn sm" data-ls="r+30">+30s</button><button class="btn sm" data-ls="rskip">${left===0?'Clear':'Skip'}</button></div></div>`;
+}
+function lsRestTick(){
+  if(!ls) return; const box=document.getElementById('ls-rest');
+  if(!rest){ if(box) lsRender(); return } if(!box){ lsRender(); return }
+  const left=Math.max(0,Math.ceil((rest.end-Date.now())/1000));
+  document.getElementById('ls-rest-t').textContent=Math.floor(left/60)+':'+pad(left%60);
+  box.classList.toggle('done',left===0);
+}
+function lsRender(){
+  const box=document.getElementById('ls-in'); if(!ls||!box) return;
+  const steps=lsSteps(ls.date); if(!steps.length){lsClose();return}
+  ls.i=Math.min(Math.max(0,ls.i),steps.length-1);
+  const st=steps[ls.i], wk=weekOf(ls.date), dp=dayPlan(ls.date), done=steps.filter(x=>(x.type==='warm'||x.type==='work')&&lsStepDone(x)).length, total=steps.filter(x=>x.type==='warm'||x.type==='work').length;
+  let h=`<div class="ls-top"><span>${esc(dp.short||'')} · ${esc(weekTitle(wk).t)}</span><button class="btn sm ghost" data-ls="close">Close</button></div><div class="ls-prog"><i style="width:${total?100*done/total:0}%"></i></div>`;
+  h+=lsRestHtml();
+  if(st.type==='warm'||st.type==='work'){
+    const k=st.k, L=(lg(ls.date).lifts||{})[k]||{}, isDone=lsStepDone(st), bar=isBarbell(k);
+    const next=steps[ls.i+1];
+    h+=`<div class="ls-card"><div class="ls-lift">${esc(liftName(k))}</div>
+      <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''} · ${st.pct}%`}${isDone?' · ✓ done':''}</div>
+      <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
+      ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
+      ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>`:''}
+    </div>`;
+    h+=`<button class="btn primary ls-done" data-ls="done">${isDone?'Done ✓ · next':'Done'}</button>`;
+    if(next&&(next.type==='warm'||next.type==='work')) h+=`<div class="small muted" style="text-align:center">Next: ${esc(liftName(next.k))} · ${next.type==='warm'?'warm-up':'set '+(next.j+1)} · ${isBW(next.k)?fmtLoad(next.k,next.w):n(next.w)} × ${next.r}</div>`;
+  } else if(st.type==='acc'){
+    const A=lg(ls.date).acc||[];
+    h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">2–3 movements, 2–3 sets, a couple of reps short of failure.</div><div class="stack">${accList(dp.acc).map((a,i)=>`<button class="btn${A[i]?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-i="${i}">${A[i]?'✓ ':''}${esc(a)}</button>`).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
+  } else {
+    const L=lg(ls.date);
+    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=k==='dead'&&wk.kind==='cycle'?1:r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${k==='dead'&&wk.kind==='cycle'?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
+    h+=`<div class="ls-card"><div class="ls-lift">Session summary</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>
+      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label></div>
+      <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
+  }
+  h+=`<div class="ls-row"><button class="btn" data-ls="back" ${ls.i===0?'disabled':''}>‹ Back</button><button class="btn" data-ls="skip" ${ls.i>=steps.length-1?'disabled':''}>Skip ›</button></div>`;
+  if(ls.i===0) h+=`<label class="check small" style="justify-content:center"><input type="checkbox" id="ls-warm" ${ls.warm!==false?'checked':''}> Include warm-up sets</label>`;
+  box.innerHTML=h;
+}
+function lsMarkWarm(st){
+  const W=wuListFor(ls.date,st.k).map(x=>x?Object.assign({},x):{});
+  const x=W[st.j]||(W[st.j]={}); x.done=true; if(x.w==null||x.w==='')x.w=st.w; if(x.r==null||x.r==='')x.r=st.r;
+  for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
+  setLog(ls.date,'lifts.'+st.k+'.warmup',W);
+}
+document.getElementById('ls').addEventListener('click',e=>{
+  const b=e.target.closest('[data-ls]'); if(!b||!ls) return; const a=b.dataset.ls;
+  const steps=lsSteps(ls.date), st=steps[ls.i]; unlockAudio();
+  const go=i=>{ls.i=i;LS.set('ob.ls',ls);lsRender();document.getElementById('ls').scrollTo(0,0)};
+  if(a==='close') return lsClose();
+  if(a==='back') return go(ls.i-1);
+  if(a==='skip'||a==='next') return go(ls.i+1);
+  if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
+  if(a==='rskip'){ stopRest(); return lsRender() }
+  if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
+  if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
+  if(a==='acc'){ const A=[...(lg(ls.date).acc||[])]; A[+b.dataset.i]=!A[+b.dataset.i]; setLog(ls.date,'acc',A); return lsRender() }
+  if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }
+  if(a==='finish'){ if(!lg(ls.date).done) setLog(ls.date,'done',true); stopRest(); say('Session done. Nice work.'); return lsClose() }
+  if(a==='done'){
+    if(lsStepDone(st)) return go(ls.i+1);
+    if(st.type==='warm'){ lsMarkWarm(st); }
+    else { const L=(lg(ls.date).lifts||{})[st.k]||{}, arr=[...(L.sets||[])]; arr[st.j]=true; for(let j=0;j<arr.length;j++) if(arr[j]==null) arr[j]=false; setLog(ls.date,'lifts.'+st.k+'.sets',arr); }
+    const next=lsSteps(ls.date)[ls.i+1];
+    if(next&&(next.type==='warm'||next.type==='work')){
+      const label=liftName(next.k)+' · '+(next.type==='warm'?'warm-up '+(next.j+1):'set '+(next.j+1));
+      if(st.type==='warm') startRest(st.k,label,45,'Ramp rest · '+liftName(st.k)); else startRest(st.k,label);
+    } else if(st.type==='work') stopRest();
+    return go(ls.i+1);
+  }
+});
+document.getElementById('ls').addEventListener('change',e=>{ if(e.target.id==='ls-warm'&&ls){ ls.warm=e.target.checked; ls.i=0; LS.set('ob.ls',ls); lsRender(); } });
+
 /* ---------- interval timer ---------- */
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
@@ -2104,6 +2237,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='restorefile'){if(restoreState.file) doRestore('/restore',restoreState.file.data);return}
   if(a==='restorecancel'){restoreState.file=null;render();return}
   if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
+  if(a==='lsstart'){lsStart();return}
   if(a==='ivopt'){if(ivOpts(sel,effFmt(sel))[b.dataset.k]===+b.dataset.v)return;setLog(sel,'hic.iv.'+b.dataset.k,+b.dataset.v);render();return}
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
@@ -2142,6 +2276,8 @@ render();
 if(rest) showRest();
 if(iv&&Date.now()-iv.start>3*3600*1000){iv=null;LS.set('ob.iv',null)}
 if(iv) ivShow();
+if(ls&&ls.date!==realToday()){ls=null;LS.set('ob.ls',null)}
+if(ls) lsShow();
 connect();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 setTimeout(()=>checkUpdate(false),2000);
