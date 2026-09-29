@@ -1507,7 +1507,7 @@ function vSetup(){
     const fmtAt=t=>{if(!t)return '';const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})};
     const status=!APP_VER||APP_VER==='dev'?'Version unknown in this preview.':!upd.latest?(upd.err||'Not checked yet.'):updateAvailable()?'A newer version is available.':'You’re on the latest version.';
     h+=`<div class="card"><h2>About this app</h2><dl class="kv"><dt>This app</dt><dd class="mono">${esc((APP_VER||'—').slice(0,8))}</dd><dt>Latest</dt><dd><span class="mono">${esc((upd.latest||'—').slice(0,8))}</span>${upd.at?` <span class="small muted">· deployed ${esc(fmtAt(upd.at))}${upd.tag?' · '+esc(upd.tag):''}</span>`:''}</dd></dl>
-    <div class="small">${esc(status)}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
+    <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
     <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div></div>`;
   }
   const accs=plan.acc||{};
