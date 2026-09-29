@@ -105,6 +105,23 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 .plates{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
 .ramp{display:flex;flex-wrap:wrap;gap:4px 6px;font-family:var(--f-mono);font-size:13px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
+details.wu{border-top:1px solid var(--line);padding-top:10px}
+details.wu>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:13px}
+details.wu>summary::-webkit-details-marker{display:none}
+details.wu>summary::before{content:"▸";color:var(--muted);width:10px}
+details.wu[open]>summary::before{content:"▾"}
+details.wu>summary .wu-t{font-weight:700;margin-right:4px}
+details.wu>summary .chipw{font-family:var(--f-mono);background:var(--sunk);border-radius:6px;padding:2px 7px}
+details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
+.wu-body{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.wu-row{display:grid;grid-template-columns:44px minmax(0,1fr) 12px minmax(0,72px) 44px 28px;gap:6px;align-items:center}
+.wu-lbl{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.wu-row input[type=number]{padding:7px 8px}
+.wu-x{text-align:center;color:var(--muted)}
+.wu-chk{all:unset;cursor:pointer;height:38px;border-radius:8px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800}
+.wu-chk.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.wu-rm{all:unset;cursor:pointer;text-align:center;color:var(--muted);font-size:18px;line-height:1}
+.wu-chk:focus-visible,.wu-rm:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sets{display:flex;gap:8px;flex-wrap:wrap}
 .setb{all:unset;cursor:pointer;width:56px;height:52px;border-radius:9px;border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:600;font-size:16px;line-height:1.05}
 .setb small{font-size:10px;font-weight:500;color:var(--muted);font-family:var(--f-body);letter-spacing:.04em;text-transform:uppercase}
@@ -236,7 +253,7 @@ function rnd(x,inc){inc=+inc||5;return Math.round(x/inc)*inc}
 function floorTo(x,inc){inc=+inc||5;return Math.floor(x/inc+1e-9)*inc}
 function n(x){if(x==null||x==='')return '—';const v=Math.round(x*100)/100;return String(v)}
 function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(const k of Object.keys(over)){const v=over[k];if(v&&typeof v==='object'&&!Array.isArray(v)&&base[k]&&typeof base[k]==='object'&&!Array.isArray(base[k]))base[k]=deepMerge(base[k],v);else base[k]=v}return base}
-function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]={};c=c[ks[i]]}c[ks[ks.length-1]]=v}
+function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k){return k==='pull'?(plan.lift3Name||'Lift 3'):{squat:'Squat',bench:'Bench',dead:'Deadlift'}[k]}
 function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
@@ -510,8 +527,6 @@ function liftCard(wk,k,dp){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
   if(r.w){
     h+=`<div class="row between"><div class="big">${n(r.w)}<small>${u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(r.w)}</span>`:''}<span class="muted">Max ${n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}</span></div></div>`;
-    const rp=ramp(k,r.w,r.t,dp.deload);
-    if(rp.length) h+=`<div class="ramp"><span class="muted" style="background:none;padding-left:0">Ramp</span>${rp.map(x=>`<span>${n(x.w)}×${x.r}</span>`).join('')}</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">No max entered for ${esc(liftName(k))}.</div>`;
   h+=`<div class="sets">`;
@@ -519,7 +534,21 @@ function liftCard(wk,k,dp){
   h+=`</div><div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;align-items:center;gap:8px">Used${numIn('lifts.'+k+'.used',L.used,r.w?n(r.w):'','class="num-in"')}</label></div>`;
   if(L.grinder&&r.w&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
+  h+=warmupLog(k,ramp(k,r.w,r.t,dp.deload));
   return h+`</div>`;
+}
+const openWarm=new Set();
+function wuList(k){const W=((lg(sel).lifts||{})[k]||{}).warmup;return Array.isArray(W)?W:W?Object.keys(W).reduce((a,i)=>(a[+i]=W[i],a),[]):[]}
+function warmupLog(k,sug){
+  const W=wuList(k), rows=Math.max(sug.length,W.length), open=openWarm.has(k)||(!sug.length&&W.length>0);
+  let done=0, chips='';
+  for(let i=0;i<rows;i++){const x=W[i]||{}, s=sug[i]; if(x.done) done++;
+    const w=x.w!=null&&x.w!==''?x.w:s&&s.w, r=x.r!=null&&x.r!==''?x.r:s&&s.r;
+    if(w!=null) chips+=`<span class="chipw${x.done?' on':''}">${n(w)}×${r??'?'}</span>`}
+  let body='';
+  for(let i=0;i<rows;i++){const x=W[i]||{}, s=sug[i];
+    body+=`<div class="wu-row"><span class="wu-lbl">${s?s.lbl:'+'+(i+1)}</span>${numIn(`lifts.${k}.warmup.${i}.w`,x.w,s?n(s.w):u(),`aria-label="Warm-up ${i+1} weight"`)}<span class="wu-x">×</span>${numIn(`lifts.${k}.warmup.${i}.r`,x.r,s?String(s.r):'reps',`aria-label="Warm-up ${i+1} reps"`)}<button class="wu-chk${x.done?' on':''}" data-act="wu" data-lift="${k}" data-i="${i}" aria-pressed="${!!x.done}" aria-label="Warm-up ${i+1} done">✓</button>${s?'<span></span>':`<button class="wu-rm" data-act="wurm" data-lift="${k}" data-i="${i}" aria-label="Remove warm-up ${i+1}">×</button>`}</div>`}
+  return `<details class="wu" data-lift="${k}"${open?' open':''}><summary><span class="wu-t">Warm-up${rows?` ${done}/${rows}`:''}</span>${chips||'<span class="muted">none logged</span>'}</summary><div class="wu-body">${sug.length?'<div class="small muted">Suggested weights are pre-filled in grey. Tap ✓ to log a set as suggested, or type what you actually used.</div>':''}${body}<div><button class="btn sm ghost" data-act="wuadd" data-lift="${k}">+ Add warm-up set</button></div></div></details>`;
 }
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
@@ -562,6 +591,7 @@ function testCard(k,defReps,isRm5){
   const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=e1rm(T.w,reps), cur=currentMax(k);
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${isRm5?'5RM · 2 in reserve':'Heavy single'}</span></div>
   <div class="grid3"><label class="f">Weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
+  ${warmupLog(k,[])}
   <div class="small muted">${isRm5?'If the bar slows, you have found your number. Bad day: take the lower number.':'Work up in singles. Stop when the bar slows.'}${cur?' Current max: <span class="mono">'+n(cur)+'</span>.':''}${k==='pull'?' Note the machine and pin setting.':''}</div></div>`;
 }
 function currentMax(k){const wk=weekOf(sel);if(!wk)return null;const c=wk.kind==='cycle'?wk.cycle:wk.refCycle;const m=maxFor(c)[k];return m?m.v:null}
@@ -695,13 +725,25 @@ document.addEventListener('input',e=>{
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
 });
+document.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}},true);
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc) render(); });
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)});
 document.getElementById('main').addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
-  if(a==='go'){sel=b.dataset.date;render();return}
+  if(a==='go'){sel=b.dataset.date;openWarm.clear();render();return}
   if(a==='open'){sel=b.dataset.date;view='today';render();window.scrollTo(0,0);return}
   if(a==='view'){view=b.dataset.view;render();window.scrollTo(0,0);return}
+  if(a==='wu'||a==='wurm'||a==='wuadd'){
+    const k=b.dataset.lift,i=+b.dataset.i,W=wuList(k).map(x=>x?Object.assign({},x):{});
+    if(a==='wuadd') W.push({});
+    else if(a==='wurm') W.splice(i,1);
+    else {
+      const x=W[i]||(W[i]={}); x.done=!x.done;
+      // logging a set as suggested stores the suggested numbers, so history shows real weights
+      if(x.done){const ins=b.parentNode.querySelectorAll('input');if(x.w==null||x.w==='')x.w=ins[0].placeholder!==u()&&ins[0].placeholder!==''?+ins[0].placeholder:null;if(x.r==null||x.r==='')x.r=ins[1].placeholder!=='reps'?+ins[1].placeholder:null}
+    }
+    for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
+    openWarm.add(k); setLog(sel,'lifts.'+k+'.warmup',W); render(); return}
   if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);render();return}
   if(a==='done'){setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
