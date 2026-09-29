@@ -13,7 +13,7 @@ Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
 public/index.html           the whole app (vanilla JS, no build step)
 src/worker.js               entry: /api/* → API, everything else → public/
 src/api.js                  API: state, docs, export, backups, push
-src/alerts.js               RestAlerts Durable Object: push subscriptions + rest alarm
+src/alerts.js               RestAlerts Durable Object: push subscriptions + alert queue
 src/webpush.js              Web Push encryption (RFC 8291) and VAPID signing (RFC 8292)
 migrations/0001_init.sql    D1 schema (one JSON document per row)
 wrangler.toml               Worker, static assets, D1, custom domain, Access config
@@ -72,6 +72,15 @@ opens, when it comes back from the background, and every 30 minutes, and shows a
 change the fingerprint, so they don't trigger it. Setup → About this app shows both
 versions and the deploy time. Deploy with `npm run deploy` to tag the version with
 the git commit.
+
+## Interval timer
+
+HIC and LISS cards have a guided timer built from the Black formats (MAP 1:00/1:00 ×8–10,
+anaerobic 0:30/2:00 ×6–8, threshold 4:00/3:00 ×4, long 3:00/1:30 ×5, LISS 30–45 min) with
+an optional warm-up (5:00 + three 15 s pickups) and cool-down. Segments are timed from an
+absolute start (`ob.iv` in localStorage), so they survive screen locks and reloads. Each
+change beeps, and with alerts on the whole session is queued as pushes in one
+`/api/push/schedule` call (`alerts: [...]`); pause, skip and end reschedule or cancel it.
 
 ## Rest alerts
 

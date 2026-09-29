@@ -32,6 +32,9 @@ Known gaps and things to verify. Fix or close these before starting new features
 - **Plyo PDF is a 10-week block with a week-10 jump retest.** The app runs its three
   phases back to back (9-week rotation) and tests jumps in the program's retest weeks
   instead, as the 18-week summary does.
+- **Interval alerts arrive 1–3 s late** when the phone is locked (Apple push delivery).
+  Fine for minutes-long intervals; on 30 s anaerobic work, keep the screen on and use
+  the in-app beeps.
 - **Rest alerts fire even with the app open**, so you get the in-app beep and a
   notification together. iOS expects every push to show a notification, so this is
   deliberate.
@@ -113,6 +116,11 @@ Decided against for now.
 **Updates**
 - Update-available banner on the home-screen app (page fingerprint vs deployed),
   plus About this app in Setup with a manual check.
+
+**Interval timer**
+- Guided HIC/LISS timer from the Black formats with round picker, optional warm-up
+  pickups and cool-down, full-screen or minimized display, 3-2-1 beeps, screen wake,
+  lock-screen alerts for every interval change, and result logging at the end.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
