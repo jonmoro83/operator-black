@@ -1204,7 +1204,7 @@ async function holdScreen(on){
 const APP_VER=(document.querySelector('meta[name="app-version"]')||{}).content||null;
 const upd={latest:null,at:null,tag:null,checked:null,err:null,busy:false,lastCheck:0};
 async function checkUpdate(manual){
-  if(!manual&&Date.now()-upd.lastCheck<60000) return;
+  if(!manual&&Date.now()-upd.lastCheck<10000) return;
   upd.lastCheck=Date.now(); upd.busy=!!manual; if(manual&&view==='setup') render();
   try{ const v=await api('GET','/version'); Object.assign(upd,{latest:v.page,at:v.deployedAt,tag:v.tag,checked:Date.now(),err:null}) }
   catch(e){ upd.err=navigator.onLine===false?'Offline. Check again when you have signal.':'Couldn’t check for updates.' }
