@@ -29,7 +29,7 @@ binding = "BACKUPS"
 id = "999b995f858d491698b2218e3c18e29d"
 
 [triggers]
-crons = ["0 9 * * 0"]  # Sundays 09:00 UTC
+crons = ["0 9 * * SUN"]  # Sundays 09:00 UTC
 
 [vars]
 # From Zero Trust → Settings (team domain) and the Access application's
