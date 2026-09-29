@@ -7,10 +7,6 @@ Update it as things ship. Last updated 2026-09-29.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **Automatic deploys don't fire.** Pushing to `main` doesn't start a Workers Builds
-  run; every deploy so far has gone out with `npm run deploy` (wrangler). Either
-  reconnect the repo under Workers & Pages → operator-black → Settings → Build, or
-  disconnect it.
 - **iPhone testing, still to confirm at the gym:** offline launch, the rest-timer beep
   (ringer switch, backgrounding), the screen staying awake during rest, rest alerts on
   the lock screen (Setup → Rest alerts → Send a test), and the interval timer on the
@@ -78,6 +74,9 @@ Decided against for now.
 ## Shipped
 
 **Settings done in Cloudflare**
+- Deploys: closed as not needed. Changes go live with `npm run deploy` (wrangler,
+  tagged with the commit). Pushing to GitHub does **not** deploy on its own; the
+  Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
