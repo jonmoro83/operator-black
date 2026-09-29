@@ -11,6 +11,8 @@
 //   GET  /api/backups             → list your automatic backups (newest first)
 //   GET  /api/backups/<name>      → download one backup
 //   POST /api/backups             → take a backup now
+//   POST /api/backups/<name>/restore → restore one of your backups (safety backup first)
+//   POST /api/restore             → restore from an uploaded backup/export file
 //   GET  /api/version             → fingerprint of the current page + deploy info
 //   GET  /api/push/key            → VAPID public key for pushManager.subscribe
 //   GET  /api/push/status         → your devices with alerts on, pending alarm time
@@ -71,9 +73,27 @@ export async function handleApi(request, env) {
   if (route === "backups" && request.method === "POST") {
     return json(await backupNow(env, user), 200);
   }
+  if (route.startsWith("backups/") && route.endsWith("/restore") && request.method === "POST") {
+    const name = route.slice(8, -8);
+    if (!BACKUP_NAME.test(name)) return json({ error: "Unknown backup." }, 404);
+    const body = await env.BACKUPS.get((await backupPrefix(user)) + name);
+    if (!body) return json({ error: "Backup not found." }, 404);
+    return restoreFrom(env, user, JSON.parse(body));
+  }
+  if (route === "restore" && request.method === "POST") {
+    const text = await request.text();
+    if (text.length > 20 * 1024 * 1024) return json({ error: "That file is too large." }, 413);
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return json({ error: "That file isn't a backup (not JSON)." }, 400);
+    }
+    return restoreFrom(env, user, data);
+  }
   if (route.startsWith("backups/") && request.method === "GET") {
     const name = route.slice(8);
-    if (!/^\d{4}-\d{2}-\d{2}(-manual)?$/.test(name)) return json({ error: "Unknown backup." }, 404);
+    if (!BACKUP_NAME.test(name)) return json({ error: "Unknown backup." }, 404);
     const body = await env.BACKUPS.get((await backupPrefix(user)) + name);
     if (!body) return json({ error: "Backup not found." }, 404);
     return new Response(body, {
@@ -134,6 +154,7 @@ async function claimLegacy(env, user) {
 /* ---------------- backups (Workers KV) ---------------- */
 
 const KEEP_BACKUPS = 26;
+const BACKUP_NAME = /^\d{4}-\d{2}-\d{2}(-manual|-before-restore(-\d{6})?)?$/;
 
 // Backup keys carry a short hash of the email rather than the email itself.
 async function backupPrefix(user) {
@@ -141,9 +162,9 @@ async function backupPrefix(user) {
   return "backup:" + Array.from(h.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("") + ":";
 }
 
-export async function backupNow(env, user, { manual = true } = {}) {
+export async function backupNow(env, user, { manual = true, suffix } = {}) {
   const day = new Date().toISOString().slice(0, 10);
-  const name = manual ? `${day}-manual` : day;
+  const name = suffix ? `${day}-${suffix}` : manual ? `${day}-manual` : day;
   const data = { backedUpAt: new Date().toISOString(), user, ...(await readAll(env, user)) };
   const body = JSON.stringify(data);
   const prefix = await backupPrefix(user);
@@ -153,6 +174,43 @@ export async function backupNow(env, user, { manual = true } = {}) {
   const all = await listBackups(env, user);
   for (const old of all.slice(KEEP_BACKUPS)) await env.BACKUPS.delete(prefix + old.name);
   return { name, bytes: body.length, logs: Object.keys(data.logs).length };
+}
+
+/**
+ * Replace everything of this user's with the contents of a backup or export file.
+ * A safety backup of the current data is taken first; the swap is one D1 batch, so it
+ * either fully happens or doesn't happen at all.
+ */
+async function restoreFrom(env, user, data) {
+  if (!data || typeof data !== "object") return json({ error: "That file isn't a backup." }, 400);
+  const logs = data.logs && typeof data.logs === "object" ? data.logs : null;
+  if (!logs) return json({ error: "That file has no training log in it." }, 400);
+  const docs = [];
+  if (data.plan && typeof data.plan === "object" && !Array.isArray(data.plan)) docs.push(["plan/main", data.plan]);
+  for (const [d, v] of Object.entries(logs)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !v || typeof v !== "object") continue;
+    docs.push(["logs/" + d, v]);
+  }
+  for (const [id, v] of Object.entries(data.programs || {})) {
+    if (!/^[a-z0-9-]{1,40}$/.test(id) || !v || typeof v !== "object") continue;
+    docs.push(["programs/" + id, v]);
+  }
+  for (const [, v] of docs) if (JSON.stringify(v).length > MAX_BYTES) return json({ error: "An entry in that file is too large." }, 413);
+
+  // time-stamped so two restores on one day each keep their own safety copy
+  const safety = await backupNow(env, user, { suffix: "before-restore-" + new Date().toISOString().slice(11, 19).replace(/:/g, "") });
+  const now = Date.now();
+  const stmts = [env.DB.prepare("DELETE FROM docs WHERE user = ?1").bind(user)];
+  for (const [path, v] of docs) {
+    stmts.push(env.DB.prepare("INSERT INTO docs (user, path, data, updated_at) VALUES (?1, ?2, ?3, ?4)").bind(user, path, JSON.stringify(v), now));
+  }
+  await env.DB.batch(stmts);
+  return json({
+    restored: { plan: docs.some(([p]) => p === "plan/main"), logs: docs.filter(([p]) => p.startsWith("logs/")).length, programs: docs.filter(([p]) => p.startsWith("programs/")).length },
+    safetyBackup: safety.name,
+    from: data.backedUpAt || data.exportedAt || null,
+    fileUser: data.user || null,
+  });
 }
 
 /** Weekly cron: back up everyone who has data. */
