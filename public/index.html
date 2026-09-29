@@ -1211,7 +1211,11 @@ async function checkUpdate(manual){
   upd.busy=false; showUpdate(); if(view==='setup') render();
 }
 function updateAvailable(){return !!(APP_VER&&upd.latest&&upd.latest!==APP_VER&&APP_VER!=='dev')}
-function showUpdate(){document.getElementById('upd').hidden=!updateAvailable()}
+function showUpdate(){
+  const el=document.getElementById('upd'); el.hidden=!updateAvailable(); if(el.hidden) return;
+  const t=upd.at?new Date(upd.at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):null;
+  el.querySelector('span').textContent='A new version of the app is ready'+(t?' (deployed '+t+').':'.');
+}
 function applyUpdate(){
   const go=()=>location.reload();
   try{ navigator.serviceWorker&&navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{}).finally(go) }catch(e){ go() }
