@@ -124,6 +124,15 @@ h3{font-family:var(--f-display);font-stretch:118%;font-weight:800;font-size:13px
 #rest.done .rest-time{color:var(--green)}
 #rest.done .rest-bar i{background:var(--green)}
 body.timing .wrap{padding-bottom:150px}
+.pex{display:flex;flex-direction:column;gap:6px}
+details.px>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-weight:650;font-size:14px}
+details.px>summary::-webkit-details-marker{display:none}
+details.px>summary>span:first-child::after{content:" ⓘ";color:var(--accent);font-weight:500}
+details.px[open]>summary>span:first-child::after{content:" ▾"}
+.plib{margin-top:6px;padding:10px 12px;background:var(--bg);border-radius:8px;display:flex;flex-direction:column;gap:6px;font-size:13.5px;line-height:1.5}
+.plib p{margin:0;max-width:65ch}
+.plib-note{color:var(--muted);font-style:italic}
+.setb.sm{width:48px;height:44px;font-size:14px}
 .restsel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .restsel .segb{padding:5px 10px;font-size:13px}
 /* status dashboard */
@@ -314,11 +323,88 @@ const MOD={
   swim:{name:'Swim',hic:['dist','yd'],liss:['dist','yd'],wu:'200 easy, then 4 × 25 building to HIC pace.'},
   other:{name:'Other',hic:null,liss:null}
 };
+// Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
+// Contacts count ground impacts (one landing = one contact), as the program does.
+const PLIB={
+  pogo:{name:'Pogo hop',
+    setup:'Stand tall, feet hip width, arms at your sides or lightly bent. Weight on the balls of your feet.',
+    exec:'Hop straight up repeatedly using only the ankles. Knees stay nearly straight and barely bend. Height is small, two to four inches. The goal is the shortest possible time on the ground, not air time.',
+    cues:'Think “stiff spring.” Toes pulled up toward your shin before you land so the forefoot contacts first. The rhythm should sound fast and even.',
+    errors:'Bending the knees to create height, which turns it into a squat jump and removes the ankle stimulus. Landing flat-footed or heel-first. Letting the rhythm slow as the set goes on.',
+    note:'The lowest-stress drill in the program, and the one that most directly builds the Achilles and calf stiffness everything else relies on.'},
+  askip:{name:'Ankle skip',
+    setup:'Standing, ready to travel forward over about 20 metres.',
+    exec:'Skip forward driving off the ankle with a minimal knee bend, opposite arm swinging. Cover ground with quick, light contacts rather than big bounds.',
+    cues:'Light and quick. Contacts should be barely audible.',
+    errors:'Turning it into a powerful A-skip with high knee drive. That is a different drill and adds fatigue you do not want before the main sets.'},
+  broad:{name:'Broad jump (single effort)',
+    setup:'Feet hip to shoulder width behind a line. Clear landing space of at least 3 metres. A flat, non-slip surface: grass or rubber gym flooring is ideal, concrete is the worst option.',
+    exec:'Hinge and load by dipping to roughly a quarter squat, swinging the arms back. Jump forward and slightly up, driving the arms forward and fully extending hips, knees and ankles. Land on both feet with hips back and knees tracking over toes, then absorb and stick: no extra hop, no stagger.',
+    cues:'Reach, don’t fall. Drive the arms hard; they contribute more distance than most people expect. Land like you are catching yourself in a quarter squat, not a deep one.',
+    errors:'Landing stiff-legged with straight knees (jarring and risky). Knees collapsing inward on landing. Piking at the waist in the air. Taking a step after landing. If you cannot stick it, you jumped past your current ability to absorb it.',
+    note:'Your measured lift for the block. Mark the takeoff line and measure to your rearmost heel. Log the best jump of each session.'},
+  cbroad:{name:'Continuous broad jump',
+    setup:'Same as the broad jump, with space for two to three consecutive jumps.',
+    exec:'Perform a broad jump, and the instant you land, immediately jump again with minimal time on the ground. The landing of jump one is the loading for jump two.',
+    cues:'Rebound, don’t reset. The whole point is that ground contact is short. Slightly shorter individual jumps with fast contacts beat long jumps with a pause.',
+    errors:'Pausing to re-set between reps, which makes it separate single jumps. Sinking into a deep squat on each landing, which kills the elastic stimulus.'},
+  box:{name:'Box jump, step down',
+    setup:'A stable box or plyo platform at a height you can land on in a quarter squat, not a deep one: typically 18 to 24 inches. Stand about a foot back.',
+    exec:'Dip, swing the arms, and jump onto the box, landing softly on both feet with hips slightly back. Stand fully upright on top, then step down one foot at a time.',
+    cues:'Soft, quiet landing. If you hear a thud, you are landing too heavily or the box is too high.',
+    errors:'Choosing a box so tall you have to tuck your knees to your chest to clear it. That measures hip flexibility, not power. Jumping down off the box, which adds eccentric load with none of the benefit.',
+    note:'Always step down. Repeated jump-downs are where box jump injuries come from, and they add contacts you did not program.'},
+  lbound:{name:'Lateral bound (stick 2 seconds)',
+    setup:'Stand on one leg. Clear space to your side. Non-slip footing matters more here than anywhere else.',
+    exec:'Push laterally off the standing leg and land on the opposite leg. Absorb on that single leg with a soft knee and the hip loaded, and hold the landing completely still for a two-count before bounding back the other way.',
+    cues:'Land with the knee tracking over the middle of the foot and the hip taking the load. The two-second hold is the exercise: it trains deceleration and frontal-plane control.',
+    errors:'Rushing the hold. Letting the knee cave inward. Landing on a stiff, straight leg. Bounding so far sideways you cannot control the landing. Distance is capped by your ability to stick it.'},
+  slhop:{name:'Single-leg hop (straight line)',
+    setup:'Balance on one leg, hands free. Flat surface with several metres ahead.',
+    exec:'Hop forward on the same leg repeatedly, aiming for consistent distance and short contacts. Complete all reps on one leg, then switch.',
+    cues:'Stay tall through the torso. Hips level: do not let the opposite hip drop on each landing.',
+    errors:'Letting distance shrink through the set. Excessive side-to-side drift. Hunching forward at the waist.',
+    note:'Compare left to right. A noticeable asymmetry in distance or landing control is worth addressing with unilateral strength work before adding jump volume.'},
+  sllat:{name:'Single-leg lateral hop (continuous)',
+    setup:'Balance on one leg. Optionally use a line or low object to hop over.',
+    exec:'Hop side to side on the same leg, continuously, with short ground contacts. No pause between reps.',
+    cues:'Small and fast beats big and slow. Knee tracks over the foot on every contact.',
+    errors:'Knee caving inward as fatigue sets in: stop the set when you see it. Landing flat-footed.',
+    note:'The highest frontal-plane demand in the program, and the most protective for ankles and knees.'},
+  bdist:{name:'Bound for distance',
+    setup:'Space of 20 to 30 metres. Start with a few walking steps into the first bound rather than from a dead stop.',
+    exec:'Alternate legs in exaggerated running strides, driving off one leg and landing on the other, covering as much ground per contact as possible. Opposite arm drives forward with each bound.',
+    cues:'Push the ground behind you and reach with the landing leg. Long, powerful, rhythmic.',
+    errors:'Turning it into ordinary running. Landing heel-first. Leaning back to try to hang in the air.'},
+  bheight:{name:'Bound for height',
+    setup:'Same as bounding for distance, with the same run-in.',
+    exec:'Alternate-leg bounds emphasising vertical displacement rather than horizontal: drive the knee up and get as high as you can per contact, covering less ground.',
+    cues:'Punch the knee up and the arms up. Think “up” on every contact.',
+    errors:'Drifting back into distance bounding once you fatigue. Collapsing into a deep knee bend on landing.'},
+  hurdle:{name:'Hurdle hop (low, continuous)',
+    setup:'Three to five low hurdles, cones, or 6 to 12 inch objects in a line, roughly a metre apart. Use objects that fall over harmlessly if clipped.',
+    exec:'Hop over each with both feet, landing and immediately rebounding into the next with minimal ground contact. Complete the line, walk back, repeat.',
+    cues:'Minimal time on the ground. Land on the balls of the feet, ankles stiff.',
+    errors:'Hurdles too high, which forces a knee tuck and a long pause on each landing. Pausing between hurdles to re-set.',
+    note:'If you only have one or two objects, use fewer and reset between passes rather than raising the height.'},
+  depth:{name:'Depth jump',
+    setup:'Box 12 to 16 inches high. Stand at the edge. Landing area must be flat and non-slip with room to jump forward or up.',
+    exec:'Step off the box. Do not jump off or down. Land on both feet on the balls of the feet and, as fast as humanly possible, rebound into a maximal vertical jump. The time between landing and takeoff is the entire exercise.',
+    cues:'Land and leave. Imagine the floor is hot. Target roughly a quarter-second on the ground; if you sink into a deep squat before jumping, the box is too high.',
+    errors:'Jumping off the box instead of stepping, which changes the landing force unpredictably. Using too high a box: the single most common error, and it converts an elastic drill into a heavy eccentric one. Pausing on landing.',
+    note:'Highest-stress movement in the program. If your vertical rebound off the box is lower than a normal standing vertical jump, the box is too high. Lower it. Start at 12 inches even if that feels trivially easy.'}
+};
+const PLYO_WARMUP=[['pogo','Pogo hops','3 × 10','Wakes up the ankle spring; short, fast ground contacts'],['askip','Ankle skips','2 × 20 m','Rhythm and elastic timing through the calf and Achilles'],['broad','Submaximal broad jumps','3 × 1 at ~70%','Rehearses the landing pattern before full effort']];
 const PLYO=[
-  {name:'Extensive',desc:'Bilateral, stick every landing',ex:[['Box jump, step down','4 × 5',20],['Broad jump, stick','4 × 5',20],['Lateral hurdle hop, stick','4 × 5',20]]},
-  {name:'Unilateral + reactive',desc:'Single-leg work and quick ground contacts',ex:[['Single-leg box jump','3 × 4 / side',24],['Alternating bounds','4 × 6',24],['Lateral bound, stick','3 × 4 / side',24],['Hurdle hops, reactive','2 × 4',8]]},
-  {name:'Elastic',desc:'Depth jumps and stiff, fast rebounds',ex:[['Depth jump','4 × 4',16],['Depth jump to broad jump','3 × 4',12],['Continuous hurdle hops','4 × 6',24],['Single-leg hops','3 × 6 / side',36]]}
+  {name:'Extensive',target:60,desc:'Bilateral, stick every landing. This phase is about teaching the landing and building tissue tolerance, not chasing distance.',
+   ex:[{id:'broad',label:'Broad jump, single effort',s:5,r:'3',c:15,rest:60},{id:'box',label:'Box jump, step down',s:5,r:'3',c:15,rest:60},{id:'lbound',label:'Lateral bound, stick 2 sec',s:4,r:'4 / side',c:16,rest:60},{id:'pogo',label:'Pogo hops in place',s:4,r:'8',c:32,rest:45,low:true}]},
+  {name:'Unilateral + reactive',target:80,desc:'Single-leg work enters. Measure and log your best broad jump every session from here on; it is your progress marker.',
+   ex:[{id:'cbroad',label:'Broad jump, 2 continuous',s:5,r:'2 jumps',c:20,rest:90},{id:'slhop',label:'Single-leg hop, straight line',s:4,r:'4 / side',c:32,rest:90},{id:'bdist',label:'Bound for distance',s:4,r:'6 contacts',c:24,rest:90},{id:'hurdle',label:'Hurdle hops, low, continuous',s:3,r:'5',c:15,rest:90}]},
+  {name:'Elastic',target:90,desc:'Depth jumps enter: the highest-stress sets in the block. Start at the lower box height and only raise it if landings stay silent and controlled.',
+   ex:[{id:'depth',label:'Depth jump from 12–16 in',s:5,r:'3',c:15,rest:120},{id:'sllat',label:'Single-leg lateral hop, continuous',s:4,r:'5 / side',c:40,rest:90},{id:'cbroad',label:'Continuous broad jump, 3 reps',s:4,r:'3 jumps',c:24,rest:90},{id:'bheight',label:'Bound for height',s:3,r:'4',c:12,rest:90}]}
 ];
+const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','Wednesday’s squat session was unusually heavy or left you sore into Thursday.'];
+function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
 const ACC={
   mon:['Horizontal pull: chest-supported row','Rear delt / upper back: face pull or reverse fly','Core: Pallof press or hanging knee raise','Arms: curls + triceps pushdown'],
   wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression: negatives or band-assisted'],
@@ -944,15 +1030,35 @@ function hicCard(dp,note){
     h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hist.best.v)}</span></div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
   return h+`</div>`;
 }
+const openPx=new Set();
+function plyoSets(ex,cut){return cut?Math.ceil(ex.s/2):ex.s}
+function plyoContactsDone(ph,L,cut){let c=0;ph.ex.forEach((e,i)=>{const t=((L.sets||[])[i]||[]).filter(Boolean).length;c+=t*e.c/e.s});return Math.round(c)}
+function plyoPullback(date){
+  const c=ci(date), out=[];
+  if(c.soreness>=4) out.push('you logged high soreness today');
+  let short=0;for(let i=0;i<3;i++){const x=ci(addDays(date,-i));if(x.sleepH!=null&&x.sleepH!==''&&+x.sleepH<6.5)short++}
+  if(short>=2) out.push('sleep has been short for several nights');
+  const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>x&&x.grinder)) out.push('yesterday’s lifting was hard');
+  return out;
+}
 function plyoCard(wk,dp){
-  const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=dp.plyoCut||L.cut;
-  const tot=ph.ex.reduce((a,e)=>a+e[2],0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${cut?Math.round(tot/2):tot} contacts</span></div><div class="small muted">${ph.desc}. 15–20 min of actual work, before HIC. Warm-up (not counted): pogo hops 3×10, ankle skips 2×20 m, 3 submax broad jumps.</div>`;
-  h+=`<div class="stack">${ph.ex.map((e,i)=>`<label class="ex"><input type="checkbox" id="px-${i}" data-bind="plyo.ex.${i}" ${(L.ex||{})[i]?'checked':''}><span>${esc(e[0])}</span><span class="mono small">${cut?'½ of ':''}${e[1]}</span></label>`).join('')}</div>`;
-  h+=`<div class="grid2"><label class="f">First broad jump (in)${numIn('plyo.mark',L.mark,'')}</label><label class="f">Contacts done${numIn('plyo.contacts',L.contacts,'')}</label></div>`;
-  if(L.mark) h+=`<div class="small">Stop the session if a jump drops below <b class="mono">${n(Math.round(L.mark*.95*10)/10)} in</b> (5% off).</div>`;
+  const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
+  const done=plyoContactsDone(ph,L,cut), target=cut?Math.round(ph.target/2):ph.target;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work, before HIC.</div>`;
+  const pb=plyoPullback(sel);
+  if(pb.length&&!cut) h+=`<div class="banner warn"><div class="small"><b>Pull-back check:</b> ${esc(pb.join('; '))}. The program says cut the session in half (or warm-up only). Cut, don’t skip.</div></div>`;
+  h+=`<details class="plain" data-px="wu"${openPx.has('wu')?' open':''}><summary>Warm-up · about 8 min, not counted</summary><div class="stack" style="margin-top:8px">${PLYO_WARMUP.map(([id,l,d,why])=>`<details class="px" data-px="wu-${id}"${openPx.has('wu-'+id)?' open':''}><summary><span>${l}</span><span class="mono small">${d}</span></summary><div class="small muted" style="margin:4px 0 6px">${why}</div>${plyoEntry(id)}</details>`).join('')}</div></details>`;
+  h+=`<div class="stack" style="gap:12px">`;
+  ph.ex.forEach((e,i)=>{
+    const n0=plyoSets(e,cut), sets=((L.sets||[])[i])||[];
+    h+=`<div class="pex"><details class="px" data-px="ex${i}"${openPx.has('ex'+i)?' open':''}><summary><span>${esc(e.label)}${e.low?' <span class="chip">low intensity</span>':''}</span><span class="mono small">${n0} × ${e.r} · ${e.rest>=120?e.rest/60+' min':e.rest+' s'}</span></summary>${plyoEntry(e.id)}</details>
+    <div class="sets">${Array.from({length:n0},(_,j)=>`<button class="setb sm${sets[j]?' on':''}" data-act="pset" data-i="${i}" data-j="${j}" aria-pressed="${!!sets[j]}">${esc(e.r.split(' ')[0])}<small>Set ${j+1}</small></button>`).join('')}</div></div>`;
+  });
+  h+=`</div>`;
+  h+=`<div class="grid3"><label class="f">First broad jump (in)${numIn('plyo.mark',L.mark,'')}</label><label class="f">Best broad jump (in)${numIn('plyo.best',L.best,'')}</label><label class="f">Contacts done${numIn('plyo.contacts',L.contacts,String(done))}</label></div>`;
+  if(L.mark) h+=`<div class="small">Stop the session if a jump drops below <b class="mono">${n(Math.round(L.mark*.95*10)/10)} in</b> (5% off your first jump).</div>`;
   if(!dp.plyoCut) h+=`<label class="check"><input type="checkbox" id="p-cut" data-bind="plyo.cut" ${L.cut?'checked':''}> Hard lifting week: halve the contacts</label>`;
-  if(wk.kind==='cycle'&&Math.floor((wk.plyoIdx%9)/3)===2) h+=`<div class="small muted">Depth jump box: if your rebound is lower than your standing vertical, the box is too high.</div>`;
+  h+=`<details class="plain"><summary>The three rules, and when to pull back</summary><div class="stack small" style="margin-top:8px"><div><b>1. Watch your distance, not your set count.</b> If any jump drops more than about 5% off your first broad jump, the session is over, even with sets remaining.</div><div><b>2. Every rep is maximal or near it.</b> Rest fully between sets. If you are breathing hard, you are doing conditioning, not plyometrics.</div><div><b>3. Cut, don’t skip.</b> After an unusually hard lifting week, halve the contacts rather than dropping the session.</div><div><b>Cut the session in half, or do the warm-up only, if:</b><ul class="tight" style="margin-top:4px">${PLYO_PULLBACK.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div></details>`;
   return h+`</div>`;
 }
 function jumpCard(sub){
@@ -1089,9 +1195,9 @@ async function holdScreen(on){
     else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
   }catch(e){wakeLock=null}
 }
-function startRest(k,next){
-  const secs=restMins(k)*60;
-  rest={k,lbl:'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
+function startRest(k,next,secs,lbl){
+  secs=secs||restMins(k)*60;
+  rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
   LS.set('ob.rest',rest); holdScreen(true); showRest();
 }
 function stopRest(){rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;holdScreen(false);showRest()}
@@ -1219,7 +1325,7 @@ function vStatus(){
   // --- body + recovery
   const bw=Object.entries(logs).filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-60);
   const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
-  const jm=Object.entries(logs).map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&L.plyo.mark)||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+  const jm=Object.entries(logs).map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
   h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
   h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
   h+=`<div class="sm"><div class="sm-h"><b>Bodyweight</b>${bw.length?`<span class="v">${r1(bw[bw.length-1].v)}<small>${u()}${bw.length>1?` · ${bw[bw.length-1].v-bw[0].v>0?'+':''}${r1(bw[bw.length-1].v-bw[0].v)} since ${fmtD(bw[0].d)}`:''}</small></span>`:''}</div>${bw.length>=2?lineChart(bw.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()}`})),{label:'Bodyweight',minStep:1}):'<div class="none">Log bodyweight in the daily check-in.</div>'}</div>`;
@@ -1287,9 +1393,9 @@ function vHistory(){
   }
   h+=`</div>`;
   // Jumps
-  const jm=Object.entries(logs).filter(([d,L])=>(L.plyo&&L.plyo.mark)||(L.jumps&&(L.jumps.broad||L.jumps.vertical))).sort((a,b)=>a[0]<b[0]?1:-1);
+  const jm=Object.entries(logs).filter(([d,L])=>(L.plyo&&(L.plyo.best||L.plyo.mark))||(L.jumps&&(L.jumps.broad||L.jumps.vertical))).sort((a,b)=>a[0]<b[0]?1:-1);
   h+=`<div class="card"><h2>Jumps</h2>`;
-  h+=jm.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Broad</th><th class="n">Vertical</th><th class="n">Triple</th></tr></thead><tbody>${jm.slice(0,15).map(([d,L])=>`<tr><td>${fmtD(d,true)}</td><td class="n">${n((L.jumps&&L.jumps.broad)||(L.plyo&&L.plyo.mark))}</td><td class="n">${n(L.jumps&&L.jumps.vertical)}</td><td class="n">${n(L.jumps&&L.jumps.triple)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No jumps logged yet. Thursday's first broad jump and test-week jumps land here.</div>`;
+  h+=jm.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Broad</th><th class="n">Vertical</th><th class="n">Triple</th></tr></thead><tbody>${jm.slice(0,15).map(([d,L])=>`<tr><td>${fmtD(d,true)}</td><td class="n">${n((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark)))}</td><td class="n">${n(L.jumps&&L.jumps.vertical)}</td><td class="n">${n(L.jumps&&L.jumps.triple)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No jumps logged yet. Thursday's first broad jump and test-week jumps land here.</div>`;
   h+=`</div>`;
   // Sessions
   const ss=Object.entries(logs).filter(([d,L])=>L.done||L.notes).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,20);
@@ -1346,7 +1452,12 @@ function vGuide(){
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul></div>
-  <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Phases rotate every 3 training weeks: Extensive (~60 contacts) → Unilateral + reactive (~80) → Elastic with depth jumps (~90). Deload weeks use the extensive set at half volume.</p><ul class="tight"><li><b>Watch distance, not set count.</b> If any jump drops more than 5% off your first broad jump, the session is over.</li><li><b>Every rep maximal or near it.</b> If you're breathing hard, you're doing conditioning.</li><li><b>Cut, don't skip.</b> After a hard lifting week, halve the contacts.</li></ul><p class="small muted">Exercise picks in the app are suggestions. Your Plyometric Program PDF has the full library with cues.</p></div>
+  <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week, before HIC and never after. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>
+  <ul class="tight"><li><b>Watch distance, not set count.</b> If any jump drops more than ~5% off your first broad jump, the session is over.</li><li><b>Every rep maximal or near it.</b> If you’re breathing hard, you’re doing conditioning.</li><li><b>Cut, don’t skip.</b> After a hard lifting week, halve the contacts.</li><li><b>Counting contacts:</b> one landing = one contact, even on two feet. The volumes are calibrated that way.</li></ul>
+  <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
+  <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
+  <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
   <div class="card guide"><h3>Accessories</h3><ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3><p>Deload weeks drop to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}% (deadlift 1 set), swap all HIC to LISS, halve plyos and drop accessories. Retest weeks take three easy days, then heavy singles split across Thursday (squat, bench, jumps) and Saturday (deadlift, Lift 3, max pull-ups). Saturday's card feeds results into the next cycle.</p><p>Need a deload sooner? Add one from the Plan tab, or from the warning on Today after repeated hard sessions.</p></div>
   <div class="card guide"><h3>Warm-up</h3>${warmupShort()}</div>`;
@@ -1375,12 +1486,12 @@ document.addEventListener('input',e=>{
   document.addEventListener('focusin',e=>{const el=e.target.closest&&e.target.closest('.ch-hit');el?show(el):hide()});
   window.addEventListener('scroll',hide,{passive:true});
 })();
-document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
+document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.dataset&&d.dataset.px){d.open?openPx.add(d.dataset.px):openPx.delete(d.dataset.px);return}if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday) render(); });
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)});
 document.getElementById('main').addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
-  if(a==='go'){sel=b.dataset.date;openWarm.clear();render();return}
+  if(a==='go'){sel=b.dataset.date;openWarm.clear();openPx.clear();render();return}
   if(a==='open'){sel=b.dataset.date;view='today';render();window.scrollTo(0,0);return}
   if(a==='view'){view=b.dataset.view;render();window.scrollTo(0,0);return}
   if(a==='ci'){const f=b.dataset.f,raw=b.dataset.v,v=/^\d+(\.\d+)?$/.test(raw)?+raw:raw;setLog(sel,'checkin.'+f,ci(sel)[f]==v?null:v);render();return}
@@ -1410,6 +1521,19 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
   if(a==='mod'){setLog(sel,'hic.mod',b.dataset.v);render();return}
   if(a==='l3swap'){const v=b.dataset.v;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
+  if(a==='pset'){
+    const i=+b.dataset.i,j=+b.dataset.j, wk=weekOf(sel), dp=dayPlan(sel), ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
+    const arr=[...(((L.sets||[])[i])||[])]; arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;
+    setLog(sel,'plyo.sets.'+i,arr);
+    if(arr[j]&&sel===todayStr()){
+      unlockAudio(); const e=ph.ex[i]; let next=null;
+      const firstOpen=a=>{for(let x=0;x<plyoSets(ph.ex[a],cut);x++) if(!(((lg(sel).plyo||{}).sets||[])[a]||[])[x]) return x; return -1};
+      const fo=firstOpen(i); if(fo>=0) next=e.label+' · set '+(fo+1);
+      else for(let a2=i+1;a2<ph.ex.length;a2++){const f2=firstOpen(a2);if(f2>=0){next=ph.ex[a2].label+' · set '+(f2+1);break}}
+      if(next) startRest(null,next,e.rest,'Rest · '+e.label);
+      else startRest(null,'HIC: '+HIC[effFmt(sel)].name,600,'Rest before HIC');
+    }
+    render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest()}
     return}
