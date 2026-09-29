@@ -7,24 +7,17 @@ Update it as things ship. Last updated 2026-09-29.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **Adding a person:** Zero Trust → Access → Applications → Operator Black → policy →
-  add their email. Nothing else is needed; they start at their own bridge week.
-- **Existing data is claimed on your first sign-in** after the per-user change (from
-  the iCloud or Gmail address). Rest alerts re-register automatically on that visit.
-- **Conditioning "last/best" across programs** only counts sessions whose format and
-  activity are stored. Programs archived by the app stamp them automatically.
-
 - **Automatic deploys don't fire.** Pushing to `main` doesn't start a Workers Builds
-  run. Deploys go out with `npx wrangler deploy`. Either reconnect the repo under
-  Workers & Pages → operator-black → Settings → Build, or disconnect it.
-- **iPhone testing pending:** home-screen install, offline launch, Access login inside
-  the installed app, the rest-timer beep (ringer switch, backgrounding), whether the
-  screen stays awake during rest, and **rest alerts arriving on the lock screen**
-  (Setup → Rest alerts → Send a test).
-- **Access session length.** Set the Operator Black application's session duration to
-  1 month so the phone doesn't ask for a login code every day.
-- **Confirm the first live backup.** The KV store is empty until the first Sunday run
-  or a "Back up now" from Setup.
+  run; every deploy so far has gone out with `npm run deploy` (wrangler). Either
+  reconnect the repo under Workers & Pages → operator-black → Settings → Build, or
+  disconnect it.
+- **iPhone testing, still to confirm at the gym:** offline launch, the rest-timer beep
+  (ringer switch, backgrounding), the screen staying awake during rest, rest alerts on
+  the lock screen (Setup → Rest alerts → Send a test), and the interval timer on the
+  bike. Confirmed so far: home-screen install, Access login in the installed app, the
+  update banner.
+- **Confirm the first live backup.** The KV store is still empty (checked 2026-09-29);
+  the first automatic backup runs Sunday 09:00 UTC, or tap Setup → Back up now.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
   (deadlift + pulldown + OHP, plus pull-ups). Program notes say two per test day.
   Bridge week already splits them; retest week doesn't yet.
@@ -32,6 +25,8 @@ Known gaps and things to verify. Fix or close these before starting new features
   deload/retest spacing mid-week can change this week's type.
 - **Accessory ticks are stored by position.** Editing a day's list in Setup shifts
   which movement older checkmarks line up with.
+- **Conditioning "last/best" across programs** only counts sessions whose format and
+  activity are stored. Programs archived by the app stamp them automatically.
 - **Content to verify against the book:**
   - Wave weeks 5–6 (sources disagree: 3×5 @ 85% / 3×2 @ 95% vs 3×3 @ 85% / 3×1 @ 95%).
   - The deload prescription (2×5 @ 60%), bridge/retest day layout, and deadlift and
@@ -60,6 +55,9 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 Not committed to. Roughly in order of how useful they'd be.
 
+- **Standing triple jump in the plyo library:** hop, step, jump from a two-foot start;
+  the PDF lists it as a test but has no library entry. Add an ⓘ entry to the jump-test
+  card and the Guide.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
 - **Per-set effort:** RPE or "fast/slow" per working set, feeding the cycle review.
 - **More Status charts:** weekly conditioning minutes, an adherence calendar heatmap,
@@ -67,7 +65,7 @@ Not committed to. Roughly in order of how useful they'd be.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
 - **Split `index.html` into modules** with a small build step once it gets harder to
-  change safely. It's ~1,400 lines today.
+  change safely. It's ~2,000 lines today.
 - **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
 
 ## Parked
@@ -78,6 +76,10 @@ Decided against for now.
   right now because of API cost. Revisit if that changes.
 
 ## Shipped
+
+**Settings done in Cloudflare**
+- Access session duration set to 1 month. To add a person: Zero Trust → Access →
+  Applications → Operator Black → policy → add their email (details in README).
 
 **Core (2026-09-29)**
 - Operator + Black schedule with endless 6-week cycles, bridge week, automatic deload

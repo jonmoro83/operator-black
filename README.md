@@ -30,8 +30,9 @@ npm run dev                         # http://localhost:8787
 
 ## Deploys
 
-Every push to `main` deploys through Workers Builds (the Worker is connected to this
-repo in the dashboard). `wrangler.toml` attaches **operatorblack.com** as a custom
+Deploy with `npm run deploy` (wrangler, tagged with the git commit). Pushing to `main`
+is meant to deploy through Workers Builds, but that connection doesn't trigger yet;
+see ROADMAP.md. `wrangler.toml` attaches **operatorblack.com** as a custom
 domain; `workers_dev` and preview URLs are off, so the only way in is through the
 Access login.
 
