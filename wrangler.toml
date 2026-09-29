@@ -8,12 +8,14 @@ workers_dev = false
 preview_urls = false
 routes = [
   { pattern = "operatorblack.com", custom_domain = true },
+  { pattern = "www.operatorblack.com", custom_domain = true },
 ]
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+# Every request passes through the Worker so www can redirect before any file is served.
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
