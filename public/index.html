@@ -782,6 +782,8 @@ function applyState(st){
     if(pending('logs/'+id)) continue;
     if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true}
   }
+  // entries removed on the server go away here too (unless this phone has unsent changes)
+  if(st.logs) for(const id of Object.keys(logs)) if(!(id in st.logs)&&!pending('logs/'+id)){delete logs[id];changed=true}
   saveCache();
   if(changed) render();
 }
@@ -1917,10 +1919,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
-  if(a==='ivopt'){setLog(sel,'hic.iv.'+b.dataset.k,+b.dataset.v);render();return}
+  if(a==='ivopt'){if(ivOpts(sel,effFmt(sel))[b.dataset.k]===+b.dataset.v)return;setLog(sel,'hic.iv.'+b.dataset.k,+b.dataset.v);render();return}
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
-  if(a==='mod'){setLog(sel,'hic.mod',b.dataset.v);render();return}
-  if(a==='l3swap'){const v=b.dataset.v;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
+  if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
+  // choices that are already selected save nothing (no empty log entries)
+  if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='pset'){
     const i=+b.dataset.i,j=+b.dataset.j, wk=weekOf(sel), dp=dayPlan(sel), ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
     const arr=[...(((L.sets||[])[i])||[])]; arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;
@@ -1934,7 +1937,7 @@ document.getElementById('main').addEventListener('click',e=>{
       else startRest(null,'HIC: '+HIC[effFmt(sel)].name,600,'Rest before HIC');
     }
     render();return}
-  if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
+  if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}
   if(a==='done'){setLog(sel,'done',!lg(sel).done);render();return}
