@@ -123,8 +123,10 @@ and previews this one, until dismissed via `plan.weekSeen`.
 
 `gdStart('warmup'|'mobility')` opens a full-screen runner over the same checklists.
 Items whose dose parses as a duration (`holdSecs`) count down and advance themselves,
-running both sides when the dose says per side; the rest wait for a tap. State lives in
-`ob.guide` with absolute end times, so locking the phone doesn't lose the place.
+running both sides when the dose says per side; the rest wait for a tap. `plan.guideAuto`
+(toggled inside the runner) decides whether a finished timer flows on by itself or holds
+at 0:00 on `guide.wait` until tapped. State lives in `ob.guide` with absolute end times,
+so locking the phone doesn't lose the place.
 
 ## Interval timer
 

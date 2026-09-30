@@ -214,8 +214,10 @@ Decided against for now.
 - Week summary on Today at the start of each week: last week's sessions, readiness and
   bests, then what this week holds and when the next deload and retest fall. Dismissable.
 - Guided run through the warm-up and mobility blocks: full screen, one movement at a
-  time, timed items count down and advance themselves (both sides where the dose says
-  per side), rep items wait for a tap, each one ticked off as it completes.
+  time, timed items count down (both sides where the dose says per side), rep items wait
+  for a tap, each one ticked off as it completes. **Auto-advance** is a toggle in the
+  runner (`plan.guideAuto`): on, it flows straight into the next side and movement; off,
+  it holds at 0:00 with a Start side 2 / Next button so you set up in your own time.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
