@@ -1,19 +1,24 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-09-29.
+Update it as things ship. Last updated 2026-09-30.
+
+This file is the working record, written for whoever is building. The user-facing
+summary of each release lives in `public/releases.js` and shows up in the app under
+Setup → About this app → What's new.
 
 ## Open issues
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
 - **iPhone testing, still to confirm at the gym:** offline launch, the rest-timer beep
-  (ringer switch, backgrounding), the screen staying awake during rest, rest alerts on
-  the lock screen (Setup → Rest alerts → Send a test), and the interval timer on the
-  bike. Confirmed so far: home-screen install, Access login in the installed app, the
-  update banner.
-- **Confirm the first live backup.** The KV store is still empty (checked 2026-09-29);
-  the first automatic backup runs Sunday 09:00 UTC, or tap Setup → Back up now.
+  (ringer switch, backgrounding), whether the screen really stays awake during a rest,
+  and the interval timer on the bike. Confirmed so far: home-screen install, Access login
+  in the installed app, the update banner, rest alerts arriving on the lock screen, and
+  spoken cues through AirPods with the app open.
+- **Confirm the first live backup.** The KV store was still empty on 2026-09-30. The cron
+  first fires Sunday 2026-10-04 09:00 UTC; tapping Setup → Back up now would prove the
+  path sooner.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
   (deadlift + pulldown + OHP, plus pull-ups). Program notes say two per test day.
   Bridge week already splits them; retest week doesn't yet.
@@ -39,8 +44,12 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
-- **Tune the end-of-cycle review after Cycle 1** (review due Fri 11/13/2026). Check
-  whether the grinder / missed-set / RPE thresholds suggested sensible changes.
+- **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
+  cycle: the first review appears Fri 2026-11-13. Then check whether the grinder /
+  missed-set / heavy-week-RPE thresholds suggested sensible next maxes, and adjust
+  `recommend()` if they did not.
+
+Nothing else is committed. Pull from Ideas below, or from whatever the gym turns up.
 
 ## Ideas
 
@@ -51,7 +60,6 @@ Not committed to. Roughly in order of how useful they'd be.
 - **Launch screen on iPhone:** branded splash instead of a white flash.
 - **Calendar feed:** the plan in iPhone Calendar with weights, auto-updating.
 - **Share with a partner or coach:** opt-in, read-only progress view.
-
 - **Standing triple jump in the plyo library:** hop, step, jump from a two-foot start;
   the PDF lists it as a test but has no library entry. Add an ⓘ entry to the jump-test
   card and the Guide.
@@ -82,7 +90,6 @@ Decided against for now.
   trade. See commit a983b65 if it is ever wanted again.
   **What works instead:** in-app spoken cues whenever the screen is on, with Auto-Lock
   set to Never for a session.
-
 - **AI coach (Claude API):** weekly summary and Q&A over the training log. Not feasible
   right now because of API cost. Revisit if that changes.
 
@@ -200,7 +207,7 @@ Decided against for now.
 - Hold timers (⏱) on warm-up and mobility items with a real duration, running each side
   in turn; the last ramp set now gets the lift's full rest before the first working set.
 
-**Records, week summary, guided blocks (2026-10-01)**
+**Records, week summary, guided blocks (2026-09-30)**
 - Personal records across every program (tested 1RMs, pull-ups, all three jumps, best
   result per conditioning activity and format), on Status with the date and the gain.
   A day that sets one shows a "New personal best" card on Today with the value it beat.
@@ -212,7 +219,7 @@ Decided against for now.
   runner (`plan.guideAuto`): on, it flows straight into the next side and movement; off,
   it holds at 0:00 with a Start side 2 / Next button so you set up in your own time.
 
-**Averages, appearance, polish (2026-10-01)**
+**Averages, appearance, polish (2026-09-30)**
 - Bodyweight runs off a 7-day rolling average (`bwAvg`/`bwFor`/`bwRate`): the Status
   chart plots the average with the weekly rate, the protein target and weighted pull-up
   loads use it, and the trend advice compares averages 14 days apart instead of two raw
@@ -223,26 +230,30 @@ Decided against for now.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
 
-**Smaller index.html (2026-10-01)**
+**Smaller index.html (2026-09-30)**
 - Styles moved to `public/app.css` and the release notes to `public/releases.js`,
   taking `index.html` from 3,148 to 2,728 lines with no build step and no behaviour
   change. The service worker caches both and refreshes them in the background, so a
   style or notes change lands on the next load without bumping its VERSION.
 
-**Release notes and a fix (2026-10-01)**
+**Release notes and a fix (2026-09-30)**
 - **What's new** page listing every release and what it added, reached from Setup →
   About this app and from the update banner. When something user-facing ships, add a
   `RELEASES` entry and bump `package.json`'s version to match — a test enforces it, and
   the deploy tag (`v<version>-<commit>`) carries it so About this app can name both the
   running and the deployed release.
+- About this app leads with the release version ("1.6 · Records, coaching and polish")
+  instead of the asset fingerprint, which is now fine print. `APP_VERSION` comes from
+  `RELEASES[0].v`; `tagVersion()` parses the deployed tag for the Latest row.
 - Restored the **About this app** card, which a bad edit removed alongside the audio-cue
   card in `eed4fc2` (signed-in address, versions, update check). A test now asserts every
   Setup card is present so that cannot happen quietly again.
 
-**Tests and undo (2026-10-01)**
-- 28 tests over the calculations, run by `npm test`, before every deploy, and on every
+**Tests and undo (2026-09-30)**
+- 31 tests over the calculations, run by `npm test`, before every deploy, and on every
   push via GitHub Actions. `test/harness.js` loads the app's script into Node against a
-  stub DOM, so no browser is needed.
+  stub DOM, so no browser is needed. Two of them guard the app's shape rather than its
+  maths: every Setup card is present, and the version numbers agree.
 - Undo for the taps that are easy to get wrong: set ticks, marking a session done,
   lowering a max, adding/skipping/removing a week, moving days, resetting a week's
   order, clearing the warm-up or mobility, and applying a review or test results.
