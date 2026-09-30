@@ -181,6 +181,21 @@ svg.loader.big{max-width:420px}
 #iv.mini .iv-btns .btn{padding:8px;font-size:14px}
 body.iv-mini .wrap{padding-bottom:190px}
 .ivset{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+/* gym mode: bigger targets, firmer edges */
+:root[data-gym="1"] body{font-size:16px}
+:root[data-gym="1"] .btn{padding:11px 18px;font-size:16px}
+:root[data-gym="1"] .btn.sm{padding:7px 12px;font-size:14.5px}
+:root[data-gym="1"] .segb{padding:10px 16px;font-size:15.5px}
+:root[data-gym="1"] .setb{width:66px;height:60px;font-size:19px}
+:root[data-gym="1"] .wu-chk{height:44px}
+:root[data-gym="1"] .check input{width:22px;height:22px}
+:root[data-gym="1"] .card{border-width:2px}
+:root[data-gym="1"] .muted{opacity:.92}
+:root[data-gym="1"] .small{font-size:14px}
+:root[data-gym="1"] input[type=number],:root[data-gym="1"] input[type=text],:root[data-gym="1"] select{font-size:17px;padding:10px 12px}
+/* a set that was just ticked */
+@keyframes obpop{0%{transform:scale(1)}38%{transform:scale(1.14)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:no-preference){.setb.pop{animation:obpop .24s ease-out}}
 /* archived program: read-only */
 .ro input,.ro select,.ro textarea,.ro .setb,.ro .segb:not(.pv),.ro .wu-chk,.ro [data-act="ivstart"]{pointer-events:none;opacity:.7}
 /* rest timer */
@@ -229,6 +244,7 @@ details.px[open]>summary>span:first-child::after{content:" ▾"}
 .wkdots i.rest{border-style:dashed;opacity:.6}
 .sub-h{margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .check>span:first-of-type{flex:1;min-width:0}
+.card.done{border-color:var(--green)}
 .card.pr{border-color:var(--green);background:linear-gradient(0deg,var(--green-bg),var(--green-bg)),var(--surface)}
 .pr-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 12px;align-items:baseline;border-top:1px solid var(--line);padding-top:8px}
 .pr-row:first-of-type{border-top:0;padding-top:0}
@@ -650,12 +666,12 @@ function l3For(date){const o=(logs[date]||{}).l3;return o&&l3On().includes(o)?o:
 // Working load. Weighted pull-up percentages apply to bodyweight + added weight;
 // the result is the weight to add (0 or less = bodyweight only).
 function loadFor(k,max,pct,date){
-  if(isBW(k)){const bw=latestBw(date||sel);if(!bw)return null;return rnd((bw+max)*mult()*pct/100-bw,plan.round[k])}
+  if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;return rnd((bw+max)*mult()*pct/100-bw,plan.round[k])}
   return rnd(max*mult()*pct/100,plan.round[k]);
 }
 function estMax(k,w,r,date){
   if(w==null||w===''||!r) return null;
-  if(isBW(k)){const bw=latestBw(date||sel);if(!bw)return null;const e=e1rm(bw+ +w,r);return e==null?null:e-bw}
+  if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;const e=e1rm(bw+ +w,r);return e==null?null:e-bw}
   return e1rm(w,r);
 }
 function fmtLoad(k,w){return isBW(k)?(w>0?'+'+n(w):'BW'):n(w)}
@@ -1067,6 +1083,7 @@ function vToday(){
   if(moveOpen&&!viewing) h+=moveCard();
   h+=weekSummaryCard();
   h+=prCard(sel);
+  h+=finishCard(sel,dp);
   h+=banners(wk,dp);
   if(sel===todayStr()){const rc=reviewCycleFor(sel);if(rc) h+=reviewCard(rc);const dc=deloadCheckCycle(sel);if(dc) h+=deloadCheckCard(dc)}
   h+=checkinCard(sel);
@@ -1125,6 +1142,31 @@ function moveCard(){
   }
   if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
   return h+`</div>`;
+}
+// Shown once a day is marked done: what actually got logged, and anything still missing.
+function finishCard(date,dp){
+  const L=lg(date); if(!L.done||['off','pre','convert'].includes(dp.t)) return '';
+  const bits=[], gaps=[];
+  if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test'){
+    const wk=weekOf(date);
+    for(const k of (dp.lifts||[])){
+      const x=(L.lifts||{})[k]||{}, t=((L.test||{})[k])||{};
+      if(dp.t==='lift'&&wk){const r=rx(wk,k),nS=k==='dead'&&wk.kind==='cycle'?1:r.s,dn=(x.sets||[]).filter(Boolean).length;
+        bits.push(`${liftName(k)} ${dn}/${nS}${x.grinder?' · grinder':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
+      else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
+    }
+    const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
+  }
+  if(dp.t==='hic'||dp.t==='plyohic'){
+    const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
+    if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
+  }
+  if(dp.t==='plyohic'||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
+  const m=(L.mobility||[]).filter(Boolean).length; if(m) bits.push(`mobility ${m} done`);
+  if(!L.rpe) gaps.push('no session RPE');
+  return `<div class="card done"><div class="lift-h"><h3>Session complete</h3><span class="chip light">✓ ${esc(dp.short||'Done')}${L.rpe?' · RPE '+L.rpe:''}</span></div>
+  ${bits.length?`<div class="small">${esc(bits.join(' · '))}</div>`:''}
+  ${gaps.length?`<div class="small muted">Still open: ${esc(gaps.join(', '))}.</div>`:'<div class="small muted">Everything logged. Nice work.</div>'}</div>`;
 }
 function banners(wk,dp){
   let h='';
@@ -1219,11 +1261,11 @@ function liftCard(wk,k,dp){
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
-    if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${n(latestBw(sel))} ${u()} bodyweight.</div>`;
+    if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
-  } else h+=`<div class="muted">${isBW(k)&&r.m&&!latestBw(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
+  } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
   h+=`<div class="sets">`;
-  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${isDead&&i>0?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}</small></button>`;
+  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${isDead&&i>0?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}</small></button>`;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
   h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book says 5 min.</span>':''}</div>`;
   h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
@@ -1266,7 +1308,21 @@ const CI_Q=[
 const openCI=new Set();
 function ci(date){return (lg(date).checkin)||{}}
 function latestBw(date){let best=null;for(const [d,L] of Object.entries(logs)) if(d<=date&&L.checkin&&L.checkin.bw&&(!best||d>best.d)) best={d,v:+L.checkin.bw};return best?best.v:(plan.bodyweight?+plan.bodyweight:null)}
-function proteinTarget(date){const bw=latestBw(date);if(!bw)return null;const lb=u()==='kg'?bw*2.2046:bw;return Math.round(lb*(+plan.proteinPerLb||0.8)/5)*5}
+// Daily weigh-ins are noisy; everything that reacts to bodyweight uses a 7-day average
+// and falls back to the latest single reading until there are two in the window.
+function bwAvg(date,days){
+  days=days||7; const from=addDays(date,-(days-1)), xs=[];
+  for(const [d,L] of Object.entries(logs)) if(d>=from&&d<=date&&L.checkin&&L.checkin.bw) xs.push(+L.checkin.bw);
+  return xs.length?{avg:xs.reduce((a,b)=>a+b,0)/xs.length,n:xs.length}:null;
+}
+function bwFor(date){const a=bwAvg(date,7);return a?a.avg:latestBw(date)}
+// Change per week from the 7-day average now against the one `back` days ago.
+function bwRate(date,back){
+  back=back||14; const now=bwAvg(date,7), then=bwAvg(addDays(date,-back),7);
+  if(!now||!then||now.n<2||then.n<2) return null;
+  return {perWeek:(now.avg-then.avg)/back*7, from:then.avg, to:now.avg, back};
+}
+function proteinTarget(date){const bw=bwFor(date);if(!bw)return null;const lb=u()==='kg'?bw*2.2046:bw;return Math.round(lb*(+plan.proteinPerLb||0.8)/5)*5}
 function readiness(c){
   const part=[], add=(v,w)=>{if(v!=null&&!Number.isNaN(v))part.push([Math.max(0,Math.min(1,v)),w])};
   const tgt=+plan.sleepTarget||8;
@@ -1327,11 +1383,10 @@ function suggestions(date){
   let lowDays=0;for(let i=0;i<7;i++){const x=readiness(ci(addDays(date,-i)));if(x!=null&&x<55)lowDays++}
   const nm=addDays(mondayOf(date),7), nw=weekOf(nm);
   if(lowDays>=3&&nw&&nw.kind==='cycle') add('stop',`${lowDays} low-readiness days this week`,`Recovery isn’t keeping up. Consider a deload week starting ${fmtD(nm,true)}.`,{act:'insert',kind:'deload',monday:nm,label:'Deload next week'});
-  const bws=Object.entries(logs).filter(([d,L])=>d<=date&&d>=addDays(date,-28)&&L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1);
-  if(bws.length>=2){const a=bws[0],b=bws[bws.length-1],days=(D(b.d)-D(a.d))/864e5;
-    if(days>=10){const perWk=(b.v-a.v)/days*7, pct=perWk/a.v*100;
-      if(plan.goal==='lose'&&pct<-1) add('care',`Losing ${Math.abs(perWk).toFixed(1)} ${u()}/week`,'Faster than ~1% of bodyweight per week tends to cost strength and conditioning. Add 200–300 kcal a day, mostly carbs around training.');
-      else if(plan.goal==='lose'&&days>=14&&pct>-0.2) add('care','Bodyweight is flat','Over two weeks with no real change: trim about 200 kcal a day, or add one LISS session.');
+  {const r=bwRate(date,14);
+    if(r){const perWk=r.perWeek, pct=perWk/r.from*100;
+      if(plan.goal==='lose'&&pct<-1) add('care',`Losing ${Math.abs(perWk).toFixed(1)} ${u()}/week`,'That is from your 7-day average, and faster than about 1% of bodyweight per week tends to cost strength and conditioning. Add 200–300 kcal a day, mostly carbs around training.');
+      else if(plan.goal==='lose'&&pct>-0.2) add('care','Bodyweight is flat','Two weeks of 7-day averages with no real change: trim about 200 kcal a day, or add one LISS session.');
       else if(plan.goal==='gain'&&pct<0.1) add('care','Not gaining','Add 200–300 kcal a day. Easiest from an extra meal or a bigger post-training meal.');
     }}
   return out;
@@ -1395,6 +1450,7 @@ function hicCard(dp,note){
   return h+`</div>`;
 }
 const openPx=new Set();
+let popKey=null;
 function plyoSets(ex,cut){return cut?Math.ceil(ex.s/2):ex.s}
 function plyoContactsDone(ph,L,cut){let c=0;ph.ex.forEach((e,i)=>{const t=((L.sets||[])[i]||[]).filter(Boolean).length;c+=t*e.c/e.s});return Math.round(c)}
 function plyoPullback(date){
@@ -1770,7 +1826,7 @@ let ls=LS.get('ob.ls'), lsTick=null;
 function testTargetOn(date,k,isRm5){
   const T=((lg(date).test||{})[k])||{}, wk=weekOf(date);
   const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):1, m=maxFor(c)[k];
-  const cur=m?m.v:((plan.prevMaxes||{})[k]??null), bw=latestBw(date);
+  const cur=m?m.v:((plan.prevMaxes||{})[k]??null), bw=bwFor(date);
   const est=cur==null?null:isBW(k)?(bw?floorTo((bw+cur)*(isRm5?.87:1)-bw,plan.round[k]):null):(isRm5?floorTo(cur*.87,plan.round[k]):cur);
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return {T,tgt,est};
@@ -2066,6 +2122,24 @@ document.getElementById('iv').addEventListener('click',e=>{
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&iv&&!iv.done&&!iv.paused) holdScreen(true) });
+
+/* ---------- appearance ---------- */
+// Theme and gym mode are per device, so they live in localStorage rather than the plan.
+function themePref(){const t=LS.get('ob.theme');return t==='light'||t==='dark'?t:'auto'}
+function gymOn(){return !!LS.get('ob.gym')}
+function applyTheme(){
+  const t=themePref(), r=document.documentElement;
+  if(t==='auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme',t);
+  r.setAttribute('data-gym',gymOn()?'1':'0');
+  let dark=t==='dark';
+  if(t==='auto'){ try{dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches}catch(e){dark=false} }
+  // one meta we control, so an explicit choice also moves the phone's status bar
+  document.querySelectorAll('meta[name="theme-color"][media]').forEach(m=>m.remove());
+  let m=document.querySelector('meta[name="theme-color"]');
+  if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}
+  m.content=dark?'#0f1311':'#e8ebe6';
+}
+try{ if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(themePref()==='auto')applyTheme()}) }catch(e){}
 
 /* ---------- app updates ---------- */
 // The server stamps each page with its fingerprint. On open, on return from the
@@ -2383,12 +2457,14 @@ function vStatus(){
     h+=`</div>`;
   }
   // --- body + recovery
-  const bw=progLogs().filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-60);
+  const raw=progLogs().filter(([d,L])=>L.checkin&&L.checkin.bw).map(([d,L])=>({d,v:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1).slice(-90);
+  const bw=raw.map(x=>{const a=bwAvg(x.d,7);return {d:x.d,v:a?a.avg:x.v,raw:x.v}});
+  const rate=bwRate(t,14);
   const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
   const jm=progLogs().map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
   h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
   h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
-  h+=`<div class="sm"><div class="sm-h"><b>Bodyweight</b>${bw.length?`<span class="v">${r1(bw[bw.length-1].v)}<small>${u()}${bw.length>1?` · ${bw[bw.length-1].v-bw[0].v>0?'+':''}${r1(bw[bw.length-1].v-bw[0].v)} since ${fmtD(bw[0].d)}`:''}</small></span>`:''}</div>${bw.length>=2?lineChart(bw.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()}`})),{label:'Bodyweight',minStep:1}):'<div class="none">Log bodyweight in the daily check-in.</div>'}</div>`;
+  h+=`<div class="sm"><div class="sm-h"><b>Bodyweight · 7-day average</b>${bw.length?`<span class="v">${r1(bw[bw.length-1].v)}<small>${u()}${rate?` · ${rate.perWeek>0?'+':''}${r1(rate.perWeek)}/week`:''}</small></span>`:''}</div>${bw.length>=2?lineChart(bw.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()} average (weighed ${r1(x.raw)})`})),{label:'Bodyweight, 7-day average',minStep:1}):'<div class="none">Log bodyweight in the daily check-in. The average needs a few days of weigh-ins.</div>'}</div>`;
   h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=prBoard();
@@ -2645,11 +2721,11 @@ function vHistory(){
   // Jumps
   const jm=progLogs().filter(([d,L])=>(L.plyo&&(L.plyo.best||L.plyo.mark))||(L.jumps&&(L.jumps.broad||L.jumps.vertical))).sort((a,b)=>a[0]<b[0]?1:-1);
   h+=`<div class="card"><h2>Jumps</h2>`;
-  h+=jm.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Broad</th><th class="n">Vertical</th><th class="n">Triple</th></tr></thead><tbody>${jm.slice(0,15).map(([d,L])=>`<tr><td>${fmtD(d,true)}</td><td class="n">${n((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark)))}</td><td class="n">${n(L.jumps&&L.jumps.vertical)}</td><td class="n">${n(L.jumps&&L.jumps.triple)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No jumps logged yet. Thursday's first broad jump and test-week jumps land here.</div>`;
+  h+=jm.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Broad</th><th class="n">Vertical</th><th class="n">Triple</th></tr></thead><tbody>${jm.slice(0,15).map(([d,L])=>`<tr><td>${fmtD(d,true)}</td><td class="n">${n((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark)))}</td><td class="n">${n(L.jumps&&L.jumps.vertical)}</td><td class="n">${n(L.jumps&&L.jumps.triple)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No jumps yet. Log Thursday's first broad jump on the plyo card, or a full set on a test day.</div>`;
   h+=`</div>`;
   // Sessions
   const ss=progLogs().filter(([d,L])=>L.done||L.notes).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,20);
-  h+=`<div class="card"><h2>Recent sessions</h2>`+(ss.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Session</th><th class="n">RPE</th><th>Notes</th></tr></thead><tbody>${ss.map(([d,L])=>`<tr><td><button class="btn sm ghost" data-act="open" data-date="${d}">${fmtD(d,true)}</button></td><td>${esc(dayPlan(d).short||'')}</td><td class="n">${L.rpe||'—'}</td><td class="small">${esc((L.notes||'').slice(0,80))}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">Sessions you mark done appear here.</div>`)+`</div>`;
+  h+=`<div class="card"><h2>Recent sessions</h2>`+(ss.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Session</th><th class="n">RPE</th><th>Notes</th></tr></thead><tbody>${ss.map(([d,L])=>`<tr><td><button class="btn sm ghost" data-act="open" data-date="${d}">${fmtD(d,true)}</button></td><td>${esc(dayPlan(d).short||'')}</td><td class="n">${L.rpe||'—'}</td><td class="small">${esc((L.notes||'').slice(0,80))}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">Nothing logged yet. Mark a session done on Today and it appears here with its RPE and notes.</div>`)+`</div>`;
   return h;
 }
 
@@ -2658,6 +2734,12 @@ function vSetup(){
   let h=`<div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
+  {
+    const t=themePref();
+    h+=`<div class="card"><h2>Appearance</h2><p class="small muted" style="margin:0">Set per device, so your phone and laptop can differ.</p>
+    <label class="f">Theme<div class="seg">${[['auto','Match device'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="segb${t===v?' on':''}" data-act="theme" data-v="${v}">${l}</button>`).join('')}</div></label>
+    <label class="check"><input type="checkbox" id="p-gym" data-act="gym" ${gymOn()?'checked':''}> <span>Gym mode: bigger buttons and stronger contrast for sweaty hands</span></label></div>`;
+  }
   h+=programsCard();
   h+=`<div class="card"><h2>Program</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
@@ -2695,7 +2777,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
-  h+=`<div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${n(latestBw(todayStr()))} ${u()} bodyweight.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
+  h+=`<div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
   h+=`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p><div class="tbl-wrap"><table><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${plan.wave.map((v,i)=>`<tr><td><b>${i+1}</b></td><td class="n">${pIn('wave.'+i+'.s',v.s)}</td><td class="n">${pIn('wave.'+i+'.r',v.r)}</td><td class="n">${pIn('wave.'+i+'.p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`).join('')}</tbody></table></div></div>`;
   h+=`<div class="card"><h2>Cycles, deloads and retests</h2>
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Added to the max each new cycle</div><div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}${pIn('inc.'+k,plan.inc[k])}</label>`).join('')}</div></div>
@@ -2828,6 +2910,7 @@ document.getElementById('main').addEventListener('click',e=>{
     for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
     openWarm.add(k); setLog(sel,'lifts.'+k+'.warmup',W); render(); return}
   if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
+    if(arr[i]){popKey=k+':'+i;setTimeout(()=>{popKey=null},400)}
     if(arr[i]&&sel===todayStr()){unlockAudio();const nx=nextAfterSet(k,arr);if(nx!==undefined)startRest(k,nx);else stopRest()}
     render();return}
   if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
@@ -2892,6 +2975,8 @@ document.getElementById('main').addEventListener('click',e=>{
   }
   if(a==='ordreset'){const mon=mondayOf(sel);mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
   if(a==='guide'){gdStart(b.dataset.k);return}
+  if(a==='theme'){LS.set('ob.theme',b.dataset.v);applyTheme();render();return}
+  if(a==='gym'){LS.set('ob.gym',!gymOn());applyTheme();render();return}
   if(a==='weekseen'){mutatePlan(p=>{p.weekSeen=mondayOf(todayStr())});return}
   if(a==='hold'){startHold(b.dataset.n,+b.dataset.s,+b.dataset.sides||1,1);render();return}
   if(a==='wshort'){const v=b.dataset.v==='1';if(!!lg(sel).warmShort===v)return;setLog(sel,'warmShort',v);render();return}
@@ -2926,6 +3011,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}
 });
 
+applyTheme();
 loadLocal();
 render();
 if(rest) showRest();

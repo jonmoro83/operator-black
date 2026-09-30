@@ -51,12 +51,9 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 Not committed to. Roughly in order of how useful they'd be.
 
-- **7-day bodyweight average:** trend and targets from a rolling average.
 - **Travel week:** swap barbell lifts for dumbbell/bodyweight versions for a week and
   keep that week out of the cycle review.
 - **Launch screen on iPhone:** branded splash instead of a white flash.
-- **Theme switch:** Light / Dark / Auto and a high-contrast gym mode with bigger buttons.
-- **Small touches:** set-tick animation, session finish card, nicer empty states.
 - **Calendar feed:** the plan in iPhone Calendar with weights, auto-updating.
 - **Share with a partner or coach:** opt-in, read-only progress view.
 
@@ -218,6 +215,17 @@ Decided against for now.
   for a tap, each one ticked off as it completes. **Auto-advance** is a toggle in the
   runner (`plan.guideAuto`): on, it flows straight into the next side and movement; off,
   it holds at 0:00 with a Start side 2 / Next button so you set up in your own time.
+
+**Averages, appearance, polish (2026-10-01)**
+- Bodyweight runs off a 7-day rolling average (`bwAvg`/`bwFor`/`bwRate`): the Status
+  chart plots the average with the weekly rate, the protein target and weighted pull-up
+  loads use it, and the trend advice compares averages 14 days apart instead of two raw
+  weigh-ins. Falls back to the latest single reading until the window has two.
+- Appearance in Setup, per device: Match device / Light / Dark, plus gym mode (bigger
+  buttons and inputs, firmer borders). An explicit theme also moves the phone's status
+  bar colour.
+- Session complete card on a finished day listing what was logged and what's still open;
+  a tick animation on the set you just pressed; clearer empty states.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.

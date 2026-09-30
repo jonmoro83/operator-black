@@ -110,6 +110,13 @@ lifting and test days; `MOB` holds one block per session type (`lift`, `dead`, `
 `plan.mob[kind]` (Setup → Mobility). Ticks live in the day's log as `warmup[]`,
 `mobility[]` and `plyo.warm[]`; session mode shows both as its first and last steps.
 
+## Appearance
+
+Theme (`ob.theme`: auto/light/dark) and gym mode (`ob.gym`) are per device in
+localStorage, applied by `applyTheme()` before the first render. It sets `data-theme`
+and `data-gym` on the root and manages a single `theme-color` meta so an explicit choice
+also moves the phone's status bar.
+
 ## Records and the week summary
 
 `prList()` computes lifetime bests from the log across all programs — tested 1RMs per
