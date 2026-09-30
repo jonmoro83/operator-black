@@ -26,7 +26,20 @@ npm install
 cp .dev.vars.example .dev.vars      # skips the Access check locally
 npm run db:migrate:local
 npm run dev                         # http://localhost:8787
+npm test                            # the calculation tests
 ```
+
+## Tests
+
+`test/harness.js` pulls the `<script>` out of `public/index.html`, evaluates it against a
+stub DOM, and exposes every top-level function plus the live state, so the calculations
+can be tested without a browser. `npm test` runs them, `npm run deploy` runs them first
+and refuses to deploy if any fail, and they also run on every push
+(`.github/workflows/test.yml`). Covered: the schedule engine (bridge, cycles, deload and
+retest cadence, inserts, skips, frozen weeks), working weights, rounding, training-max
+basis, cycle increments and overrides, ramp sets, weighted pull-up maths, Lift 3
+rotation, day rearranging, personal records, the bodyweight average, mobility mapping,
+the guided runner and CSV export.
 
 ## Deploys
 
