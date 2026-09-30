@@ -51,6 +51,12 @@ function loadApp({ now = "2026-10-19" } = {}) {
   if (open < 0 || close < 0) throw new Error("no <script> block in public/index.html");
   let src = html.slice(open + 8, close);
 
+  // releases.js is a separate script the page loads first; evaluate it into the same
+  // realm so RELEASES is in scope for the app.
+  // a top-level const in an eval does not persist the way a <script> one does, so pin it
+  (0, eval)(fs.readFileSync(path.join(__dirname, "..", "public", "releases.js"), "utf8") +
+    ";globalThis.RELEASES=RELEASES;");
+
   const fns = [...src.matchAll(/^function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]);
   const accessors = STATE.map((v) => `get ${v}(){return ${v}},set ${v}(x){${v}=x}`).join(",")
     + "," + CONSTS.map((c) => `get ${c}(){return ${c}}`).join(",");

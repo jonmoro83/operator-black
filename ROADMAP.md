@@ -61,8 +61,9 @@ Not committed to. Roughly in order of how useful they'd be.
   estimated 1RM from logged top sets.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
-- **Split `index.html` into modules** with a small build step once it gets harder to
-  change safely. It's ~2,000 lines today.
+- **Split the JavaScript into modules** with a small build step, if it ever obstructs a
+  change. `index.html` is ~2,700 lines of script after the CSS and release notes came
+  out. Not urgent: the test suite now catches the class of mistake that made it feel so.
 - **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
 
 ## Parked
@@ -221,6 +222,12 @@ Decided against for now.
   bar colour.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
+
+**Smaller index.html (2026-10-01)**
+- Styles moved to `public/app.css` and the release notes to `public/releases.js`,
+  taking `index.html` from 3,148 to 2,728 lines with no build step and no behaviour
+  change. The service worker caches both and refreshes them in the background, so a
+  style or notes change lands on the next load without bumping its VERSION.
 
 **Release notes and a fix (2026-10-01)**
 - **What's new** page listing every release and what it added, reached from Setup →

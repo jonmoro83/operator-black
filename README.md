@@ -10,7 +10,9 @@ through Cloudflare Access.
 Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
 
 ```
-public/index.html           the whole app (vanilla JS, no build step)
+public/index.html           the app: markup and ~2,700 lines of JS, no build step
+public/app.css              every style
+public/releases.js          release notes for the What's new page (a plain global)
 src/worker.js               entry: /api/* → API, everything else → public/
 src/api.js                  API: state, docs, export, backups, push
 src/alerts.js               RestAlerts Durable Object: push subscriptions + alert queue

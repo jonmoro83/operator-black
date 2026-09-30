@@ -6,8 +6,8 @@
 // - /api is never cached here. The page keeps its own copy of your data and a queue
 //   of unsent changes in localStorage.
 
-const VERSION = "ob-v3";
-const SHELL = ["/", "/icon.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
+const VERSION = "ob-v4";
+const SHELL = ["/", "/app.css", "/releases.js", "/icon.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
 self.addEventListener("install", (event) => {
@@ -44,6 +44,9 @@ self.addEventListener("fetch", (event) => {
   if (url.origin === self.location.origin) {
     if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/cdn-cgi/")) return;
     if (req.mode === "navigate") return event.respondWith(page(req));
+    // The app's own css/js is served from cache, then refreshed in the background, so a
+    // style or release-note change lands on the next load without a version bump here.
+    if (/\.(css|js)$/.test(url.pathname)) return event.respondWith(staleWhileRevalidate(req));
     return event.respondWith(cacheFirst(req));
   }
   if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
