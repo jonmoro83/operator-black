@@ -15,7 +15,7 @@ svg{width:%(icon)spx;height:%(icon)spx}
 for w,h,dpr in SIZES:
     icon=int(w*0.34); fs=max(11,int(w*0.042)); gap=int(w*0.05)
     open('/tmp/_sp.html','w').write(tpl % {'icon':icon,'fs':fs,'gap':gap})
-    out='public/brand/splash/%dx%d@%d.png'%(w,h,dpr)
+    out='public/brand/splash/%dx%d-%dx.png'%(w,h,dpr)
     subprocess.run([CHROME,'--headless=new','--disable-gpu','--hide-scrollbars',
         '--force-device-scale-factor=%d'%dpr,'--window-size=%d,%d'%(w,h),
         '--screenshot='+out,'file:///tmp/_sp.html'],capture_output=True)
