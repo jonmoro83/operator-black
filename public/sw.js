@@ -6,8 +6,8 @@
 // - /api is never cached here. The page keeps its own copy of your data and a queue
 //   of unsent changes in localStorage.
 
-const VERSION = "ob-v4";
-const SHELL = ["/", "/app.css", "/releases.js", "/icon.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
+const VERSION = "ob-v5";
+const SHELL = ["/", "/app.css", "/app.js", "/releases.js", "/icon.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
 self.addEventListener("install", (event) => {

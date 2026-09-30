@@ -46,10 +46,10 @@ function stubDom() {
 /** Load the app. `now` fixes "today" (YYYY-MM-DD). Returns every function plus live state. */
 function loadApp({ now = "2026-10-19" } = {}) {
   const dom = stubDom();
-  const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
-  const open = html.indexOf("<script>"), close = html.lastIndexOf("</script>");
-  if (open < 0 || close < 0) throw new Error("no <script> block in public/index.html");
-  let src = html.slice(open + 8, close);
+  // public/app.js is built from src/app/*.js by build.js; npm test builds first.
+  const bundlePath = path.join(__dirname, "..", "public", "app.js");
+  if (!fs.existsSync(bundlePath)) throw new Error("public/app.js is missing — run `node build.js`");
+  let src = fs.readFileSync(bundlePath, "utf8");
 
   // releases.js is a separate script the page loads first; evaluate it into the same
   // realm so RELEASES is in scope for the app.

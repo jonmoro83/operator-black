@@ -69,9 +69,6 @@ Not committed to. Roughly in order of how useful they'd be.
   estimated 1RM from logged top sets.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
-- **Split the JavaScript into modules** with a small build step, if it ever obstructs a
-  change. `index.html` is ~2,700 lines of script after the CSS and release notes came
-  out. Not urgent: the test suite now catches the class of mistake that made it feel so.
 - **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
 
 ## Parked
@@ -229,6 +226,15 @@ Decided against for now.
   bar colour.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
+
+**Source split into files (2026-09-30)**
+- `src/app/*.js` (22 ordered sections) joined by `build.js` into `public/app.js`;
+  `index.html` is down to 74 lines. Deliberately concatenation rather than ES modules:
+  251 functions share mutable state, so real modules would mean either a large state
+  refactor or hand-maintained import lists for every symbol. The bundle is byte-identical
+  to the script it replaced. The build stamps a content hash on the asset tags so the
+  update banner still fires, `npm test`/`npm run deploy` build first, and CI fails if the
+  committed bundle has drifted from its sources.
 
 **Smaller index.html (2026-09-30)**
 - Styles moved to `public/app.css` and the release notes to `public/releases.js`,

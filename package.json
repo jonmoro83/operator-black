@@ -3,11 +3,12 @@
   "private": true,
   "description": "Operator strength + Black conditioning training log",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node build.js && node --test test/*.test.js",
     "dev": "wrangler dev",
     "db:migrate:local": "wrangler d1 migrations apply operator-black --local",
     "db:migrate:remote": "wrangler d1 migrations apply operator-black --remote",
-    "deploy": "npm test && wrangler deploy --tag v$npm_package_version-$(git rev-parse --short HEAD)"
+    "deploy": "npm test && wrangler deploy --tag v$npm_package_version-$(git rev-parse --short HEAD)",
+    "build": "node build.js"
   },
   "devDependencies": {
     "wrangler": "^4.143.1"

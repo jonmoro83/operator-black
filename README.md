@@ -10,8 +10,11 @@ through Cloudflare Access.
 Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
 
 ```
-public/index.html           the app: markup and ~2,700 lines of JS, no build step
+src/app/*.js                the app, in ordered sections (01-constants … 22-events)
+build.js                    joins them into public/app.js and stamps index.html
+public/index.html           the markup: 74 lines
 public/app.css              every style
+public/app.js               built — do not edit by hand
 public/releases.js          release notes for the What's new page (a plain global)
 src/worker.js               entry: /api/* → API, everything else → public/
 src/api.js                  API: state, docs, export, backups, push
@@ -30,6 +33,19 @@ npm run db:migrate:local
 npm run dev                         # http://localhost:8787
 npm test                            # the calculation tests
 ```
+
+## Build
+
+`src/app/*.js` are plain script fragments, joined in filename order inside one IIFE by
+`node build.js` into `public/app.js`. No bundler, no transforms, no module graph: the
+bundle is the sources concatenated, so what runs is what you wrote and the scope is
+exactly what it was when it lived in one file. The build also stamps a content hash onto
+the `app.css`, `releases.js` and `app.js` tags in `index.html`, so a changed bundle is
+fetched fresh and the in-app update banner still fires.
+
+`npm test` and `npm run deploy` build first. CI rebuilds and fails if the committed
+`public/app.js` or `index.html` differ, so the bundle can never drift from its sources.
+**Edit `src/app/*.js`, never `public/app.js`.**
 
 ## Tests
 
