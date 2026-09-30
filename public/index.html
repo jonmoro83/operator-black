@@ -52,7 +52,8 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .brand h1{white-space:nowrap;flex-shrink:0;margin:0;font-family:var(--f-display);font-stretch:125%;font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase}
 .brand h1 span{color:var(--accent)}
 #status{font-size:12px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
-.upd{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent-bg);color:var(--ink);border-radius:8px;padding:8px 10px 8px 12px;font-size:13.5px;font-weight:600}
+.upd-b{display:flex;gap:6px;flex-shrink:0}
+.upd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--accent-bg);color:var(--ink);border-radius:8px;padding:8px 10px 8px 12px;font-size:13.5px;font-weight:600}
 #status.link{text-decoration:underline;cursor:pointer}
 #status.err{color:var(--red)}
 nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
@@ -395,7 +396,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 <header>
   <div class="hd">
     <div class="brand"><h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div></div>
-    <div id="upd" class="upd" hidden><span>A new version of the app is ready.</span><button class="btn sm primary" id="upd-go">Reload</button></div>
+    <div id="upd" class="upd" hidden><span>A new version of the app is ready.</span><span class="upd-b"><button class="btn sm" id="upd-what">What’s new</button><button class="btn sm primary" id="upd-go">Reload</button></span></div>
     <nav id="nav" aria-label="Sections">
       <button data-view="today">Today</button>
       <button data-view="status">Status</button>
@@ -1072,7 +1073,7 @@ function render(){
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
   if(wz&&!viewing){m.innerHTML=vWelcome();if(aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})}return}
-  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
+  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
   if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
   showToast();
 }
@@ -2130,6 +2131,64 @@ document.getElementById('iv').addEventListener('click',e=>{
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&iv&&!iv.done&&!iv.paused) holdScreen(true) });
 
+/* ---------- what's new ---------- */
+// Curated release notes, newest first. Add an entry when something user-facing ships.
+const RELEASES=[
+  {v:'1.6',date:'2026-09-30',title:'Records, coaching and polish',items:[
+    'Personal records across every program, with a card on Today whenever you set one.',
+    'A week summary at the start of each week: last week\u2019s sessions, readiness and bests, then what this week holds.',
+    'Guided warm-up and mobility: one movement at a time, timers that run both sides, and optional auto-advance.',
+    'Bodyweight now runs off a 7-day average \u2014 the chart, the weekly rate, your protein target and the trend advice.',
+    'Appearance: Match device, Light or Dark, plus gym mode for bigger buttons and firmer edges.',
+    'A session complete card listing what was logged and what is still open.',
+    'Undo for set ticks, moved days, lowered maxes and more.',
+    'Twenty-eight automated tests over the calculations, run before every deploy.']},
+  {v:'1.5',date:'2026-09-30',title:'Spoken cues, clarified',items:[
+    'Spoken cues have their own Setup card and a Try a cue button. They were off by default and easy to miss.',
+    'Deloads and retests moved to their own step in the welcome setup, away from conditioning.',
+    'Siri announcements looked into and closed: iOS will not read a web app\u2019s notifications aloud.']},
+  {v:'1.4',date:'2026-09-29',title:'Warm-ups, mobility and the calendar',items:[
+    'The warm-up is a checklist with hold timers, in full or the seven-minute version.',
+    'Every session ends with a mobility block matched to what that day loaded.',
+    'A calendar view of the whole plan, and rearranging sessions straight from it.',
+    'Move a session to another day and the week reshuffles itself \u2014 never two strength days or two hard conditioning days together.',
+    'Hiking joined the conditioning activities, and the last ramp set now gets a full rest before the first working set.']},
+  {v:'1.3',date:'2026-09-29',title:'In the gym',items:[
+    'Session mode: one set at a time, full screen, with rests starting themselves.',
+    'Session mode on test days, ramping to a target and logging the result.',
+    'A drawn barbell with your gym\u2019s plates, and a warning when a weight cannot be loaded.',
+    'Spoken cues for interval changes and the end of a rest.',
+    'Restore from any backup or a downloaded file, with a safety backup taken first.',
+    'A guided welcome setup for anyone new.']},
+  {v:'1.2',date:'2026-09-29',title:'People, programs and export',items:[
+    'Everyone signing in gets their own program, history, backups and alerts.',
+    'Archive a program and start over, carrying your maxes or re-testing.',
+    'CSV export of sessions and lifts across every program.',
+    'A guided interval timer for every Black format.',
+    'Choose how often deloads are scheduled, with a check-in every second cycle.',
+    'The home-screen app tells you when a new version is ready.']},
+  {v:'1.1',date:'2026-09-29',title:'Alerts, plyos and safety nets',items:[
+    'Rest alerts that reach the phone while it is locked.',
+    'The full plyometric program and exercise library.',
+    'Past weeks are locked, so changing a setting never rewrites history.',
+    'An end-of-cycle review that suggests each lift\u2019s next max.',
+    'Weekly backups, and conditioning on more than the Echo bike.']},
+  {v:'1.0',date:'2026-09-29',title:'First release',items:[
+    'Operator and Black on a rolling calendar: bridge week, six-week cycles, deloads and retests, with no end date.',
+    'Working weights, plate maths, ramp sets and set tracking.',
+    'A daily check-in that scores readiness and adjusts the day\u2019s advice.',
+    'A Status dashboard for cycle position, adherence and trends.',
+    'An offline home-screen app with a per-lift rest timer.',
+    'Lift 3 variants, including weighted pull-up maths.']},
+];
+function vReleases(){
+  return `<div class="card"><div class="lift-h"><h2>What\u2019s new</h2><button class="btn sm ghost" data-act="view" data-view="setup">Back to Setup</button></div>
+  <p class="small muted" style="margin:0">What each release added. The app updates itself: when a new one is deployed you get a banner at the top, and reloading is all it takes.</p></div>
+  ${RELEASES.map((r,i)=>`<div class="card"><div class="lift-h"><h3>${esc(r.title)}</h3><span class="chip${i?'':' blue'}">${i?'':'Current \u00b7 '}${esc(r.v)}</span></div>
+  <div class="small muted">${fmtLong(r.date)}</div>
+  <ul class="tight small">${r.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}`;
+}
+
 /* ---------- undo ---------- */
 // One step back for the things that are easy to tap by mistake. Snapshots are taken
 // before the change and expire after a few seconds.
@@ -2202,6 +2261,7 @@ function applyUpdate(){
   try{ navigator.serviceWorker&&navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{}).finally(go) }catch(e){ go() }
 }
 document.getElementById('upd-go').addEventListener('click',applyUpdate);
+document.getElementById('upd-what').addEventListener('click',()=>{view='releases';render();window.scrollTo(0,0)});
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false) });
 setInterval(()=>checkUpdate(false),30*60*1000);
 
@@ -2807,6 +2867,14 @@ function vSetup(){
     <label class="check"><input type="checkbox" id="p-voice" data-pbind="voice" ${v?'checked':''}> Speak cues while the app is on screen</label>
     ${v?`<div><button class="btn" data-act="voicetest">Try a cue</button></div>`:''}
     <div class="small muted">Only while the app is on screen — iOS silences a web app the moment the phone locks. For a whole session, set Auto-Lock to Never. The <b>Send a test</b> button above is a notification, not speech: it will never be read aloud.</div></div>`;
+  }
+  {
+    const fmtAt=t=>{if(!t)return '';const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})};
+    const status=!APP_VER||APP_VER==='dev'?'Version unknown in this preview.':!upd.latest?(upd.err||'Not checked yet.'):updateAvailable()?'A newer version is available.':'You’re on the latest version.';
+    h+=`<div class="card"><h2>About this app</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'—')} <a class="small" href="/cdn-cgi/access/logout">Sign out</a></dd><dt>This app</dt><dd class="mono">${esc((APP_VER||'—').slice(0,8))}</dd><dt>Latest</dt><dd><span class="mono">${esc((upd.latest||'—').slice(0,8))}</span>${upd.at?` <span class="small muted">· deployed ${esc(fmtAt(upd.at))}${upd.tag?' · '+esc(upd.tag):''}</span>`:''}</dd></dl>
+    <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
+    <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div>
+    <div><button class="btn" data-act="view" data-view="releases">What’s new in each release</button></div></div>`;
   }
   const mobs=plan.mob||{};
   h+=`<div class="card"><h2>Mobility</h2><p class="small muted" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;

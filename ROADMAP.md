@@ -222,6 +222,14 @@ Decided against for now.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
 
+**Release notes and a fix (2026-10-01)**
+- **What's new** page listing every release and what it added, reached from Setup →
+  About this app and from the update banner. Add a `RELEASES` entry when something
+  user-facing ships.
+- Restored the **About this app** card, which a bad edit removed alongside the audio-cue
+  card in `eed4fc2` (signed-in address, versions, update check). A test now asserts every
+  Setup card is present so that cannot happen quietly again.
+
 **Tests and undo (2026-10-01)**
 - 28 tests over the calculations, run by `npm test`, before every deploy, and on every
   push via GitHub Actions. `test/harness.js` loads the app's script into Node against a

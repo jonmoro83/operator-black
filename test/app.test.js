@@ -156,3 +156,27 @@ test("a day with no log at all is undone back to empty", () => {
   x.doUndo();
   a.equal(x.logs["2026-10-20"].done, undefined);
 });
+
+test("Setup still has every card it is supposed to", () => {
+  const x = app();
+  x.me = "jon@example.com";
+  const h = x.vSetup();
+  for (const title of ["Maxes", "Programs", "Appearance", "Program", "Lift 3", "Rest alerts",
+    "Spoken cues", "Mobility", "Accessories", "Conditioning", "Recovery and nutrition",
+    "The wave", "Cycles, deloads and retests", "About this app", "Backups",
+    "Export to a spreadsheet"]) {
+    a.ok(h.includes(`<h2>${title}</h2>`), `Setup is missing the "${title}" card`);
+  }
+  a.match(h, /jon@example\.com/, "About this app shows who is signed in");
+  a.match(h, /data-view="releases"/, "and links to the release notes");
+});
+
+test("release notes are present and newest first", () => {
+  const x = app();
+  const h = x.vReleases();
+  a.equal((h.match(/<h3>/g) || []).length, x.RELEASES.length);
+  a.match(h, /Current/, "the newest release is marked as current");
+  const dates = x.RELEASES.map((r) => r.date);
+  a.deepEqual(dates, [...dates].sort().reverse(), "newest first");
+  for (const r of x.RELEASES) a.ok(r.items.length && r.v && r.title, `release ${r.v} is complete`);
+});

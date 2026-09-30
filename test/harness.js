@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
+const CONSTS = ["RELEASES", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "IV", "DELOAD_OPTS", "L3K", "LK"];
 const STATE = ["plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey"];
 
 function stubDom() {
@@ -51,7 +52,8 @@ function loadApp({ now = "2026-10-19" } = {}) {
   let src = html.slice(open + 8, close);
 
   const fns = [...src.matchAll(/^function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]);
-  const accessors = STATE.map((v) => `get ${v}(){return ${v}},set ${v}(x){${v}=x}`).join(",");
+  const accessors = STATE.map((v) => `get ${v}(){return ${v}},set ${v}(x){${v}=x}`).join(",")
+    + "," + CONSTS.map((c) => `get ${c}(){return ${c}}`).join(",");
   const tail = `globalThis.__app={${fns.join(",")},${accessors},
     bump(){planV++},
     setToday(d){realToday=()=>d;sel=d},
