@@ -12,15 +12,12 @@ Known gaps and things to verify. Fix or close these before starting new features
   the lock screen (Setup → Rest alerts → Send a test), and the interval timer on the
   bike. Confirmed so far: home-screen install, Access login in the installed app, the
   update banner.
-- **Spoken cues with the phone locked:** relying on Siri **Announce Notifications**
-  (Settings → Notifications → Announce Notifications → Operator, with AirPods).
-  Confirmed 2026-09-29: iOS lists the home-screen app there. Still to confirm: Siri
-  reads the alerts aloud. **Not working as of 2026-09-29.** Each notification now
-  carries a unique tag (a replaced notification is not re-announced), which is the most
-  likely fix — retest with Setup → Rest alerts → Send a test, phone locked, AirPods in.
-  Also check Settings → Notifications → Announce Notifications is set to announce all
-  notifications, not only Time Sensitive ones. If it still fails, build the audio-track
-  idea below.
+- **Spoken cues with the phone locked:** Siri Announce Notifications does **not** read
+  this app's notifications (confirmed 2026-09-30: the notification arrives on the lock
+  screen, it just isn't spoken; the unique-tag fix didn't change it). Treating it as an
+  iOS limitation for web apps. Next: Setup → "Spoken cues with the phone locked" plays a
+  100-second audio-track test — if the cues are heard with the phone locked, build the
+  real thing (below).
 - **Confirm the first live backup.** The KV store is still empty (checked 2026-09-29);
   the first automatic backup runs Sunday 09:00 UTC, or tap Setup → Back up now.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
@@ -60,9 +57,11 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 Not committed to. Roughly in order of how useful they'd be.
 
-- **Locked-phone audio track** (only if Siri announcements don't work): build each
-  interval session as one timed audio file (beeps + pre-recorded voice clips) that keeps
-  playing when locked. Likely pauses your music on iPhone.
+- **Locked-phone audio track** — engine is built and shipped as a test button; the
+  session renders to one 8 kHz WAV (~1.5 MB/100 s, 300 ms to build) from tones plus 29
+  `say`-generated clips in `public/audio/`. If the phone test passes, wire it to the
+  interval timer, rest timer and session mode, with pause keeping track and timer in
+  sync. Will likely pause music on iPhone.
 - **Guided warm-up:** the 12–15 min warm-up as a checklist with hold timers.
 - **PR board + celebration:** heaviest single, best calories per format, best broad
   jump, most pull-ups, with a small "PR!" moment when one falls.
