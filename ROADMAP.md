@@ -15,8 +15,12 @@ Known gaps and things to verify. Fix or close these before starting new features
 - **Spoken cues with the phone locked:** relying on Siri **Announce Notifications**
   (Settings → Notifications → Announce Notifications → Operator, with AirPods).
   Confirmed 2026-09-29: iOS lists the home-screen app there. Still to confirm: Siri
-  reads the alerts aloud (Setup → Rest alerts → Send a test, lock the phone). Alert
-  text is worded for speech. If it doesn't work, see the audio-track idea.
+  reads the alerts aloud. **Not working as of 2026-09-29.** Each notification now
+  carries a unique tag (a replaced notification is not re-announced), which is the most
+  likely fix — retest with Setup → Rest alerts → Send a test, phone locked, AirPods in.
+  Also check Settings → Notifications → Announce Notifications is set to announce all
+  notifications, not only Time Sensitive ones. If it still fails, build the audio-track
+  idea below.
 - **Confirm the first live backup.** The KV store is still empty (checked 2026-09-29);
   the first automatic backup runs Sunday 09:00 UTC, or tap Setup → Back up now.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
@@ -59,8 +63,6 @@ Not committed to. Roughly in order of how useful they'd be.
 - **Locked-phone audio track** (only if Siri announcements don't work): build each
   interval session as one timed audio file (beeps + pre-recorded voice clips) that keeps
   playing when locked. Likely pauses your music on iPhone.
-- **Move a session:** "move to tomorrow", shifting a day's session within the week with
-  a warning if two lifting days end up back to back.
 - **Guided warm-up:** the 12–15 min warm-up as a checklist with hold timers.
 - **PR board + celebration:** heaviest single, best calories per format, best broad
   jump, most pull-ups, with a small "PR!" moment when one falls.
@@ -195,6 +197,15 @@ Decided against for now.
   Setup, with check-offs.
 - Both appear as steps in session mode (warm-up first, mobility last) and as counts in
   the sessions CSV.
+
+**Rearranging, calendar, timers (2026-09-29)**
+- Move a session: pick what you'll actually do today and the app finds the week order
+  that moves the fewest days, never putting two strength days or two hard conditioning
+  days back to back (including across week boundaries). Days already done stay put.
+  Stored per week in `plan.order[monday]`; reset to standard from the same panel.
+- Calendar view in Plan: month grid with week bands, session labels and done/missed dots.
+- Hold timers (⏱) on warm-up and mobility items with a real duration, running each side
+  in turn; the last ramp set now gets the lift's full rest before the first working set.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.

@@ -92,6 +92,14 @@ change the fingerprint, so they don't trigger it. Setup → About this app shows
 versions and the deploy time. Deploy with `npm run deploy` to tag the version with
 the git commit.
 
+## Rearranging a week
+
+`plan.order[monday]` maps weekday → prescribed slot, so a week keeps its seven sessions
+whatever order you do them in. `sessKind` labels each slot strength / hic / easy / other,
+and `bestOrder(monday, day, slot)` searches for the valid order that moves the fewest
+days: never two `strength` or two `hic` days adjacent, checked across the week
+boundaries too, with days already past in the current week pinned. Today → Move… drives it.
+
 ## Warm-up and mobility
 
 `WARMUP` (14 items, `s` marks the 7-minute short version) renders as a checklist on

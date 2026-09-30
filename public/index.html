@@ -213,6 +213,24 @@ details.px[open]>summary>span:first-child::after{content:" ▾"}
 .wkdots i.rest{border-style:dashed;opacity:.6}
 .sub-h{margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .check>span:first-of-type{flex:1;min-width:0}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.cal-h{grid-column:1/-1;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+.cal-w{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--line);font-size:12.5px}
+.cal-d{all:unset;box-sizing:border-box;cursor:pointer;min-height:58px;border-radius:7px;border:1px solid var(--line);padding:4px 3px;display:flex;flex-direction:column;align-items:center;gap:1px;overflow:hidden}
+.cal-d .n{font-family:var(--f-display);font-stretch:75%;font-weight:800;font-size:15px;line-height:1.1}
+.cal-d .l{font-size:9.5px;color:var(--muted);text-align:center;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.cal-d .dot,.small i.lg{width:6px;height:6px;border-radius:50%;background:transparent;display:block;margin-top:auto}
+.small i.lg{display:inline-block;margin:0 4px -1px 0}
+.cal-d .dot.done,.small i.lg.done{background:var(--green)}
+.cal-d .dot.missed,.small i.lg.missed{background:var(--red)}
+.cal-d.out{opacity:.42}
+.cal-d.today{border-color:var(--accent);border-width:2px}
+.cal-d.today .n{color:var(--accent)}
+.cal-d.sel{background:var(--sunk)}
+.cal-d:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 10px;align-items:center}
+.crow .check{min-width:0}
+.btn.hold{padding:4px 8px;font-size:15px;line-height:1}
 .pwu{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start}
 .pwu .wu-chk{height:32px;width:38px}
 .sm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
@@ -558,7 +576,8 @@ let plan=clone(DEF), logs={}, planV=0;
 // being viewed, `plan` is its frozen copy, `stash` holds the current plan, and every
 // write is refused.
 let programs={}, viewing=null, stash=null;
-let view='today', sel=todayStr(), planShow=26;
+let view='today', sel=todayStr(), planShow=26, planMode='list', calMonth=null;
+try{const pm=localStorage.getItem('ob.planmode'); if(pm==='cal'||pm==='list') planMode=pm}catch(e){}
 try{ const v=localStorage.getItem('ob.view'); if(v) view=v; }catch(e){}
 
 /* ---------------- utils ---------------- */
@@ -591,13 +610,13 @@ function isBarbell(k){return k!=='pull'&&k!=='wpu'}
 function isBW(k){return k==='wpu'}
 // Which Lift 3 variant a session uses: a per-day swap wins, otherwise the rotation rule.
 function l3Auto(date){
-  const fw=weekOf(date); if(fw&&fw.l3&&fw.l3[dow(date)]) return fw.l3[dow(date)];
+  const fw=weekOf(date); if(fw&&fw.l3&&fw.l3[slotOf(date)]) return fw.l3[slotOf(date)];
   const on=l3On(); if(on.length===1) return on[0];
   const mode=(plan.l3||{}).mode||'same';
   if(mode==='same') return on.includes(plan.l3.primary)?plan.l3.primary:on[0];
   const wk=weekOf(date); if(!wk) return on[0];
   const wi=wk.kind==='cycle'?wk.plyoIdx:wk.idx;
-  const k=mode==='alt-day'?wi*2+(dow(date)===2?1:0):mode==='alt-week'?wi:(wk.kind==='cycle'?wk.cycle:wk.refCycle)-1;
+  const k=mode==='alt-day'?wi*2+(slotOf(date)===2?1:0):mode==='alt-week'?wi:(wk.kind==='cycle'?wk.cycle:wk.refCycle)-1;
   return on[((k%on.length)+on.length)%on.length];
 }
 function l3For(date){const o=(logs[date]||{}).l3;return o&&l3On().includes(o)?o:l3Auto(date)}
@@ -672,7 +691,7 @@ function freezePast(){
     const wk=list[i]; if(fz[wk.monday]) continue;
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle']) if(wk[key]!=null) f[key]=wk[key];
-    if(wk.kind==='cycle'||wk.kind==='deload'){f.rx=clone(wkRx(wk));f.l3={0:l3Auto(wk.monday),2:l3Auto(addDays(wk.monday,2))}}
+    if(wk.kind==='cycle'||wk.kind==='deload'){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
     fz[wk.monday]=f; changed=true;
     if(changed) planV++;
   }
@@ -702,9 +721,37 @@ function rx(wk,k){
   const m=maxFor(c)[k];
   return {s,r,p,c,m,w:m?loadFor(k,m.v,p,sel):null,t:wk.kind==='cycle'?tier(p):'light'};
 }
+// A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
+// The slot is what the program prescribes; the weekday is just when you do it.
+function dayOrder(monday){const o=(plan.order||{})[monday];return Array.isArray(o)&&o.length===7&&o.slice().sort().join()==='0,1,2,3,4,5,6'?o:[0,1,2,3,4,5,6]}
+function slotOf(date){return dayOrder(mondayOf(date))[dow(date)]}
+function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
+// For adjacency: two strength days or two hard conditioning days must not touch.
+function sessKind(dp){
+  if(!dp) return 'other';
+  if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test') return 'strength';
+  if(dp.t==='plyohic') return 'hic';
+  if(dp.t==='hic') return dp.fmt==='liss'?'easy':'hic';
+  return 'other';
+}
+function kindName(k){return k==='strength'?'strength':'hard conditioning'}
+// Conflicts a proposed order would create, including the days either side of the week.
+function orderIssues(monday,ord){
+  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
+  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
+  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
+  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
+  const out=[];
+  for(let i=1;i<K.length;i++) if((K[i]==='strength'||K[i]==='hic')&&K[i]===K[i-1]) out.push({a:N[i-1],b:N[i],kind:K[i]});
+  return out;
+}
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
-  const d=dow(date), SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
+  return dayPlanSlot(date,slotOf(date));
+}
+function dayPlanSlot(date,d){
+  const wk=weekOf(date); if(!wk) return {t:'pre'};
+  const SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
   if(wk.kind==='cycle') return [
     {t:'lift',day:1,lifts:SBP,acc:'mon',short:'Op 1'},
     {t:'hic',fmt:'map',short:'HIC'},
@@ -989,12 +1036,66 @@ function vToday(){
   h+=`</div>`;
   if(!wk){ return h+checkinCard(sel)+`<div class="card"><h3>Not started</h3><p class="muted">The program starts the week of ${fmtLong(plan.startMonday)}. Change the start date in Setup.</p></div>` }
   const wt=weekTitle(wk);
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'?`<span class="small muted">Plyo: ${plyoPhase(wk).name}</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}</div>`;
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'?`<span class="small muted">Plyo: ${plyoPhase(wk).name}</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
+  if(moveOpen&&!viewing) h+=moveCard();
   h+=banners(wk,dp);
   if(sel===todayStr()){const rc=reviewCycleFor(sel);if(rc) h+=reviewCard(rc);const dc=deloadCheckCycle(sel);if(dc) h+=deloadCheckCard(dc)}
   h+=checkinCard(sel);
   h+=sessionHtml(wk,dp);
   return h;
+}
+// Kind of each of the week's seven prescribed sessions, by slot.
+function slotKinds(mon){return [0,1,2,3,4,5,6].map(sl=>sessKind(dayPlanSlot(mon,sl)))}
+function edgeKinds(mon){
+  const p=addDays(mon,-1), n=addDays(mon,7);
+  return [idxOf(p)>=0?sessKind(dayPlan(p)):'other', weekOf(n)?sessKind(dayPlan(n)):'other'];
+}
+// The valid week order that moves the fewest days, optionally forcing one day's session.
+// Days already gone in the current week stay where they are.
+function bestOrder(mon,fixDay,fixSlot){
+  const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
+  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
+  const used=new Array(7).fill(false), ord=new Array(7);
+  let best=null, bestCost=99;
+  (function go(i,prev,cost){
+    if(cost>=bestCost) return;
+    if(i===7){ if((prev==='strength'||prev==='hic')&&prev===nextK) return; best=ord.slice(); bestCost=cost; return }
+    for(let sl=0;sl<7;sl++){
+      if(used[sl]) continue;
+      if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
+      if(fixDay!=null&&fixDay===i&&sl!==fixSlot) continue;
+      if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
+      const k=K[sl]; if((k==='strength'||k==='hic')&&k===prev) continue;
+      used[sl]=true; ord[i]=sl;
+      go(i+1,k,cost+(cur[i]===sl?0:1));
+      used[sl]=false;
+    }
+  })(0,prevK,0);
+  return best?{ord:best,moved:bestCost}:null;
+}
+let moveOpen=false;
+function moveCard(){
+  const mon=mondayOf(sel), ord=dayOrder(mon), me=dow(sel), mine=ord[me];
+  const past=mondayOf(realToday())===mon&&me<dow(realToday());
+  let h=`<div class="card"><div class="lift-h"><h3>Change ${DAYN[me]}’s session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
+  if(past) h+=`<div class="banner warn"><div class="small">${DAYN[me]} has already passed this week, so it stays put. Open today to rearrange what’s left.</div></div>`;
+  else{
+    h+=`<p class="small muted" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions; the app shuffles the rest as little as it can and never puts two strength days or two hard conditioning days together.</p><div class="stack">`;
+    // Two days can share a label (Tue and Sat are both "HIC"): offer the one that
+    // needs the least shuffling, and only call it impossible if neither works.
+    const byLabel=new Map();
+    for(let sl=0;sl<7;sl++){
+      if(sl===mine) continue;
+      const lbl=dayPlanSlot(addDays(mon,sl),sl).short||'Session', r=bestOrder(mon,me,sl), was=byLabel.get(lbl);
+      if(!was||(r&&(!was.r||r.moved<was.r.moved))) byLabel.set(lbl,{sl,r});
+    }
+    for(const [lbl,{sl,r}] of byLabel){
+      h+=`<button class="btn" style="justify-content:space-between;gap:10px" data-act="swap" data-sl="${sl}" ${r?'':'disabled'}><span>${esc(lbl)}</span><span class="small${r?'':' muted'}">${r?(r.moved>1?`moves ${r.moved-1} other day${r.moved>2?'s':''} →`:'no other changes →'):'nothing valid this week'}</span></button>`;
+    }
+    h+=`</div>`;
+  }
+  if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
+  return h+`</div>`;
 }
 function banners(wk,dp){
   let h='';
@@ -1043,7 +1144,17 @@ function mobKind(dp){
   return (dp.lifts||[]).includes('dead')?'dead':'lift';
 }
 function mobList(kind){const a=(plan.mob||{})[kind];return Array.isArray(a)&&a.length?a.map(x=>Array.isArray(x)?x:[x,'']):MOB[kind].items}
-function checkRow(bind,on,name,dose){return `<label class="check"><input type="checkbox" id="c-${bind.replace(/\./g,'-')}" data-bind="${bind}" ${on?'checked':''}> <span>${esc(name)}</span>${dose?`<span class="mono small muted">${esc(dose)}</span>`:''}</label>`}
+// "45–60 sec per side" -> a 60 s hold, two sides. Reps and breaths get no timer.
+function holdSecs(dose){
+  const m=String(dose||'').match(/(\d+)(?:\s*[–-]\s*(\d+))?\s*(sec|min)/i);
+  if(!m) return null;
+  const v=+(m[2]||m[1]), s=m[3].toLowerCase()==='min'?v*60:v;
+  return s>=10?{s,sides:/per side/i.test(dose)?2:1}:null;
+}
+function checkRow(bind,on,name,dose){
+  const h=holdSecs(dose);
+  return `<div class="crow"><label class="check"><input type="checkbox" id="c-${bind.replace(/\./g,'-')}" data-bind="${bind}" ${on?'checked':''}> <span>${esc(name)}</span></label>${dose?`<span class="mono small muted">${esc(dose)}</span>`:''}${h?`<button class="btn sm ghost hold" data-act="hold" data-n="${esc(name)}" data-s="${h.s}" data-sides="${h.sides}" aria-label="Time ${esc(name)}">⏱</button>`:'<span></span>'}</div>`;
+}
 function warmupCard(date){
   const W=lg(date).warmup||[], short=!!lg(date).warmShort;
   const idx=WARMUP.map((x,i)=>i).filter(i=>!short||WARMUP[i].s);
@@ -1689,7 +1800,10 @@ document.getElementById('ls').addEventListener('click',e=>{
     const next=lsSteps(ls.date)[ls.i+1];
     if(next&&(next.type==='warm'||next.type==='work'||next.type==='test')){
       const label=liftName(next.k)+' · '+(next.type==='warm'?'warm-up '+(next.j+1):next.type==='test'?(next.isRm5?'5-rep max':'heavy single'):'set '+(next.j+1));
-      if(st.type==='warm') startRest(st.k,label,45,'Ramp rest · '+liftName(st.k)); else startRest(st.k,label);
+      // 45 s between ramp sets, but the lift's full rest before the first working set
+      const intoWork=st.type==='warm'&&next.type!=='warm';
+      if(st.type==='warm') startRest(st.k,label,intoWork?restMins(st.k)*60:45,(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+      else startRest(st.k,label);
     } else if(st.type==='work') stopRest();
     return go(ls.i+1);
   }
@@ -1900,6 +2014,11 @@ function syncPush(){
     } else api('POST','/push/cancel').catch(()=>{});
   },300);
 }
+function startHold(name,secs,sides,side){
+  unlockAudio();
+  rest={k:null,lbl:name,next:sides>1?(side<sides?'Switch sides':'Hold done'):'',end:Date.now()+secs*1000,dur:secs,done:false,hold:1,baseLbl:name,sides,side};
+  LS.set('ob.rest',rest); holdScreen(true); showRest(); syncPush();
+}
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
@@ -1910,7 +2029,7 @@ function showRest(){
   const el=document.getElementById('rest');
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
   el.hidden=false;document.body.classList.add('timing');
-  document.getElementById('rest-lbl').textContent=rest.lbl;
+  document.getElementById('rest-lbl').textContent=rest.lbl+(rest.sides>1?' · side '+rest.side+' of '+rest.sides:'');
   if(!restTick) restTick=setInterval(tickRest,250);
   tickRest();
 }
@@ -1923,7 +2042,11 @@ function tickRest(){
   document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
   el.classList.toggle('done',left===0);
   if(left===10&&rest.dur>20&&!rest.said10){rest.said10=true;say('Ten seconds')}
-  if(left===0&&!rest.done){rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false);setTimeout(()=>say(rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700)}
+  if(left===0&&!rest.done){
+    rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false);
+    if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
+    else setTimeout(()=>say(rest&&rest.hold?(rest.baseLbl+' done'):rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700);
+  }
   // clear a finished timer after two minutes if nobody dismisses it
   if(left===0&&leftMs<-120000) stopRest();
 }
@@ -2188,7 +2311,30 @@ function startProgram(){
   newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }
 
+function calCard(){
+  const t=realToday();
+  if(!calMonth) calMonth=(viewing?viewing.end:(sel||t)).slice(0,7);
+  const y=+calMonth.slice(0,4), m=+calMonth.slice(5,7);
+  const first=S(Date.UTC(y,m-1,1)), last=S(Date.UTC(y,m,0)), start=mondayOf(first);
+  const rows=Math.round(((D(mondayOf(last))-D(start))/864e5)/7)+1;
+  let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">‹</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">›</button></div>
+  <div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
+  for(let r=0;r<rows;r++){
+    const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null;
+    h+=`<div class="cal-w">${wt?`<b>${esc(wt.t)}</b><span class="chip ${wt.cls}">${esc(wt.chip)}</span>${isReordered(mon)?'<span class="chip blue">days moved</span>':''}`:'<span class="muted">Before the program starts</span>'}</div>`;
+    for(let i=0;i<7;i++){
+      const d=addDays(mon,i), dp=dayPlan(d), out=d<first||d>last, st=sessState(d,t);
+      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel?' sel':''}" data-act="open" data-date="${d}" aria-label="${fmtLong(d)} ${esc(dp.short||'')}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(dp.short||'')}</span><span class="dot ${st}"></span></button>`;
+    }
+  }
+  h+=`</div><div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span>${calMonth!==t.slice(0,7)?`<button class="btn sm ghost" data-act="calm" data-v="0">This month</button>`:''}</div></div>`;
+  return h;
+}
 function vPlan(){
+  const head=`<div class="card" style="padding:10px 12px"><div class="seg">${[['list','Weeks'],['cal','Calendar']].map(([v,l])=>`<button class="segb${planMode===v?' on':''}" data-act="planmode" data-v="${v}">${l}</button>`).join('')}</div></div>`;
+  return head+(planMode==='cal'?calCard():vPlanList());
+}
+function vPlanList(){
   const t=todayStr(), ti=Math.max(0,idxOf(t)), list=weeks(ti+planShow+2), from=Math.max(0,ti-4), to=ti+planShow;
   let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="small muted" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
   for(let i=from;i<=to&&i<list.length;i++){
@@ -2384,7 +2530,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.pbind){
     let v=val(t);
     if(t.dataset.pbind==='startMonday'){ if(!v) return; v=mondayOf(v); }
-    if(t.dataset.pbind==='startMonday'||t.dataset.pbind==='bridge'){ plan.frozen={}; plan.lockedMax={}; }
+    if(t.dataset.pbind==='startMonday'||t.dataset.pbind==='bridge'){ plan.frozen={}; plan.lockedMax={}; plan.order={}; }
     setPlan(t.dataset.pbind,v);
   }
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
@@ -2467,6 +2613,17 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
+  if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
+  if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
+  if(a==='move'){moveOpen=!moveOpen;render();return}
+  if(a==='movex'){moveOpen=false;render();return}
+  if(a==='swap'){
+    const mon=mondayOf(sel), r=bestOrder(mon,dow(sel),+b.dataset.sl); if(!r) return;
+    mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:r.ord})});
+    moveOpen=false; openWarm.clear(); openPx.clear(); render(); return;
+  }
+  if(a==='ordreset'){const mon=mondayOf(sel);mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
+  if(a==='hold'){startHold(b.dataset.n,+b.dataset.s,+b.dataset.sides||1,1);render();return}
   if(a==='wshort'){const v=b.dataset.v==='1';if(!!lg(sel).warmShort===v)return;setLog(sel,'warmShort',v);render();return}
   if(a==='wclear'){setLog(sel,'warmup',[]);render();return}
   if(a==='mclear'){setLog(sel,'mobility',[]);render();return}

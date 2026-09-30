@@ -6,7 +6,7 @@
 // - /api is never cached here. The page keeps its own copy of your data and a queue
 //   of unsent changes in localStorage.
 
-const VERSION = "ob-v2";
+const VERSION = "ob-v3";
 const SHELL = ["/", "/icon.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
@@ -106,7 +106,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Rest done", {
       body: data.body || "",
-      tag: "rest",
+      // A fresh tag per alert: a replaced notification is not re-announced by Siri.
+      tag: data.tag || "ob-" + Date.now(),
       renotify: true,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
