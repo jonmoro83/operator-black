@@ -221,6 +221,17 @@ Decided against for now.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
 
+**Days say what they contain (2026-09-30)**
+- The bridge week's Saturday is labelled `5RM+Spin` when Lift 3 has two movements to
+  test, and the note asked for 30–40 min of easy cardio, but the day rendered only the
+  lift tests: nowhere to pick an activity, log the minutes or run the timer. The day plan
+  now carries `cardio:true, fmt:'liss'` and the test branch renders `hicCard` under the
+  lifts, so the ride is logged like any other LISS session (and reaches the CSV, the
+  conditioning records and the day summary, which already keyed off `L.hic`).
+- The retest week's mobility-only Tuesday was also labelled `Easy`, which reads like a
+  conditioning day; it is `Mobility` now. A test walks every scheduled day and fails if
+  one whose label mentions conditioning has no card to log it on.
+
 **Jump tests get a warm-up and an entry each (2026-09-30)**
 - The bridge week's jump day rendered the three test fields and nothing else: three
   maximal attempts, cold. Both jump-test days (bridge Thursday and every retest week)

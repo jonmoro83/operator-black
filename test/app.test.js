@@ -291,3 +291,24 @@ test("both jump-test days warm up before maximal attempts", () => {
   for (const id of ["broad", "vertj", "triple"]) a.ok(x.PLIB[id], `${id} is in the library`);
   a.match(x.jumpCard("x"), /Standing triple jump/);
 });
+
+test("a day whose label promises conditioning renders a card to log it", () => {
+  const x = app({});
+  const days = x.weeks().flatMap((w) =>
+    [0, 1, 2, 3, 4, 5, 6].map((d) => [x.addDays(w.monday, d), x.dayPlan(x.addDays(w.monday, d))])
+  );
+  const spin = days.find(([, dp]) => dp.short === "5RM+Spin");
+  a.ok(spin, "the bridge week's two-Lift-3 Saturday exists with both lifts on it");
+  x.sel = spin[0];
+  const h = x.sessionHtml(x.weekOf(spin[0]), spin[1]);
+  a.match(h, /Interval timer/, "the easy spin can be timed");
+  a.match(h, /Minutes/, "and logged");
+  a.ok(h.indexOf("5RM") < h.indexOf("Interval timer"), "lifts first, spin after");
+
+  // Nothing whose short label mentions conditioning is left without a card for it.
+  for (const [date, dp] of days) {
+    if (!/hic|spin|easy|liss/i.test(dp.short || "")) continue;
+    x.sel = date;
+    a.match(x.sessionHtml(x.weekOf(date), dp), /Interval timer/, `${date} (${dp.short}) can log it`);
+  }
+});

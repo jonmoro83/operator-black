@@ -131,7 +131,7 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'}][d];
   if(wk.kind==='test') return [
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
-    {t:'off',short:'Easy',note:'Easy day. Mobility only: the warm-up hip and t-spine work.'},
+    {t:'off',short:'Mobility',note:'Easy day. Mobility only: the warm-up hip and t-spine work. No cardio — the two heavy test days are what this week is for.'},
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     {t:'test',lifts:['squat','bench'],jumps:true,short:'Test'},
     {t:'off',short:'Off'},
@@ -143,7 +143,7 @@ function dayPlanSlot(date,d){
     {t:'hic',fmt:'map',baseline:true,short:'HIC',note:'Baseline: 8 × 1 min. Record total calories.'},
     {t:'plyobase',short:'Jumps'},
     {t:'rm5',lifts:['dead',l3On()[0]],short:'5RM'},
-    l3On().length>1?{t:'rm5',lifts:l3On().slice(1),short:'5RM+Spin',note:'Test these first (two per day keeps the numbers honest), then 30–40 min of easy cardio.'}:{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
+    l3On().length>1?{t:'rm5',lifts:l3On().slice(1),cardio:true,fmt:'liss',short:'5RM+Spin',note:'Test these first — two lifts per day keeps the numbers honest — then ride easy for 30–40 min.'}:{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
     {t:'convert',short:'Maxes'}][d];
   if(wk.kind==='travel') return [
     {t:'travel',slot:'day1',short:'Travel 1'},

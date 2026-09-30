@@ -495,7 +495,7 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'}][d];
   if(wk.kind==='test') return [
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
-    {t:'off',short:'Easy',note:'Easy day. Mobility only: the warm-up hip and t-spine work.'},
+    {t:'off',short:'Mobility',note:'Easy day. Mobility only: the warm-up hip and t-spine work. No cardio — the two heavy test days are what this week is for.'},
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     {t:'test',lifts:['squat','bench'],jumps:true,short:'Test'},
     {t:'off',short:'Off'},
@@ -507,7 +507,7 @@ function dayPlanSlot(date,d){
     {t:'hic',fmt:'map',baseline:true,short:'HIC',note:'Baseline: 8 × 1 min. Record total calories.'},
     {t:'plyobase',short:'Jumps'},
     {t:'rm5',lifts:['dead',l3On()[0]],short:'5RM'},
-    l3On().length>1?{t:'rm5',lifts:l3On().slice(1),short:'5RM+Spin',note:'Test these first (two per day keeps the numbers honest), then 30–40 min of easy cardio.'}:{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
+    l3On().length>1?{t:'rm5',lifts:l3On().slice(1),cardio:true,fmt:'liss',short:'5RM+Spin',note:'Test these first — two lifts per day keeps the numbers honest — then ride easy for 30–40 min.'}:{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
     {t:'convert',short:'Maxes'}][d];
   if(wk.kind==='travel') return [
     {t:'travel',slot:'day1',short:'Travel 1'},
@@ -849,7 +849,7 @@ function finishCard(date,dp){
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
-  if(dp.t==='hic'||dp.t==='plyohic'){
+  if(dp.t==='hic'||dp.t==='plyohic'||dp.cardio){
     const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
     if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
   }
@@ -901,6 +901,7 @@ function sessionHtml(wk,dp){
     for(const k of dp.lifts) h+=testCard(k,dp.t==='rm5'?5:1,dp.t==='rm5');
     if(dp.pullups) h+=`<div class="card"><h3>Max unassisted pull-ups</h3><p class="muted small" style="margin:0">The number the Lift 3 substitution was aimed at. One all-out set, full hang to chin over bar.</p><label class="f">Reps${numIn('pullups',lg(sel).pullups,'0','class="num-in"')}</label>${bestPullups()}</div>`;
     if(dp.apply) h+=applyCard(wk);
+    if(dp.cardio) h+=`<div class="divider">Then, easy</div>`+hicCard(dp,'');
     return h+mobCard(sel,dp)+footer(true);
   }
   if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);

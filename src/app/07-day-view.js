@@ -97,7 +97,7 @@ function finishCard(date,dp){
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
-  if(dp.t==='hic'||dp.t==='plyohic'){
+  if(dp.t==='hic'||dp.t==='plyohic'||dp.cardio){
     const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
     if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
   }
@@ -149,6 +149,7 @@ function sessionHtml(wk,dp){
     for(const k of dp.lifts) h+=testCard(k,dp.t==='rm5'?5:1,dp.t==='rm5');
     if(dp.pullups) h+=`<div class="card"><h3>Max unassisted pull-ups</h3><p class="muted small" style="margin:0">The number the Lift 3 substitution was aimed at. One all-out set, full hang to chin over bar.</p><label class="f">Reps${numIn('pullups',lg(sel).pullups,'0','class="num-in"')}</label>${bestPullups()}</div>`;
     if(dp.apply) h+=applyCard(wk);
+    if(dp.cardio) h+=`<div class="divider">Then, easy</div>`+hicCard(dp,'');
     return h+mobCard(sel,dp)+footer(true);
   }
   if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
