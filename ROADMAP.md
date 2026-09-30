@@ -57,9 +57,6 @@ Not committed to. Roughly in order of how useful they'd be.
 
 - **Calendar feed:** the plan in iPhone Calendar with weights, auto-updating.
 - **Share with a partner or coach:** opt-in, read-only progress view.
-- **Standing triple jump in the plyo library:** hop, step, jump from a two-foot start;
-  the PDF lists it as a test but has no library entry. Add an ⓘ entry to the jump-test
-  card and the Guide.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
 - **Per-set effort:** RPE or "fast/slow" per working set, feeding the cycle review.
 - **More Status charts:** weekly conditioning minutes, an adherence calendar heatmap,
@@ -223,6 +220,17 @@ Decided against for now.
   bar colour.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
+
+**Jump tests get a warm-up and an entry each (2026-09-30)**
+- The bridge week's jump day rendered the three test fields and nothing else: three
+  maximal attempts, cold. Both jump-test days (bridge Thursday and every retest week)
+  now show the general warm-up and the jump drills above the tests, in that order. The
+  drills moved out of `plyoCard` into `plyoWarmBlock` so the two days share one block
+  and one set of ticks.
+- Library entries for the vertical and the standing triple jump, which the PDF tests but
+  never described, with an ⓘ on each field of the jump card and a Jump tests group in
+  the Guide's library. Both entries lead on measurement: a vertical is meaningless
+  without the same standing reach every time.
 
 **Optional upper-body power (2026-09-30)**
 - A block on the Thursday plyo card, off by default (`plan.plyoUpper`). Operator's bench

@@ -144,14 +144,14 @@ function sessionHtml(wk,dp){
   if(dp.t==='rm5'||dp.t==='test'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     if(dp.note) h+=`<div class="banner info"><div>${esc(dp.note)}</div></div>`;
-    if(dp.jumps) h+=jumpCard('First, before any lifting.');
     h+=warmupCard(sel);
+    if(dp.jumps) h+=plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('First, before any lifting.');
     for(const k of dp.lifts) h+=testCard(k,dp.t==='rm5'?5:1,dp.t==='rm5');
     if(dp.pullups) h+=`<div class="card"><h3>Max unassisted pull-ups</h3><p class="muted small" style="margin:0">The number the Lift 3 substitution was aimed at. One all-out set, full hang to chin over bar.</p><label class="f">Reps${numIn('pullups',lg(sel).pullups,'0','class="num-in"')}</label>${bestPullups()}</div>`;
     if(dp.apply) h+=applyCard(wk);
     return h+mobCard(sel,dp)+footer(true);
   }
-  if(dp.t==='plyobase') return h+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
+  if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
   if(dp.t==='convert') return h+convertCard(wk)+mobCard(sel,dp)+footer(false);
   return h;
 }

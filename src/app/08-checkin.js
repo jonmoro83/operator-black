@@ -171,6 +171,12 @@ function plyoPullback(date){
   const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>x&&x.grinder)) out.push('yesterday’s lifting was hard');
   return out;
 }
+// The jump-prep drills. Shared by the Thursday plyo session and the jump-test days,
+// where three maximal attempts off a cold ankle is exactly how a calf goes.
+function plyoWarmBlock(L,cls){
+  const done=(L.warm||[]).filter(Boolean).length;
+  return `<details class="plain${cls||''}" data-px="wu"${openPx.has('wu')?' open':''}><summary>Jump warm-up · ${done} of ${PLYO_WARMUP.length} done · about 8 min, not counted</summary><div class="stack" style="margin-top:8px">${PLYO_WARMUP.map(([id,l,d,why],i)=>`<div class="pwu"><button class="wu-chk${(L.warm||[])[i]?' on':''}" data-act="pwu" data-i="${i}" aria-pressed="${!!(L.warm||[])[i]}" aria-label="${esc(l)} done">✓</button><details class="px" data-px="wu-${id}"${openPx.has('wu-'+id)?' open':''}><summary><span>${l}</span><span class="mono small">${d}</span></summary><div class="small muted" style="margin:4px 0 6px">${why}</div>${plyoEntry(id)}</details></div>`).join('')}</div></details>`
+}
 // The upper-body block: throws, not ground contacts, and the first thing to drop.
 // Each phase is a set of slots (a movement pattern); which movement fills a slot is the
 // person's choice and is remembered per phase, so the block fits whatever kit is around.
@@ -204,7 +210,7 @@ function plyoCard(wk,dp){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work, before HIC.</div>`;
   const pb=plyoPullback(sel);
   if(pb.length&&!cut) h+=`<div class="banner warn"><div class="small"><b>Pull-back check:</b> ${esc(pb.join('; '))}. The program says cut the session in half (or warm-up only). Cut, don’t skip.</div></div>`;
-  h+=`<details class="plain" data-px="wu"${openPx.has('wu')?' open':''}><summary>Warm-up · ${(L.warm||[]).filter(Boolean).length} of ${PLYO_WARMUP.length} done · about 8 min, not counted</summary><div class="stack" style="margin-top:8px">${PLYO_WARMUP.map(([id,l,d,why],i)=>`<div class="pwu"><button class="wu-chk${(L.warm||[])[i]?' on':''}" data-act="pwu" data-i="${i}" aria-pressed="${!!(L.warm||[])[i]}" aria-label="${esc(l)} done">✓</button><details class="px" data-px="wu-${id}"${openPx.has('wu-'+id)?' open':''}><summary><span>${l}</span><span class="mono small">${d}</span></summary><div class="small muted" style="margin:4px 0 6px">${why}</div>${plyoEntry(id)}</details></div>`).join('')}</div></details>`;
+  h+=plyoWarmBlock(L);
   h+=`<div class="stack" style="gap:12px">`;
   ph.ex.forEach((e,i)=>{
     const n0=plyoSets(e,cut), sets=((L.sets||[])[i])||[];
@@ -221,7 +227,9 @@ function plyoCard(wk,dp){
 }
 function jumpCard(sub){
   const J=lg(sel).jumps||{};
-  return `<div class="card"><h3>Jump tests</h3><p class="muted small" style="margin:0">${sub}</p><div class="grid3"><label class="f">Broad jump (in)${numIn('jumps.broad',J.broad,'')}</label><label class="f">Vertical (in)${numIn('jumps.vertical',J.vertical,'')}</label><label class="f">Triple jump (in)${numIn('jumps.triple',J.triple,'')}</label></div></div>`;
+  const f=(id,lbl,key,unit)=>`<div class="pex"><details class="px" data-px="jt-${id}"${openPx.has('jt-'+id)?' open':''}><summary><span>${lbl}</span><span class="mono small">3 attempts · best counts</span></summary>${plyoEntry(id)}</details><label class="f">Best (${unit})${numIn('jumps.'+key,J[key],'')}</label></div>`;
+  return `<div class="card"><h3>Jump tests</h3><p class="muted small" style="margin:0">${sub} Maximal efforts: do the jump warm-up above first, rest a full minute between attempts so each one is fresh, and measure the same way every time.</p>
+  <div class="stack" style="gap:10px;margin-top:10px">${f('broad','Broad jump','broad','in')}${f('vertj','Vertical','vertical','in')}${f('triple','Standing triple jump','triple','in')}</div></div>`;
 }
 function testCard(k,defReps,isRm5){
   const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=estMax(k,T.w,reps,sel), cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);

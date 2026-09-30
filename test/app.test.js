@@ -272,3 +272,22 @@ test("upper-body plyos are optional, rotate with the jump phases, and swap per s
   // A pick on one phase does not leak into another.
   a.equal(x.plyoUpperEx(x.PLYO_UPPER[1])[1].id, "explpull");
 });
+
+test("both jump-test days warm up before maximal attempts", () => {
+  const x = app({});
+  const days = x.weeks().flatMap((w) =>
+    [0, 1, 2, 3, 4, 5, 6].map((d) => [x.addDays(w.monday, d), x.dayPlan(x.addDays(w.monday, d))])
+  ).filter(([, dp]) => dp.t === "plyobase" || dp.jumps);
+  a.ok(days.some(([, dp]) => dp.t === "plyobase"), "the bridge week tests jumps");
+  a.ok(days.some(([, dp]) => dp.t === "test"), "so does every retest week");
+  for (const [date, dp] of days) {
+    x.sel = date;
+    const h = x.sessionHtml(x.weekOf(date), dp);
+    a.match(h, /Jump warm-up/, `${date} (${dp.t}) has the jump drills`);
+    a.match(h, /Warm-up<\/b>/, `${date} (${dp.t}) has the general warm-up`);
+    a.ok(h.indexOf("Jump warm-up") < h.indexOf("Jump tests"), `${date} warms up first`);
+  }
+  // The three tested jumps all have a library entry now.
+  for (const id of ["broad", "vertj", "triple"]) a.ok(x.PLIB[id], `${id} is in the library`);
+  a.match(x.jumpCard("x"), /Standing triple jump/);
+});
