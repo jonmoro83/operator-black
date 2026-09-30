@@ -58,7 +58,7 @@ async function flush(path){
   w.busy=false; if(w.dirty&&!w.timer||w.again){w.again=false;flush(path)}
 }
 function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))||Object.keys(outbox).some(p=>p!==path)}
-function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut)}
+function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut);if(typeof acctPaint==='function')acctPaint()}
 function readOnly(){ if(viewing){ setStatus('Archived program · read-only',true); render(); return true } return false }
 function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }

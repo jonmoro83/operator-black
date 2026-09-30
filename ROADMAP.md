@@ -221,6 +221,19 @@ Decided against for now.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
 
+**Account menu in the header (2026-09-30)**
+- Signing out was one `small` link inside the About this app card, near the bottom of
+  Setup. There is now an avatar button in the header (initials from the Access email)
+  opening a menu: signed-in address, sync status in words, Profile and settings, What's
+  new, Sign out. Setup opens with an Account card carrying the same, and the About card
+  keeps only versions.
+- The button doubles as the sync indicator. The brand row cannot hold the wordmark, the
+  status text and the avatar at phone widths, so `#status` is hidden below 520px and a
+  coloured dot on the avatar carries the state, with the words inside the menu. The
+  wordmark steps down at 400/360/340px so the button always fits.
+- Watch for: those breakpoints have to sit after the base `.brand h1` rule in `app.css`,
+  since they have the same specificity and lose on source order otherwise.
+
 **The plyo phase label (2026-09-30)**
 - The day header carried `Plyo: <phase>` on every day of a cycle week. The wave
   prescription belongs there because it applies to three days; the plyo phase applies to

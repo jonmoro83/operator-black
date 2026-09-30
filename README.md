@@ -12,7 +12,7 @@ Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
 ```
 src/app/*.js                the app, in ordered sections (01-constants … 22-events)
 build.js                    joins them into public/app.js and stamps index.html
-public/index.html           the markup: 74 lines
+public/index.html           the markup: 101 lines
 public/app.css              every style
 public/app.js               built — do not edit by hand
 public/releases.js          release notes for the What's new page (a plain global)
@@ -155,6 +155,18 @@ lifting and test days; `MOB` holds one block per session type (`lift`, `dead`, `
 `plyo`, `off`) chosen by `mobKind(dayPlan)` and overridable per person in
 `plan.mob[kind]` (Setup → Mobility). Ticks live in the day's log as `warmup[]`,
 `mobility[]` and `plyo.warm[]`; session mode shows both as its first and last steps.
+
+## Account and sign-out
+
+The header's right-hand button shows your initials (from the Access email) and carries a
+sync dot: green saved, amber saving or loading, red offline, errored or signed out.
+Tapping it opens a menu with the address you are signed in as, the same status in words,
+Profile and settings, What's new, and **Sign out** — a link to `/cdn-cgi/access/logout`,
+which drops the Access session cookie so the next request lands on the login screen.
+Nothing local is cleared: a different person signing in on the same phone is handled by
+`switchUser()`. Setup's first card repeats all of it. Below 520px the header's status text
+is hidden — the brand row cannot hold the wordmark, the status and the avatar on a phone
+— so the dot and the menu carry it there.
 
 ## Appearance
 

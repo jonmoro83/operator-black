@@ -85,3 +85,36 @@ document.getElementById('upd-go').addEventListener('click',applyUpdate);
 document.getElementById('upd-what').addEventListener('click',()=>{view='releases';render();window.scrollTo(0,0)});
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false) });
 setInterval(()=>checkUpdate(false),30*60*1000);
+
+// The account menu. Sign-out is a Cloudflare Access URL, not an API call: it drops the
+// Access session cookie, so the next request lands on the login screen. Nothing local is
+// cleared — a different person signing in on this phone is handled by switchUser().
+const acctB=document.getElementById('acct'), acctM=document.getElementById('acct-m');
+function initials(email){
+  const at=String(email||'').split('@')[0];
+  const parts=at.split(/[._\-+]/).filter(Boolean);
+  const s=(parts.length>1?parts[0][0]+parts[1][0]:at.slice(0,2));
+  return s?s.toUpperCase():'•';
+}
+function acctPaint(){
+  document.getElementById('acct-i').textContent=me?initials(me):'•';
+  document.getElementById('acct-e').textContent=me||'Not signed in';
+  const out=document.getElementById('acct-out');
+  out.textContent=signedOut?'Sign in':'Sign out';
+  out.setAttribute('href',signedOut?'/':'/cdn-cgi/access/logout');
+  // Below 520px the status line is hidden, so the dot is the only sync indicator.
+  const st=document.getElementById('status'), t=st.textContent||'', err=st.className==='err';
+  document.getElementById('acct-dot').className='acct-dot '+(err?'err':t==='Saved'?'ok':'wait');
+  const line=document.getElementById('acct-st');
+  line.textContent=t; line.className='acct-st'+(err?' err':'');
+}
+function acctOpen(on){
+  acctM.hidden=!on;
+  acctB.setAttribute('aria-expanded',on?'true':'false');
+  if(on) acctPaint();
+}
+acctB.addEventListener('click',e=>{ e.stopPropagation(); acctOpen(acctM.hidden) });
+acctM.addEventListener('click',e=>{ if(e.target.closest('[role="menuitem"]')) acctOpen(false) });
+document.addEventListener('click',e=>{ if(!acctM.hidden&&!e.target.closest('#acct-m,#acct')) acctOpen(false) });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!acctM.hidden){acctOpen(false);acctB.focus()} });
+acctPaint();

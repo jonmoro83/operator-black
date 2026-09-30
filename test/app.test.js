@@ -331,3 +331,23 @@ test("the plyo phase is on the day header only where it applies", () => {
   x.seed({ [thu]: { date: thu, plyo: { cut: true } } });
   a.match(line(thu), /~30 contacts/);
 });
+
+test("signing out is reachable from the header and from Setup", () => {
+  const x = app({});
+  x.me = "jon.morozowski@gmail.com";
+  a.equal(x.initials("jon.morozowski@gmail.com"), "JM");
+  a.equal(x.initials("sam@example.com"), "SA");
+  a.equal(x.initials(""), "•", "no email, no initials, but still a button");
+
+  x.acctPaint();
+  const el = (id) => x.dom.made[id];
+  a.equal(el("acct-i").textContent, "JM");
+  a.equal(el("acct-e").textContent, "jon.morozowski@gmail.com");
+  a.equal(el("acct-out").textContent, "Sign out");
+
+  const setup = x.vSetup();
+  a.match(setup, /Account/);
+  a.match(setup, /href="\/cdn-cgi\/access\/logout"/, "Cloudflare Access drops the session");
+  a.match(setup, /jon\.morozowski@gmail\.com/);
+  a.ok(setup.indexOf("Account") < setup.indexOf("Maxes"), "the account card is first");
+});

@@ -614,7 +614,7 @@ async function flush(path){
   w.busy=false; if(w.dirty&&!w.timer||w.again){w.again=false;flush(path)}
 }
 function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))||Object.keys(outbox).some(p=>p!==path)}
-function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut)}
+function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut);if(typeof acctPaint==='function')acctPaint()}
 function readOnly(){ if(viewing){ setStatus('Archived program · read-only',true); render(); return true } return false }
 function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
@@ -1958,6 +1958,39 @@ document.getElementById('upd-what').addEventListener('click',()=>{view='releases
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false) });
 setInterval(()=>checkUpdate(false),30*60*1000);
 
+// The account menu. Sign-out is a Cloudflare Access URL, not an API call: it drops the
+// Access session cookie, so the next request lands on the login screen. Nothing local is
+// cleared — a different person signing in on this phone is handled by switchUser().
+const acctB=document.getElementById('acct'), acctM=document.getElementById('acct-m');
+function initials(email){
+  const at=String(email||'').split('@')[0];
+  const parts=at.split(/[._\-+]/).filter(Boolean);
+  const s=(parts.length>1?parts[0][0]+parts[1][0]:at.slice(0,2));
+  return s?s.toUpperCase():'•';
+}
+function acctPaint(){
+  document.getElementById('acct-i').textContent=me?initials(me):'•';
+  document.getElementById('acct-e').textContent=me||'Not signed in';
+  const out=document.getElementById('acct-out');
+  out.textContent=signedOut?'Sign in':'Sign out';
+  out.setAttribute('href',signedOut?'/':'/cdn-cgi/access/logout');
+  // Below 520px the status line is hidden, so the dot is the only sync indicator.
+  const st=document.getElementById('status'), t=st.textContent||'', err=st.className==='err';
+  document.getElementById('acct-dot').className='acct-dot '+(err?'err':t==='Saved'?'ok':'wait');
+  const line=document.getElementById('acct-st');
+  line.textContent=t; line.className='acct-st'+(err?' err':'');
+}
+function acctOpen(on){
+  acctM.hidden=!on;
+  acctB.setAttribute('aria-expanded',on?'true':'false');
+  if(on) acctPaint();
+}
+acctB.addEventListener('click',e=>{ e.stopPropagation(); acctOpen(acctM.hidden) });
+acctM.addEventListener('click',e=>{ if(e.target.closest('[role="menuitem"]')) acctOpen(false) });
+document.addEventListener('click',e=>{ if(!acctM.hidden&&!e.target.closest('#acct-m,#acct')) acctOpen(false) });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!acctM.hidden){acctOpen(false);acctB.focus()} });
+acctPaint();
+
 /* ---------- rest alerts (push) ---------- */
 // When alerts are on for this device, every rest schedules a push for its end time on
 // the server, so the phone is notified even when locked or in another app.
@@ -2522,7 +2555,10 @@ function vHistory(){
 
 function pIn(path,val,attrs){return `<input type="number" inputmode="decimal" step="any" id="p-${path.replace(/\./g,'-')}" data-pbind="${path}" data-type="num" value="${val??''}" ${attrs||''}>`}
 function vSetup(){
-  let h=`<div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
+  let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
+  <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
+  <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
+  <div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
   {
@@ -2567,7 +2603,6 @@ function vSetup(){
     const status=!APP_VER||APP_VER==='dev'?'Version unknown in this preview.':!upd.latest?(upd.err||'Not checked yet.'):updateAvailable()?'A newer version is available.':'You’re on the latest version.';
     const latestV=tagVersion(upd.tag), rel=RELEASES[0];
     h+=`<div class="card"><h2>About this app</h2><dl class="kv">
-    <dt>Signed in</dt><dd>${esc(me||'—')} <a class="small" href="/cdn-cgi/access/logout">Sign out</a></dd>
     <dt>This app</dt><dd><b>${esc(APP_VERSION)}</b> · ${esc(rel.title)} <span class="small muted">(${esc((APP_VER||'—').slice(0,8))})</span></dd>
     <dt>Latest</dt><dd>${latestV?`<b>${esc(latestV)}</b> `:''}<span class="small muted">${upd.latest?esc(upd.latest.slice(0,8)):'—'}${upd.at?` · deployed ${esc(fmtAt(upd.at))}`:''}</span></dd></dl>
     <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div>
