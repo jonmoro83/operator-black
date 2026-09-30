@@ -312,3 +312,22 @@ test("a day whose label promises conditioning renders a card to log it", () => {
     a.match(x.sessionHtml(x.weekOf(date), dp), /Interval timer/, `${date} (${dp.short}) can log it`);
   }
 });
+
+test("the plyo phase is on the day header only where it applies", () => {
+  const x = app({});
+  const wk = x.weeks().find((w) => w.kind === "cycle");
+  const line = (d) => { x.sel = d; return x.vToday().split("</div>").find((s) => s.includes("wkline")) || ""; };
+
+  const thu = x.addDays(wk.monday, 3);
+  a.equal(x.dayPlan(thu).t, "plyohic", "Thursday is the plyo day");
+  a.match(line(thu), /Plyo: Extensive · ~60 contacts/, "named, with its contact target");
+
+  for (const i of [0, 1, 2, 4, 5, 6]) {
+    const d = x.addDays(wk.monday, i);
+    a.doesNotMatch(line(d), /Plyo:/, `${d} does not do plyos, so it does not label them`);
+    a.match(line(d), /Cycle 1/, "but still says which week it is");
+  }
+  // Halving the contacts halves the target on the header too.
+  x.seed({ [thu]: { date: thu, plyo: { cut: true } } });
+  a.match(line(thu), /~30 contacts/);
+});
