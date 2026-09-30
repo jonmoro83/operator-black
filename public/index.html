@@ -29,13 +29,20 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/app.css?b=18590b56b9">
+<link rel="stylesheet" href="/app.css?b=8e4b33c93f">
 
 </head>
 <body>
 <header>
   <div class="hd">
-    <div class="brand"><h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div></div>
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <text x="32" y="29">OB</text>
+        <rect class="bar" x="10" y="42" width="44" height="6.5" rx="3.2"/>
+        <rect class="cap" x="5" y="38" width="5.5" height="14.5" rx="2"/>
+        <rect class="cap" x="53.5" y="38" width="5.5" height="14.5" rx="2"/>
+      </svg>
+      <h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div></div>
     <div id="upd" class="upd" hidden><span>A new version of the app is ready.</span><span class="upd-b"><button class="btn sm" id="upd-what">What’s new</button><button class="btn sm primary" id="upd-go">Reload</button></span></div>
     <nav id="nav" aria-label="Sections">
       <button data-view="today">Today</button>
@@ -81,7 +88,7 @@
   <div class="rest-bar"><i id="rest-fill"></i></div>
 </div>
 
-<script src="/releases.js?b=18590b56b9"></script>
-<script src="/app.js?b=18590b56b9"></script>
+<script src="/releases.js?b=8e4b33c93f"></script>
+<script src="/app.js?b=8e4b33c93f"></script>
 </body>
 </html>
