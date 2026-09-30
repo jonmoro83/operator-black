@@ -117,6 +117,22 @@ svg.loader.big{max-width:420px}
 .plate.pw{fill:var(--surface);stroke:var(--ink);stroke-width:1.2}.plate.pc{fill:var(--muted)}
 .ramp{display:flex;flex-wrap:wrap;gap:4px 6px;font-family:var(--f-mono);font-size:13px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
+/* guided warm-up and mobility */
+#gd{position:fixed;inset:0;z-index:29;background:var(--bg);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex}
+#gd.hold{background:var(--accent-bg)}
+#gd.rest{background:var(--green-bg)}
+.gd-in{max-width:620px;width:100%;margin:0 auto;padding-inline:16px;padding-block:14px 20px;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center}
+.gd-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gd-grp{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gd-name{font-family:var(--f-display);font-stretch:112%;font-weight:900;font-size:clamp(24px,7.5vw,38px);line-height:1.05;text-wrap:balance}
+.gd-dose{font-size:17px;font-weight:700;color:var(--muted)}
+.gd-time{font-family:var(--f-display);font-stretch:62%;font-weight:900;font-size:clamp(88px,30vw,170px);line-height:.85;font-variant-numeric:tabular-nums}
+.gd-side{font-size:15px;font-weight:700;color:var(--accent)}
+.gd-bar{height:6px;border-radius:3px;background:rgb(0 0 0 / .08);overflow:hidden;width:min(100%,460px);margin:0 auto}
+.gd-bar i{display:block;height:100%;background:var(--accent)}
+.gd-btns{display:flex;gap:8px;width:min(100%,460px);margin:4px auto 0}
+.gd-btns .btn{flex:1;padding:13px 8px;font-size:15px}
+.gd-next{font-size:13.5px;color:var(--muted)}
 /* lifting session mode */
 #ls{position:fixed;inset:0;z-index:28;background:var(--bg);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);overflow-y:auto}
 .ls-in{max-width:620px;margin:0 auto;padding-inline:16px;padding-block:12px 24px;display:flex;flex-direction:column;gap:12px;min-height:100%}
@@ -213,6 +229,11 @@ details.px[open]>summary>span:first-child::after{content:" ▾"}
 .wkdots i.rest{border-style:dashed;opacity:.6}
 .sub-h{margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .check>span:first-of-type{flex:1;min-width:0}
+.card.pr{border-color:var(--green);background:linear-gradient(0deg,var(--green-bg),var(--green-bg)),var(--surface)}
+.pr-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 12px;align-items:baseline;border-top:1px solid var(--line);padding-top:8px}
+.pr-row:first-of-type{border-top:0;padding-top:0}
+.pr-v{font-family:var(--f-display);font-stretch:70%;font-weight:850;font-size:26px;font-variant-numeric:tabular-nums}
+.pr-v small{font-size:12px;font-weight:600;color:var(--muted);font-stretch:100%}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
 .cal-h{grid-column:1/-1;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:center}
 .cal-w{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--line);font-size:12.5px}
@@ -366,6 +387,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 </header>
 <div class="wrap"><main id="main"></main></div>
 <div id="tip" role="status" hidden></div>
+<div id="gd" hidden aria-live="polite"><div class="gd-in" id="gd-in"></div></div>
 <div id="ls" hidden aria-live="polite"><div class="ls-in" id="ls-in"></div></div>
 <div id="iv" hidden aria-live="polite">
   <div class="iv-in">
@@ -1043,6 +1065,8 @@ function vToday(){
   const wt=weekTitle(wk);
   h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'?`<span class="small muted">Plyo: ${plyoPhase(wk).name}</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
+  h+=weekSummaryCard();
+  h+=prCard(sel);
   h+=banners(wk,dp);
   if(sel===todayStr()){const rc=reviewCycleFor(sel);if(rc) h+=reviewCard(rc);const dc=deloadCheckCycle(sel);if(dc) h+=deloadCheckCard(dc)}
   h+=checkinCard(sel);
@@ -1171,7 +1195,7 @@ function warmupCard(date){
     <div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full · 12–15 min</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short · 7 min</button></div></div>
     ${rows}
     <div class="small muted">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
-    ${done?`<div><button class="btn sm ghost" data-act="wclear">Clear</button></div>`:''}
+    <div class="row"><button class="btn" data-act="guide" data-k="warmup">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="wclear">Clear</button>`:''}</div>
   </div></details>`;
 }
 function mobCard(date,dp){
@@ -1179,7 +1203,7 @@ function mobCard(date,dp){
   return `<details class="plain card" data-px="mob"${openPx.has('mob')?' open':''}><summary><b>Mobility</b> · ${done} of ${items.length} done · ${esc(M.name)}</summary>
   <div class="stack" style="margin-top:10px"><div class="small muted">${esc(M.why)} Hold each one easy; this is the place for the longer holds.</div>
     ${items.map(([n,d],i)=>checkRow('mobility.'+i,L[i],n,d)).join('')}
-    ${done?`<div><button class="btn sm ghost" data-act="mclear">Clear</button></div>`:''}
+    <div class="row"><button class="btn" data-act="guide" data-k="mobility">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="mclear">Clear</button>`:''}</div>
   </div></details>`;
 }
 function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
@@ -1634,6 +1658,97 @@ function wzFinish(){
   wz=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }
 
+/* ---------- guided warm-up / mobility ---------- */
+// A hands-free run through a checklist: timed items count down and advance themselves,
+// per-side items run both sides, rep items wait for a tap. Timed from absolute end times
+// so locking the phone or reloading doesn't lose the place.
+let guide=LS.get('ob.guide'), gdTick=null;
+function gdItems(kind,date){
+  if(kind==='warmup'){
+    const short=!!lg(date).warmShort;
+    return WARMUP.map((x,i)=>({i,name:x.n,dose:x.d,grp:x.g})).filter(x=>!short||WARMUP[x.i].s);
+  }
+  return mobList(mobKind(dayPlan(date))).map(([nm,d],i)=>({i,name:nm,dose:d,grp:MOB[mobKind(dayPlan(date))].name}));
+}
+function gdField(){return guide.kind==='warmup'?'warmup':'mobility'}
+function gdTickOff(idx){
+  const f=gdField(), A=[...(lg(guide.date)[f]||[])];
+  A[idx]=true; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false;
+  setLog(guide.date,f,A);
+}
+function gdBegin(){
+  const items=gdItems(guide.kind,guide.date), it=items[guide.pos];
+  if(!it){gdFinish();return}
+  const h=holdSecs(it.dose);
+  guide.sides=h?h.sides:0; guide.dur=h?h.s:0; guide.side=1;
+  guide.end=h?Date.now()+h.s*1000:null; guide.paused=null;
+  LS.set('ob.guide',guide);
+  say(it.name+(h?'. '+durText(h.s)+(h.sides>1?' each side':''):(it.dose?'. '+it.dose:'')));
+}
+function gdStart(kind){
+  if(!gdItems(kind,sel).length) return;
+  unlockAudio(); stopRest();
+  guide={kind,date:sel,pos:0};
+  gdBegin(); holdScreen(true); gdShow();
+}
+function gdGo(pos){
+  const items=gdItems(guide.kind,guide.date);
+  if(pos<0) return;
+  if(pos>=items.length){gdFinish();return}
+  guide.pos=pos; gdBegin(); gdRender();
+}
+function gdFinish(){
+  say(guide.kind==='warmup'?'Warm-up done.':'Mobility done.');
+  tone(880,.18); tone(1320,.35,.22); vib([160,90,220]);
+  gdClose();
+}
+function gdClose(){ guide=null; LS.set('ob.guide',null); if(!rest||rest.done) holdScreen(false); gdShow(); render(); }
+function gdShow(){
+  const el=document.getElementById('gd');
+  if(!guide||viewing){el.hidden=true;clearInterval(gdTick);gdTick=null;document.body.style.overflow='';return}
+  el.hidden=false; document.body.style.overflow='hidden';
+  if(!gdTick) gdTick=setInterval(gdRender,200);
+  gdRender();
+}
+function gdRender(){
+  const box=document.getElementById('gd-in'); if(!guide||!box) return;
+  const items=gdItems(guide.kind,guide.date), it=items[guide.pos];
+  if(!it){gdFinish();return}
+  const timed=guide.dur>0, paused=!!guide.paused;
+  let left=0;
+  if(timed){
+    left=Math.max(0,Math.ceil((guide.end-(paused?guide.paused:Date.now()))/1000));
+    if(!paused&&Date.now()>=guide.end){
+      if(guide.sides>guide.side){ guide.side++; guide.end=Date.now()+guide.dur*1000; LS.set('ob.guide',guide); tone(660,.3); vib([140,70,140]); say('Switch sides'); }
+      else { tone(1320,.3); vib([200]); gdTickOff(it.i); return gdGo(guide.pos+1); }
+      left=guide.dur;
+    }
+  }
+  const el=document.getElementById('gd');
+  el.className=timed?(paused?'':'hold'):'';
+  const next=items[guide.pos+1];
+  box.innerHTML=`<div class="gd-top"><span>${guide.kind==='warmup'?'Warm-up':'Mobility'} · ${guide.pos+1} of ${items.length}</span><button class="btn sm ghost" data-gd="close">Close</button></div>
+  <div class="gd-bar"><i style="width:${Math.round(100*guide.pos/items.length)}%"></i></div>
+  ${it.grp?`<div class="gd-grp">${esc(it.grp)}</div>`:''}
+  <div class="gd-name">${esc(it.name)}</div>
+  ${timed?`<div class="gd-time">${Math.floor(left/60)}:${pad(left%60)}</div>${guide.sides>1?`<div class="gd-side">Side ${guide.side} of ${guide.sides}</div>`:''}`:`<div class="gd-dose">${esc(it.dose||'')}</div>`}
+  ${timed?'':`<button class="btn primary" style="padding:16px;font-size:18px;width:min(100%,460px);margin:0 auto" data-gd="done">Done</button>`}
+  <div class="gd-next">${next?'Next: '+esc(next.name):'Last one'}</div>
+  <div class="gd-btns"><button class="btn" data-gd="back" ${guide.pos===0?'disabled':''}>‹ Back</button>${timed?`<button class="btn" data-gd="pause">${paused?'Resume':'Pause'}</button>`:''}<button class="btn" data-gd="skip">Skip ›</button></div>`;
+}
+document.getElementById('gd').addEventListener('click',e=>{
+  const b=e.target.closest('[data-gd]'); if(!b||!guide) return; const a=b.dataset.gd; unlockAudio();
+  if(a==='close') return gdClose();
+  if(a==='back') return gdGo(guide.pos-1);
+  if(a==='skip') return gdGo(guide.pos+1);
+  if(a==='done'){ gdTickOff(gdItems(guide.kind,guide.date)[guide.pos].i); return gdGo(guide.pos+1) }
+  if(a==='pause'){
+    if(guide.paused){ guide.end+=Date.now()-guide.paused; guide.paused=null; holdScreen(true) }
+    else guide.paused=Date.now();
+    LS.set('ob.guide',guide); gdRender();
+  }
+});
+
 /* ---------- lifting session mode ---------- */
 // One set at a time on lifting days. Steps are rebuilt from the plan and the day's log
 // on every render, so edits (working weight, warm-ups) flow straight through.
@@ -1749,7 +1864,7 @@ function lsRender(){
       <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
       ${isW?`<div class="seg"><button class="segb${short?'':' on'}" data-ls="wfull">Full</button><button class="segb${short?' on':''}" data-ls="wshort">Short</button></div>`:`<div class="small muted">${esc(MOB[mobKind(dp)].why)}</div>`}
       <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
-      <button class="btn primary ls-done" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button>`;
+      <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
     const A=lg(ls.date).acc||[];
     h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">2–3 movements, 2–3 sets, a couple of reps short of failure.</div><div class="stack">${accList(dp.acc).map((a,i)=>`<button class="btn${A[i]?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-i="${i}">${A[i]?'✓ ':''}${esc(a)}</button>`).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
@@ -1789,6 +1904,7 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const A=[...(lg(ls.date).acc||[])]; A[+b.dataset.i]=!A[+b.dataset.i]; setLog(ls.date,'acc',A); return lsRender() }
+  if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
   if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }
@@ -2079,6 +2195,98 @@ function nextAfterSet(k,sets){
   return undefined; // nothing left: no rest needed
 }
 
+/* ---------- personal records ---------- */
+// Lifetime bests across every program, computed from the log. Each record keeps the
+// date it was set and the value it beat, so a new one can be called out on the day.
+function prList(){
+  const out=[], add=(key,label,unit,entries,fmt)=>{
+    const xs=entries.filter(e=>e.v!=null&&!Number.isNaN(e.v)&&e.v>0).sort((a,b)=>a.d<b.d?-1:1);
+    if(!xs.length) return;
+    let best=null, prev=null;
+    for(const e of xs){ if(!best||e.v>best.v){prev=best;best=e} }
+    out.push({key,label,unit,value:best.v,date:best.d,prev:prev?prev.v:null,n:xs.length,fmt:fmt||(v=>n(v))});
+  };
+  // tested maxes, per lift
+  for(const k of activeLifts()){
+    const xs=[];
+    for(const [d,L] of Object.entries(logs)){
+      const t=(L.test||{})[k]; if(!t||t.w==null||t.w==='') continue;
+      const e=estMax(k,t.w,t.r||(dayPlan(d).t==='rm5'?5:1),d);
+      if(e!=null) xs.push({d,v:floorTo(e,plan.round[k])});
+    }
+    add('lift:'+k,esc(liftName(k))+' 1RM',u(),xs,v=>(isBW(k)?'+':'')+n(v));
+  }
+  add('pullups','Max pull-ups','reps',Object.entries(logs).map(([d,L])=>({d,v:+L.pullups})));
+  for(const [f,lbl] of [['broad','Broad jump'],['vertical','Vertical jump'],['triple','Standing triple jump']]){
+    add('jump:'+f,lbl,'in',Object.entries(logs).map(([d,L])=>({d,v:+((L.jumps||{})[f]||(f==='broad'?((L.plyo||{}).best||(L.plyo||{}).mark):0))})));
+  }
+  // conditioning: best per activity and format, hard sessions only
+  const g={};
+  for(const x of hicSessions(true)){ if(x.f==='liss'||x.v==null) continue; (g[x.mod+'|'+x.f]=g[x.mod+'|'+x.f]||[]).push({d:x.d,v:x.v,u:x.u}) }
+  for(const key of Object.keys(g)){
+    const [m,f]=key.split('|');
+    add('hic:'+key,MOD[m].name+' · '+HIC[f].name,g[key][0].u,g[key]);
+  }
+  return out;
+}
+// Records set on this date (the day something became a best, with a previous value to beat).
+function prsOn(date){return prList().filter(r=>r.date===date&&r.prev!=null)}
+function prCard(date){
+  const hits=prsOn(date); if(!hits.length) return '';
+  return `<div class="card pr"><div class="lift-h"><h3>New personal best${hits.length>1?'s':''}</h3><span class="chip light">PR</span></div>
+  ${hits.map(r=>`<div class="pr-row"><span>${r.label}</span><span class="pr-v">${r.fmt(r.value)}<small> ${esc(r.unit)}</small></span><span class="small muted">was ${r.fmt(r.prev)}</span></div>`).join('')}</div>`;
+}
+function prBoard(){
+  const rs=prList();
+  if(!rs.length) return `<div class="card"><h3>Personal records</h3><div class="empty">Nothing tested yet. Bests from test days, jumps, pull-ups and conditioning land here.</div></div>`;
+  return `<div class="card"><div class="lift-h"><h3>Personal records</h3><span class="small muted">All programs</span></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Record</th><th class="n">Best</th><th class="n">Set</th><th class="n">Gain</th></tr></thead><tbody>
+  ${rs.map(r=>`<tr><td>${r.label}</td><td class="n"><b>${r.fmt(r.value)}</b> <span class="muted">${esc(r.unit)}</span></td><td class="n small">${fmtD(r.date,true)}</td><td class="n small">${r.prev!=null?`<span class="chip light">+${n(Math.round((r.value-r.prev)*10)/10)}</span>`:'<span class="muted">first</span>'}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- week summary ---------- */
+// At the start of a new week: how last week went, then what this one holds. Shown until
+// dismissed (plan.weekSeen keeps the last Monday that was cleared).
+function weekRecap(mon){
+  let done=0, tot=0; const prs=[], rd=[];
+  for(let i=0;i<7;i++){
+    const d=addDays(mon,i), p=dayPlan(d);
+    if(!['off','pre','convert'].includes(p.t)){tot++; if(lg(d).done) done++}
+    const r=readiness(ci(d)); if(r!=null) rd.push(r);
+    prs.push(...prsOn(d));
+  }
+  const end=addDays(mon,6);
+  const hics=hicSessions(true).filter(x=>x.d>=mon&&x.d<=end&&x.v!=null);
+  const avg=rd.length?Math.round(rd.reduce((a,b)=>a+b,0)/rd.length):null;
+  return {done,tot,prs,avg,hics,mon,end};
+}
+function weekSummaryCard(){
+  if(viewing||sel!==todayStr()) return '';
+  const mon=mondayOf(todayStr()), last=addDays(mon,-7);
+  if((plan.weekSeen||'')===mon) return '';
+  if(idxOf(last)<0) return '';                       // no previous week in this program
+  const r=weekRecap(last);
+  if(!r.tot&&!r.prs.length) return '';
+  const wk=weekOf(mon), wt=wk?weekTitle(wk):null, lv=r.avg!=null?rLevel(r.avg):null;
+  const ahead=[];
+  if(wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy') ahead.push('A heavy week: singles or doubles near the top. Accessories are off.');
+  if(wk&&wk.kind==='deload') ahead.push('A deload: easy lifting, steady conditioning, half the plyo contacts.');
+  if(wk&&wk.kind==='test') ahead.push('Retest week: three easy days, then heavy singles.');
+  if(wk&&wk.kind==='cycle') ahead.push('Plyos: '+plyoPhase(wk).name+'.');
+  const nd=nextScheduled('deload'), nt=nextScheduled('test');
+  let h=`<div class="card"><div class="lift-h"><h3>Your week</h3><button class="btn sm ghost" data-act="weekseen">Dismiss</button></div>
+  <div class="small muted">Last week · ${fmtD(r.mon)}–${fmtD(r.end)}</div>
+  <div class="miles"><div class="mile"><span class="l">Sessions</span><span class="big">${r.done}<small style="font-size:14px;color:var(--muted)">/${r.tot}</small></span><span class="small muted">${r.tot&&r.done===r.tot?'every one':r.tot?Math.round(100*r.done/r.tot)+'% done':'—'}</span></div>
+  <div class="mile"><span class="l">Readiness</span>${r.avg!=null?`<span class="big">${r.avg}</span><span class="small"><span class="chip ${lv.cls}">${lv.t}</span></span>`:'<span class="small muted">No check-ins</span>'}</div>
+  <div class="mile"><span class="l">Bests set</span><span class="big">${r.prs.length}</span><span class="small muted">${r.prs.length?r.prs.map(x=>x.label).join(', '):'none last week'}</span></div></div>`;
+  if(r.hics.length) h+=`<div class="small muted">Conditioning: ${r.hics.map(x=>`${MOD[x.mod].name} ${HIC[x.f].name} ${n(x.v)} ${esc(x.u)}`).join(' · ')}</div>`;
+  h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><b>This week</b>${wt?` · ${esc(wt.t)} <span class="chip ${wt.cls}">${esc(wt.chip)}</span>`:''}</div>`;
+  if(ahead.length) h+=`<ul class="tight small">${ahead.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+  h+=`<div class="small muted">${esc(nd)} ${esc(nt)}</div></div>`;
+  return h;
+}
+
 /* ---------- status dashboard ---------- */
 function lineChart(pts,o){
   o=o||{};
@@ -2171,6 +2379,7 @@ function vStatus(){
   h+=`<div class="sm"><div class="sm-h"><b>Bodyweight</b>${bw.length?`<span class="v">${r1(bw[bw.length-1].v)}<small>${u()}${bw.length>1?` · ${bw[bw.length-1].v-bw[0].v>0?'+':''}${r1(bw[bw.length-1].v-bw[0].v)} since ${fmtD(bw[0].d)}`:''}</small></span>`:''}</div>${bw.length>=2?lineChart(bw.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()}`})),{label:'Bodyweight',minStep:1}):'<div class="none">Log bodyweight in the daily check-in.</div>'}</div>`;
   h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
+  h+=prBoard();
   return h;
 }
 /* ---------- CSV export ---------- */
@@ -2670,6 +2879,8 @@ document.getElementById('main').addEventListener('click',e=>{
     moveOpen=false; openWarm.clear(); openPx.clear(); render(); return;
   }
   if(a==='ordreset'){const mon=mondayOf(sel);mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
+  if(a==='guide'){gdStart(b.dataset.k);return}
+  if(a==='weekseen'){mutatePlan(p=>{p.weekSeen=mondayOf(todayStr())});return}
   if(a==='hold'){startHold(b.dataset.n,+b.dataset.s,+b.dataset.sides||1,1);render();return}
   if(a==='wshort'){const v=b.dataset.v==='1';if(!!lg(sel).warmShort===v)return;setLog(sel,'warmShort',v);render();return}
   if(a==='wclear'){setLog(sel,'warmup',[]);render();return}
@@ -2710,6 +2921,8 @@ if(iv&&Date.now()-iv.start>3*3600*1000){iv=null;LS.set('ob.iv',null)}
 if(iv) ivShow();
 if(ls&&ls.date!==realToday()){ls=null;LS.set('ob.ls',null)}
 if(ls) lsShow();
+if(guide&&guide.date!==realToday()){guide=null;LS.set('ob.guide',null)}
+if(guide) gdShow();
 connect();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 setTimeout(()=>checkUpdate(false),2000);

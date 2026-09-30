@@ -110,6 +110,22 @@ lifting and test days; `MOB` holds one block per session type (`lift`, `dead`, `
 `plan.mob[kind]` (Setup → Mobility). Ticks live in the day's log as `warmup[]`,
 `mobility[]` and `plyo.warm[]`; session mode shows both as its first and last steps.
 
+## Records and the week summary
+
+`prList()` computes lifetime bests from the log across all programs — tested 1RMs per
+lift (via `estMax`), pull-ups, broad/vertical/triple jumps, and the best result per
+conditioning activity + format — each with the date set and the value it beat.
+`prsOn(date)` drives the "New personal best" card on Today; `prBoard()` is the Status
+table. `weekSummaryCard()` recaps last week (sessions, readiness, bests, conditioning)
+and previews this one, until dismissed via `plan.weekSeen`.
+
+## Guided warm-up and mobility
+
+`gdStart('warmup'|'mobility')` opens a full-screen runner over the same checklists.
+Items whose dose parses as a duration (`holdSecs`) count down and advance themselves,
+running both sides when the dose says per side; the rest wait for a tap. State lives in
+`ob.guide` with absolute end times, so locking the phone doesn't lose the place.
+
 ## Interval timer
 
 HIC and LISS cards have a guided timer built from the Black formats (MAP 1:00/1:00 ×8–10,

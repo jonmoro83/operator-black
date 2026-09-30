@@ -51,10 +51,6 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 Not committed to. Roughly in order of how useful they'd be.
 
-- **Guided warm-up:** the 12–15 min warm-up as a checklist with hold timers.
-- **PR board + celebration:** heaviest single, best calories per format, best broad
-  jump, most pull-ups, with a small "PR!" moment when one falls.
-- **Monday summary:** last week's sessions, PRs and readiness, plus what's coming.
 - **7-day bodyweight average:** trend and targets from a rolling average.
 - **Travel week:** swap barbell lifts for dumbbell/bodyweight versions for a week and
   keep that week out of the cycle review.
@@ -210,6 +206,16 @@ Decided against for now.
   previewed with the shifted days outlined, then Apply.
 - Hold timers (⏱) on warm-up and mobility items with a real duration, running each side
   in turn; the last ramp set now gets the lift's full rest before the first working set.
+
+**Records, week summary, guided blocks (2026-10-01)**
+- Personal records across every program (tested 1RMs, pull-ups, all three jumps, best
+  result per conditioning activity and format), on Status with the date and the gain.
+  A day that sets one shows a "New personal best" card on Today with the value it beat.
+- Week summary on Today at the start of each week: last week's sessions, readiness and
+  bests, then what this week holds and when the next deload and retest fall. Dismissable.
+- Guided run through the warm-up and mobility blocks: full screen, one movement at a
+  time, timed items count down and advance themselves (both sides where the dose says
+  per side), rep items wait for a tap, each one ticked off as it completes.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
