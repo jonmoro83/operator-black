@@ -178,7 +178,8 @@ Decided against for now.
 
 **Gym flow, onboarding, restore (2026-09-29)**
 - Welcome setup for new people (units, bodyweight, Lift 3, start week, bridge week or
-  known 1RM/5RM maxes, conditioning tool, deload cadence); re-run from Setup.
+  known 1RM/5RM maxes, conditioning tool, then deloads and retests on their own step);
+  re-run from Setup.
 - Lifting session mode: full-screen, one set at a time with drawn plates, ramp and
   working rests on the same screen, ±weight, grinder, accessories, summary + RPE.
 - Session mode on test days (bridge 5RMs, retest singles): ramp to the target (or a
