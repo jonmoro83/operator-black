@@ -190,3 +190,45 @@ test("the release version and package.json agree, so deploy tags are truthful", 
   a.equal(x.tagVersion(`v${pkg.version}-abc1234`), x.APP_VERSION, "the deploy tag parses back to it");
   a.equal(x.tagVersion("abc1234"), null, "an untagged deploy reports no version");
 });
+
+test("a travel week pauses the cycle and keeps its own movements", () => {
+  const x = app({ now: "2026-10-19" });
+  const wasWeek3 = x.weekOf("2026-10-19");
+  a.equal(wasWeek3.w, 3);
+
+  x.plan.inserts = { "2026-10-19": "travel" };
+  x.bump();
+  const wk = x.weekOf("2026-10-19");
+  a.equal(wk.kind, "travel");
+  a.equal(x.weekTitle(wk).t, "Travel week");
+  a.equal(x.weekOf("2026-10-26").w, 3, "the cycle picks up where it left off");
+
+  const week = [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlan(x.addDays("2026-10-19", i)));
+  a.deepEqual(week.map((d) => d.t), ["travel", "hic", "travel", "plyohic", "travel", "hic", "off"]);
+  a.deepEqual(week.map((d) => x.sessKind(d)),
+    ["strength", "hic", "strength", "hic", "strength", "hic", "other"],
+    "the rule about back-to-back days still holds on a travel week");
+  a.equal(x.mobKind(week[4]), "dead", "the hinge day gets the posterior chain block");
+  a.ok(x.travelList("day1").length >= 3);
+});
+
+test("a travel week is left out of the cycle review", () => {
+  const x = app({ now: "2026-11-30" });
+  const seed = {};
+  for (const w of x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1)) {
+    for (const i of [0, 2, 4]) {
+      const d = x.addDays(w.monday, i);
+      seed[d] = { date: d, done: true, rpe: 7, lifts: { squat: { sets: [true, true, true] } } };
+    }
+  }
+  x.seed(seed);
+  const before = x.cycleStats(1).stats.squat.n;
+
+  x.plan.inserts = { "2026-10-19": "travel" };
+  x.bump();
+  const travelDay = "2026-10-19";
+  x.seed({ [travelDay]: { date: travelDay, done: true, rpe: 9, travel: { 0: true } } });
+  const after = x.cycleStats(1).stats.squat.n;
+  a.ok(after < before, "the displaced week no longer counts toward the review");
+  a.equal(x.dayPlan(travelDay).t, "travel");
+});

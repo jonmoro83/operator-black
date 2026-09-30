@@ -34,6 +34,12 @@ npm run dev                         # http://localhost:8787
 npm test                            # the calculation tests
 ```
 
+## Launch screens
+
+`tools/splash.js` renders `public/brand/splash/<w>x<h>@<dpr>.png` for ten iPhone sizes.
+They sit under `/brand/` because iOS fetches a startup image before the Access session
+exists; anything else would return the login page and give a white flash instead.
+
 ## Build
 
 `src/app/*.js` are plain script fragments, joined in filename order inside one IIFE by

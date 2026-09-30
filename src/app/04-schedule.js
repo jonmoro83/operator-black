@@ -90,7 +90,7 @@ function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
 // For adjacency: two strength days or two hard conditioning days must not touch.
 function sessKind(dp){
   if(!dp) return 'other';
-  if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test') return 'strength';
+  if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test'||dp.t==='travel') return 'strength';
   if(dp.t==='plyohic') return 'hic';
   if(dp.t==='hic') return dp.fmt==='liss'?'easy':'hic';
   return 'other';
@@ -145,6 +145,14 @@ function dayPlanSlot(date,d){
     {t:'rm5',lifts:['dead',l3On()[0]],short:'5RM'},
     l3On().length>1?{t:'rm5',lifts:l3On().slice(1),short:'5RM+Spin',note:'Test these first (two per day keeps the numbers honest), then 30–40 min of easy cardio.'}:{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
     {t:'convert',short:'Maxes'}][d];
+  if(wk.kind==='travel') return [
+    {t:'travel',slot:'day1',short:'Travel 1'},
+    {t:'hic',fmt:'map',short:'HIC'},
+    {t:'travel',slot:'day2',short:'Travel 2'},
+    {t:'plyohic',fmt:'anaerobic',short:'Plyo+HIC'},
+    {t:'travel',slot:'day3',short:'Travel 3'},
+    {t:'hic',fmt:'threshold',short:'HIC',note:'Swap to LISS or a walk if the week has been long.'},
+    {t:'off',short:'Off'}][d];
   return {t:'off',short:'Off',note:'Off week. Walk, sleep, eat. The plan resumes next Monday.'};
 }
 function weekTitle(wk){
@@ -153,6 +161,7 @@ function weekTitle(wk){
   if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
+  if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};
 }
 function plyoPhase(wk){ if(wk.kind==='cycle') return PLYO[Math.floor((wk.plyoIdx%9)/3)]; return PLYO[0]; }

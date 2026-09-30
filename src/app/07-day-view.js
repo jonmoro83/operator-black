@@ -102,6 +102,12 @@ function finishCard(date,dp){
     if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
   }
   if(dp.t==='plyohic'||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
+  if(dp.t==='travel'){
+    const items=travelList(dp.slot), tv=(L.travel||{}), n0=items.filter((_,i)=>tv[i]).length;
+    bits.push(`${n0} of ${items.length} movements`);
+    if(n0<items.length) gaps.push(`${items.length-n0} movement${items.length-n0>1?'s':''} unticked`);
+    const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
+  }
   const m=(L.mobility||[]).filter(Boolean).length; if(m) bits.push(`mobility ${m} done`);
   if(!L.rpe) gaps.push('no session RPE');
   return `<div class="card done"><div class="lift-h"><h3>Session complete</h3><span class="chip light">✓ ${esc(dp.short||'Done')}${L.rpe?' · RPE '+L.rpe:''}</span></div>
@@ -132,6 +138,7 @@ function sessionHtml(wk,dp){
     h+=accCard(wk,dp);
     return h+mobCard(sel,dp)+footer(true);
   }
+  if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);
   if(dp.t==='hic') return h+hicCard(dp,note)+mobCard(sel,dp)+footer(true);
   if(dp.t==='plyohic') return h+plyoCard(wk,dp)+`<div class="divider">Rest 10 min</div>`+hicCard(dp,'')+mobCard(sel,dp)+footer(true);
   if(dp.t==='rm5'||dp.t==='test'){
@@ -149,6 +156,7 @@ function sessionHtml(wk,dp){
   return h;
 }
 function mobKind(dp){
+  if(dp.t==='travel') return dp.slot==='day3'?'dead':'lift';
   if(dp.t==='plyohic'||dp.t==='plyobase') return 'plyo';
   if(dp.t==='hic') return 'hic';
   if(dp.t==='off'||dp.t==='convert'||dp.t==='pre') return 'off';
@@ -161,6 +169,14 @@ function holdSecs(dose){
   if(!m) return null;
   const v=+(m[2]||m[1]), s=m[3].toLowerCase()==='min'?v*60:v;
   return s>=10?{s,sides:/per side/i.test(dose)?2:1}:null;
+}
+function travelList(slot){const a=(plan.travel||{})[slot];return Array.isArray(a)&&a.length?a.map(x=>Array.isArray(x)?x:[x,'']):TRAVEL[slot].items}
+function travelCard(dp){
+  const L=lg(sel).travel||{}, items=travelList(dp.slot), done=items.filter((_,i)=>L[i]).length;
+  return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(TRAVEL[dp.slot].name)}</span><span class="rx">${done} of ${items.length}</span></div>
+  <p class="small muted" style="margin:0">Rep targets rather than percentages \u2014 a week on hotel kit keeps the habit without touching your maxes. Leave two reps in reserve, as always.</p>
+  <div class="stack">${items.map(([n,d],i)=>checkRow('travel.'+i,L[i],n,d)).join('')}</div>
+  <div class="small muted">Edit these in Setup \u2192 Travel week.</div></div>`;
 }
 function checkRow(bind,on,name,dose){
   const h=holdSecs(dose);

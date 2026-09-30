@@ -149,6 +149,19 @@ const PLYO=[
 ];
 const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','Wednesday’s squat session was unusually heavy or left you sore into Thursday.'];
 function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
+// A week away from the barbell. Rep targets rather than percentages, so nothing here
+// touches your maxes, and the cycle pauses rather than counting these as trained weeks.
+const TRAVEL={
+  day1:{name:'Squat pattern and push',items:[
+    ['Goblet or DB front squat','3 × 8–12'],['Push-up or DB bench press','3 × 10–15'],
+    ['DB or band row','3 × 10–12'],['Plank','3 × 30–45 sec']]},
+  day2:{name:'Single leg and overhead',items:[
+    ['Rear-foot-elevated split squat','3 × 8–10 per side'],['DB overhead press','3 × 8–12'],
+    ['Chin-up, band-assisted, or DB curl','3 × 8–12'],['Hollow hold','3 × 20–30 sec']]},
+  day3:{name:'Hinge and carry',items:[
+    ['DB Romanian deadlift','3 × 10–12'],['Floor press or dips','3 × 8–12'],
+    ['Single-arm row','3 × 10 per side'],['Suitcase carry','3 × 30 m per side']]},
+};
 const ACC={
   mon:['Horizontal pull: chest-supported row','Rear delt / upper back: face pull or reverse fly','Core: Pallof press or hanging knee raise','Arms: curls + triceps pushdown'],
   wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression: negatives or band-assisted'],
