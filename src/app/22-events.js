@@ -137,6 +137,14 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wclear'){offerUndo('Warm-up cleared',snapLog(sel));setLog(sel,'warmup',[]);render();return}
   if(a==='mclear'){offerUndo('Mobility cleared',snapLog(sel));setLog(sel,'mobility',[]);render();return}
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
+  if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
+  if(a==='upset'){
+    const i=+b.dataset.i,j=+b.dataset.j, L=(lg(sel).plyo||{}).up||{}, arr=[...((L[i])||[])];
+    arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;
+    offerUndo('Throw set '+(arr[j]?'ticked':'unticked'),snapLog(sel));
+    setLog(sel,'plyo.up.'+i,arr);
+    if(arr[j]&&sel===todayStr()){const wk=weekOf(sel),e=plyoUpperEx(plyoUpperPhase(wk))[i];unlockAudio();startRest(null,null,e.rest,'Rest · '+e.label)}
+    render();return}
   if(a==='pset'){
     const i=+b.dataset.i,j=+b.dataset.j, wk=weekOf(sel), dp=dayPlan(sel), ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
     const arr=[...(((L.sets||[])[i])||[])]; arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;

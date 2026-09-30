@@ -232,3 +232,43 @@ test("a travel week is left out of the cycle review", () => {
   a.ok(after < before, "the displaced week no longer counts toward the review");
   a.equal(x.dayPlan(travelDay).t, "travel");
 });
+
+test("upper-body plyos are optional, rotate with the jump phases, and swap per slot", () => {
+  const x = app({ now: "2026-10-22" });        // Thursday, cycle 1 week 3
+  a.equal(!!x.plan.plyoUpper, false, "off unless asked for");
+  const wk = x.weekOf("2026-10-22");
+  const card = () => x.plyoUpperCard(wk, false, false);
+  a.ok(!/data-act="upset"/.test(card()), "no sets to tick while it is off");
+
+  x.plan.plyoUpper = true; x.bump();
+  a.match(card(), /data-act="upset"/);
+
+  const names = x.weeks().filter((w) => w.kind === "cycle" && w.cycle <= 2)
+    .map((w) => x.plyoUpperPhase(w).name);
+  a.deepEqual(names.slice(0, 9),
+    ["Power","Power","Power","Rotation","Rotation","Rotation","Elastic","Elastic","Elastic"],
+    "three weeks per phase, in step with the jump phases");
+
+  // Every slot offers real alternatives, and every option is documented.
+  for (const ph of x.PLYO_UPPER) for (const sl of ph.slots) {
+    a.ok(sl.opts.length >= 2, `${ph.name} / ${sl.name} has something to swap to`);
+    a.ok(sl.s > 0);
+    for (const o of sl.opts) {
+      a.ok(x.PLIB[o.id], `${o.id} has a library entry`);
+      a.ok(o.gear && o.r && o.rest > 0, `${o.id} says what it needs`);
+    }
+  }
+
+  // The default is the first option; a pick sticks, and drives the reps and the rest.
+  const ph0 = x.plyoUpperPhase(wk);
+  a.equal(x.plyoUpperEx(ph0)[1].id, "chestpass");
+  x.plan.plyoUp = { [x.upKey(ph0, 1)]: "speedpress" }; x.bump();
+  const picked = x.plyoUpperEx(ph0)[1];
+  a.equal(picked.id, "speedpress");
+  a.equal(picked.rest, 90);
+  a.match(card(), /Speed bench or floor press/);
+  a.match(card(), /data-pbind="plyoUp\.0-1"/);
+
+  // A pick on one phase does not leak into another.
+  a.equal(x.plyoUpperEx(x.PLYO_UPPER[1])[1].id, "explpull");
+});

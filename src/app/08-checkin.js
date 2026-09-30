@@ -171,6 +171,33 @@ function plyoPullback(date){
   const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>x&&x.grinder)) out.push('yesterday’s lifting was hard');
   return out;
 }
+// The upper-body block: throws, not ground contacts, and the first thing to drop.
+// Each phase is a set of slots (a movement pattern); which movement fills a slot is the
+// person's choice and is remembered per phase, so the block fits whatever kit is around.
+function plyoUpperPhase(wk){return wk.kind==='cycle'?PLYO_UPPER[Math.floor((wk.plyoIdx%9)/3)]:PLYO_UPPER[0]}
+function upKey(ph,k){return PLYO_UPPER.indexOf(ph)+'-'+k}
+function plyoUpperEx(ph){
+  return ph.slots.map((sl,k)=>{
+    const want=(plan.plyoUp||{})[upKey(ph,k)]||sl.def;
+    const o=sl.opts.find(x=>x.id===want)||sl.opts[0];
+    return {...o,s:sl.s,slot:sl.name,opts:sl.opts,k};
+  });
+}
+function plyoUpperCard(wk,cut,pullback){
+  const on=!!plan.plyoUpper, ph=plyoUpperPhase(wk), L=(lg(sel).plyo||{}).up||{};
+  let h=`<div class="ivset"><div class="lift-h"><span class="lift-name">Upper body${on?' · '+esc(ph.name):''}</span><label class="check"><input type="checkbox" id="p-upper" data-act="plyoupper" ${on?'checked':''}> Include</label></div>`;
+  if(!on) return h+`<div class="small muted">Optional upper-body power: throws, explosive pulls and speed presses. Operator's bench is deliberately sub-maximal and the bike does nothing for the upper body, so this fills a real gap. Pick a movement per slot from whatever you have — med ball, bodyweight, barbell or a band. Five minutes, full rest, every rep maximal.</div></div>`;
+  h+=`<div class="stack" style="gap:10px">`;
+  plyoUpperEx(ph).forEach((e,i)=>{
+    const n0=cut?Math.ceil(e.s/2):e.s, sets=(L[i])||[];
+    h+=`<div class="pex"><label class="f up-pick"><span class="small muted">${esc(e.slot)}</span><select data-pbind="plyoUp.${upKey(ph,i)}">${e.opts.map(o=>`<option value="${o.id}"${o.id===e.id?' selected':''}>${esc(o.label)} · ${esc(o.gear)}</option>`).join('')}</select></label>
+    <details class="px" data-px="up${i}"${openPx.has('up'+i)?' open':''}><summary><span>${esc(e.label)}</span><span class="mono small">${n0} × ${esc(e.r)} · ${e.rest} s</span></summary>${plyoEntry(e.id)}</details>
+    <div class="sets">${Array.from({length:n0},(_,j)=>`<button class="setb sm${sets[j]?' on':''}" data-act="upset" data-i="${i}" data-j="${j}" aria-pressed="${!!sets[j]}">${esc(String(e.r).split(' ')[0])}<small>Set ${j+1}</small></button>`).join('')}</div></div>`;
+  });
+  h+=`</div><div class="small muted">Throws and explosive reps, not ground contacts, so they do not count toward the contact target. Bench is on all three lifting days and Friday is the day after: if it ever feels flat, this is the first block to cut.</div>`;
+  if(pullback||cut) h+=`<div class="banner warn"><div class="small">You are already pulling back today. Drop this block or do one movement.</div></div>`;
+  return h+`</div>`;
+}
 function plyoCard(wk,dp){
   const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
   const done=plyoContactsDone(ph,L,cut), target=cut?Math.round(ph.target/2):ph.target;
@@ -188,6 +215,7 @@ function plyoCard(wk,dp){
   h+=`<div class="grid3"><label class="f">First broad jump (in)${numIn('plyo.mark',L.mark,'')}</label><label class="f">Best broad jump (in)${numIn('plyo.best',L.best,'')}</label><label class="f">Contacts done${numIn('plyo.contacts',L.contacts,String(done))}</label></div>`;
   if(L.mark) h+=`<div class="small">Stop the session if a jump drops below <b class="mono">${n(Math.round(L.mark*.95*10)/10)} in</b> (5% off your first jump).</div>`;
   if(!dp.plyoCut) h+=`<label class="check"><input type="checkbox" id="p-cut" data-bind="plyo.cut" ${L.cut?'checked':''}> Hard lifting week: halve the contacts</label>`;
+  h+=plyoUpperCard(wk,cut,pb.length>0);
   h+=`<details class="plain"><summary>The three rules, and when to pull back</summary><div class="stack small" style="margin-top:8px"><div><b>1. Watch your distance, not your set count.</b> If any jump drops more than about 5% off your first broad jump, the session is over, even with sets remaining.</div><div><b>2. Every rep is maximal or near it.</b> Rest fully between sets. If you are breathing hard, you are doing conditioning, not plyometrics.</div><div><b>3. Cut, don’t skip.</b> After an unusually hard lifting week, halve the contacts rather than dropping the session.</div><div><b>Cut the session in half, or do the warm-up only, if:</b><ul class="tight" style="margin-top:4px">${PLYO_PULLBACK.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div></details>`;
   return h+`</div>`;
 }

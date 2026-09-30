@@ -377,3 +377,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 .ex{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px}
 .empty{padding:18px;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){.setb{transition:background .12s,border-color .12s}}
+
+/* Upper-body plyo: the movement picker sits above each slot's sets. */
+.up-pick{gap:2px}
+.up-pick select{font-size:15px;padding:7px 8px}

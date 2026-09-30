@@ -91,6 +91,74 @@ const PLIB={
     cues:'Minimal time on the ground. Land on the balls of the feet, ankles stiff.',
     errors:'Hurdles too high, which forces a knee tuck and a long pause on each landing. Pausing between hurdles to re-set.',
     note:'If you only have one or two objects, use fewer and reset between passes rather than raising the height.'},
+  slam:{name:'Overhead med ball slam',
+    setup:'Feet hip to shoulder width, a non-bouncy slam ball of 8–15 lb. Floor you do not mind hitting.',
+    exec:'Reach the ball overhead with the whole body long, then throw it into the floor in front of your feet as hard as you can, folding at the hips and ribs. Pick it up, reset, repeat.',
+    cues:'Throw the ball through the floor, not at it. The power comes from the hips and trunk, not the arms.',
+    errors:'Bending only at the arms. Rushing the reset so the set turns into conditioning. Using a bouncy ball, which takes the finish away from you.',
+    note:'Intent is the whole exercise. If the ball is heavy enough to slow you down, it is too heavy.'},
+  chestpass:{name:'Med ball chest pass',
+    setup:'A metre or two from a solid wall, ball at the sternum, athletic stance.',
+    exec:'Push the ball into the wall as fast as you can, catch the rebound and reset. Feet stay planted.',
+    cues:'Fast hands. Think of pushing the wall away rather than throwing at it.',
+    errors:'Standing so close that the rebound arrives before you are set. Turning it into a rep count instead of a speed drill.'},
+  rotthrow:{name:'Rotational med ball throw',
+    setup:'Side on to a wall, feet shoulder width, ball at the hip furthest from it.',
+    exec:'Turn the back hip through and release the ball into the wall across your body. Complete all reps on one side, then switch.',
+    cues:'Hips lead, arms follow. The back heel should come off the floor as you turn.',
+    errors:'Throwing with the arms while the hips stay square. Taking the ball too far behind the body and losing the whip.',
+    note:'The only rotation in a week of squats, presses and riding. Worth keeping even when you cut everything else.'},
+  scoop:{name:'Backward scoop toss',
+    setup:'Feet slightly wider than the hips, ball held low between the legs, clear space behind you.',
+    exec:'Dip into a quarter squat and throw the ball up and behind you, extending hips, knees and ankles fully.',
+    cues:'One long push from the floor to the fingertips. Let it pull you onto your toes.',
+    errors:'Squatting deep and turning it into a lift. Throwing with the back rather than the legs.'},
+  plyopush:{name:'Plyometric push-up',
+    setup:'Push-up position on a forgiving surface. Hands under the shoulders.',
+    exec:'Lower under control, then drive up hard enough that the hands leave the floor. Land with soft elbows and go straight into the next rep only if you can keep the height.',
+    cues:'Short time on the floor, ribs down, body in one line. Height over reps.',
+    errors:'Letting the hips sag. Grinding out reps once the push-off slows, which is where shoulders get sore.',
+    note:'The highest-stress movement in this block. Leave it out on weeks where the bench already feels heavy.'},
+  speedpress:{name:'Speed bench or floor press',
+    setup:'Bar at about 50–60% of your bench max, or a pair of dumbbells you could press 15 times. A spotter or safeties if you are on a bench.',
+    exec:'Lower under control to the chest, pause for nothing, and drive the bar up as fast as you possibly can. Three reps, then rack it. Speed decides the set, never the weight.',
+    cues:'Accelerate all the way through: the bar should feel like it wants to leave your hands at the top. Reset your brace before every rep.',
+    errors:'Creeping the weight up until it stops moving fast, which turns this back into ordinary benching. Bouncing the bar off the chest. Running the reps together.',
+    note:'The option that needs no new equipment. Because it is the same pattern as your work sets, it is also the one most likely to cost you on Friday: keep it light.'},
+  plyopushbox:{name:'Push-up onto plates or low boxes',
+    setup:'Two 25 lb plates, low boxes or steps, a little wider than shoulder width, with the floor between them.',
+    exec:'From the floor, push up hard enough to land both hands on top of the plates, then lower back down between them and repeat. Or start on top and drop into the gap.',
+    cues:'Land with the elbows soft and the body still in one line. Height and control over speed.',
+    errors:'Plates too far apart, which throws the shoulders into a wide catch. Piking the hips to get airborne.',
+    note:'Easier on the wrists and shoulders than clapping push-ups, and it gives the drop a defined height.'},
+  dbsnatch:{name:'Single-arm dumbbell snatch',
+    setup:'One moderate dumbbell or kettlebell between the feet, feet a little wider than the hips, chest up.',
+    exec:'Hinge, then drive the floor away and pull the weight straight up past the ribs, punching the hand through overhead as the elbow turns over. Lock the arm out with the weight over the shoulder. Lower it down the same path and reset on the floor between reps.',
+    cues:'Legs and hips throw it, the arm only guides it. One clean line close to the body.',
+    errors:'Swinging it out in an arc and catching it on a bent, soft arm. Chasing reps for breath: this is a power set, not a circuit.',
+    note:'The most total-body option here, and the closest thing in the block to an Olympic lift without needing the technique.'},
+  highpull:{name:'Explosive high pull',
+    setup:'A barbell at about 40–50% of your deadlift, or a pair of dumbbells. Start with the bar just above the knee rather than the floor.',
+    exec:'Push the floor away, extend the hips hard, and let that speed carry the bar up the body to about sternum height with the elbows high and outside. Lower it back to the start under control.',
+    cues:'The hips throw it; the arms only finish the ride. Bar stays close, elbows finish above the hands.',
+    errors:'Turning it into an upright row by pulling early with the arms. Going heavy enough that the bar never gets above the navel. Leaning back at the top.'},
+  explpull:{name:'Explosive pull-up',
+    setup:'A bar you can do at least five clean pull-ups on. Full hang, no kipping.',
+    exec:'From a dead hang, pull as violently as you can and aim to bring the chest to the bar, or to release the hands at the top if the bar and your grip allow it. Lower under control, re-hang, and reset for the next rep.',
+    cues:'Every rep starts from a still hang. The aim is speed off the bottom, not getting the chin over by any means.',
+    errors:'Swinging the legs to generate the pull. Grinding out reps once the speed goes: the set ends when the bar stops coming fast.',
+    note:'The only explosive pulling in the program, and it pairs well with the pull-up progression you are already running.'},
+  bandrow:{name:'Explosive band row',
+    setup:'A band anchored at chest height, standing far enough back that it is under tension with your arms straight.',
+    exec:'Snap both elbows back to the ribs as fast as you can, then let the band pull the arms straight again under control. Reset your stance between reps if it drags you forward.',
+    cues:'Fast in, slow out. Shoulder blades move, the torso does not.',
+    errors:'Leaning back to help. Band so heavy that the pull turns slow, which makes it strength work instead.'},
+  bandrot:{name:'Band rotational punch',
+    setup:'A band anchored at chest height behind you, side on, both hands on the handle at the ribs.',
+    exec:'Turn the back hip through and punch the hands across the body as fast as you can, then return under control. All reps on one side, then switch.',
+    cues:'Hips lead, arms follow, back heel turns. Same pattern as the med ball throw with no ball and no wall.',
+    errors:'Rotating with the arms while the feet stay stuck. Letting the band snap you back around rather than controlling the return.',
+    note:'The travel-friendly rotation option: one band and a door anchor.'},
   depth:{name:'Depth jump',
     setup:'Box 12 to 16 inches high. Stand at the edge. Landing area must be flat and non-slip with room to jump forward or up.',
     exec:'Step off the box. Do not jump off or down. Land on both feet on the balls of the feet and, as fast as humanly possible, rebound into a maximal vertical jump. The time between landing and takeoff is the entire exercise.',
@@ -148,6 +216,32 @@ const PLYO=[
    ex:[{id:'cbroad',label:'Broad jump, 2 continuous',s:5,r:'2 jumps',c:20,rest:90},{id:'slhop',label:'Single-leg hop, straight line',s:4,r:'4 / side',c:32,rest:90},{id:'bdist',label:'Bound for distance',s:4,r:'6 contacts',c:24,rest:90},{id:'hurdle',label:'Hurdle hops, low, continuous',s:3,r:'5',c:15,rest:90}]},
   {name:'Elastic',target:90,desc:'Depth jumps enter: the highest-stress sets in the block. Start at the lower box height and only raise it if landings stay silent and controlled.',
    ex:[{id:'depth',label:'Depth jump from 12–16 in',s:5,r:'3',c:15,rest:120},{id:'sllat',label:'Single-leg lateral hop, continuous',s:4,r:'5 / side',c:40,rest:90},{id:'cbroad',label:'Continuous broad jump, 3 reps',s:4,r:'3 jumps',c:24,rest:90},{id:'bheight',label:'Bound for height',s:3,r:'4',c:12,rest:90}]}
+];
+// Optional upper-body power. Off by default. Every slot offers a med ball, a bodyweight,
+// a barbell/dumbbell and (where it works) a band option, so the block runs in any gym or
+// none. Throws are counted separately from ground contacts: they add no impact, but they
+// do add fatigue before Friday's bench.
+const UP_THROW={name:'Total-body throw',opts:[
+  {id:'slam',label:'Overhead slam',gear:'Slam ball',r:'5',rest:60},
+  {id:'scoop',label:'Backward scoop toss',gear:'Med ball, space behind',r:'5',rest:60},
+  {id:'dbsnatch',label:'Single-arm DB snatch',gear:'Dumbbell or kettlebell',r:'3 / side',rest:90},
+  {id:'highpull',label:'Explosive high pull',gear:'Barbell or dumbbells',r:'3',rest:90}]};
+const UP_PUSH={name:'Push',opts:[
+  {id:'chestpass',label:'Chest pass into a wall',gear:'Med ball, wall',r:'5',rest:60},
+  {id:'plyopush',label:'Plyometric push-up',gear:'Bodyweight',r:'4',rest:90},
+  {id:'plyopushbox',label:'Push-up onto plates',gear:'Two plates or low boxes',r:'4',rest:90},
+  {id:'speedpress',label:'Speed bench or floor press',gear:'Barbell or dumbbells, ~50%',r:'3',rest:90}]};
+const UP_ROT={name:'Rotation',opts:[
+  {id:'rotthrow',label:'Rotational throw',gear:'Med ball, wall',r:'5 / side',rest:60},
+  {id:'bandrot',label:'Band rotational punch',gear:'Band',r:'6 / side',rest:60}]};
+const UP_PULL={name:'Pull',opts:[
+  {id:'explpull',label:'Explosive pull-up',gear:'Pull-up bar',r:'3',rest:90},
+  {id:'bandrow',label:'Explosive band row',gear:'Band',r:'6',rest:60},
+  {id:'highpull',label:'Explosive high pull',gear:'Barbell or dumbbells',r:'3',rest:90}]};
+const PLYO_UPPER=[
+  {name:'Power',slots:[{s:3,...UP_THROW},{s:3,...UP_PUSH}]},
+  {name:'Rotation',slots:[{s:3,...UP_ROT},{s:3,...UP_PULL}]},
+  {name:'Elastic',slots:[{s:3,...UP_PUSH,def:'plyopush'},{s:3,...UP_THROW},{s:2,...UP_ROT}]},
 ];
 const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','Wednesday’s squat session was unusually heavy or left you sore into Thursday.'];
 function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
@@ -1064,6 +1158,33 @@ function plyoPullback(date){
   const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>x&&x.grinder)) out.push('yesterday’s lifting was hard');
   return out;
 }
+// The upper-body block: throws, not ground contacts, and the first thing to drop.
+// Each phase is a set of slots (a movement pattern); which movement fills a slot is the
+// person's choice and is remembered per phase, so the block fits whatever kit is around.
+function plyoUpperPhase(wk){return wk.kind==='cycle'?PLYO_UPPER[Math.floor((wk.plyoIdx%9)/3)]:PLYO_UPPER[0]}
+function upKey(ph,k){return PLYO_UPPER.indexOf(ph)+'-'+k}
+function plyoUpperEx(ph){
+  return ph.slots.map((sl,k)=>{
+    const want=(plan.plyoUp||{})[upKey(ph,k)]||sl.def;
+    const o=sl.opts.find(x=>x.id===want)||sl.opts[0];
+    return {...o,s:sl.s,slot:sl.name,opts:sl.opts,k};
+  });
+}
+function plyoUpperCard(wk,cut,pullback){
+  const on=!!plan.plyoUpper, ph=plyoUpperPhase(wk), L=(lg(sel).plyo||{}).up||{};
+  let h=`<div class="ivset"><div class="lift-h"><span class="lift-name">Upper body${on?' · '+esc(ph.name):''}</span><label class="check"><input type="checkbox" id="p-upper" data-act="plyoupper" ${on?'checked':''}> Include</label></div>`;
+  if(!on) return h+`<div class="small muted">Optional upper-body power: throws, explosive pulls and speed presses. Operator's bench is deliberately sub-maximal and the bike does nothing for the upper body, so this fills a real gap. Pick a movement per slot from whatever you have — med ball, bodyweight, barbell or a band. Five minutes, full rest, every rep maximal.</div></div>`;
+  h+=`<div class="stack" style="gap:10px">`;
+  plyoUpperEx(ph).forEach((e,i)=>{
+    const n0=cut?Math.ceil(e.s/2):e.s, sets=(L[i])||[];
+    h+=`<div class="pex"><label class="f up-pick"><span class="small muted">${esc(e.slot)}</span><select data-pbind="plyoUp.${upKey(ph,i)}">${e.opts.map(o=>`<option value="${o.id}"${o.id===e.id?' selected':''}>${esc(o.label)} · ${esc(o.gear)}</option>`).join('')}</select></label>
+    <details class="px" data-px="up${i}"${openPx.has('up'+i)?' open':''}><summary><span>${esc(e.label)}</span><span class="mono small">${n0} × ${esc(e.r)} · ${e.rest} s</span></summary>${plyoEntry(e.id)}</details>
+    <div class="sets">${Array.from({length:n0},(_,j)=>`<button class="setb sm${sets[j]?' on':''}" data-act="upset" data-i="${i}" data-j="${j}" aria-pressed="${!!sets[j]}">${esc(String(e.r).split(' ')[0])}<small>Set ${j+1}</small></button>`).join('')}</div></div>`;
+  });
+  h+=`</div><div class="small muted">Throws and explosive reps, not ground contacts, so they do not count toward the contact target. Bench is on all three lifting days and Friday is the day after: if it ever feels flat, this is the first block to cut.</div>`;
+  if(pullback||cut) h+=`<div class="banner warn"><div class="small">You are already pulling back today. Drop this block or do one movement.</div></div>`;
+  return h+`</div>`;
+}
 function plyoCard(wk,dp){
   const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
   const done=plyoContactsDone(ph,L,cut), target=cut?Math.round(ph.target/2):ph.target;
@@ -1081,6 +1202,7 @@ function plyoCard(wk,dp){
   h+=`<div class="grid3"><label class="f">First broad jump (in)${numIn('plyo.mark',L.mark,'')}</label><label class="f">Best broad jump (in)${numIn('plyo.best',L.best,'')}</label><label class="f">Contacts done${numIn('plyo.contacts',L.contacts,String(done))}</label></div>`;
   if(L.mark) h+=`<div class="small">Stop the session if a jump drops below <b class="mono">${n(Math.round(L.mark*.95*10)/10)} in</b> (5% off your first jump).</div>`;
   if(!dp.plyoCut) h+=`<label class="check"><input type="checkbox" id="p-cut" data-bind="plyo.cut" ${L.cut?'checked':''}> Hard lifting week: halve the contacts</label>`;
+  h+=plyoUpperCard(wk,cut,pb.length>0);
   h+=`<details class="plain"><summary>The three rules, and when to pull back</summary><div class="stack small" style="margin-top:8px"><div><b>1. Watch your distance, not your set count.</b> If any jump drops more than about 5% off your first broad jump, the session is over, even with sets remaining.</div><div><b>2. Every rep is maximal or near it.</b> Rest fully between sets. If you are breathing hard, you are doing conditioning, not plyometrics.</div><div><b>3. Cut, don’t skip.</b> After an unusually hard lifting week, halve the contacts rather than dropping the session.</div><div><b>Cut the session in half, or do the warm-up only, if:</b><ul class="tight" style="margin-top:4px">${PLYO_PULLBACK.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div></details>`;
   return h+`</div>`;
 }
@@ -2506,7 +2628,7 @@ function vGuide(){
   <ul class="tight"><li><b>Watch distance, not set count.</b> If any jump drops more than ~5% off your first broad jump, the session is over.</li><li><b>Every rep maximal or near it.</b> If you’re breathing hard, you’re doing conditioning.</li><li><b>Cut, don’t skip.</b> After a hard lifting week, halve the contacts.</li><li><b>Counting contacts:</b> one landing = one contact, even on two feet. The volumes are calibrated that way.</li></ul>
   <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
   <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
-  <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
+  <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
   <div class="card guide"><h3>Accessories</h3><ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3><p>Deload weeks drop to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}% (deadlift 1 set), swap all HIC to LISS, halve plyos and drop accessories. Retest weeks take three easy days, then heavy singles split across Thursday (squat, bench, jumps) and Saturday (deadlift, Lift 3, max pull-ups). Saturday's card feeds results into the next cycle.</p><p>Need a deload sooner? Add one from the Plan tab, or from the warning on Today after repeated hard sessions.</p></div>
   <div class="card guide"><h3>Warm-up</h3>${warmupShort()}</div>`;
@@ -2651,6 +2773,14 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wclear'){offerUndo('Warm-up cleared',snapLog(sel));setLog(sel,'warmup',[]);render();return}
   if(a==='mclear'){offerUndo('Mobility cleared',snapLog(sel));setLog(sel,'mobility',[]);render();return}
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
+  if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
+  if(a==='upset'){
+    const i=+b.dataset.i,j=+b.dataset.j, L=(lg(sel).plyo||{}).up||{}, arr=[...((L[i])||[])];
+    arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;
+    offerUndo('Throw set '+(arr[j]?'ticked':'unticked'),snapLog(sel));
+    setLog(sel,'plyo.up.'+i,arr);
+    if(arr[j]&&sel===todayStr()){const wk=weekOf(sel),e=plyoUpperEx(plyoUpperPhase(wk))[i];unlockAudio();startRest(null,null,e.rest,'Rest · '+e.label)}
+    render();return}
   if(a==='pset'){
     const i=+b.dataset.i,j=+b.dataset.j, wk=weekOf(sel), dp=dayPlan(sel), ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
     const arr=[...(((L.sets||[])[i])||[])]; arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;

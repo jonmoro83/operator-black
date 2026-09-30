@@ -2,6 +2,11 @@
 // When something user-facing ships: add an entry here and bump package.json's version
 // to match (a test enforces it, and the deploy tag carries it).
 const RELEASES=[
+  {v:'1.7',date:'2026-09-30',title:'Upper body, travel weeks and a new mark',items:[
+    'Optional upper-body power on Thursdays. Each phase gives you movement slots \u2014 a total-body throw, a push, rotation, a pull \u2014 and you pick what fills each one from what you have: slams, scoop tosses and wall throws with a med ball, plyo push-ups and explosive pull-ups with nothing, DB snatches, high pulls and speed presses with a bar, or band rows and rotational punches on the road. Every movement has a full entry in the Guide. Off by default, five minutes, and the first block to cut when you are pulling back.',
+    'Travel week: add one from the Plan tab and the cycle pauses for a week of dumbbell and bodyweight work. Nothing touches your maxes and it stays out of the end-of-cycle review.',
+    'Launch screens on iPhone instead of a white flash.',
+    'A new logo \u2014 the OB monogram \u2014 on the icon, the login page, the launch screen and now in the app header.']},
   {v:'1.6',date:'2026-09-30',title:'Records, coaching and polish',items:[
     'Personal records across every program, with a card on Today whenever you set one.',
     'A week summary at the start of each week: last week\u2019s sessions, readiness and bests, then what this week holds.',

@@ -224,6 +224,19 @@ Decided against for now.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
 
+**Optional upper-body power (2026-09-30)**
+- A block on the Thursday plyo card, off by default (`plan.plyoUpper`). Operator's bench
+  is deliberately sub-maximal and the bike does nothing above the waist, so there is a
+  genuine gap; it is small, capped at about five minutes, and the first thing the
+  pull-back banner tells you to cut.
+- Each phase is movement *slots*, not fixed exercises: a total-body throw, a push,
+  rotation, a pull. What fills a slot is a per-phase choice stored in `plan.plyoUp`, so
+  the same block runs with a med ball, with nothing (plyo push-ups, explosive pull-ups),
+  with a barbell (DB snatch, high pull, speed press) or with one band on the road. Reps
+  and rest come from the chosen movement, and all twelve have full Guide entries.
+- Throws are counted separately from ground contacts, the sets halve with the cut toggle,
+  and each tick starts that movement's rest timer.
+
 **Travel week and launch screens (2026-09-30)**
 - Travel week: add one from the Plan tab and the cycle pauses for a week of dumbbell and
   bodyweight work (three sessions with rep targets, conditioning and plyos unchanged).
