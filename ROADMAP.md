@@ -203,7 +203,9 @@ Decided against for now.
   that moves the fewest days, never putting two strength days or two hard conditioning
   days back to back (including across week boundaries). Days already done stay put.
   Stored per week in `plan.order[monday]`; reset to standard from the same panel.
-- Calendar view in Plan: month grid with week bands, session labels and done/missed dots.
+- Calendar view in Plan: month grid with week bands, session labels and done/missed dots,
+  and a Rearrange mode — tap a session, tap the day to move it to, see the whole week
+  previewed with the shifted days outlined, then Apply.
 - Hold timers (⏱) on warm-up and mobility items with a real duration, running each side
   in turn; the last ramp set now gets the lift's full rest before the first working set.
 

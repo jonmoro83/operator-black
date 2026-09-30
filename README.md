@@ -98,7 +98,9 @@ the git commit.
 whatever order you do them in. `sessKind` labels each slot strength / hic / easy / other,
 and `bestOrder(monday, day, slot)` searches for the valid order that moves the fewest
 days: never two `strength` or two `hic` days adjacent, checked across the week
-boundaries too, with days already past in the current week pinned. Today → Move… drives it.
+boundaries too, with days already past in the current week pinned. Two front ends drive
+it: Today → Move… (pick what you'll do today) and Plan → Calendar → Rearrange days (tap a
+session, tap its new day, preview the week, Apply).
 
 ## Warm-up and mobility
 
