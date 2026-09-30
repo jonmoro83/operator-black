@@ -102,8 +102,10 @@ The Worker stamps every page it serves with the page's fingerprint (its asset ET
 opens, when it comes back from the background, and every 30 minutes, and shows a
 "new version is ready · Reload" banner if they differ. Backend-only deploys don't
 change the fingerprint, so they don't trigger it. Setup → About this app shows both
-versions and the deploy time. Deploy with `npm run deploy` to tag the version with
-the git commit.
+versions and the deploy time. The running page reports itself as `RELEASES[0].v`
+(`APP_VERSION`), and `npm run deploy` tags the Worker `v<package.json version>-<commit>`
+so `/api/version` can name the deployed release too. A test keeps `package.json`,
+`RELEASES[0]` and the tag format in step — bump all three together when you add a release.
 
 ## Rearranging a week
 

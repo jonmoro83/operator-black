@@ -2181,10 +2181,13 @@ const RELEASES=[
     'An offline home-screen app with a per-lift rest timer.',
     'Lift 3 variants, including weighted pull-up maths.']},
 ];
+const APP_VERSION=RELEASES[0].v;
+// deploys are tagged v<version>-<commit>, so the server can name the latest version too
+function tagVersion(t){const m=/^v(\d+\.\d+)/.exec(String(t||''));return m?m[1]:null}
 function vReleases(){
   return `<div class="card"><div class="lift-h"><h2>What\u2019s new</h2><button class="btn sm ghost" data-act="view" data-view="setup">Back to Setup</button></div>
   <p class="small muted" style="margin:0">What each release added. The app updates itself: when a new one is deployed you get a banner at the top, and reloading is all it takes.</p></div>
-  ${RELEASES.map((r,i)=>`<div class="card"><div class="lift-h"><h3>${esc(r.title)}</h3><span class="chip${i?'':' blue'}">${i?'':'Current \u00b7 '}${esc(r.v)}</span></div>
+  ${RELEASES.map(r=>`<div class="card"><div class="lift-h"><h3>${esc(r.title)}</h3><span class="chip${r.v===APP_VERSION?' blue':''}">${r.v===APP_VERSION?'Current \u00b7 ':''}${esc(r.v)}</span></div>
   <div class="small muted">${fmtLong(r.date)}</div>
   <ul class="tight small">${r.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}`;
 }
@@ -2871,8 +2874,13 @@ function vSetup(){
   {
     const fmtAt=t=>{if(!t)return '';const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})};
     const status=!APP_VER||APP_VER==='dev'?'Version unknown in this preview.':!upd.latest?(upd.err||'Not checked yet.'):updateAvailable()?'A newer version is available.':'You’re on the latest version.';
-    h+=`<div class="card"><h2>About this app</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'—')} <a class="small" href="/cdn-cgi/access/logout">Sign out</a></dd><dt>This app</dt><dd class="mono">${esc((APP_VER||'—').slice(0,8))}</dd><dt>Latest</dt><dd><span class="mono">${esc((upd.latest||'—').slice(0,8))}</span>${upd.at?` <span class="small muted">· deployed ${esc(fmtAt(upd.at))}${upd.tag?' · '+esc(upd.tag):''}</span>`:''}</dd></dl>
-    <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div><div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
+    const latestV=tagVersion(upd.tag), rel=RELEASES[0];
+    h+=`<div class="card"><h2>About this app</h2><dl class="kv">
+    <dt>Signed in</dt><dd>${esc(me||'—')} <a class="small" href="/cdn-cgi/access/logout">Sign out</a></dd>
+    <dt>This app</dt><dd><b>${esc(APP_VERSION)}</b> · ${esc(rel.title)} <span class="small muted">(${esc((APP_VER||'—').slice(0,8))})</span></dd>
+    <dt>Latest</dt><dd>${latestV?`<b>${esc(latestV)}</b> `:''}<span class="small muted">${upd.latest?esc(upd.latest.slice(0,8)):'—'}${upd.at?` · deployed ${esc(fmtAt(upd.at))}`:''}</span></dd></dl>
+    <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div>
+    <div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
     <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div>
     <div><button class="btn" data-act="view" data-view="releases">What’s new in each release</button></div></div>`;
   }

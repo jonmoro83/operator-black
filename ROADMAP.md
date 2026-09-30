@@ -224,8 +224,10 @@ Decided against for now.
 
 **Release notes and a fix (2026-10-01)**
 - **What's new** page listing every release and what it added, reached from Setup →
-  About this app and from the update banner. Add a `RELEASES` entry when something
-  user-facing ships.
+  About this app and from the update banner. When something user-facing ships, add a
+  `RELEASES` entry and bump `package.json`'s version to match — a test enforces it, and
+  the deploy tag (`v<version>-<commit>`) carries it so About this app can name both the
+  running and the deployed release.
 - Restored the **About this app** card, which a bad edit removed alongside the audio-cue
   card in `eed4fc2` (signed-in address, versions, update check). A test now asserts every
   Setup card is present so that cannot happen quietly again.

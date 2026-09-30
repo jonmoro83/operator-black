@@ -180,3 +180,13 @@ test("release notes are present and newest first", () => {
   a.deepEqual(dates, [...dates].sort().reverse(), "newest first");
   for (const r of x.RELEASES) a.ok(r.items.length && r.v && r.title, `release ${r.v} is complete`);
 });
+
+test("the release version and package.json agree, so deploy tags are truthful", () => {
+  const x = app();
+  const pkg = require("../package.json");
+  a.equal(x.APP_VERSION, x.RELEASES[0].v, "the app reports its newest release as its version");
+  a.equal(pkg.version.split(".").slice(0, 2).join("."), x.APP_VERSION,
+    `package.json is ${pkg.version} but the newest release is ${x.APP_VERSION}`);
+  a.equal(x.tagVersion(`v${pkg.version}-abc1234`), x.APP_VERSION, "the deploy tag parses back to it");
+  a.equal(x.tagVersion("abc1234"), null, "an untagged deploy reports no version");
+});
