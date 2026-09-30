@@ -198,6 +198,11 @@ body.iv-mini .wrap{padding-bottom:190px}
 @media (prefers-reduced-motion:no-preference){.setb.pop{animation:obpop .24s ease-out}}
 /* archived program: read-only */
 .ro input,.ro select,.ro textarea,.ro .setb,.ro .segb:not(.pv),.ro .wu-chk,.ro [data-act="ivstart"]{pointer-events:none;opacity:.7}
+/* undo toast */
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:22;background:var(--ink);color:var(--bg);border-radius:10px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:12px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgb(0 0 0 / .25)}
+#toast[hidden]{display:none}
+#toast .btn{background:transparent;border-color:rgb(255 255 255 / .35);color:var(--bg);font-weight:750}
+body.timing #toast,body.iv-mini #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}
 /* rest timer */
 #rest{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12);padding-bottom:env(safe-area-inset-bottom,0px)}
 .rest-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:8px 12px;align-items:center}
@@ -421,6 +426,7 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
     </div>
   </div>
 </div>
+<div id="toast" hidden role="status"><span id="toast-msg"></span><button class="btn sm" id="toast-undo">Undo</button></div>
 <div id="rest" hidden aria-live="polite">
   <div class="rest-in">
     <div class="rest-txt"><span id="rest-lbl"></span><span id="rest-next"></span></div>
@@ -1068,6 +1074,7 @@ function render(){
   if(wz&&!viewing){m.innerHTML=vWelcome();if(aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})}return}
   m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
   if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
+  showToast();
 }
 
 function vToday(){
@@ -2123,6 +2130,36 @@ document.getElementById('iv').addEventListener('click',e=>{
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&iv&&!iv.done&&!iv.paused) holdScreen(true) });
 
+/* ---------- undo ---------- */
+// One step back for the things that are easy to tap by mistake. Snapshots are taken
+// before the change and expire after a few seconds.
+let undoItem=null, undoTimer=null;
+function snapLog(date){
+  const before=logs[date]?clone(logs[date]):null;
+  return ()=>{ logs[date]=before?before:{date}; planV++; queueWrite('logs/'+date,()=>logs[date]); render(); };
+}
+function snapPlan(){
+  const before=clone(plan);
+  return ()=>{ plan=before; planV++; queueWrite('plan/main',()=>plan); render(); };
+}
+function offerUndo(label,restore){
+  undoItem={label,restore};
+  clearTimeout(undoTimer); undoTimer=setTimeout(()=>{undoItem=null;showToast()},7000);
+  showToast();
+}
+function showToast(){
+  const el=document.getElementById('toast');
+  if(!undoItem){el.hidden=true;return}
+  document.getElementById('toast-msg').textContent=undoItem.label;
+  el.hidden=false;
+}
+function doUndo(){
+  if(!undoItem) return;
+  const r=undoItem.restore; undoItem=null; clearTimeout(undoTimer);
+  r(); showToast();
+}
+document.getElementById('toast-undo').addEventListener('click',doUndo);
+
 /* ---------- appearance ---------- */
 // Theme and gym mode are per device, so they live in localStorage rather than the plan.
 function themePref(){const t=LS.get('ob.theme');return t==='light'||t==='dark'?t:'auto'}
@@ -2909,7 +2946,9 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
     openWarm.add(k); setLog(sel,'lifts.'+k+'.warmup',W); render(); return}
-  if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
+  if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];
+    offerUndo((arr[i]?'Set unticked':'Set ticked')+' · '+liftName(k),snapLog(sel));
+    arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
     if(arr[i]){popKey=k+':'+i;setTimeout(()=>{popKey=null},400)}
     if(arr[i]&&sel===todayStr()){unlockAudio();const nx=nextAfterSet(k,arr);if(nx!==undefined)startRest(k,nx);else stopRest()}
     render();return}
@@ -2918,6 +2957,7 @@ document.getElementById('main').addEventListener('click',e=>{
     const c=+b.dataset.c;
     if(a==='rvapply'){
       const {stats,readiness:rdAvg}=cycleStats(c), mx=maxFor(c), chosen={};
+      offerUndo('Cycle review applied',snapPlan());
       for(const k of activeLifts()){ if(!mx[k]) continue; const ch=reviewSel[k]||((((plan.cycleMaxes||{})[c+1]||{})[k]!=null)?'keep':recommend(stats[k],rdAvg)[0]); if(ch!=='keep') chosen[k]=reviewOptions(k,mx[k].v)[ch]; }
       mutatePlan(p=>{p.cycleMaxes[c+1]=Object.assign({},p.cycleMaxes[c+1]||{},chosen);p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),set:chosen}})});
     } else mutatePlan(p=>{p.reviews=Object.assign({},p.reviews||{},{[c]:{at:todayStr(),dismissed:true}})});
@@ -2962,6 +3002,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='calapply'){
     if(!calMove||!calMove.ord) return;
     const mon=mondayOf(calMove.from), ord=calMove.ord;
+    offerUndo('Days moved',snapPlan());
     mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:ord})});
     calMove=null; openWarm.clear(); openPx.clear(); render(); return;
   }
@@ -2970,18 +3011,19 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='movex'){moveOpen=false;render();return}
   if(a==='swap'){
     const mon=mondayOf(sel), r=bestOrder(mon,dow(sel),+b.dataset.sl); if(!r) return;
+    offerUndo('Days moved',snapPlan());
     mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:r.ord})});
     moveOpen=false; openWarm.clear(); openPx.clear(); render(); return;
   }
-  if(a==='ordreset'){const mon=mondayOf(sel);mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
+  if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week order reset',snapPlan());mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
   if(a==='guide'){gdStart(b.dataset.k);return}
   if(a==='theme'){LS.set('ob.theme',b.dataset.v);applyTheme();render();return}
   if(a==='gym'){LS.set('ob.gym',!gymOn());applyTheme();render();return}
   if(a==='weekseen'){mutatePlan(p=>{p.weekSeen=mondayOf(todayStr())});return}
   if(a==='hold'){startHold(b.dataset.n,+b.dataset.s,+b.dataset.sides||1,1);render();return}
   if(a==='wshort'){const v=b.dataset.v==='1';if(!!lg(sel).warmShort===v)return;setLog(sel,'warmShort',v);render();return}
-  if(a==='wclear'){setLog(sel,'warmup',[]);render();return}
-  if(a==='mclear'){setLog(sel,'mobility',[]);render();return}
+  if(a==='wclear'){offerUndo('Warm-up cleared',snapLog(sel));setLog(sel,'warmup',[]);render();return}
+  if(a==='mclear'){offerUndo('Mobility cleared',snapLog(sel));setLog(sel,'mobility',[]);render();return}
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='pset'){
     const i=+b.dataset.i,j=+b.dataset.j, wk=weekOf(sel), dp=dayPlan(sel), ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
@@ -2999,15 +3041,15 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}
-  if(a==='done'){setLog(sel,'done',!lg(sel).done);render();return}
-  if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
-  if(a==='insert'){mutatePlan(p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
-  if(a==='uninsert'){mutatePlan(p=>{delete p.inserts[b.dataset.monday]});return}
-  if(a==='skip'){mutatePlan(p=>{p.skips[b.dataset.rule]=true});return}
-  if(a==='unskip'){mutatePlan(p=>{delete p.skips[b.dataset.rule]});return}
+  if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
+  if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
+  if(a==='insert'){offerUndo('Week added',snapPlan());mutatePlan(p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
+  if(a==='uninsert'){offerUndo('Week removed',snapPlan());mutatePlan(p=>{delete p.inserts[b.dataset.monday]});return}
+  if(a==='skip'){offerUndo('Week skipped',snapPlan());mutatePlan(p=>{p.skips[b.dataset.rule]=true});return}
+  if(a==='unskip'){offerUndo('Week restored',snapPlan());mutatePlan(p=>{delete p.skips[b.dataset.rule]});return}
   if(a==='more'){planShow+=26;render();return}
-  if(a==='applytest'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test'),nc=wk.nextCycle;if(!nc)return;mutatePlan(p=>{p.cycleMaxes[nc]=Object.assign({},p.cycleMaxes[nc]||{},res)});return}
-  if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');mutatePlan(p=>{Object.assign(p.maxes,res)});return}
+  if(a==='applytest'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test'),nc=wk.nextCycle;if(!nc)return;offerUndo('Results applied to Cycle '+nc,snapPlan());mutatePlan(p=>{p.cycleMaxes[nc]=Object.assign({},p.cycleMaxes[nc]||{},res)});return}
+  if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}
 });
 

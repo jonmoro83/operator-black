@@ -122,3 +122,37 @@ test("CSV export covers every program with its own plan", () => {
   a.equal(x.plan.programName, "Block 2", "the current plan is restored afterwards");
   a.match(x.sessionsCsv().split("\r\n")[0], /^﻿?date,program,week,session/);
 });
+
+test("undo puts back what a change overwrote", () => {
+  const x = app();
+  x.seed({ "2026-10-19": { date: "2026-10-19", lifts: { squat: { sets: [true, true, true] } }, rpe: 8 } });
+
+  const restore = x.snapLog("2026-10-19");
+  x.offerUndo("Set unticked", restore);
+  x.setLog("2026-10-19", "lifts.squat.sets", [true, false, false]);
+  x.setLog("2026-10-19", "rpe", null);
+  a.deepEqual(x.logs["2026-10-19"].lifts.squat.sets, [true, false, false]);
+  x.doUndo();
+  a.deepEqual(x.logs["2026-10-19"].lifts.squat.sets, [true, true, true], "sets come back");
+  a.equal(x.logs["2026-10-19"].rpe, 8, "and so does everything else in that day");
+
+  const before = x.maxFor(2).squat.v;
+  x.offerUndo("Lowered the max", x.snapPlan());
+  x.mutatePlan((p) => { p.cycleMaxes[2] = { squat: 250 } });
+  a.equal(x.maxFor(2).squat.v, 250);
+  x.doUndo();
+  a.equal(x.maxFor(2).squat.v, before, "the plan is restored");
+
+  x.doUndo();                       // nothing queued: must not throw or change anything
+  a.equal(x.maxFor(2).squat.v, before);
+});
+
+test("a day with no log at all is undone back to empty", () => {
+  const x = app();
+  const restore = x.snapLog("2026-10-20");
+  x.setLog("2026-10-20", "done", true);
+  a.equal(x.logs["2026-10-20"].done, true);
+  x.offerUndo("Session marked done", restore);
+  x.doUndo();
+  a.equal(x.logs["2026-10-20"].done, undefined);
+});

@@ -41,11 +41,6 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 - **Tune the end-of-cycle review after Cycle 1** (review due Fri 11/13/2026). Check
   whether the grinder / missed-set / RPE thresholds suggested sensible changes.
-- **Automated tests for the calculations:** schedule engine (rules, inserts, locked
-  weeks), working weights and rounding, weighted pull-up math, Lift 3 rotation, ramps.
-  Run them on every push.
-- **Undo:** a short "Undo" message after ticking a set, skipping or inserting a week,
-  or lowering a max.
 
 ## Ideas
 
@@ -226,6 +221,14 @@ Decided against for now.
   bar colour.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
+
+**Tests and undo (2026-10-01)**
+- 28 tests over the calculations, run by `npm test`, before every deploy, and on every
+  push via GitHub Actions. `test/harness.js` loads the app's script into Node against a
+  stub DOM, so no browser is needed.
+- Undo for the taps that are easy to get wrong: set ticks, marking a session done,
+  lowering a max, adding/skipping/removing a week, moving days, resetting a week's
+  order, clearing the warm-up or mobility, and applying a review or test results.
 
 **Data safety**
 - Past weeks and finished cycles' maxes locked against settings changes.
