@@ -34,11 +34,18 @@ npm run dev                         # http://localhost:8787
 npm test                            # the calculation tests
 ```
 
-## Launch screens
+## Brand assets
 
-`tools/splash.js` renders `public/brand/splash/<w>x<h>@<dpr>.png` for ten iPhone sizes.
-They sit under `/brand/` because iOS fetches a startup image before the Access session
-exists; anything else would return the login page and give a white flash instead.
+`node tools/brand.js` renders everything from one definition of the mark at the top of
+that file: the favicons, the manifest icons, the Apple touch icon (inlined into
+`index.html`, since iOS reads it before there is an Access session), the Access login
+logo, and launch screens for ten iPhone sizes. Change the mark there and re-run it.
+
+Two things that bite: the mark is set in Archivo from Google Fonts, so the renderer waits
+for the webfont or silently falls back to a serif; and headless Chrome has a minimum
+window size, so icons are rendered at 1024 and scaled down rather than requested at size.
+Launch screens and the login logo live under `/brand/` because Access lets that path
+through unauthenticated — iOS fetches a startup image before any session exists.
 
 ## Build
 
