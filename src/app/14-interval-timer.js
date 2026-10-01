@@ -21,7 +21,7 @@ function ivSegments(fmt,o){
 function ivTotal(segs){return segs.reduce((a,x)=>a+x.s,0)}
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
-function tone(freq,dur,delay){try{if(!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
+function tone(freq,dur,delay){try{if(quiet()||!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function ivStart(fmt){
   const o=ivOpts(sel,fmt), segs=ivSegments(fmt,o);
@@ -90,7 +90,8 @@ function ivFinish(){
   if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);holdScreen(false);
     const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
-    if(iv.fmt==='liss') setLog(iv.date,'hic.min',Math.round(ivTotal(iv.segs)/60));
+    // the session you actually did, not the one that was planned
+    if((lg(iv.date).hic||{}).min==null||(lg(iv.date).hic||{}).min==='') setLog(iv.date,'hic.min',Math.max(1,Math.round(ivElapsed()/60)));
   }
   const el=document.getElementById('iv'); el.className=(iv.mini?'mini ':'')+'easy';
   document.getElementById('iv-phase').textContent='Done';

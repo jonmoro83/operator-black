@@ -1323,16 +1323,24 @@ function hicCard(dp,note){
   if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other') h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
-  if(f==='liss') h+=`<label class="f">Minutes${numIn('hic.min',L.min,'')}</label>`;
+  {
+    const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
+    h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;
+  }
   if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
   if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
   h+=`</div>`;
+  {
+    const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
+    if(L.min==null||L.min==='') h+=`<div class="small muted">No minutes logged. <button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button> \u2014 this format with the warm-up and cool-down you have ticked. Change the field if you did more or less.</div>`;
+  }
   {
     const o=ivOpts(sel,f), r=IV[f], segs=ivSegments(f,o), running=iv&&iv.date===sel&&!iv.done;
     h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${mmss(ivTotal(segs))} total</span></div>`;
     if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
-    h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label></div>`;
+    h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;
+    if(plan.quietTimer) h+=`<div class="small muted">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
   if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
@@ -1548,10 +1556,12 @@ function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
 // tap, so unlockAudio primes it with a silent one.
 let voicePrimed=false;
 function say(text){
-  if(!plan.voice||!('speechSynthesis' in window)) return;
+  if(quiet()||!plan.voice||!('speechSynthesis' in window)) return;
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1.05; u.pitch=1; speechSynthesis.speak(u) }catch(e){}
 }
+function quiet(){return !!plan.quietTimer}
 function unlockAudio(){
+  if(quiet()) return;
   try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
     if(navigator.audioSession) navigator.audioSession.type='transient';
@@ -1562,7 +1572,7 @@ function unlockAudio(){
 }
 function beep(){
   try{
-    if(!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
+    if(quiet()||!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
     const t0=audioCtx.currentTime;
     [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
   }catch(e){}
@@ -1956,7 +1966,7 @@ function ivSegments(fmt,o){
 function ivTotal(segs){return segs.reduce((a,x)=>a+x.s,0)}
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
-function tone(freq,dur,delay){try{if(!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
+function tone(freq,dur,delay){try{if(quiet()||!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function ivStart(fmt){
   const o=ivOpts(sel,fmt), segs=ivSegments(fmt,o);
@@ -2025,7 +2035,8 @@ function ivFinish(){
   if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);holdScreen(false);
     const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
-    if(iv.fmt==='liss') setLog(iv.date,'hic.min',Math.round(ivTotal(iv.segs)/60));
+    // the session you actually did, not the one that was planned
+    if((lg(iv.date).hic||{}).min==null||(lg(iv.date).hic||{}).min==='') setLog(iv.date,'hic.min',Math.max(1,Math.round(ivElapsed()/60)));
   }
   const el=document.getElementById('iv'); el.className=(iv.mini?'mini ':'')+'easy';
   document.getElementById('iv-phase').textContent='Done';
@@ -2620,9 +2631,11 @@ function vStatus(){
       const full=cw.filter(x=>x.mon!==thisWk), last4=full.slice(-4);
       const av=last4.length?Math.round(last4.reduce((a,x)=>a+x.min,0)/last4.length):0;
       const anyEst=cw.some(x=>x.est>0);
-      h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:''}</div>`;
-      h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?'One week logged so far.':'Log a conditioning session and this fills in.'}</div>`;
-      if(tot) h+=`<div class="small muted">This week is dashed: it is still running.${anyEst?' Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included.':''}</div>`;
+      const now=cw.find(x=>x.mon===thisWk);
+      h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:now&&now.n?`<span class="v">${now.min}<small>min this week so far</small></span>`:''}</div>`;
+      h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?`${now&&now.n===1?'One session':`${now?now.n:0} sessions`} this week. The trend starts once a second week has sessions in it.`:'Log a conditioning session and this fills in.'}</div>`;
+      const drew=cw.length>=2&&tot;
+      if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included \u2014 log the real number on the day\u2019s card and it uses that instead.`:''}</div>`;
       h+=`</div>`;
     }
     if(!keys.length) h+=`<div class="sm"><div class="none">No HIC results logged yet. Results you log on HIC days show up here.</div></div>`;
@@ -2944,10 +2957,18 @@ function vSetup(){
     h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {
-    const v=!!plan.voice;
+    const q=!!plan.quietTimer;
+    h+=`<div class="card"><div class="lift-h"><h2>Sound</h2>${q?'<span class="chip">Silent</span>':'<span class="chip light">Beeps on</span>'}</div>
+    <p class="small muted" style="margin:0">On iPhone, a web app that makes any sound takes over the audio session and pauses whatever you were listening to. If the timer keeps stopping your music, this is why.</p>
+    <label class="check"><input type="checkbox" id="p-quiet" data-pbind="quietTimer" ${q?'checked':''}> Silent timers \u2014 keep my music playing</label>
+    <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. The countdown, the vibration and the screen still work, and rest alerts still arrive as notifications, which do not touch your music.</div></div>`;
+  }
+  {
+    const v=!!plan.voice&&!plan.quietTimer;
     h+=`<div class="card"><div class="lift-h"><h2>Spoken cues</h2>${v?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div>
     <p class="small muted" style="margin:0">The app’s own voice, separate from notifications. It reads interval changes (“Round 3 of 8. Go hard.”), ten seconds left in a rest, and what’s next when one ends.</p>
     <label class="check"><input type="checkbox" id="p-voice" data-pbind="voice" ${v?'checked':''}> Speak cues while the app is on screen</label>
+    ${plan.quietTimer?`<div class="small" style="color:var(--muted)">Silent timers are on, so cues stay quiet whatever this says.</div>`:''}
     ${v?`<div><button class="btn" data-act="voicetest">Try a cue</button></div>`:''}
     <div class="small muted">Only while the app is on screen — iOS silences a web app the moment the phone locks. For a whole session, set Auto-Lock to Never. The <b>Send a test</b> button above is a notification, not speech: it will never be read aloud.</div></div>`;
   }
@@ -3172,6 +3193,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
+  if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='varadd'){
     const k=b.dataset.k, nm=(document.getElementById('cv-name-'+k)||{}).value, pct=+(document.getElementById('cv-pct-'+k)||{}).value;
     const name=(nm||'').trim();

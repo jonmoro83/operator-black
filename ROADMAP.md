@@ -90,6 +90,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Conditioning minutes without the timer (2026-10-01)**
+- Reported from use: the interval timer stopped the phone's music, so it went unused and
+  no minutes were logged. On iOS, opening an `AudioContext` hands the audio session to the
+  page and pauses whatever was playing; `navigator.audioSession.type='transient'` does not
+  save you on current Safari. `plan.quietTimer` (Setup → Sound) makes `quiet()` true and
+  `unlockAudio`, `beep`, `tone` and `say` all return before touching audio at all — the
+  only reliable fix, since the problem is opening the channel, not the volume.
+- The minutes field is on every conditioning card now, not just LISS, with a
+  `minplan` button offering `ivTotal(ivSegments(...))` for the chosen format and options.
+- `ivFinish` writes `ivElapsed()` into `hic.min` for any format when the field is empty,
+  so a finished timer logs what it actually ran rather than only LISS's planned length.
+- Minutes-per-week shows the current week's total when no completed week exists yet, and
+  the "this week is dashed" note no longer appears when no chart was drawn.
+
 **Collapsible weekly check-in (2026-10-01)**
 - It became a `<details>` only when the week's measurements were logged on an *earlier*
   day; filling it in today left the form open all day. Now any logged week renders the

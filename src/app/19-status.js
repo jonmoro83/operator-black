@@ -204,9 +204,11 @@ function vStatus(){
       const full=cw.filter(x=>x.mon!==thisWk), last4=full.slice(-4);
       const av=last4.length?Math.round(last4.reduce((a,x)=>a+x.min,0)/last4.length):0;
       const anyEst=cw.some(x=>x.est>0);
-      h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:''}</div>`;
-      h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?'One week logged so far.':'Log a conditioning session and this fills in.'}</div>`;
-      if(tot) h+=`<div class="small muted">This week is dashed: it is still running.${anyEst?' Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included.':''}</div>`;
+      const now=cw.find(x=>x.mon===thisWk);
+      h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:now&&now.n?`<span class="v">${now.min}<small>min this week so far</small></span>`:''}</div>`;
+      h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?`${now&&now.n===1?'One session':`${now?now.n:0} sessions`} this week. The trend starts once a second week has sessions in it.`:'Log a conditioning session and this fills in.'}</div>`;
+      const drew=cw.length>=2&&tot;
+      if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included \u2014 log the real number on the day\u2019s card and it uses that instead.`:''}</div>`;
       h+=`</div>`;
     }
     if(!keys.length) h+=`<div class="sm"><div class="none">No HIC results logged yet. Results you log on HIC days show up here.</div></div>`;

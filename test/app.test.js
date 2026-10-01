@@ -930,3 +930,43 @@ test("the weekly check-in can be collapsed, and stays that way", () => {
   a.match(shut, /Weekly check-in/, "the summary still says what it holds");
   a.match(shut, /34/, "and the numbers are one tap away");
 });
+
+test("minutes can be logged without using the timer", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  let d = null;
+  for (const w of x.weeks()) { for (let i = 0; i < 7; i++) { const c = x.addDays(w.monday, i); const p = x.dayPlan(c); if (p.t === "hic" && p.fmt !== "liss") { d = c; break } } if (d) break }
+  a.ok(d, "there is a hard conditioning day");
+  x.sel = d;
+  const dp = x.dayPlan(d);
+
+  // The field is there for every format, not just LISS, with the planned length offered.
+  const card = x.hicCard(dp, "");
+  a.match(card, /data-bind="hic.min"/, "a minutes field on a MAP session");
+  const planned = Math.round(x.ivTotal(x.ivSegments(dp.fmt, x.ivOpts(d, dp.fmt))) / 60);
+  a.match(card, new RegExp(`data-act="minplan" data-v="${planned}"`), "and a one-tap way to accept it");
+  a.match(card, new RegExp(`Use ${planned} min`));
+
+  // Once logged, the offer goes away and the Status chart counts the real number.
+  x.seed({ [d]: { date: d, done: true, hic: { format: dp.fmt, mod: "echo", cal: 120, min: 47 } } }); x.bump();
+  a.ok(!/data-act="minplan"/.test(x.hicCard(dp, "")), "no longer asking");
+  const row = x.condWeeks(12).find((w) => w.mon === x.mondayOf(d));
+  a.equal(row.min, 47, "the logged minutes, not the estimate");
+  a.equal(row.est, 0, "and it is not counted as an estimate");
+});
+
+test("silent mode never opens an audio channel", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.quietTimer = true; x.plan.voice = true; x.bump();
+  a.equal(x.quiet(), true);
+  // say() and the beeps all bail out before touching speechSynthesis or an AudioContext
+  x.say("test");                     // would throw if it tried: the stub has neither
+  x.beep();
+  x.tone(880, 0.2);
+  x.unlockAudio();
+  a.match(x.vSetup(), /Silent timers/);
+  a.match(x.vSetup(), /keep my music playing/);
+
+  x.plan.quietTimer = false; x.bump();
+  a.equal(x.quiet(), false);
+});

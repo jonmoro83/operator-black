@@ -230,10 +230,18 @@ function vSetup(){
     h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {
-    const v=!!plan.voice;
+    const q=!!plan.quietTimer;
+    h+=`<div class="card"><div class="lift-h"><h2>Sound</h2>${q?'<span class="chip">Silent</span>':'<span class="chip light">Beeps on</span>'}</div>
+    <p class="small muted" style="margin:0">On iPhone, a web app that makes any sound takes over the audio session and pauses whatever you were listening to. If the timer keeps stopping your music, this is why.</p>
+    <label class="check"><input type="checkbox" id="p-quiet" data-pbind="quietTimer" ${q?'checked':''}> Silent timers \u2014 keep my music playing</label>
+    <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. The countdown, the vibration and the screen still work, and rest alerts still arrive as notifications, which do not touch your music.</div></div>`;
+  }
+  {
+    const v=!!plan.voice&&!plan.quietTimer;
     h+=`<div class="card"><div class="lift-h"><h2>Spoken cues</h2>${v?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div>
     <p class="small muted" style="margin:0">The app’s own voice, separate from notifications. It reads interval changes (“Round 3 of 8. Go hard.”), ten seconds left in a rest, and what’s next when one ends.</p>
     <label class="check"><input type="checkbox" id="p-voice" data-pbind="voice" ${v?'checked':''}> Speak cues while the app is on screen</label>
+    ${plan.quietTimer?`<div class="small" style="color:var(--muted)">Silent timers are on, so cues stay quiet whatever this says.</div>`:''}
     ${v?`<div><button class="btn" data-act="voicetest">Try a cue</button></div>`:''}
     <div class="small muted">Only while the app is on screen — iOS silences a web app the moment the phone locks. For a whole session, set Auto-Lock to Never. The <b>Send a test</b> button above is a notification, not speech: it will never be read aloud.</div></div>`;
   }

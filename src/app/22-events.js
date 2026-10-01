@@ -101,6 +101,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
+  if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='varadd'){
     const k=b.dataset.k, nm=(document.getElementById('cv-name-'+k)||{}).value, pct=+(document.getElementById('cv-pct-'+k)||{}).value;
     const name=(nm||'').trim();

@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.19',date:'2026-10-01',title:'Silent timers, and minutes without them',items:[
+    'Silent timers, in Setup \u2192 Sound. On iPhone any sound a web app makes takes over the audio session and pauses your music \u2014 that is why the interval timer kept stopping it. Silent turns off the beeps and spoken cues and leaves the countdown, the vibration and the screen doing the work, so your music carries on. Rest alerts still arrive as notifications, which never touch audio.',
+    'Minutes can now be logged on any conditioning session, not just LISS, with a one-tap button offering the planned length of that format including whatever warm-up and cool-down you ticked. Change it if you did more or less.',
+    'If you do use the timer, it records the minutes it actually ran when you finish, for every format rather than only LISS.',
+    'The minutes-per-week card shows this week\u2019s total while it is still your only week, instead of nothing at all.']},
   {v:'1.18',date:'2026-10-01',title:'Fold the weekly check-in away',items:[
     'Once the weekly check-in has measurements in it, it collapses to a single line \u2014 the date and your body fat \u2014 and you can fold it shut. Before, it only did that if you had logged on an earlier day; filling it in this morning left the whole form sitting on Today for the rest of the day.',
     'Open it again and the numbers are still editable, so a typo is one tap away rather than a lost week.']},
