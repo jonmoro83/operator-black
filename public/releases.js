@@ -4,6 +4,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.22',date:'2026-10-02',title:'A note that counts',items:[
+    'The bridge week\u2019s 5RM+Spin Saturday said \u201ctest these first \u2014 two lifts per day keeps the numbers honest\u201d even when it only had one lift on it. With two Lift 3 movements turned on, Friday takes one and Saturday takes the other, so it now names that lift instead of talking about two.']},
   {v:'1.21',date:'2026-10-02',title:'Pull-up road, benchmarks and plan previews',items:[
     'A pull-up card on Status that joins your test sets up into a road: hangs and negatives, band-assisted volume, clean reps, ready to load, weighted. It names the rung you are on, counts the reps to the next one, and Wednesday\u2019s pull-up accessory now prescribes that rung instead of a generic line.',
     'A benchmark conditioning session \u2014 one activity and format you repeat to compare against itself, charted on Status and chased up on the day when it is due. It picks the pairing you repeat most until you pin one in Setup \u2192 Conditioning.',

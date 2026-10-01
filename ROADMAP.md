@@ -131,6 +131,13 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The 5RM+Spin note counts its own lifts (2026-10-02)**
+- Reported from the app: with two Lift 3 variants on, `l3On().slice(1)` leaves the bridge
+  Saturday a single lift, but the note was written for the three-variant case and still
+  said "test these first — two lifts per day". It is built from `rest.length` now and
+  names the lift when there is one. A test asserts the note matches the day's lift count
+  for both configurations.
+
 **Pull-up road, benchmarks, variety and plan previews (2026-10-02)**
 - `PULLUP` is five rungs with a rep threshold, a prescription and the reason it is the
   thing that moves you up. `pullupState(date)` reads the best `logs[d].pullups` **up to

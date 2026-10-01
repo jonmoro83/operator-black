@@ -1152,3 +1152,25 @@ test("the pull-up road knows which rung you are on", () => {
     }
   }
 });
+
+test("a day's note matches how many lifts that day actually has", () => {
+  const seen = [];
+  for (const on of [{ pull: true, ohp: true }, { pull: true, ohp: true, wpu: true }]) {
+    const x = app({ now: "2026-10-01" });
+    x.plan.startMonday = "2026-09-28"; x.plan.bridge = true; x.plan.l3 = { on }; x.bump();
+    const br = x.weeks().find((w) => w.kind === "bridge");
+    const sat = x.addDays(br.monday, 5);
+    const dp = x.dayPlan(sat);
+    a.equal(dp.short, "5RM+Spin");
+    seen.push(dp.lifts.length);
+    if (dp.lifts.length === 1) {
+      a.ok(!/two lifts per day/.test(dp.note), "does not claim two lifts when there is one");
+      a.ok(!/Test these/.test(dp.note), "and does not say 'these' about one lift");
+      a.match(dp.note, new RegExp(x.liftName(dp.lifts[0], sat).toLowerCase()), "names the lift");
+    } else {
+      a.match(dp.note, /two lifts per day/);
+    }
+    a.match(dp.note, /ride easy for 30–40 min/, "the spin is still promised either way");
+  }
+  a.deepEqual(seen, [1, 2], "two Lift 3 variants leaves one for Saturday, three leaves two");
+});
