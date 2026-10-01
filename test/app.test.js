@@ -970,3 +970,41 @@ test("silent mode never opens an audio channel", () => {
   x.plan.quietTimer = false; x.bump();
   a.equal(x.quiet(), false);
 });
+
+test("the planned length adds up, and says how", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const o = { rounds: 8, warm: true, cool: false, lissMin: 35 };
+
+  // 8 rounds of 1:00 hard / 1:00 easy is 15 minutes, not 16: no easy after the last.
+  const p = x.ivParts(x.ivSegments("map", o));
+  a.equal(p.rounds, 8);
+  a.equal(p.work, 15 * 60, "8 hard + 7 easy");
+  a.equal(p.warm, 495, "5:00 plus three 15s pickups with their easy periods");
+  a.equal(p.cool, 0);
+
+  const L = x.ivPartsLabel("map", o);
+  a.equal(L.total, 23);
+  a.equal(L.text, "8 min warm-up + 15 min of intervals");
+
+  // The other formats add up the same way.
+  for (const [f, rounds, work] of [["anaerobic", 6, 6 * 30 + 5 * 120], ["threshold", 4, 4 * 240 + 3 * 180], ["long", 5, 5 * 180 + 4 * 90]]) {
+    const q = x.ivParts(x.ivSegments(f, { ...o, rounds }));
+    a.equal(q.rounds, rounds);
+    a.equal(q.work, work, `${f}: ${rounds} hard and ${rounds - 1} easy`);
+  }
+
+  // A cool-down is counted separately, and LISS is just its minutes.
+  a.equal(x.ivParts(x.ivSegments("map", { ...o, cool: true })).cool, 300);
+  a.equal(x.ivPartsLabel("liss", o).text, "35 min steady");
+
+  // And the card explains the arithmetic rather than asserting a number.
+  let d = null;
+  for (const w of x.weeks()) { for (let i = 0; i < 7; i++) { const c = x.addDays(w.monday, i); const dp = x.dayPlan(c); if (dp.t === "hic" && dp.fmt === "map") { d = c; break } } if (d) break }
+  if (d) {
+    x.sel = d;
+    const card = x.hicCard(x.dayPlan(d), "");
+    a.match(card, /min warm-up \+ \d+ min of intervals/);
+    a.match(card, /there is no easy period after the last one/);
+  }
+});

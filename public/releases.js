@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.20',date:'2026-10-01',title:'Show the arithmetic',items:[
+    'The suggested minutes now show their working: \u201cUse 23 min \u2014 8 min warm-up + 15 min of intervals, from 8 rounds (there is no easy period after the last one, so 8 \u00d7 hard + 7 \u00d7 easy)\u201d. Eight rounds of a minute on and a minute off is fifteen minutes of work, not sixteen, because the timer does not make you stand there resting once the last one is done.',
+    'The warm-up checkbox now says what it costs: five minutes plus three pickups is about eight, not five.']},
   {v:'1.19',date:'2026-10-01',title:'Silent timers, and minutes without them',items:[
     'Silent timers, in Setup \u2192 Sound. On iPhone any sound a web app makes takes over the audio session and pauses your music \u2014 that is why the interval timer kept stopping it. Silent turns off the beeps and spoken cues and leaves the countdown, the vibration and the screen doing the work, so your music carries on. Rest alerts still arrive as notifications, which never touch audio.',
     'Minutes can now be logged on any conditioning session, not just LISS, with a one-tap button offering the planned length of that format including whatever warm-up and cool-down you ticked. Change it if you did more or less.',

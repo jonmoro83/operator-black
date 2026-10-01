@@ -90,6 +90,17 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The planned length shows its working (2026-10-01)**
+- Asked where 23 minutes came from for 8 × 1:00/1:00, which reads like 16 + warm-up. It
+  is right: `ivSegments` omits the easy period after the final round, so the work block is
+  `rounds` hard and `rounds - 1` easy = 15 min, and the warm-up is 5:00 plus three pickups
+  with their easy periods = 8:15, not the 5:00 its label implied.
+- `ivParts(segs)` splits a session into warm-up / work / cool-down and `ivPartsLabel()`
+  renders it, so the suggestion explains itself instead of asserting a number. The
+  warm-up checkbox now reads "5 min + 3 pickups ≈ 8 min".
+- A test pins the arithmetic for every format, so a change to the segment builder that
+  quietly alters session length fails rather than drifts.
+
 **Conditioning minutes without the timer (2026-10-01)**
 - Reported from use: the interval timer stopped the phone's music, so it went unused and
   no minutes were logged. On iOS, opening an `AudioContext` hands the audio session to the
