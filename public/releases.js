@@ -4,6 +4,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.10',date:'2026-10-01',title:'Calories, burn rate and body fat',items:[
+    'Calories go in the daily check-in, under yesterday\u2019s eating. Once you have a few weeks of them next to your weigh-ins, Status works out what you actually burn: your average intake against what the scale trend did about it. That number is yours, not a formula\u2019s \u2014 it already accounts for your job, your training and your metabolism.',
+    'Until there is enough data it falls back to Mifflin-St Jeor from your height, sex, age and activity (new fields in Setup \u2192 About you), and it tells you which of the two you are looking at. The two usually disagree, and when they do, yours wins.',
+    'Weekly neck, waist and hip measurements, also in the check-in, turn into a body-fat estimate by the US Navy tape method, charted next to your waist. Expect it to be within 3\u20134 points \u2014 it is a direction, not a number.',
+    'If your goal is set to lose or build, the card suggests a daily intake off your measured burn rather than a generic one.',
+    'Calories, measurements and the body-fat estimate are in the CSV export too.']},
   {v:'1.9',date:'2026-10-01',title:'Bodyweight, properly charted',items:[
     'Bodyweight has its own card on Status: every weigh-in as a faint line, the 7-day average solid on top of it, and the range switchable between 30 days, 90 days and the whole program. Above the chart: the current average and your latest reading, the change across the range, and the change per week.',
     'The change across a range compares the first few weigh-ins with the last few, rather than the first reading with the last, so one heavy morning cannot set the headline.',

@@ -107,6 +107,37 @@ function bwCard(t){
   h+=`<div class="small muted">Weighed on ${logged} of the last ${days} day${days===1?'':'s'}. The faint line is each weigh-in; the solid one is the 7-day average, which is what the protein target, the weighted pull-up loads and the trend advice use.</div>`;
   return h+`</div>`;
 }
+// What you burn and what you are made of. The measured number comes from your own
+// intake and scale trend; the formula is only there until that exists.
+function energyCard(t){
+  const m28=tdeeMeasured(t,28), m14=tdeeMeasured(t,14), pred=tdeePredicted(t), meas=m28||m14;
+  const bf=bfSeries(t), last=bf[bf.length-1];
+  const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
+  if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="small muted" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
+  h+=`<div class="miles">`;
+  h+=`<div class="mile"><span class="l">Burn per day</span>${meas?`<span class="big">${n(meas.tdee)}</span><span class="small muted">from your own ${meas.days} days${pred?` · formula says ${n(pred)}`:''}</span>`:pred?`<span class="big">${n(pred)}</span><span class="small muted">Mifflin-St Jeor × ${actFactor()}</span>`:'<span class="small muted">Needs height, sex and birth year</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Eaten per day</span>${kc.length?`<span class="big">${n(Math.round(kc.reduce((a,b)=>a+b,0)/kc.length))}</span><span class="small muted">${kc.length} of the last 28 days logged</span>`:'<span class="small muted">Log calories in the check-in</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Body fat</span>${last?`<span class="big">${r1(last.bf)}<small style="font-size:14px;color:var(--muted);margin-left:2px">%</small></span><span class="small muted">${fmtD(last.d,true)}${bf.length>1?` · ${last.bf>bf[0].bf?'+':''}${r1(last.bf-bf[0].bf)} since ${fmtD(bf[0].d)}`:''}</span>`:'<span class="small muted">Needs neck and waist</span>'}</div></div>`;
+  if(meas){
+    const gap=meas.tdee-meas.mean;
+    const rt=meas.dw/meas.gap*7;
+    h+=`<div class="small">Over the last ${meas.days} days you ate <b class="mono">${n(meas.mean)}</b> a day and your weight trend ${Math.abs(rt)<.05?'held flat':`moved ${rt>0?'+':'−'}${r1(Math.abs(rt))} ${u()} a week`}, which puts your burn at about <b class="mono">${n(meas.tdee)}</b> — a ${gap>0?'deficit':'surplus'} of <b class="mono">${n(Math.abs(gap))}</b> a day.</div>`;
+    const goal=plan.goal, tgt=goal==='lose'?meas.tdee-Math.round(meas.tdee*.18/10)*10:goal==='gain'?meas.tdee+250:meas.tdee;
+    if(goal&&goal!=='maintain') h+=`<div class="small muted">Your goal is set to ${goal==='lose'?'lose fat':'build'}. About <b class="mono">${n(tgt)}</b> a day would ${goal==='lose'?'take off roughly 1% of bodyweight a month without wrecking the lifting':'add weight slowly enough to stay mostly lean'}. Protein target is on the Today card.</div>`;
+  } else if(pred){
+    h+=`<div class="small muted">That is the formula's guess from your height, weight, age and activity. Log calories for ${28} days alongside your weigh-ins and this switches to your own numbers, which are the only ones that count.</div>`;
+  }
+  if(bf.length>=2){
+    const w=bf.map(x=>({d:x.d,v:+x.m.waist}));
+    h+=`<div class="sm-grid" style="margin-top:12px">`;
+    h+=`<div class="sm"><div class="sm-h"><b>Body fat</b><span class="v">${r1(last.bf)}<small>%</small></span></div>${lineChart(bf.map(x=>({y:x.bf,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.bf)}%`})),{label:'Body fat estimate',minStep:.5})}</div>`;
+    h+=`<div class="sm"><div class="sm-h"><b>Waist</b><span class="v">${r1(w[w.length-1].v)}<small>${u()==='kg'?'cm':'in'}</small></span></div>${lineChart(w.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()==='kg'?'cm':'in'}`})),{label:'Waist',minStep:.5})}</div>`;
+    h+=`</div>`;
+  }
+  h+=`<div class="small muted">The body-fat estimate is the US Navy tape method: typically within 3–4 points, and more useful as a direction than a number. Measure at the same time of day, relaxed.</div>`;
+  return h+`</div>`;
+}
 function vStatus(){
   const t=todayStr(), wk=weekOf(t);
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
@@ -188,6 +219,7 @@ function vStatus(){
   h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=bwCard(t);
+  h+=energyCard(t);
   h+=prBoard();
   return h;
 }

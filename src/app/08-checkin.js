@@ -12,11 +12,67 @@ const CI_Q=[
   {f:'fuel',q:'How much did you eat compared to your plan?',opts:[['under','Under'],['on','About right'],['over','Over']]},
   {f:'water',q:'Enough water?',opts:[['yes','Yes'],['no','Not really']]},
   {f:'alcohol',q:'Any alcohol?',opts:[['none','None'],['some','1–2 drinks'],['lots','3+']]},
+  {f:'kcal',q:'Calories yesterday',kcal:true},
   {grp:'Optional'},
-  {f:'bw',q:'Bodyweight this morning',bw:true}
+  {f:'bw',q:'Bodyweight this morning',bw:true},
+  {meas:true}
 ];
 const openCI=new Set();
 function ci(date){return (lg(date).checkin)||{}}
+// Calories are asked for the morning after, so what you ate on day d is logged on d+1.
+function kcalOn(d){const v=ci(addDays(d,1)).kcal;return v==null||v===''?null:+v}
+// Measured ("adaptive") TDEE: what you ate against what the scale trend did about it.
+// 3500 kcal per lb, 7700 per kg. Needs a settled 7-day average at both ends of the
+// window and calories on most of its days, or it says nothing.
+function endAvg(from,to){
+  let sw=0,sd=0,n=0;
+  for(const [d,L] of Object.entries(logs)) if(d>=from&&d<=to&&inProgram(d)&&L.checkin&&L.checkin.bw!=null&&L.checkin.bw!=='') {sw+=+L.checkin.bw;sd+=D(d);n++}
+  return n?{avg:sw/n,at:sd/n,n}:null;
+}
+function tdeeMeasured(date,days){
+  days=days||28;
+  const from=addDays(date,-(days-1)), kc=[];
+  for(let d=from;d<=date;d=addDays(d,1)){const v=kcalOn(d);if(v)kc.push(v)}
+  // Both ends average their own 7 days, so the window needs no history before it. The
+  // divisor is the real gap between the two groups' mean dates, not the window length.
+  const a=endAvg(from,addDays(from,6)), b=endAvg(addDays(date,-6),date);
+  if(!a||!b||a.n<2||b.n<2||kc.length<Math.ceil(days*.6)) return null;
+  const gap=(b.at-a.at)/864e5; if(gap<7) return null;
+  const mean=kc.reduce((x,y)=>x+y,0)/kc.length, dw=b.avg-a.avg, per=u()==='kg'?7700:3500;
+  return {tdee:Math.round(mean-dw*per/gap),mean:Math.round(mean),dw,gap:Math.round(gap),days,n:kc.length,from,to:date};
+}
+// Mifflin-St Jeor, the usual predictive formula, for before there is enough data.
+function bmr(date){
+  const bw=bwFor(date), ht=+plan.height, sex=plan.sex, age=ageNow();
+  if(!bw||!ht||!sex||!age) return null;
+  const kg=u()==='kg'?bw:bw/2.2046, cm=u()==='kg'?ht:ht*2.54;
+  return Math.round(10*kg+6.25*cm-5*age+(sex==='f'?-161:5));
+}
+function ageNow(){const b=+plan.birthYear;if(!b||b<1900)return null;return +todayStr().slice(0,4)-b}
+const ACT=[[1.375,'Light · desk job, little else'],[1.55,'Moderate · this program, desk job'],[1.725,'High · this program plus an active job'],[1.9,'Very high · manual work or two-a-days']];
+function actFactor(){const v=+plan.activity;return ACT.some(x=>x[0]===v)?v:1.55}
+function tdeePredicted(date){const b=bmr(date);return b?Math.round(b*actFactor()):null}
+// US Navy circumference method. Men use waist and neck, women add the hips. Measurements
+// are in inches with lb, cm with kg. Typical error is 3–4 points, so it is a trend tool.
+function measOn(date){
+  let best=null;
+  for(const [d,L] of Object.entries(logs)) if(d<=date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
+  return best;
+}
+function navyBf(m,date){
+  const ht=+plan.height, sex=plan.sex;
+  if(!ht||!sex||!m||!m.waist||!m.neck) return null;
+  const toIn=v=>u()==='kg'?+v/2.54:+v;
+  const w=toIn(m.waist), nk=toIn(m.neck), hp=m.hip?toIn(m.hip):null, h=toIn(ht);
+  let v;
+  if(sex==='f'){ if(!hp) return null; v=163.205*Math.log10(w+hp-nk)-97.684*Math.log10(h)-78.387 }
+  else { if(w<=nk) return null; v=86.010*Math.log10(w-nk)-70.041*Math.log10(h)+36.76 }
+  return v>0&&v<70?Math.round(v*10)/10:null;
+}
+function bfSeries(date){
+  return progLogs().filter(([d,L])=>d<=date&&L.meas&&L.meas.waist&&L.meas.neck)
+    .map(([d,L])=>({d,m:L.meas,bf:navyBf(L.meas,d)})).filter(x=>x.bf!=null).sort((a,b)=>a.d<b.d?-1:1);
+}
 function latestBw(date){let best=null;for(const [d,L] of Object.entries(logs)) if(d<=date&&L.checkin&&L.checkin.bw&&(!best||d>best.d)) best={d,v:+L.checkin.bw};return best?best.v:(plan.bodyweight?+plan.bodyweight:null)}
 // Daily weigh-ins are noisy; everything that reacts to bodyweight uses a 7-day average
 // and falls back to the latest single reading until there are two in the window.
@@ -101,12 +157,25 @@ function suggestions(date){
     }}
   return out;
 }
+// Weekly, not daily: the row stays closed unless there is nothing logged for a while.
+function measRow(date){
+  const M=(lg(date).meas)||{}, last=measOn(date), has=M.waist||M.neck||M.hip;
+  const stale=!last||Math.round((D(date)-D(last.d))/864e5)>=7;
+  const unit=u()==='kg'?'cm':'in';
+  const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,M[k],'')}</label>`;
+  const bf=has?navyBf(M,date):null;
+  return `<details class="plain q-meas"${has||stale?' open':''}><summary>Measurements <small class="muted">· weekly${last&&!has?' · last '+fmtD(last.d,true):''}</small></summary>
+  <div class="grid3" style="margin-top:8px">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>
+  <div class="small muted">Waist at the navel, neck below the larynx, hips at the widest point, all relaxed and at the same time of day.${plan.sex==='f'?' Hips are part of the estimate for you.':plan.sex?' Hips are tracked but not used in the estimate for men.':' Add your height and sex in Setup to turn these into a body-fat estimate.'}${bf!=null?` Today: <b>${bf}%</b>.`:''}</div></details>`;
+}
 function checkinCard(date){
   if(date>todayStr()) return '';
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), open=openCI.has(date)||sc==null, pt=proteinTarget(date);
   const qs=CI_Q.map(q=>{
     if(q.grp) return `</div><div class="ci-grp"><h4>${q.grp}</h4>`;
     if(q.bw) return `<label class="q"><span>${q.q} <small>(${u()})</small></span>${numIn('checkin.bw',c.bw,latestBw(date)?n(latestBw(date)):'','class="num-in"')}</label>`;
+    if(q.kcal) return `<label class="q"><span>${q.q} <small>(kcal, optional)</small></span>${numIn('checkin.kcal',c.kcal,'','class="num-in"')}</label>`;
+    if(q.meas) return measRow(date);
     const hint=q.hint==='target'&&pt?` <small>(~${pt} g)</small>`:'';
     return `<div class="q"><span>${q.q}${hint}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${c[q.f]==v&&c[q.f]!==''&&c[q.f]!=null?' on':''}" data-act="ci" data-f="${q.f}" data-v="${v}" aria-pressed="${c[q.f]==v}">${l}</button>`).join('')}${q.num?numIn('checkin.sleepH',c.sleepH,'exact','class="num-in" style="max-width:84px" aria-label="Exact hours slept"'):''}</div></div>`;
   }).join('');

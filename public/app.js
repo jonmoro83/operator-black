@@ -1012,11 +1012,67 @@ const CI_Q=[
   {f:'fuel',q:'How much did you eat compared to your plan?',opts:[['under','Under'],['on','About right'],['over','Over']]},
   {f:'water',q:'Enough water?',opts:[['yes','Yes'],['no','Not really']]},
   {f:'alcohol',q:'Any alcohol?',opts:[['none','None'],['some','1–2 drinks'],['lots','3+']]},
+  {f:'kcal',q:'Calories yesterday',kcal:true},
   {grp:'Optional'},
-  {f:'bw',q:'Bodyweight this morning',bw:true}
+  {f:'bw',q:'Bodyweight this morning',bw:true},
+  {meas:true}
 ];
 const openCI=new Set();
 function ci(date){return (lg(date).checkin)||{}}
+// Calories are asked for the morning after, so what you ate on day d is logged on d+1.
+function kcalOn(d){const v=ci(addDays(d,1)).kcal;return v==null||v===''?null:+v}
+// Measured ("adaptive") TDEE: what you ate against what the scale trend did about it.
+// 3500 kcal per lb, 7700 per kg. Needs a settled 7-day average at both ends of the
+// window and calories on most of its days, or it says nothing.
+function endAvg(from,to){
+  let sw=0,sd=0,n=0;
+  for(const [d,L] of Object.entries(logs)) if(d>=from&&d<=to&&inProgram(d)&&L.checkin&&L.checkin.bw!=null&&L.checkin.bw!=='') {sw+=+L.checkin.bw;sd+=D(d);n++}
+  return n?{avg:sw/n,at:sd/n,n}:null;
+}
+function tdeeMeasured(date,days){
+  days=days||28;
+  const from=addDays(date,-(days-1)), kc=[];
+  for(let d=from;d<=date;d=addDays(d,1)){const v=kcalOn(d);if(v)kc.push(v)}
+  // Both ends average their own 7 days, so the window needs no history before it. The
+  // divisor is the real gap between the two groups' mean dates, not the window length.
+  const a=endAvg(from,addDays(from,6)), b=endAvg(addDays(date,-6),date);
+  if(!a||!b||a.n<2||b.n<2||kc.length<Math.ceil(days*.6)) return null;
+  const gap=(b.at-a.at)/864e5; if(gap<7) return null;
+  const mean=kc.reduce((x,y)=>x+y,0)/kc.length, dw=b.avg-a.avg, per=u()==='kg'?7700:3500;
+  return {tdee:Math.round(mean-dw*per/gap),mean:Math.round(mean),dw,gap:Math.round(gap),days,n:kc.length,from,to:date};
+}
+// Mifflin-St Jeor, the usual predictive formula, for before there is enough data.
+function bmr(date){
+  const bw=bwFor(date), ht=+plan.height, sex=plan.sex, age=ageNow();
+  if(!bw||!ht||!sex||!age) return null;
+  const kg=u()==='kg'?bw:bw/2.2046, cm=u()==='kg'?ht:ht*2.54;
+  return Math.round(10*kg+6.25*cm-5*age+(sex==='f'?-161:5));
+}
+function ageNow(){const b=+plan.birthYear;if(!b||b<1900)return null;return +todayStr().slice(0,4)-b}
+const ACT=[[1.375,'Light · desk job, little else'],[1.55,'Moderate · this program, desk job'],[1.725,'High · this program plus an active job'],[1.9,'Very high · manual work or two-a-days']];
+function actFactor(){const v=+plan.activity;return ACT.some(x=>x[0]===v)?v:1.55}
+function tdeePredicted(date){const b=bmr(date);return b?Math.round(b*actFactor()):null}
+// US Navy circumference method. Men use waist and neck, women add the hips. Measurements
+// are in inches with lb, cm with kg. Typical error is 3–4 points, so it is a trend tool.
+function measOn(date){
+  let best=null;
+  for(const [d,L] of Object.entries(logs)) if(d<=date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
+  return best;
+}
+function navyBf(m,date){
+  const ht=+plan.height, sex=plan.sex;
+  if(!ht||!sex||!m||!m.waist||!m.neck) return null;
+  const toIn=v=>u()==='kg'?+v/2.54:+v;
+  const w=toIn(m.waist), nk=toIn(m.neck), hp=m.hip?toIn(m.hip):null, h=toIn(ht);
+  let v;
+  if(sex==='f'){ if(!hp) return null; v=163.205*Math.log10(w+hp-nk)-97.684*Math.log10(h)-78.387 }
+  else { if(w<=nk) return null; v=86.010*Math.log10(w-nk)-70.041*Math.log10(h)+36.76 }
+  return v>0&&v<70?Math.round(v*10)/10:null;
+}
+function bfSeries(date){
+  return progLogs().filter(([d,L])=>d<=date&&L.meas&&L.meas.waist&&L.meas.neck)
+    .map(([d,L])=>({d,m:L.meas,bf:navyBf(L.meas,d)})).filter(x=>x.bf!=null).sort((a,b)=>a.d<b.d?-1:1);
+}
 function latestBw(date){let best=null;for(const [d,L] of Object.entries(logs)) if(d<=date&&L.checkin&&L.checkin.bw&&(!best||d>best.d)) best={d,v:+L.checkin.bw};return best?best.v:(plan.bodyweight?+plan.bodyweight:null)}
 // Daily weigh-ins are noisy; everything that reacts to bodyweight uses a 7-day average
 // and falls back to the latest single reading until there are two in the window.
@@ -1101,12 +1157,25 @@ function suggestions(date){
     }}
   return out;
 }
+// Weekly, not daily: the row stays closed unless there is nothing logged for a while.
+function measRow(date){
+  const M=(lg(date).meas)||{}, last=measOn(date), has=M.waist||M.neck||M.hip;
+  const stale=!last||Math.round((D(date)-D(last.d))/864e5)>=7;
+  const unit=u()==='kg'?'cm':'in';
+  const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,M[k],'')}</label>`;
+  const bf=has?navyBf(M,date):null;
+  return `<details class="plain q-meas"${has||stale?' open':''}><summary>Measurements <small class="muted">· weekly${last&&!has?' · last '+fmtD(last.d,true):''}</small></summary>
+  <div class="grid3" style="margin-top:8px">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>
+  <div class="small muted">Waist at the navel, neck below the larynx, hips at the widest point, all relaxed and at the same time of day.${plan.sex==='f'?' Hips are part of the estimate for you.':plan.sex?' Hips are tracked but not used in the estimate for men.':' Add your height and sex in Setup to turn these into a body-fat estimate.'}${bf!=null?` Today: <b>${bf}%</b>.`:''}</div></details>`;
+}
 function checkinCard(date){
   if(date>todayStr()) return '';
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), open=openCI.has(date)||sc==null, pt=proteinTarget(date);
   const qs=CI_Q.map(q=>{
     if(q.grp) return `</div><div class="ci-grp"><h4>${q.grp}</h4>`;
     if(q.bw) return `<label class="q"><span>${q.q} <small>(${u()})</small></span>${numIn('checkin.bw',c.bw,latestBw(date)?n(latestBw(date)):'','class="num-in"')}</label>`;
+    if(q.kcal) return `<label class="q"><span>${q.q} <small>(kcal, optional)</small></span>${numIn('checkin.kcal',c.kcal,'','class="num-in"')}</label>`;
+    if(q.meas) return measRow(date);
     const hint=q.hint==='target'&&pt?` <small>(~${pt} g)</small>`:'';
     return `<div class="q"><span>${q.q}${hint}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${c[q.f]==v&&c[q.f]!==''&&c[q.f]!=null?' on':''}" data-act="ci" data-f="${q.f}" data-v="${v}" aria-pressed="${c[q.f]==v}">${l}</button>`).join('')}${q.num?numIn('checkin.sleepH',c.sleepH,'exact','class="num-in" style="max-width:84px" aria-label="Exact hours slept"'):''}</div></div>`;
   }).join('');
@@ -2311,6 +2380,37 @@ function bwCard(t){
   h+=`<div class="small muted">Weighed on ${logged} of the last ${days} day${days===1?'':'s'}. The faint line is each weigh-in; the solid one is the 7-day average, which is what the protein target, the weighted pull-up loads and the trend advice use.</div>`;
   return h+`</div>`;
 }
+// What you burn and what you are made of. The measured number comes from your own
+// intake and scale trend; the formula is only there until that exists.
+function energyCard(t){
+  const m28=tdeeMeasured(t,28), m14=tdeeMeasured(t,14), pred=tdeePredicted(t), meas=m28||m14;
+  const bf=bfSeries(t), last=bf[bf.length-1];
+  const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
+  if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="small muted" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
+  h+=`<div class="miles">`;
+  h+=`<div class="mile"><span class="l">Burn per day</span>${meas?`<span class="big">${n(meas.tdee)}</span><span class="small muted">from your own ${meas.days} days${pred?` · formula says ${n(pred)}`:''}</span>`:pred?`<span class="big">${n(pred)}</span><span class="small muted">Mifflin-St Jeor × ${actFactor()}</span>`:'<span class="small muted">Needs height, sex and birth year</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Eaten per day</span>${kc.length?`<span class="big">${n(Math.round(kc.reduce((a,b)=>a+b,0)/kc.length))}</span><span class="small muted">${kc.length} of the last 28 days logged</span>`:'<span class="small muted">Log calories in the check-in</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Body fat</span>${last?`<span class="big">${r1(last.bf)}<small style="font-size:14px;color:var(--muted);margin-left:2px">%</small></span><span class="small muted">${fmtD(last.d,true)}${bf.length>1?` · ${last.bf>bf[0].bf?'+':''}${r1(last.bf-bf[0].bf)} since ${fmtD(bf[0].d)}`:''}</span>`:'<span class="small muted">Needs neck and waist</span>'}</div></div>`;
+  if(meas){
+    const gap=meas.tdee-meas.mean;
+    const rt=meas.dw/meas.gap*7;
+    h+=`<div class="small">Over the last ${meas.days} days you ate <b class="mono">${n(meas.mean)}</b> a day and your weight trend ${Math.abs(rt)<.05?'held flat':`moved ${rt>0?'+':'−'}${r1(Math.abs(rt))} ${u()} a week`}, which puts your burn at about <b class="mono">${n(meas.tdee)}</b> — a ${gap>0?'deficit':'surplus'} of <b class="mono">${n(Math.abs(gap))}</b> a day.</div>`;
+    const goal=plan.goal, tgt=goal==='lose'?meas.tdee-Math.round(meas.tdee*.18/10)*10:goal==='gain'?meas.tdee+250:meas.tdee;
+    if(goal&&goal!=='maintain') h+=`<div class="small muted">Your goal is set to ${goal==='lose'?'lose fat':'build'}. About <b class="mono">${n(tgt)}</b> a day would ${goal==='lose'?'take off roughly 1% of bodyweight a month without wrecking the lifting':'add weight slowly enough to stay mostly lean'}. Protein target is on the Today card.</div>`;
+  } else if(pred){
+    h+=`<div class="small muted">That is the formula's guess from your height, weight, age and activity. Log calories for ${28} days alongside your weigh-ins and this switches to your own numbers, which are the only ones that count.</div>`;
+  }
+  if(bf.length>=2){
+    const w=bf.map(x=>({d:x.d,v:+x.m.waist}));
+    h+=`<div class="sm-grid" style="margin-top:12px">`;
+    h+=`<div class="sm"><div class="sm-h"><b>Body fat</b><span class="v">${r1(last.bf)}<small>%</small></span></div>${lineChart(bf.map(x=>({y:x.bf,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.bf)}%`})),{label:'Body fat estimate',minStep:.5})}</div>`;
+    h+=`<div class="sm"><div class="sm-h"><b>Waist</b><span class="v">${r1(w[w.length-1].v)}<small>${u()==='kg'?'cm':'in'}</small></span></div>${lineChart(w.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()==='kg'?'cm':'in'}`})),{label:'Waist',minStep:.5})}</div>`;
+    h+=`</div>`;
+  }
+  h+=`<div class="small muted">The body-fat estimate is the US Navy tape method: typically within 3–4 points, and more useful as a direction than a number. Measure at the same time of day, relaxed.</div>`;
+  return h+`</div>`;
+}
 function vStatus(){
   const t=todayStr(), wk=weekOf(t);
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
@@ -2392,6 +2492,7 @@ function vStatus(){
   h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=bwCard(t);
+  h+=energyCard(t);
   h+=prBoard();
   return h;
 }
@@ -2421,11 +2522,11 @@ function eachDateInPrograms(fn){
   } finally { plan=savedPlan; viewing=savedViewing; sel=savedSel; planV++; }
 }
 function sessionsCsv(){
-  const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','bodyweight_'+U,'hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'warmup_done','mobility_done','plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
+  const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','calories','bodyweight_'+U,'neck','waist','hip','bodyfat_pct','hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'warmup_done','mobility_done','plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), c=L.checkin||{}, H=L.hic||{}, P=L.plyo||{}, J=L.jumps||{};
     const hasHic=dp.t==='hic'||dp.t==='plyohic'||L.hic, f=hasHic?effFmt(d):null, mod=hasHic?modOf(d):null, met=f&&mod?metricFor(mod,f):null;
-    rows.push([d,prog,wk?weekTitle(wk).t:'',dp.short||'',L.done?'yes':'',L.rpe??'',readiness(c)??'',c.sleepH??'',c.sleepQ??'',c.energy??'',c.soreness??'',c.stress??'',c.protein??'',c.fuel??'',c.water??'',c.alcohol??'',c.bw??'',
+    rows.push([d,prog,wk?weekTitle(wk).t:'',dp.short||'',L.done?'yes':'',L.rpe??'',readiness(c)??'',c.sleepH??'',c.sleepQ??'',c.energy??'',c.soreness??'',c.stress??'',c.protein??'',c.fuel??'',c.water??'',c.alcohol??'',c.kcal??'',c.bw??'',(L.meas||{}).neck??'',(L.meas||{}).waist??'',(L.meas||{}).hip??'',(L.meas&&navyBf(L.meas,d))??'',
       f?HIC[f].name:'',mod?(mod==='other'&&H.what?H.what:MOD[mod].name):'',met?(H[met[0]]??''):'',met&&H[met[0]]!=null?met[1]:'',H.min??'',H.rounds??'',H.load??'',
       (L.warmup||[]).filter(Boolean).length||'',(L.mobility||[]).filter(Boolean).length||'',
       dp.t==='plyohic'&&wk?plyoPhase(wk).name:'',P.contacts??'',P.mark??'',P.best??'',J.broad??'',J.vertical??'',J.triple??'',L.pullups??'',L.notes??'']);
@@ -2719,7 +2820,13 @@ function vSetup(){
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
-  h+=`<div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
+  h+=`<div class="card"><h2>About you</h2><p class="small muted" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
+  <div class="grid4"><label class="f">Sex<select id="p-sex" data-pbind="sex"><option value=""${!plan.sex?' selected':''}>—</option><option value="m"${plan.sex==='m'?' selected':''}>Male</option><option value="f"${plan.sex==='f'?' selected':''}>Female</option></select></label>
+  <label class="f">Height (${u()==='kg'?'cm':'in'})${pIn('height',plan.height)}</label>
+  <label class="f">Birth year${pIn('birthYear',plan.birthYear)}</label>
+  <label class="f">Daily activity<select id="p-act" data-pbind="activity">${ACT.map(([v,l])=>`<option value="${v}"${actFactor()===v?' selected':''}>${esc(l)}</option>`).join('')}</select></label></div>
+  <div class="small muted">The formulas: Mifflin-St Jeor for the predicted burn, the US Navy circumference method for body fat. Both are estimates — once you have logged calories and weigh-ins for a few weeks, Status uses your own numbers instead.</div></div>
+  <div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
   h+=`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p><div class="tbl-wrap"><table><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${plan.wave.map((v,i)=>`<tr><td><b>${i+1}</b></td><td class="n">${pIn('wave.'+i+'.s',v.s)}</td><td class="n">${pIn('wave.'+i+'.r',v.r)}</td><td class="n">${pIn('wave.'+i+'.p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`).join('')}</tbody></table></div></div>`;
   h+=`<div class="card"><h2>Cycles, deloads and retests</h2>
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Added to the max each new cycle</div><div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}${pIn('inc.'+k,plan.inc[k])}</label>`).join('')}</div></div>

@@ -512,3 +512,83 @@ test("bodyweight charts every weigh-in and the average it feeds", () => {
   a.match(x.bwCard("2026-11-30"), new RegExp(">" + (want > 0 ? "\\+" : "") + x.r1(want) + "<"));
   a.match(x.bwCard("2026-11-30"), /first 7 vs last 7/);
 });
+
+test("measured TDEE is energy balance, not a formula", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+
+  // 28 days: ate exactly 2500, lost exactly 2 lb of trend weight.
+  // 2 lb over 27 days = 7000 kcal = 259/day, so the burn is 2500 + 259.
+  const start = x.addDays("2026-11-30", -27);
+  for (let i = 0; i <= 27; i++) {
+    const d = x.addDays(start, i);
+    const bw = 200 - (2 * i) / 27;
+    // calories for day d are logged on the check-in the next morning
+    x.seed({ [d]: { date: d, checkin: { bw: Math.round(bw * 100) / 100, kcal: 2500 } } });
+  }
+  x.bump();
+  const m = x.tdeeMeasured("2026-11-30", 28);
+  a.ok(m, "28 days of both is enough");
+  a.equal(m.mean, 2500);
+  // the end groups are centred 21 days apart, so they differ by 21/27 of the 2 lb
+  a.equal(m.gap, 21);
+  a.ok(Math.abs(m.dw + 2 * 21 / 27) < 0.05, `end groups differ by ${m.dw}`);
+  a.ok(Math.abs(m.tdee - 2759) < 40, `burn ${m.tdee} should be about 2759`);
+
+  // Eating at maintenance: burn equals intake.
+  for (let i = 0; i <= 27; i++) {
+    const d = x.addDays(start, i);
+    x.seed({ [d]: { date: d, checkin: { bw: 200, kcal: 2800 } } });
+  }
+  x.bump();
+  a.equal(x.tdeeMeasured("2026-11-30", 28).tdee, 2800, "flat weight means you ate your burn");
+
+  // It refuses to guess when the data is thin.
+  for (let i = 0; i <= 27; i++) {
+    const d = x.addDays(start, i);
+    x.seed({ [d]: { date: d, checkin: { bw: 200, kcal: i < 10 ? 2800 : null } } });
+  }
+  x.bump();
+  a.equal(x.tdeeMeasured("2026-11-30", 28), null, "not enough days with calories");
+});
+
+test("Mifflin-St Jeor and the Navy tape method match their published formulas", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.bump();
+  x.seed({ "2026-11-30": { date: "2026-11-30", checkin: { bw: 200 } } });
+  Object.assign(x.plan, { sex: "m", height: 70, birthYear: 1983, activity: 1.55 });
+  x.bump();
+
+  // 200 lb = 90.72 kg, 70 in = 177.8 cm, age 43 in 2026
+  // 10(90.72) + 6.25(177.8) - 5(43) + 5 = 907.2 + 1111.25 - 215 + 5 = 1808
+  a.equal(x.bmr("2026-11-30"), 1808);
+  a.equal(x.tdeePredicted("2026-11-30"), Math.round(1808 * 1.55));
+  a.equal(x.ageNow(), 43);
+
+  // Navy, men: 86.010*log10(waist-neck) - 70.041*log10(height) + 36.76
+  const m = { neck: 15.5, waist: 34, hip: 40 };
+  const want = 86.010 * Math.log10(34 - 15.5) - 70.041 * Math.log10(70) + 36.76;
+  a.equal(x.navyBf(m, "2026-11-30"), Math.round(want * 10) / 10);
+  a.ok(x.navyBf(m, "2026-11-30") > 14 && x.navyBf(m, "2026-11-30") < 20, "a plausible number");
+
+  // Women use the hips, and without them it declines to answer.
+  x.plan.sex = "f"; x.bump();
+  const wantF = 163.205 * Math.log10(34 + 40 - 15.5) - 97.684 * Math.log10(70) - 78.387;
+  a.equal(x.navyBf(m, "2026-11-30"), Math.round(wantF * 10) / 10);
+  a.equal(x.navyBf({ neck: 15.5, waist: 34 }, "2026-11-30"), null);
+
+  // Missing profile data means no estimate rather than a wrong one.
+  x.plan.sex = "m"; x.plan.height = null; x.bump();
+  a.equal(x.navyBf(m, "2026-11-30"), null);
+  a.equal(x.bmr("2026-11-30"), null);
+  a.equal(x.navyBf({ neck: 16, waist: 15 }, "2026-11-30"), null, "waist under neck is not a body fat of zero");
+});
+
+test("calories belong to the day they were eaten, not the day they were logged", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.bump();
+  x.seed({ "2026-11-30": { date: "2026-11-30", checkin: { kcal: 2200 } } });
+  x.bump();
+  a.equal(x.kcalOn("2026-11-29"), 2200, "logged on the 30th, eaten on the 29th");
+  a.equal(x.kcalOn("2026-11-30"), null, "today's intake is not known until tomorrow");
+});

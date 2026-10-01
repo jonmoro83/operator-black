@@ -90,6 +90,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Calories, TDEE and body fat (2026-10-01)**
+- Calories per day in the check-in (`checkin.kcal`), asked the morning after, so
+  `kcalOn(d)` reads day d+1's answer: intake belongs to the day it was eaten.
+- `tdeeMeasured(date,days)` is energy balance, not a formula: mean intake over the window
+  minus the trend-weight change × 3500/lb (7700/kg) over the real gap between the two
+  ends. Both ends average their own 7 days, so the window needs no history before it, and
+  the divisor is the gap between the two groups' *mean dates* — not the window length,
+  which would overstate the burn by a third. Needs calories on 60% of the days and two
+  weigh-ins at each end, or it returns null rather than guessing.
+- `bmr()`/`tdeePredicted()` are Mifflin-St Jeor × an activity factor, shown until there
+  is enough data for the measured number, and alongside it after. New `plan.sex`,
+  `plan.height`, `plan.birthYear`, `plan.activity` in Setup → About you.
+- `navyBf()` is the US Navy circumference method from `logs[d].meas` (neck, waist, hip),
+  entered weekly in the check-in. Men use waist − neck, women add the hips; hips are
+  still tracked for men because the trend is worth having. Returns null rather than a
+  number when the profile is incomplete or the measurements are impossible.
+- Why measured over predicted: Mifflin is a population average and was out by ~300 kcal
+  against the test data. The adaptive number is the one the card leads with.
+
 **Bodyweight card (2026-10-01)**
 - Its own card on Status, replacing the small chart that lived in Body and recovery:
   every weigh-in as a faint second series behind the 7-day average, a 30 / 90 / all range
