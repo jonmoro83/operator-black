@@ -231,8 +231,11 @@ Decided against for now.
   status text and the avatar at phone widths, so `#status` is hidden below 520px and a
   coloured dot on the avatar carries the state, with the words inside the menu. The
   wordmark steps down at 400/360/340px so the button always fits.
-- Watch for: those breakpoints have to sit after the base `.brand h1` rule in `app.css`,
-  since they have the same specificity and lose on source order otherwise.
+- Two gotchas this hit. The `data-act` click handler is bound to `#main`, so static markup
+  in the header that carries `data-act` looks wired and does nothing — the menu items use
+  `data-view` and the shell's own listener instead, and a test now fails on any `data-act`
+  inside `<header>`. And those breakpoints have to sit after the base `.brand h1` rule in
+  `app.css`: same specificity, so source order decides.
 
 **The plyo phase label (2026-09-30)**
 - The day header carried `Plyo: <phase>` on every day of a cycle week. The wave

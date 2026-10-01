@@ -1,6 +1,8 @@
 const { test } = require("node:test");
 const a = require("node:assert");
 const { loadApp } = require("./harness.js");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const maxes = { squat: 300, bench: 200, pull: 180, ohp: 135, dead: 400 };
 function app(o) { const x = loadApp(o); Object.assign(x.plan.maxes, maxes); x.bump(); return x }
@@ -350,4 +352,18 @@ test("signing out is reachable from the header and from Setup", () => {
   a.match(setup, /href="\/cdn-cgi\/access\/logout"/, "Cloudflare Access drops the session");
   a.match(setup, /jon\.morozowski@gmail\.com/);
   a.ok(setup.indexOf("Account") < setup.indexOf("Maxes"), "the account card is first");
+});
+
+test("nothing outside #main relies on the data-act delegation", () => {
+  // The click handler for data-act is bound to #main. Static markup in the header that
+  // carries data-act looks wired and does nothing, which is how the account menu shipped
+  // with two dead items.
+  const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
+  const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  a.deepEqual(header.match(/data-act="[^"]*"/g) || [], [], "header uses its own listeners");
+
+  // The account menu's items are routed by data-view instead.
+  a.match(header, /data-view="setup"[^>]*role="menuitem"/);
+  a.match(header, /data-view="releases"[^>]*role="menuitem"/);
+  a.match(header, /id="acct-out"[^>]*href="\/cdn-cgi\/access\/logout"/);
 });

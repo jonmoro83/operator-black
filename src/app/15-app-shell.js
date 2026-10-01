@@ -114,7 +114,13 @@ function acctOpen(on){
   if(on) acctPaint();
 }
 acctB.addEventListener('click',e=>{ e.stopPropagation(); acctOpen(acctM.hidden) });
-acctM.addEventListener('click',e=>{ if(e.target.closest('[role="menuitem"]')) acctOpen(false) });
+// The menu sits in the header, outside #main, so its items cannot use the data-act
+// delegation: they carry data-view and are routed here.
+acctM.addEventListener('click',e=>{
+  const it=e.target.closest('[role="menuitem"]'); if(!it) return;
+  acctOpen(false);
+  if(it.dataset.view) goView(it.dataset.view);
+});
 document.addEventListener('click',e=>{ if(!acctM.hidden&&!e.target.closest('#acct-m,#acct')) acctOpen(false) });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!acctM.hidden){acctOpen(false);acctB.focus()} });
 acctPaint();
