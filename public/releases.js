@@ -4,6 +4,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.25',date:'2026-10-02',title:'Fix the squashed banners',items:[
+    'The blue Bridge week notice, and every other info banner, was being crushed into a 22-pixel circle with its text spilling behind the cards \u2014 the style for the new movement info button shared a name with the banner\u2019s own. Both are back to normal.']},
   {v:'1.24',date:'2026-10-02',title:'Make the info button work',items:[
     'The little info marker next to each warm-up and mobility movement did nothing when tapped in 1.23. It is a proper button now, and tapping it opens the movement underneath the row \u2014 and leaves the tick box alone, which the old one did not.']},
   {v:'1.23',date:'2026-10-02',title:'The warm-up explains itself',items:[

@@ -131,6 +131,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Banner/button class collision (2026-10-02)**
+- Reported with a screenshot: the bridge-week banner rendered as a tiny blue column with
+  its text leaking out around the cards. 1.24's movement button was styled `.info`, and
+  `.banner.info` is an existing modifier — so the bare rule (22px, round, no wrap) hit
+  every info banner in the app. Renamed `.libinfo`.
+- A test now fails on a bare rule in `app.css` for any of the modifier names the markup
+  composes with (`info`, `warn`, `alert`, `light`, `heavy`, `mid`). Those words are
+  adjectives in this codebase, never components.
+
 **The library button, properly (2026-10-02)**
 - 1.23 shipped the ℹ as a `::after` on the row's `<label for>` inside a `<summary>`.
   Tapping it ticked the checkbox, which fired `change` → `render()`, which rebuilt the

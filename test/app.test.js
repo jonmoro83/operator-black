@@ -1203,7 +1203,7 @@ test("every warm-up and mobility movement has an entry, and the Guide lists them
   const open = x.checkRow("warmup.8", false, "Couch stretch", "45–60 sec per side");
   a.match(open, /The pelvic tuck is the whole exercise/);
   a.match(open, /aria-expanded="true"/);
-  a.match(open, /class="info on"/);
+  a.match(open, /class="libinfo on"/);
 
   // Ticking the box must not depend on the panel, and vice versa.
   const ticked = x.checkRow("warmup.8", true, "Couch stretch", "45–60 sec per side");
@@ -1215,4 +1215,18 @@ test("every warm-up and mobility movement has an entry, and the Guide lists them
   a.match(custom, /^<div class="crow">/);
   a.ok(!/data-act="mlib"/.test(custom));
   a.match(custom, /checked/);
+});
+
+test("new component classes do not collide with the banner modifiers", () => {
+  const x = app({});
+  const css = fs.readFileSync(path.join(__dirname, "..", "public", "app.css"), "utf8");
+  // .banner.info / .warn / .alert are modifiers: a bare rule for one of those names hits
+  // every banner on the page. This is how the bridge-week banner became a 22px circle.
+  for (const m of ["info", "warn", "alert", "light", "heavy", "mid"]) {
+    const bare = new RegExp(`(^|[^.\\\\w-])\\\\.${m}\\\\s*[,{]`, "m");
+    a.ok(!bare.test(css), `app.css has a bare .${m} rule, which every banner.${m} inherits`);
+  }
+  // and the movement button uses its own name
+  x.openPx.clear();
+  a.match(x.checkRow("warmup.8", false, "Couch stretch", "45 sec"), /class="libinfo"/);
 });
