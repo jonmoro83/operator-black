@@ -17,6 +17,7 @@ const CI_Q=[
   {f:'bw',q:'Bodyweight this morning',bw:true}
 ];
 const openCI=new Set();
+const cvErr={};              // per-lift error from the add-a-variant form
 function ci(date){return (lg(date).checkin)||{}}
 // Calories are asked for the morning after, so what you ate on day d is logged on d+1.
 function kcalOn(d){const v=ci(addDays(d,1)).kcal;return v==null||v===''?null:+v}

@@ -4,6 +4,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.17',date:'2026-10-01',title:'Define your own lift variants',items:[
+    'The generic Back squat has gone from the squat list. If you are back squatting it is high bar, low bar or a safety squat bar, so those are the choices \u2014 high bar is the reference the others are measured against, and the safety squat bar has joined at about 90% of it.',
+    'Setup \u2192 Lift variants will take your own, for either lift: a name and what share of the reference lift it carries. Pin squats, tempo work, a bar the list has never heard of. They appear everywhere the built-in ones do \u2014 the cycle picker, the one-session swap on Today, the export \u2014 and work the same way.',
+    'Not sure what percentage to give it? Use what you can actually lift on it against what you lift on the reference. The app says so on the form.']},
   {v:'1.16',date:'2026-10-01',title:'The lift you pick is the lift',items:[
     'Picking trap bar deadlifts now means trap bar deadlifts everywhere \u2014 the 5RM day, every lifting day, the session screen and the export \u2014 and the max you enter is read as that lift\u2019s max, used as it stands. Before, it quietly treated your number as a conventional max and scaled off it, which is not what you asked for.',
     'The choice is per cycle, because that is how Tactical Barbell works: you pick your cluster lifts for a block and run them for the block. Setup \u2192 Lift variants sets this cycle and what later cycles start on, separately.',

@@ -186,9 +186,9 @@ const PLIB={
 // derived from, the one retests measure, and what you get if you never touch this.
 const VARS={
   squat:{
-    back:{name:'Back squat',short:'Back',r:1,note:'The reference. Everything else here is expressed against it.'},
-    high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. Carries the same max as a generic back squat for most people.'},
+    high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},
     low:{name:'Low-bar back squat',short:'Low bar',r:1.03,note:'Bar on the rear delts, more hip and more forward lean. Usually a few percent heavier than high bar.'},
+    ssb:{name:'Safety squat bar squat',short:'SSB',r:.9,note:'Cambered bar, handles in front. The weight sits forward and wants to fold you, so the upper back works hard. Usually about 10% under a straight-bar squat, but the gap is personal.'},
     front:{name:'Front squat',short:'Front',r:.85,note:'Rack position, vertical torso, quads and upper back. About 85% of a back squat, and the upper back usually gives out first.'},
     box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
     pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
@@ -204,7 +204,18 @@ const VARS={
     block:{name:'Block or rack pull',short:'Blocks',r:1.1,note:'Bar raised to just below the knee. Shorter pull, heavier weight, and easy to overload — keep it honest.'}
   }
 };
-function varList(k){return VARS[k]||null}
+// The variants you can pick from: the built-in list plus anything you have defined
+// yourself in Setup. A custom variant is just a name and a share of the reference lift's
+// max, which is all the program needs to prescribe it.
+function varsOf(k){
+  if(!VARS[k]) return null;
+  const out=Object.assign({},VARS[k]);
+  for(const c of ((plan.customVar||{})[k]||[])){
+    if(!c||!c.id||!c.name||!(+c.r>0)) continue;
+    out[c.id]={name:c.name,short:c.short||c.name,r:+c.r,note:c.note||('Your own variant, at '+Math.round(+c.r*100)+'% of the '+VARS[k][varRef(k)].name.toLowerCase()+'.'),custom:true};
+  }
+  return out;
+}
 function varRef(k){return VARS[k]?Object.keys(VARS[k])[0]:null}
 // The 12–15 min warm-up as a checklist. `s` marks the 7-minute short version.
 const WARMUP=[

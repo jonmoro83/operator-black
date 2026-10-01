@@ -110,7 +110,9 @@ and tapping it goes to the login page.
 
 ## Lift variants
 
-`VARS` holds the squats and deadlifts the squat and deadlift slots can be run as. Barbell
+`VARS` holds the squats and deadlifts the squat and deadlift slots can be run as, and
+`varsOf(k)` merges in anything defined in `plan.customVar[k]` (a name and a share of the
+reference lift's max), so look lifts up through it rather than `VARS` directly. Barbell
 movements only: anything whose limit is the hold, or that has no lockout to test, has no
 1RM for percentages to mean anything against, and belongs in the accessory or travel-week
 lists instead. The

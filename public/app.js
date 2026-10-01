@@ -188,9 +188,9 @@ const PLIB={
 // derived from, the one retests measure, and what you get if you never touch this.
 const VARS={
   squat:{
-    back:{name:'Back squat',short:'Back',r:1,note:'The reference. Everything else here is expressed against it.'},
-    high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. Carries the same max as a generic back squat for most people.'},
+    high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},
     low:{name:'Low-bar back squat',short:'Low bar',r:1.03,note:'Bar on the rear delts, more hip and more forward lean. Usually a few percent heavier than high bar.'},
+    ssb:{name:'Safety squat bar squat',short:'SSB',r:.9,note:'Cambered bar, handles in front. The weight sits forward and wants to fold you, so the upper back works hard. Usually about 10% under a straight-bar squat, but the gap is personal.'},
     front:{name:'Front squat',short:'Front',r:.85,note:'Rack position, vertical torso, quads and upper back. About 85% of a back squat, and the upper back usually gives out first.'},
     box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
     pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
@@ -206,7 +206,18 @@ const VARS={
     block:{name:'Block or rack pull',short:'Blocks',r:1.1,note:'Bar raised to just below the knee. Shorter pull, heavier weight, and easy to overload — keep it honest.'}
   }
 };
-function varList(k){return VARS[k]||null}
+// The variants you can pick from: the built-in list plus anything you have defined
+// yourself in Setup. A custom variant is just a name and a share of the reference lift's
+// max, which is all the program needs to prescribe it.
+function varsOf(k){
+  if(!VARS[k]) return null;
+  const out=Object.assign({},VARS[k]);
+  for(const c of ((plan.customVar||{})[k]||[])){
+    if(!c||!c.id||!c.name||!(+c.r>0)) continue;
+    out[c.id]={name:c.name,short:c.short||c.name,r:+c.r,note:c.note||('Your own variant, at '+Math.round(+c.r*100)+'% of the '+VARS[k][varRef(k)].name.toLowerCase()+'.'),custom:true};
+  }
+  return out;
+}
 function varRef(k){return VARS[k]?Object.keys(VARS[k])[0]:null}
 // The 12–15 min warm-up as a checklist. `s` marks the 7-minute short version.
 const WARMUP=[
@@ -359,7 +370,7 @@ function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(c
 function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k,date){
-  if(VARS[k]) return VARS[k][varOf(k,date)].name;
+  if(VARS[k]) return varsOf(k)[varOf(k,date)].name;
   return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
 }
 // Which variant of a lift a session uses. Two different things:
@@ -378,23 +389,23 @@ function varOf(k,date){
   const d=date||sel, wk=d?weekOf(d):null, bv=blockVar(k,d);
   if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return bv;
   const o=((logs[d]||{}).var||{})[k];
-  return VARS[k][o]?o:bv;
+  return varsOf(k)[o]?o:bv;
 }
 function blockVar(k,date){
   if(!VARS[k]) return null;
   const d=date||sel, wk=d?weekOf(d):null;
   const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
   const cv=((plan.cycleVar||{})[c]||{})[k];
-  return VARS[k][cv]?cv:varDefault(k);
+  return varsOf(k)[cv]?cv:varDefault(k);
 }
-function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&VARS[k][v]?v:varRef(k)}
+function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&varsOf(k)[v]?v:varRef(k)}
 // The max to work from. The block lift uses the max you stored, as it stands: that number
 // is this lift's max. A one-off is scaled from it by the two variants' ratios.
 function varMax(k,c,date){
   const base=maxFor(c)[k]; if(!base) return null;
   const bv=blockVar(k,date), v=varOf(k,date);
   if(v===bv) return {v:base.v,src:base.src,vr:v,bv};
-  const r=VARS[k][v].r/VARS[k][bv].r;
+  const V=varsOf(k), r=V[v].r/V[bv].r;
   return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
@@ -1037,15 +1048,15 @@ function liftCard(wk,k,dp){
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
   if(VARS[k]&&!viewing){
-    const v=r.vr, cur=VARS[k][v];
-    h+=`<label class="restsel"><span>This session</span><select class="varsel" data-act-var="${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
+    const V=varsOf(k), v=r.vr, cur=V[v];
+    h+=`<label class="restsel"><span>This session</span><select class="varsel" data-act-var="${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
     if(v!==varRef(k)) h+=`<div class="small muted">${esc(cur.note)}</div>`;
   }
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.src==='ratio'?Math.round(r.m.v):r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
-    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted"><b>Swapped for this session.</b> This cycle is built on the ${esc(VARS[k][r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(VARS[k][r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
+    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted"><b>Swapped for this session.</b> This cycle is built on the ${esc(varsOf(k)[r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(varsOf(k)[r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
     if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
@@ -1093,6 +1104,7 @@ const CI_Q=[
   {f:'bw',q:'Bodyweight this morning',bw:true}
 ];
 const openCI=new Set();
+const cvErr={};              // per-lift error from the add-a-variant form
 function ci(date){return (lg(date).checkin)||{}}
 // Calories are asked for the morning after, so what you ate on day d is logged on d+1.
 function kcalOn(d){const v=ci(addDays(d,1)).kcal;return v==null||v===''?null:+v}
@@ -2958,12 +2970,18 @@ function vSetup(){
     const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
     h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
     for(const k of ['squat','dead']){
-      const bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
+      const V=varsOf(k), bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
       h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(k==='squat'?'Squat':'Deadlift')}</div>
-      <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
-      <label class="f">Later cycles<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===def?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
-      <div class="small muted">${esc(VARS[k][bv].note)}</div>`;
-      if(m) h+=`<div class="small muted">Your ${n(m.v)} ${u()} max is read as a <b>${esc(VARS[k][bv].name.toLowerCase())}</b> max.${bv!==varRef(k)?` If that number came from a ${esc(VARS[k][varRef(k)].name.toLowerCase())}, the usual equivalent is about <b class="mono">${n(rnd(m.v*VARS[k][bv].r,plan.round[k]))}</b> \u2014 change it in Maxes if so.`:''}</div>`;
+      <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
+      <label class="f">Later cycles<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===def?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+      <div class="small muted">${esc(V[bv].note)}</div>`;
+      if(m) h+=`<div class="small muted">Your ${n(m.v)} ${u()} max is read as a <b>${esc(V[bv].name.toLowerCase())}</b> max.${bv!==varRef(k)?` If that number came from a ${esc(V[varRef(k)].name.toLowerCase())}, the usual equivalent is about <b class="mono">${n(rnd(m.v*V[bv].r,plan.round[k]))}</b> \u2014 change it in Maxes if so.`:''}</div>`;
+      const mine=((plan.customVar||{})[k])||[];
+      h+=`<details class="plain"><summary>Your own variants <small class="muted">\u00b7 ${mine.length||'none'}</small></summary>
+      <p class="small muted" style="margin:8px 0 0">Anything the list is missing: a bar, a tempo, a stance. Give it a name and what share of your ${esc(V[varRef(k)].name.toLowerCase())} it carries \u2014 that is all the program needs to work out the weight. Not sure? Use what you can actually lift on it against what you lift on the ${esc(V[varRef(k)].short.toLowerCase())}.</p>
+      ${mine.length?`<div class="stack" style="gap:6px;margin-top:8px">${mine.map((c,i)=>`<div class="row between"><span>${esc(c.name)} <span class="small muted mono">${Math.round(+c.r*100)}%</span>${bv===c.id||def===c.id?' <span class="chip">in use</span>':''}</span><button class="btn sm ghost" data-act="vardel" data-k="${k}" data-i="${i}">Remove</button></div>`).join('')}</div>`:''}
+      <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" id="cv-name-${k}" placeholder="e.g. Pin squat"></label><label class="f">% of ${esc(V[varRef(k)].short)}<input type="number" inputmode="decimal" id="cv-pct-${k}" placeholder="85"></label><div style="display:flex;align-items:flex-end"><button class="btn" data-act="varadd" data-k="${k}">Add</button></div></div>
+      ${cvErr[k]?`<div class="small" style="color:var(--red)">${esc(cvErr[k])}</div>`:''}</details>`;
       h+=`</div>`;
     }
     h+=`<div class="small muted" style="margin-top:14px">Changing the lift mid-cycle is a deviation from the template: the wave builds to heavy weeks on a max you set for a particular lift. For one session \u2014 a taken rack, a sore back \u2014 swap it on the lift\u2019s card on Today instead, and the weight is scaled for you.</div></div>`;
@@ -3150,6 +3168,31 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
+  if(a==='varadd'){
+    const k=b.dataset.k, nm=(document.getElementById('cv-name-'+k)||{}).value, pct=+(document.getElementById('cv-pct-'+k)||{}).value;
+    const name=(nm||'').trim();
+    cvErr[k]=!name?'Give it a name.':!(pct>=25&&pct<=150)?'The percentage should be between 25 and 150.':
+      Object.values(varsOf(k)).some(x=>x.name.toLowerCase()===name.toLowerCase())?'There is already a variant with that name.':'';
+    if(!cvErr[k]){
+      const id='c'+Date.now().toString(36);
+      mutatePlan(p=>{p.customVar=Object.assign({},p.customVar||{});p.customVar[k]=[...(p.customVar[k]||[]),{id,name,short:name.length>12?name.slice(0,11)+'\u2026':name,r:pct/100}]});
+      const el=document.getElementById('cv-name-'+k); if(el) el.value='';
+      const el2=document.getElementById('cv-pct-'+k); if(el2) el2.value='';
+    }
+    render(); return;
+  }
+  if(a==='vardel'){
+    const k=b.dataset.k, i=+b.dataset.i, gone=(((plan.customVar||{})[k])||[])[i];
+    if(!gone) return;
+    offerUndo('Removed '+gone.name,snapPlan());
+    mutatePlan(p=>{
+      p.customVar=Object.assign({},p.customVar||{});
+      p.customVar[k]=(p.customVar[k]||[]).filter((_,j)=>j!==i);
+      if((p.liftVar||{})[k]===gone.id) p.liftVar=Object.assign({},p.liftVar,{[k]:null});
+      for(const c of Object.keys(p.cycleVar||{})) if((p.cycleVar[c]||{})[k]===gone.id) p.cycleVar[c]=Object.assign({},p.cycleVar[c],{[k]:null});
+    });
+    return;
+  }
   if(a==='varswap'){const k=b.dataset.k,v=b.dataset.v;if(v===varOf(k,sel))return;const cur=(lg(sel).var)||{};setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v}));openWarm.clear();render();return}
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}

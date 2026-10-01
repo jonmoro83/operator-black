@@ -22,7 +22,7 @@ function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(c
 function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k,date){
-  if(VARS[k]) return VARS[k][varOf(k,date)].name;
+  if(VARS[k]) return varsOf(k)[varOf(k,date)].name;
   return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
 }
 // Which variant of a lift a session uses. Two different things:
@@ -41,23 +41,23 @@ function varOf(k,date){
   const d=date||sel, wk=d?weekOf(d):null, bv=blockVar(k,d);
   if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return bv;
   const o=((logs[d]||{}).var||{})[k];
-  return VARS[k][o]?o:bv;
+  return varsOf(k)[o]?o:bv;
 }
 function blockVar(k,date){
   if(!VARS[k]) return null;
   const d=date||sel, wk=d?weekOf(d):null;
   const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
   const cv=((plan.cycleVar||{})[c]||{})[k];
-  return VARS[k][cv]?cv:varDefault(k);
+  return varsOf(k)[cv]?cv:varDefault(k);
 }
-function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&VARS[k][v]?v:varRef(k)}
+function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&varsOf(k)[v]?v:varRef(k)}
 // The max to work from. The block lift uses the max you stored, as it stands: that number
 // is this lift's max. A one-off is scaled from it by the two variants' ratios.
 function varMax(k,c,date){
   const base=maxFor(c)[k]; if(!base) return null;
   const bv=blockVar(k,date), v=varOf(k,date);
   if(v===bv) return {v:base.v,src:base.src,vr:v,bv};
-  const r=VARS[k][v].r/VARS[k][bv].r;
+  const V=varsOf(k), r=V[v].r/V[bv].r;
   return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}

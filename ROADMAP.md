@@ -90,6 +90,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Custom lift variants, and no generic back squat (2026-10-01)**
+- `back` (r 1) sat alongside `high` (r 1) and `low` (r 1.03), which is a distinction
+  without a difference: a back squat is high bar, low bar or a safety squat bar. `high` is
+  the reference now and `ssb` (.9) joins the list. A stored `liftVar` of `'back'` falls
+  back to the reference, which is the same number it was using.
+- `varsOf(k)` merges `plan.customVar[k]` (`{id,name,short,r}`) over the built-in list, and
+  every lookup by id goes through it — `liftName`, `varOf`, `blockVar`, `varDefault`,
+  `varMax`, the Setup selects, the Today picker. Entries without a name or a positive
+  ratio are dropped rather than prescribed.
+- Add and remove in Setup; removing one that a cycle or the default points at clears
+  those too, with an undo. Validation rejects a blank name, a duplicate name and anything
+  outside 25–150%.
+- A custom variant needs no other machinery: a name and a share of the reference max is
+  all the prescription ever used.
+
 **Variants: block lift vs one-off (2026-10-01)**
 - 1.13 had this backwards. It treated `maxes[k]` as the *reference* lift's max always, and
   derived every variant from it by ratio — so choosing trap bar gave you a trap bar

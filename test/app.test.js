@@ -725,7 +725,7 @@ test("the lift you pick is the lift, and your max is that lift's max", () => {
   x.sel = mon;
 
   // Untouched: the reference lift.
-  a.equal(x.varOf("squat", mon), "back");
+  a.equal(x.varOf("squat", mon), "high");
   a.equal(x.rx(wk, "squat", mon).m.v, 300);
 
   // Pick front squats and the 300 is read as a front squat max -- no conversion, because
@@ -755,7 +755,7 @@ test("a one-off swap is scaled off the block lift, and only for that session", (
   x.sel = mon;
 
   // One session on the back squat: 300 front squat max is about 300 / 0.85 back squat.
-  x.seed({ [mon]: { date: mon, var: { squat: "back" } } }); x.bump();
+  x.seed({ [mon]: { date: mon, var: { squat: "high" } } }); x.bump();
   const one = x.rx(wk, "squat", mon);
   a.equal(one.m.src, "ratio");
   a.equal(one.m.bv, "front", "scaled from the block lift, not from the reference");
@@ -773,12 +773,12 @@ test("a one-off swap is scaled off the block lift, and only for that session", (
 test("a cycle can run a different lift from the one set for later cycles", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
-  x.plan.liftVar = { squat: "back" };
+  x.plan.liftVar = { squat: "high" };
   x.plan.cycleVar = { 2: { squat: "front" } };             // cycle 2 only
   x.bump();
   const c1 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1);
   const c2 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 2);
-  a.equal(x.blockVar("squat", c1.monday), "back");
+  a.equal(x.blockVar("squat", c1.monday), "high");
   a.equal(x.blockVar("squat", c2.monday), "front");
   a.equal(x.liftName("squat", c2.monday), "Front squat");
   // and each uses that cycle's max as it stands
@@ -825,7 +825,7 @@ test("the CSV keeps its columns lined up when variants are in play", () => {
   a.equal(work[head.indexOf("lift")], "Front squat");
 
   const test = rows.find((r) => r[head.indexOf("kind")] === "5RM test");
-  a.equal(test[vi], "back", "the bridge-week test is the reference lift, whatever you run day to day");
+  a.equal(test[vi], "high", "the bridge-week test is the block lift, whatever you swapped day to day");
 });
 
 test("a variant that no longer exists falls back instead of breaking", () => {
@@ -854,9 +854,48 @@ test("a derived max is not printed to two decimal places", () => {
   x.plan.liftVar = { squat: "front" }; x.bump();
   const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1), mon = wk.monday;
   x.sel = mon;
-  x.seed({ [mon]: { date: mon, var: { squat: "back" } } }); x.bump();
+  x.seed({ [mon]: { date: mon, var: { squat: "high" } } }); x.bump();
   const card = x.liftCard(wk, "squat", x.dayPlan(mon));
   a.ok(!/Max \d+\.\d\d/.test(card), "no 352.94 in the header");
   a.match(card, /Max 353/);
   a.ok(Math.abs(x.rx(wk, "squat", mon).m.v - 300 / 0.85) < 1e-9, "the maths keeps full precision");
+});
+
+test("you can define a lift variant the list does not have", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.equal(x.VARS.squat.back, undefined, "no generic back squat alongside high and low bar");
+  a.equal(x.varRef("squat"), "high", "high bar is the reference");
+  a.ok(x.VARS.squat.ssb, "and the safety squat bar is in the list");
+
+  // A custom variant behaves like any other.
+  x.plan.customVar = { squat: [{ id: "cpin", name: "Pin squat", short: "Pin", r: 0.8 }] };
+  x.plan.liftVar = { squat: "cpin" }; x.bump();
+  const V = x.varsOf("squat");
+  a.ok(V.cpin, "it joins the list");
+  a.equal(V.cpin.custom, true);
+  a.match(V.cpin.note, /80% of the high-bar back squat/, "it explains itself");
+
+  const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1), mon = wk.monday;
+  x.sel = mon;
+  a.equal(x.blockVar("squat", mon), "cpin");
+  a.equal(x.liftName("squat", mon), "Pin squat");
+  a.equal(x.rx(wk, "squat", mon).m.v, 300, "as the block lift, your max is its max");
+
+  // Swapped for one session against a custom block lift: scaled both ways.
+  x.seed({ [mon]: { date: mon, var: { squat: "front" } } }); x.bump();
+  const one = x.rx(wk, "squat", mon);
+  a.equal(one.m.src, "ratio");
+  a.ok(Math.abs(one.m.v - 300 * (0.85 / 0.8)) < 1e-9, "front squat against a pin squat block");
+
+  // Garbage entries are ignored rather than prescribed.
+  x.plan.customVar.squat.push({ id: "bad", name: "", r: 0.5 }, { id: "bad2", name: "No ratio", r: 0 });
+  x.bump();
+  const V2 = x.varsOf("squat");
+  a.equal(V2.bad, undefined);
+  a.equal(V2.bad2, undefined);
+
+  // Setup offers them, and the Today picker does too.
+  a.match(x.vSetup(), /Pin squat/);
+  a.match(x.liftCard(wk, "squat", x.dayPlan(mon)), /<option value="cpin"/);
 });

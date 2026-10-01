@@ -101,6 +101,31 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
+  if(a==='varadd'){
+    const k=b.dataset.k, nm=(document.getElementById('cv-name-'+k)||{}).value, pct=+(document.getElementById('cv-pct-'+k)||{}).value;
+    const name=(nm||'').trim();
+    cvErr[k]=!name?'Give it a name.':!(pct>=25&&pct<=150)?'The percentage should be between 25 and 150.':
+      Object.values(varsOf(k)).some(x=>x.name.toLowerCase()===name.toLowerCase())?'There is already a variant with that name.':'';
+    if(!cvErr[k]){
+      const id='c'+Date.now().toString(36);
+      mutatePlan(p=>{p.customVar=Object.assign({},p.customVar||{});p.customVar[k]=[...(p.customVar[k]||[]),{id,name,short:name.length>12?name.slice(0,11)+'\u2026':name,r:pct/100}]});
+      const el=document.getElementById('cv-name-'+k); if(el) el.value='';
+      const el2=document.getElementById('cv-pct-'+k); if(el2) el2.value='';
+    }
+    render(); return;
+  }
+  if(a==='vardel'){
+    const k=b.dataset.k, i=+b.dataset.i, gone=(((plan.customVar||{})[k])||[])[i];
+    if(!gone) return;
+    offerUndo('Removed '+gone.name,snapPlan());
+    mutatePlan(p=>{
+      p.customVar=Object.assign({},p.customVar||{});
+      p.customVar[k]=(p.customVar[k]||[]).filter((_,j)=>j!==i);
+      if((p.liftVar||{})[k]===gone.id) p.liftVar=Object.assign({},p.liftVar,{[k]:null});
+      for(const c of Object.keys(p.cycleVar||{})) if((p.cycleVar[c]||{})[k]===gone.id) p.cycleVar[c]=Object.assign({},p.cycleVar[c],{[k]:null});
+    });
+    return;
+  }
   if(a==='varswap'){const k=b.dataset.k,v=b.dataset.v;if(v===varOf(k,sel))return;const cur=(lg(sel).var)||{};setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v}));openWarm.clear();render();return}
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
