@@ -677,3 +677,42 @@ test("the formula's share falls as evidence builds, on one rule", () => {
   a.equal(stale.tdee, x.tdeePredicted("2026-12-31"), "falls back to the formula, and says so");
   a.match(x.energyCard("2026-12-31"), /the formula only/);
 });
+
+test("the weekly check-in asks for measurements once a week and then gets out of the way", () => {
+  const x = app({ now: "2026-11-11" });        // a Wednesday
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  Object.assign(x.plan, { sex: "m", height: 70 });
+  x.bump();
+  const mon = x.mondayOf("2026-11-11");
+
+  // Nothing this week: it asks.
+  a.match(x.weeklyCard(), /Weekly check-in/);
+  a.match(x.weeklyCard(), /data-bind="meas.waist"/, "the inputs are there");
+  a.match(x.weeklyCard(), /first one/);
+
+  // Logged earlier this week, on another day: it collapses to a summary, no inputs.
+  x.seed({ [mon]: { date: mon, meas: { neck: 15.5, waist: 34, hip: 40 } } }); x.bump();
+  const done = x.weeklyCard();
+  a.ok(!/data-bind="meas.waist"/.test(done), "it does not ask twice in one week");
+  a.match(done, /done Mon 11\/9/);
+  a.match(done, /% body fat/);
+
+  // Next week it asks again, and shows when the last one was.
+  x.setToday("2026-11-18");
+  const next = x.weeklyCard();
+  a.match(next, /data-bind="meas.waist"/);
+  a.match(next, /last Mon 11\/9 · 7 days ago/);
+
+  // It only appears on today, never while looking back at another day.
+  x.sel = "2026-11-17";
+  a.equal(x.weeklyCard(), "");
+  x.sel = "2026-11-18";
+
+  // And the daily check-in no longer carries measurements.
+  a.ok(!/data-bind="meas\./.test(x.checkinCard("2026-11-18")), "measurements left the daily card");
+
+  // Without height or sex the measurements still log, they just do not estimate.
+  x.plan.height = null; x.bump();
+  a.match(x.weeklyCard(), /turn into a body-fat estimate/);
+  a.match(x.weeklyCard(), /data-bind="meas.waist"/);
+});

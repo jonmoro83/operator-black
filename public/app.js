@@ -774,6 +774,7 @@ function vToday(){
   h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'&&(dp.t==='plyohic'||dp.t==='plyobase')?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
   h+=weekSummaryCard();
+  h+=weeklyCard();
   h+=prCard(sel);
   h+=finishCard(sel,dp);
   h+=banners(wk,dp);
@@ -1014,8 +1015,7 @@ const CI_Q=[
   {f:'alcohol',q:'Any alcohol?',opts:[['none','None'],['some','1–2 drinks'],['lots','3+']]},
   {f:'kcal',q:'Calories yesterday',kcal:true},
   {grp:'Optional'},
-  {f:'bw',q:'Bodyweight this morning',bw:true},
-  {meas:true}
+  {f:'bw',q:'Bodyweight this morning',bw:true}
 ];
 const openCI=new Set();
 function ci(date){return (lg(date).checkin)||{}}
@@ -1085,6 +1085,11 @@ function tdeeSeries(date,weeks){
 }
 // US Navy circumference method. Men use waist and neck, women add the hips. Measurements
 // are in inches with lb, cm with kg. Typical error is 3–4 points, so it is a trend tool.
+function measBefore(date){
+  let best=null;
+  for(const [d,L] of Object.entries(logs)) if(d<date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
+  return best;
+}
 function measOn(date){
   let best=null;
   for(const [d,L] of Object.entries(logs)) if(d<=date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
@@ -1188,17 +1193,6 @@ function suggestions(date){
     }}
   return out;
 }
-// Weekly, not daily: the row stays closed unless there is nothing logged for a while.
-function measRow(date){
-  const M=(lg(date).meas)||{}, last=measOn(date), has=M.waist||M.neck||M.hip;
-  const stale=!last||Math.round((D(date)-D(last.d))/864e5)>=7;
-  const unit=u()==='kg'?'cm':'in';
-  const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,M[k],'')}</label>`;
-  const bf=has?navyBf(M,date):null;
-  return `<details class="plain q-meas"${has||stale?' open':''}><summary>Measurements <small class="muted">· weekly${last&&!has?' · last '+fmtD(last.d,true):''}</small></summary>
-  <div class="grid3" style="margin-top:8px">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>
-  <div class="small muted">Waist at the navel, neck below the larynx, hips at the widest point, all relaxed and at the same time of day.${plan.sex==='f'?' Hips are part of the estimate for you.':plan.sex?' Hips are tracked but not used in the estimate for men.':' Add your height and sex in Setup to turn these into a body-fat estimate.'}${bf!=null?` Today: <b>${bf}%</b>.`:''}</div></details>`;
-}
 function checkinCard(date){
   if(date>todayStr()) return '';
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), open=openCI.has(date)||sc==null, pt=proteinTarget(date);
@@ -1206,7 +1200,6 @@ function checkinCard(date){
     if(q.grp) return `</div><div class="ci-grp"><h4>${q.grp}</h4>`;
     if(q.bw) return `<label class="q"><span>${q.q} <small>(${u()})</small></span>${numIn('checkin.bw',c.bw,latestBw(date)?n(latestBw(date)):'','class="num-in"')}</label>`;
     if(q.kcal) return `<label class="q"><span>${q.q} <small>(kcal, optional)</small></span>${numIn('checkin.kcal',c.kcal,'','class="num-in"')}</label>`;
-    if(q.meas) return measRow(date);
     const hint=q.hint==='target'&&pt?` <small>(~${pt} g)</small>`:'';
     return `<div class="q"><span>${q.q}${hint}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${c[q.f]==v&&c[q.f]!==''&&c[q.f]!=null?' on':''}" data-act="ci" data-f="${q.f}" data-v="${v}" aria-pressed="${c[q.f]==v}">${l}</button>`).join('')}${q.num?numIn('checkin.sleepH',c.sleepH,'exact','class="num-in" style="max-width:84px" aria-label="Exact hours slept"'):''}</div></div>`;
   }).join('');
@@ -2275,6 +2268,34 @@ function weekRecap(mon){
   const hics=hicSessions(true).filter(x=>x.d>=mon&&x.d<=end&&x.v!=null);
   const avg=rd.length?Math.round(rd.reduce((a,b)=>a+b,0)/rd.length):null;
   return {done,tot,prs,avg,hics,mon,end};
+}
+// The weekly check-in: measurements, once a week, at the start of the training week.
+// They are a weekly number, so asking for them in the daily check-in made them easy to
+// skip and easy to over-log. This stays up all week until it has been filled in.
+function weeklyCard(){
+  if(viewing||sel!==todayStr()) return '';
+  const t=todayStr(), mon=mondayOf(t);
+  if(!weekOf(mon)) return '';
+  const unit=u()==='kg'?'cm':'in';
+  // anything logged this week counts as done, whichever day it went in on
+  let today=(lg(t).meas)||{}, thisWeek=null;
+  for(let i=0;i<7;i++){const d=addDays(mon,i),L=lg(d);if(L.meas&&L.meas.waist&&L.meas.neck){thisWeek={d,m:L.meas};break}}
+  const prev=measBefore(mon), bfNow=thisWeek?navyBf(thisWeek.m,thisWeek.d):null, bfPrev=prev?navyBf(prev.m,prev.d):null;
+  const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,today[k],prev&&prev.m[k]!=null?String(prev.m[k]):'')}</label>`;
+  const since=prev?Math.round((D(mon)-D(prev.d))/864e5):null;
+  if(thisWeek&&thisWeek.d!==t){
+    const dw=bfNow!=null&&bfPrev!=null?bfNow-bfPrev:null;
+    return `<details class="plain card"><summary><b>Weekly check-in</b> \u00b7 done ${fmtD(thisWeek.d,true)}${bfNow!=null?` \u00b7 ${r1(bfNow)}% body fat`:''}</summary>
+    <div class="small muted" style="margin-top:8px">Waist ${r1(thisWeek.m.waist)} ${unit}, neck ${r1(thisWeek.m.neck)}${thisWeek.m.hip?`, hips ${r1(thisWeek.m.hip)}`:''}.${dw!=null?` ${dw<0?'Down':dw>0?'Up':'Level'} ${dw?r1(Math.abs(dw))+' points':''} since ${fmtD(prev.d)}.`:''} Charts are on Status.</div></details>`;
+  }
+  let h=`<div class="card"><div class="lift-h"><h3>Weekly check-in</h3><span class="small muted">${prev?`last ${fmtD(prev.d,true)}${since?` \u00b7 ${since} days ago`:''}`:'first one'}</span></div>
+  <p class="small muted" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
+  <div class="grid3">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>`;
+  const bfT=navyBf(today,t);
+  if(bfT!=null) h+=`<div class="small">That puts you at <b class="mono">${r1(bfT)}%</b> body fat${bfPrev!=null?`, ${bfT<bfPrev?'down':bfT>bfPrev?'up':'level'} ${bfT===bfPrev?'':r1(Math.abs(bfT-bfPrev))+' points '}since ${fmtD(prev.d)}`:''}.</div>`;
+  else if(!plan.height||!plan.sex) h+=`<div class="small muted">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`;
+  else if(today.waist||today.neck) h+=`<div class="small muted">Neck and waist both needed for the estimate${plan.sex==='f'?', plus hips':''}.</div>`;
+  return h+`</div>`;
 }
 function weekSummaryCard(){
   if(viewing||sel!==todayStr()) return '';

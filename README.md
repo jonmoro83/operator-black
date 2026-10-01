@@ -190,7 +190,9 @@ window: mean intake minus the trend-weight change converted at 3500 kcal/lb (770
 divided by the real gap between the mean dates of the two end groups. It returns null
 unless calories cover 60% of the window and both ends have two weigh-ins.
 `tdeePredicted()` is Mifflin-St Jeor × `plan.activity`, used until the measured number
-exists. `navyBf()` is the US Navy tape method over `logs[d].meas`. Height, sex, birth year
+exists. `navyBf()` is the US Navy tape
+method over `logs[d].meas`, which `weeklyCard()` collects once a week — it sits on Today
+from Monday until something is logged that week, then collapses to a summary. Height, sex, birth year
 and activity live in Setup → About you; without them those estimates are simply hidden.
 
 ## Records and the week summary

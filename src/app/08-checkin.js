@@ -14,8 +14,7 @@ const CI_Q=[
   {f:'alcohol',q:'Any alcohol?',opts:[['none','None'],['some','1–2 drinks'],['lots','3+']]},
   {f:'kcal',q:'Calories yesterday',kcal:true},
   {grp:'Optional'},
-  {f:'bw',q:'Bodyweight this morning',bw:true},
-  {meas:true}
+  {f:'bw',q:'Bodyweight this morning',bw:true}
 ];
 const openCI=new Set();
 function ci(date){return (lg(date).checkin)||{}}
@@ -85,6 +84,11 @@ function tdeeSeries(date,weeks){
 }
 // US Navy circumference method. Men use waist and neck, women add the hips. Measurements
 // are in inches with lb, cm with kg. Typical error is 3–4 points, so it is a trend tool.
+function measBefore(date){
+  let best=null;
+  for(const [d,L] of Object.entries(logs)) if(d<date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
+  return best;
+}
 function measOn(date){
   let best=null;
   for(const [d,L] of Object.entries(logs)) if(d<=date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
@@ -188,17 +192,6 @@ function suggestions(date){
     }}
   return out;
 }
-// Weekly, not daily: the row stays closed unless there is nothing logged for a while.
-function measRow(date){
-  const M=(lg(date).meas)||{}, last=measOn(date), has=M.waist||M.neck||M.hip;
-  const stale=!last||Math.round((D(date)-D(last.d))/864e5)>=7;
-  const unit=u()==='kg'?'cm':'in';
-  const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,M[k],'')}</label>`;
-  const bf=has?navyBf(M,date):null;
-  return `<details class="plain q-meas"${has||stale?' open':''}><summary>Measurements <small class="muted">· weekly${last&&!has?' · last '+fmtD(last.d,true):''}</small></summary>
-  <div class="grid3" style="margin-top:8px">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>
-  <div class="small muted">Waist at the navel, neck below the larynx, hips at the widest point, all relaxed and at the same time of day.${plan.sex==='f'?' Hips are part of the estimate for you.':plan.sex?' Hips are tracked but not used in the estimate for men.':' Add your height and sex in Setup to turn these into a body-fat estimate.'}${bf!=null?` Today: <b>${bf}%</b>.`:''}</div></details>`;
-}
 function checkinCard(date){
   if(date>todayStr()) return '';
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), open=openCI.has(date)||sc==null, pt=proteinTarget(date);
@@ -206,7 +199,6 @@ function checkinCard(date){
     if(q.grp) return `</div><div class="ci-grp"><h4>${q.grp}</h4>`;
     if(q.bw) return `<label class="q"><span>${q.q} <small>(${u()})</small></span>${numIn('checkin.bw',c.bw,latestBw(date)?n(latestBw(date)):'','class="num-in"')}</label>`;
     if(q.kcal) return `<label class="q"><span>${q.q} <small>(kcal, optional)</small></span>${numIn('checkin.kcal',c.kcal,'','class="num-in"')}</label>`;
-    if(q.meas) return measRow(date);
     const hint=q.hint==='target'&&pt?` <small>(~${pt} g)</small>`:'';
     return `<div class="q"><span>${q.q}${hint}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${c[q.f]==v&&c[q.f]!==''&&c[q.f]!=null?' on':''}" data-act="ci" data-f="${q.f}" data-v="${v}" aria-pressed="${c[q.f]==v}">${l}</button>`).join('')}${q.num?numIn('checkin.sleepH',c.sleepH,'exact','class="num-in" style="max-width:84px" aria-label="Exact hours slept"'):''}</div></div>`;
   }).join('');
