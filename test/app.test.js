@@ -367,3 +367,80 @@ test("nothing outside #main relies on the data-act delegation", () => {
   a.match(header, /data-view="releases"[^>]*role="menuitem"/);
   a.match(header, /id="acct-out"[^>]*href="\/cdn-cgi\/access\/logout"/);
 });
+
+test("conditioning minutes per week: logged minutes win, the rest are the planned length", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.bump();
+  const mon = x.mondayOf("2026-11-11");
+  const prev = x.addDays(mon, -7);
+  // one session with minutes logged, one with only a result
+  const hics = [];
+  for (let i = 0; i < 7; i++) { const d = x.addDays(prev, i); if (x.dayPlan(d).t === "hic") hics.push(d) }
+  a.ok(hics.length >= 2, "the week has two conditioning days");
+  const [timed, map] = hics;
+  x.seed({
+    [timed]: { date: timed, done: true, hic: { format: "liss", mod: "echo", min: 40, cal: 300 } },
+    [map]: { date: map, done: true, hic: { format: "map", mod: "echo", cal: 120 } },
+  });
+  x.bump();
+
+  const wks = x.condWeeks(12);
+  const row = wks.find((w) => w.mon === prev);
+  a.equal(row.n, 2, "both sessions counted");
+  a.equal(row.est, 1, "one of them had no minutes logged");
+  const planned = Math.round(x.ivTotal(x.ivSegments("map", x.ivOpts(map, "map"))) / 60);
+  a.equal(row.min, 40 + planned, "logged minutes plus the planned length of the other");
+
+  // Weeks before the program started are not drawn at all.
+  a.ok(wks.every((w) => w.mon >= x.mondayOf(x.plan.startMonday)));
+  const html = x.vStatus();
+  a.match(html, /Minutes per week/);
+  a.match(html, /still running/, "the current week is marked as incomplete");
+});
+
+test("the adherence heatmap matches the week dots, and says nothing before the start", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.bump();
+  const t = "2026-11-11";
+  const h = x.heatmap(t, 12);
+  a.match(h, /Last 6 weeks/, "only weeks since the start");
+  const cells = h.slice(h.indexOf('<div class="heat" '));
+  a.equal((cells.match(/<i class="/g) || []).length, 6 * 7, "six weeks of seven cells");
+
+  // A done day reads done in both places; a past untouched day reads missed in both.
+  const done = x.addDays(x.mondayOf(t), -7);
+  x.seed({ [done]: { date: done, done: true } }); x.bump();
+  a.equal(x.sessState(done, t), "done");
+  a.match(x.heatmap(t, 12), new RegExp(`<i class="done" title="${x.fmtD(done, true)}`));
+
+  // Nothing before the program start is coloured: on day one there is nothing missed.
+  const early = x.heatmap(x.plan.startMonday, 12);
+  a.match(early, /Last 1 week\b/);
+  const grid = early.slice(early.indexOf('<div class="heat" '));   // past the legend
+  a.ok(!/<i class="missed"/.test(grid), "day one has nothing behind it");
+  a.ok(!/<i class="pre"/.test(grid), "and no cells from before the start");
+});
+
+test("the heaviest completed set only claims a 1RM when you logged your own weight", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  // find a heavy-week squat day (>=85%)
+  const heavy = x.weeks().filter((w) => w.kind === "cycle" && x.rx(w, "squat").p >= 85)[0];
+  a.ok(heavy, "a heavy week exists");
+  const d = x.addDays(heavy.monday, 0), v = x.rx(heavy, "squat");
+
+  x.seed({ [d]: { date: d, done: true, lifts: { squat: { sets: [true, true, true] } } } }); x.bump();
+  const asRx = x.heavySet("squat");
+  a.equal(asRx.off, false, "nothing was overridden");
+  a.match(x.vStatus(), /Heaviest set completed/);
+  a.ok(!/implies/.test(x.vStatus()), "a prescribed set restates the max, so it claims nothing");
+
+  // Now log a heavier weight than prescribed: that is real evidence.
+  const w = x.loadFor("squat", v.m.v, v.p, d) + 20;
+  x.seed({ [d]: { date: d, done: true, lifts: { squat: { sets: [true, true, true], used: w } } } }); x.bump();
+  const over = x.heavySet("squat");
+  a.equal(over.off, true);
+  a.equal(over.w, w);
+  a.ok(over.e > asRx.e, "a heavier set implies a higher max");
+  a.match(x.vStatus(), /implies/);
+});

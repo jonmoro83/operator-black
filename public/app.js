@@ -2230,6 +2230,56 @@ function r1(v){return String(Math.round(v*10)/10)}
 function nice(r){const e=Math.pow(10,Math.floor(Math.log10(r||1))),f=r/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e}
 function fmtTick(v){return Math.abs(v)>=1000?(Math.round(v/100)/10)+'k':String(Math.round(v*10)/10)}
 function sessState(d,t){const p=dayPlan(d);if(['off','pre','convert'].includes(p.t))return 'rest';if(lg(d).done)return 'done';if(d<t)return 'missed';if(d===t)return 'today';return 'upcoming'}
+// Minutes per conditioning session. Only LISS asks you for minutes, so for everything
+// else this is the session the timer would run: warm-up, rounds, rest and cool-down.
+function hicMinutes(x){
+  if(x.min!=null&&x.min!=='') return {m:+x.min,logged:true};
+  const o=ivOpts(x.d,x.f); return {m:Math.round(ivTotal(ivSegments(x.f,o))/60),logged:false};
+}
+// Conditioning minutes per week, oldest first, for the last n weeks up to this one.
+function condWeeks(n0){
+  const t=todayStr(), mon=mondayOf(t), start=mondayOf(plan.startMonday), by={};
+  for(const x of hicSessions()){
+    const m=mondayOf(x.d); if(!by[m]) by[m]={min:0,n:0,est:0};
+    const r=hicMinutes(x); by[m].min+=r.m; by[m].n++; if(!r.logged) by[m].est++;
+  }
+  const out=[];
+  for(let i=n0-1;i>=0;i--){ const m=addDays(mon,-7*i); if(m<start) continue; out.push(Object.assign({mon:m,min:0,n:0,est:0},by[m])) }
+  return out;
+}
+// What a logged work set implies about the max. In Operator the weight is computed FROM
+// the max, so a set done exactly as prescribed only restates it: this says something new
+// when you logged a different weight, or when a heavy set ground.
+function heavySet(k){
+  let best=null;
+  for(const [d,L] of progLogs()){
+    const x=(L.lifts||{})[k]; if(!x||!Array.isArray(x.sets)||!x.sets.some(Boolean)) continue;
+    const wk=weekOf(d); if(!wk||wk.kind!=='cycle') continue;
+    const v=rx(wk,k); if(!v.m||v.p<85) continue;
+    const used=x.used!=null&&x.used!==''?+x.used:loadFor(k,v.m.v,v.p,d);
+    const e=estMax(k,used,v.r,d); if(e==null) continue;
+    if(!best||e>best.e) best={e,w:used,r:v.r,p:v.p,d,max:v.m.v,grinder:!!x.grinder,off:x.used!=null&&x.used!==''};
+  }
+  return best;
+}
+// Twelve weeks of sessions as a grid: one row per week, one cell per day. The same
+// states the week dots use, so a missed day looks the same in both places.
+function heatmap(t,n0){
+  const mon=mondayOf(t), start=mondayOf(plan.startMonday), rows=[];
+  for(let i=n0-1;i>=0;i--){ const m=addDays(mon,-7*i); if(m>=start) rows.push(m) }
+  if(!rows.length) return '';
+  let h=`<div class="heat-h"><span class="small muted">Last ${rows.length} week${rows.length>1?'s':''}</span><span class="heat-key">${[['done','done'],['missed','missed'],['rest','rest day']].map(([c,l])=>`<span><i class="${c}"></i>${l}</span>`).join('')}</span></div><div class="heat" role="img" aria-label="Sessions over the last ${rows.length} weeks">`;
+  h+=`<span></span>${DAYN.map(d=>`<span class="heat-d">${d[0]}</span>`).join('')}`;
+  for(const m of rows){
+    const wk=weekOf(m), lbl=wk?(wk.kind==='cycle'?'C'+wk.cycle+'W'+wk.w:wk.kind==='bridge'?'Br':wk.kind==='deload'?'DL':wk.kind==='test'?'RT':wk.kind==='travel'?'Tr':'Off'):'';
+    h+=`<span class="heat-w">${esc(lbl)}</span>`;
+    for(let i=0;i<7;i++){
+      const d=addDays(m,i), st=d<start?'pre':sessState(d,t), p=dayPlan(d);
+      h+=`<i class="${st}" title="${esc(fmtD(d,true)+' · '+(p.short||'')+' · '+(st==='pre'?'before the start':st))}"></i>`;
+    }
+  }
+  return h+`</div>`;
+}
 function vStatus(){
   const t=todayStr(), wk=weekOf(t);
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
@@ -2258,14 +2308,21 @@ function vStatus(){
   let tw=0,td=0;for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t);if(st!=='rest'){tw++;if(st==='done')td++}}
   const pct=a=>a.n?Math.round(a.d/a.n*100)+'%':'—';
   h+=`<div class="card"><div class="lift-h"><h3>This week</h3><span class="small muted mono">${td}/${tw} sessions</span></div><div class="wkdots">${wd}</div>
-  <div class="miles"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">All time</span><span class="big">${pct(all)}</span><span class="small muted">${all.d} of ${all.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div></div>`;
+  <div class="miles"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">All time</span><span class="big">${pct(all)}</span><span class="small muted">${all.d} of ${all.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div>${heatmap(t,12)}</div>`;
   // --- strength
   const curC=wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle);
   h+=`<div class="card"><div class="lift-h"><h3>Strength</h3><span class="small muted">Max by cycle · hollow = next cycle, projected</span></div><div class="sm-grid">`;
   for(const k of activeLifts()){
     const pts=[];for(let c=1;c<=curC+(viewing?0:1);c++){const m=maxFor(c)[k];if(m)pts.push({y:m.v,xl:'C'+c,hollow:c>curC,tip:`Cycle ${c}: ${n(m.v)} ${u()}${m.src==='set'?' (tested/set)':m.src==='proj'?' (projected)':''}`})}
     const cur=maxFor(curC)[k], base=maxFor(1)[k];
-    h+=`<div class="sm"><div class="sm-h"><b>${esc(liftName(k))}</b>${cur?`<span class="v">${n(cur.v)}<small>${u()}${base&&cur.v!==base.v?` · ${cur.v>base.v?'+':''}${n(cur.v-base.v)} since C1`:''}</small></span>`:''}</div>${pts.length?lineChart(pts,{label:liftName(k)+' max by cycle',minStep:+plan.round[k]||5}):'<div class="none">No max entered yet.</div>'}</div>`;
+    h+=`<div class="sm"><div class="sm-h"><b>${esc(liftName(k))}</b>${cur?`<span class="v">${n(cur.v)}<small>${u()}${base&&cur.v!==base.v?` · ${cur.v>base.v?'+':''}${n(cur.v-base.v)} since C1`:''}</small></span>`:''}</div>${pts.length?lineChart(pts,{label:liftName(k)+' max by cycle',minStep:+plan.round[k]||5}):'<div class="none">No max entered yet.</div>'}${(()=>{
+      const hv=heavySet(k); if(!hv) return '';
+      let say='';
+      if(hv.off){ const d=Math.round(hv.e-hv.max);
+        say=` You logged your own weight, which implies <b class="mono">${n(Math.round(hv.e))}</b> \u2014 ${d===0?'the max it replaced':(d>0?n(d)+' '+u()+' above':n(-d)+' '+u()+' below')+' the max for that cycle'}.`; }
+      else if(hv.grinder) say=' It ground, which is what the end-of-cycle review reads.';
+      return `<div class="small muted">Heaviest set completed: <b class="mono">${fmtLoad(k,hv.w)} \u00d7 ${hv.r}</b> at ${hv.p}% on ${fmtD(hv.d,true)}.${say}</div>`;
+    })()}</div>`;
   }
   h+=`</div></div>`;
   // --- conditioning
@@ -2274,9 +2331,20 @@ function vStatus(){
     for(const x of hs)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
     const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,6);
     const since=addDays(t,-27), mix={}; for(const x of all) if(x.d>=since) mix[x.mod]=(mix[x.mod]||0)+1;
-    h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Per session, by activity and format</span></div>`;
+    h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Volume per week, then results per activity</span></div>`;
     h+=Object.keys(mix).length?`<div class="row" style="gap:6px"><span class="small muted">Last 4 weeks:</span>${Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`<span class="chip">${MOD[m].name} · ${c}</span>`).join('')}</div>`:'';
-    if(!keys.length) h+=`<div class="sm"><div class="none">No HIC sessions logged yet. Results you log on HIC days show up here.</div></div>`;
+    {
+      const cw=condWeeks(12), tot=cw.reduce((a,x)=>a+x.min,0), thisWk=mondayOf(t);
+      // this week is still running, so it is drawn hollow and left out of the average
+      const full=cw.filter(x=>x.mon!==thisWk), last4=full.slice(-4);
+      const av=last4.length?Math.round(last4.reduce((a,x)=>a+x.min,0)/last4.length):0;
+      const anyEst=cw.some(x=>x.est>0);
+      h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:''}</div>`;
+      h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?'One week logged so far.':'Log a conditioning session and this fills in.'}</div>`;
+      if(tot) h+=`<div class="small muted">This week is dashed: it is still running.${anyEst?' Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included.':''}</div>`;
+      h+=`</div>`;
+    }
+    if(!keys.length) h+=`<div class="sm"><div class="none">No HIC results logged yet. Results you log on HIC days show up here.</div></div>`;
     else{
       h+=`<div class="sm-grid">`;
       for(const key of keys){const xs=groups[key].slice(-24),[m,f]=key.split('|'),best=xs.reduce((a,x)=>Math.max(a,x.v),0),un=xs[xs.length-1].u;

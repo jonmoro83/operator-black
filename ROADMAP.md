@@ -56,8 +56,6 @@ Not committed to. Roughly in order of how useful they'd be.
 - **Share with a partner or coach:** opt-in, read-only progress view.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
 - **Per-set effort:** RPE or "fast/slow" per working set, feeding the cycle review.
-- **More Status charts:** weekly conditioning minutes, an adherence calendar heatmap,
-  estimated 1RM from logged top sets.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
 - **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
@@ -91,6 +89,23 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**More Status charts (2026-10-01)**
+- **Conditioning minutes per week**, twelve weeks, at the top of the Conditioning card.
+  Only LISS asks you for minutes, so `hicMinutes()` uses what you logged and otherwise
+  counts the session the interval timer would have run for that format — warm-up,
+  rounds, rest and cool-down — and the card says which it did. The current week is drawn
+  hollow and left out of the four-week average, since it is still running.
+- **Adherence heatmap**: twelve weeks × seven days under the adherence percentages,
+  coloured by the same `sessState()` the week dots use, with the week label (C2W5, DL,
+  RT, Br, Tr) down the side. Weeks before the start are not drawn.
+- **Estimated 1RM from logged top sets** was in Ideas, and is a trap in this program:
+  the working weight is computed *from* the max, so a set done exactly as prescribed
+  implies `pct / PCT5[reps]` × max every time — always below it, and nothing to do with
+  how the set felt. Printing it invites the wrong conclusion. What shipped instead, under
+  each lift's chart: the heaviest set you actually completed (weight × reps, percentage,
+  date), plus a claim about your 1RM **only** when you logged your own weight in session
+  mode (`lifts.<k>.used`), and a note when it ground, which is what the cycle review reads.
 
 **First live backup confirmed (2026-10-01)**
 - Setup → Back up now wrote `backup:<hash>:2026-09-30-manual` to the KV namespace:
