@@ -138,6 +138,13 @@ versions and the deploy time. The running page reports itself as `RELEASES[0].v`
 so `/api/version` can name the deployed release too. A test keeps `package.json`,
 `RELEASES[0]` and the tag format in step — bump all three together when you add a release.
 
+**A release is one deploy run.** Once an entry in `public/releases.js` has gone out it is
+history: don't append to it because the work is "the same sort of thing" or landed the
+same week. Start a new entry and bump the minor version (`1.7` → `1.8`, with
+`package.json` at `1.8.0`). Versions are `major.minor` only — `APP_VERSION` is what the
+app shows and what the update banner compares. A test enforces newest-first order,
+non-increasing dates and no reused version.
+
 ## Rearranging a week
 
 `plan.order[monday]` maps weekday → prescribed slot, so a week keeps its seven sessions

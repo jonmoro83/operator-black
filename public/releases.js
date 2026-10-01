@@ -1,10 +1,14 @@
 // Release notes for the What's new page. Newest first.
-// When something user-facing ships: add an entry here and bump package.json's version
-// to match (a test enforces it, and the deploy tag carries it).
+// One entry per release, and a release is what went out in one deploy run. Once an entry
+// has shipped it is history: never add to it, start a new one and bump the minor version.
+// package.json's version has to match the top entry (a test enforces it, and the deploy
+// tag carries it), so the two move together.
 const RELEASES=[
-  {v:'1.7',date:'2026-09-30',title:'Upper body, travel weeks and a new mark',items:[
-    'Optional upper-body power on Thursdays. Each phase gives you movement slots \u2014 a total-body throw, a push, rotation, a pull \u2014 and you pick what fills each one from what you have: slams, scoop tosses and wall throws with a med ball, plyo push-ups and explosive pull-ups with nothing, DB snatches, high pulls and speed presses with a bar, or band rows and rotational punches on the road. Every movement has a full entry in the Guide. Off by default, five minutes, and the first block to cut when you are pulling back.',
+  {v:'1.8',date:'2026-10-01',title:'Status charts',items:[
     'Three additions to Status. Conditioning minutes per week over twelve weeks, counting what you logged or, where you did not, the length that format\u2019s timer would have run. An adherence heatmap: twelve weeks of sessions, green done, red missed, dashed for rest days. And under each lift, the heaviest set you actually completed \u2014 with what it implies about your 1RM when you logged your own weight for it, since a set done exactly as prescribed only restates the max it was calculated from.',
+    'Fixed: the account menu\u2019s Profile and settings and What\u2019s new buttons did nothing in 1.7. Sign out was unaffected.']},
+  {v:'1.7',date:'2026-09-30',title:'Upper body, travel weeks, a new mark and an account menu',items:[
+    'Optional upper-body power on Thursdays. Each phase gives you movement slots \u2014 a total-body throw, a push, rotation, a pull \u2014 and you pick what fills each one from what you have: slams, scoop tosses and wall throws with a med ball, plyo push-ups and explosive pull-ups with nothing, DB snatches, high pulls and speed presses with a bar, or band rows and rotational punches on the road. Every movement has a full entry in the Guide. Off by default, five minutes, and the first block to cut when you are pulling back.',
     'An account button in the top right, showing your initials. Tap it for the address you are signed in as, Profile and settings, What\u2019s new and a plain Sign out \u2014 which was previously one small link near the bottom of Setup. The button also carries a sync dot: green saved, amber saving, red offline or signed out. Setup opens with an Account card saying the same thing.',
     '\u201cPlyo: Extensive\u201d no longer sits on the week header every day of a cycle week. It shows on the plyo day, where it now carries the contact target too (\u201cPlyo: Extensive \u00b7 ~60 contacts\u201d, halved when you halve the session), and the phase description says what extensive means: volume over intensity, plenty of contacts, none of them all-out.',
     'The bridge week\u2019s 5RM+Spin Saturday now has the spin on it: an activity picker, somewhere to log the minutes, and the interval timer, under the lifts. The label promised easy cardio and the card only had the lifts. The retest week\u2019s mobility-only Tuesday is labelled Mobility instead of Easy for the same reason.',

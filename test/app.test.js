@@ -444,3 +444,22 @@ test("the heaviest completed set only claims a 1RM when you logged your own weig
   a.ok(over.e > asRx.e, "a heavier set implies a higher max");
   a.match(x.vStatus(), /implies/);
 });
+
+test("releases are a history: newest first, each version used once", () => {
+  const x = app({});
+  const rs = x.RELEASES;
+  a.ok(rs.length > 1);
+  const num = (v) => v.split(".").map(Number);
+  for (let i = 1; i < rs.length; i++) {
+    const [aMaj, aMin] = num(rs[i - 1].v), [bMaj, bMin] = num(rs[i].v);
+    a.ok(aMaj > bMaj || (aMaj === bMaj && aMin > bMin), `${rs[i - 1].v} comes after ${rs[i].v}`);
+    a.ok(rs[i - 1].date >= rs[i].date, `${rs[i - 1].v} (${rs[i - 1].date}) is not older than ${rs[i].v} (${rs[i].date})`);
+  }
+  for (const r of rs) {
+    a.match(r.v, /^\d+\.\d+$/, "major.minor, which is what APP_VERSION reports");
+    a.match(r.date, /^\d{4}-\d{2}-\d{2}$/);
+    a.ok(r.title && r.items.length, `${r.v} says what changed`);
+  }
+  a.equal(new Set(rs.map((r) => r.v)).size, rs.length, "no version reused");
+  a.equal(x.APP_VERSION, rs[0].v);
+});

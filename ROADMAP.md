@@ -90,6 +90,16 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**One release per deploy (2026-10-01)**
+- Release 1.7 had been treated as a bucket for "recent work": entries kept being appended
+  to it across two days and seven deploys, so the What's new page said 1.7 contained
+  things that shipped after people had already installed 1.7. A release is now one deploy
+  run — shipped entries are history, new work starts a new entry and bumps the minor
+  version. Today's Status charts moved out of 1.7 into 1.8, and the rule is in the README
+  and at the top of `public/releases.js`.
+- A test enforces newest-first order, non-increasing dates, `major.minor` format, no
+  reused version, and that every entry has a title and items.
+
 **More Status charts (2026-10-01)**
 - **Conditioning minutes per week**, twelve weeks, at the top of the Conditioning card.
   Only LISS asks you for minutes, so `hicMinutes()` uses what you logged and otherwise
