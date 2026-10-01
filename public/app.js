@@ -1026,7 +1026,7 @@ function kcalOn(d){const v=ci(addDays(d,1)).kcal;return v==null||v===''?null:+v}
 // window and calories on most of its days, or it says nothing.
 function endAvg(from,to){
   let sw=0,sd=0,n=0;
-  for(const [d,L] of Object.entries(logs)) if(d>=from&&d<=to&&inProgram(d)&&L.checkin&&L.checkin.bw!=null&&L.checkin.bw!=='') {sw+=+L.checkin.bw;sd+=D(d);n++}
+  for(let d=from;d<=to;d=addDays(d,1)){const L=logs[d];if(!L||!inProgram(d))continue;const v=L.checkin&&L.checkin.bw;if(v==null||v==='')continue;sw+=+v;sd+=D(d);n++}
   return n?{avg:sw/n,at:sd/n,n}:null;
 }
 function tdeeMeasured(date,days){
@@ -1052,6 +1052,37 @@ function ageNow(){const b=+plan.birthYear;if(!b||b<1900)return null;return +toda
 const ACT=[[1.375,'Light · desk job, little else'],[1.55,'Moderate · this program, desk job'],[1.725,'High · this program plus an active job'],[1.9,'Very high · manual work or two-a-days']];
 function actFactor(){const v=+plan.activity;return ACT.some(x=>x[0]===v)?v:1.55}
 function tdeePredicted(date){const b=bmr(date);return b?Math.round(b*actFactor()):null}
+// The running estimate. Your burn is not a constant: it drifts with bodyweight, with how
+// much you move, and with a long deficit. So this is recomputed for every day from the
+// window ending that day, longest window that has the data.
+// Early on the window is short and the scale noise dominates, so the estimate is pulled
+// toward the formula; the weight on your own data is the window's span over span + 10
+// days, scaled by how many of its days have calories. By a full 28-day window it is ~70%
+// yours, and `tdeeTrust` keeps climbing as history accumulates until the formula drops out.
+function tdeeOn(date){
+  const pred=tdeePredicted(date);
+  const m=tdeeMeasured(date,28)||tdeeMeasured(date,21)||tdeeMeasured(date,14);
+  if(!m) return pred?{tdee:pred,predicted:pred,measured:null,w:0}:null;
+  if(!pred) return {tdee:m.tdee,predicted:null,measured:m,w:1};
+  // Two things decide how much of your own number to use: how long you have been logging
+  // both (six weeks of it and the formula drops out entirely) and how completely you
+  // filled in the window. Today's intake is unknowable, so it is not counted against you.
+  const w=Math.min(1,tdeeHistory(date)/42);
+  return {tdee:Math.round(m.tdee*w+pred*(1-w)),predicted:pred,measured:m,w};
+}
+function tdeeHistory(date){
+  let n=0; for(let i=1;i<=42;i++){const d=addDays(date,-i),L=logs[d];if(kcalOn(d)!=null&&L&&L.checkin&&L.checkin.bw!=null&&L.checkin.bw!=='')n++}
+  return n;
+}
+// The estimate over time: one point per week, each from its own 28-day window.
+function tdeeSeries(date,weeks){
+  const out=[];
+  for(let i=(weeks||12)-1;i>=0;i--){
+    const d=addDays(date,-7*i); if(d<plan.startMonday) continue;
+    const t=tdeeOn(d); if(t&&t.measured) out.push({d,v:t.tdee,w:t.w,mean:t.measured.mean});
+  }
+  return out;
+}
 // US Navy circumference method. Men use waist and neck, women add the hips. Measurements
 // are in inches with lb, cm with kg. Typical error is 3–4 points, so it is a trend tool.
 function measOn(date){
@@ -2282,7 +2313,8 @@ function lineChart(pts,o){
   const step=Math.max(nice((hi-lo)/3),o.minStep||0); lo=Math.floor(lo/step)*step; hi=Math.ceil(hi/step)*step;
   const x=i=>L+(pts.length===1?iw/2:i*iw/(pts.length-1)), y=v=>T+ih-(v-lo)/(hi-lo)*ih;
   let g='';
-  for(let v=lo;v<=hi+1e-9;v+=step){const yy=y(v).toFixed(1);g+=`<line class="ch-grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text class="ch-ax" x="${L-6}" y="${(+yy+3.5).toFixed(1)}" text-anchor="end">${fmtTick(v)}</text>`}
+  const tk=o.tick||fmtTick;
+  for(let v=lo;v<=hi+1e-9;v+=step){const yy=y(v).toFixed(1);g+=`<line class="ch-grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text class="ch-ax" x="${L-6}" y="${(+yy+3.5).toFixed(1)}" text-anchor="end">${tk(v)}</text>`}
   const solid=pts.filter(p=>!p.hollow);
   const lastSolid=pts.length-1-[...pts].reverse().findIndex(p=>!p.hollow);
   const seg=(a,b)=>pts.slice(a,b+1).map((p,j)=>(j?'L':'M')+x(a+j).toFixed(1)+' '+y(p.y).toFixed(1)).join(' ');
@@ -2295,13 +2327,14 @@ function lineChart(pts,o){
   // the raw series, when there is one: faint dots behind the line they average into
   const has2=pts.some(p=>p.y2!=null);
   const raw2=has2?`<path class="ch-line2" d="${pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.y2!=null?p.y2:p.y).toFixed(1)).join(' ')}"/>`+pts.map((p,i)=>p.y2==null?'':`<circle class="ch-pt2" cx="${x(i).toFixed(1)}" cy="${y(p.y2).toFixed(1)}" r="${dense2(pts)}"/>`).join(''):'';
-  const e=pts[pts.length-1], end=`<text class="ch-end" x="${(x(pts.length-1)+8).toFixed(1)}" y="${(y(e.y)+4).toFixed(1)}">${esc(o.endLabel?o.endLabel(e):fmtTick(e.y))}</text>`;
+  const e=pts[pts.length-1], end=`<text class="ch-end" x="${(x(pts.length-1)+8).toFixed(1)}" y="${(y(e.y)+4).toFixed(1)}">${esc(o.endLabel?o.endLabel(e):tk(e.y))}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label||'')}">${g}${area}${raw2}<path class="ch-line" d="${path}"/>${proj}${dots}${xl}${end}${hits}</svg>`;
 }
 function dense2(pts){return pts.length>40?1.4:pts.length>20?1.8:2.4}
 function r1(v){return String(Math.round(v*10)/10)}
 function nice(r){const e=Math.pow(10,Math.floor(Math.log10(r||1))),f=r/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e}
 function fmtTick(v){return Math.abs(v)>=1000?(Math.round(v/100)/10)+'k':String(Math.round(v*10)/10)}
+function fmtWhole(v){return String(Math.round(v))}
 function sessState(d,t){const p=dayPlan(d);if(['off','pre','convert'].includes(p.t))return 'rest';if(lg(d).done)return 'done';if(d<t)return 'missed';if(d===t)return 'today';return 'upcoming'}
 // Minutes per conditioning session. Only LISS asks you for minutes, so for everything
 // else this is the session the timer would run: warm-up, rounds, rest and cool-down.
@@ -2383,23 +2416,28 @@ function bwCard(t){
 // What you burn and what you are made of. The measured number comes from your own
 // intake and scale trend; the formula is only there until that exists.
 function energyCard(t){
-  const m28=tdeeMeasured(t,28), m14=tdeeMeasured(t,14), pred=tdeePredicted(t), meas=m28||m14;
+  const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
   const bf=bfSeries(t), last=bf[bf.length-1];
   const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
   if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="small muted" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
   h+=`<div class="miles">`;
-  h+=`<div class="mile"><span class="l">Burn per day</span>${meas?`<span class="big">${n(meas.tdee)}</span><span class="small muted">from your own ${meas.days} days${pred?` · formula says ${n(pred)}`:''}</span>`:pred?`<span class="big">${n(pred)}</span><span class="small muted">Mifflin-St Jeor × ${actFactor()}</span>`:'<span class="small muted">Needs height, sex and birth year</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Burn per day</span>${est?`<span class="big">${n(est.tdee)}</span><span class="small muted">${meas?`${Math.round(est.w*100)}% your own data${pred?`, rest the formula (${n(pred)})`:''}`:`the formula only · Mifflin-St Jeor × ${actFactor()}`}</span>`:'<span class="small muted">Needs height, sex and birth year</span>'}</div>`;
   h+=`<div class="mile"><span class="l">Eaten per day</span>${kc.length?`<span class="big">${n(Math.round(kc.reduce((a,b)=>a+b,0)/kc.length))}</span><span class="small muted">${kc.length} of the last 28 days logged</span>`:'<span class="small muted">Log calories in the check-in</span>'}</div>`;
   h+=`<div class="mile"><span class="l">Body fat</span>${last?`<span class="big">${r1(last.bf)}<small style="font-size:14px;color:var(--muted);margin-left:2px">%</small></span><span class="small muted">${fmtD(last.d,true)}${bf.length>1?` · ${last.bf>bf[0].bf?'+':''}${r1(last.bf-bf[0].bf)} since ${fmtD(bf[0].d)}`:''}</span>`:'<span class="small muted">Needs neck and waist</span>'}</div></div>`;
   if(meas){
-    const gap=meas.tdee-meas.mean;
-    const rt=meas.dw/meas.gap*7;
-    h+=`<div class="small">Over the last ${meas.days} days you ate <b class="mono">${n(meas.mean)}</b> a day and your weight trend ${Math.abs(rt)<.05?'held flat':`moved ${rt>0?'+':'−'}${r1(Math.abs(rt))} ${u()} a week`}, which puts your burn at about <b class="mono">${n(meas.tdee)}</b> — a ${gap>0?'deficit':'surplus'} of <b class="mono">${n(Math.abs(gap))}</b> a day.</div>`;
-    const goal=plan.goal, tgt=goal==='lose'?meas.tdee-Math.round(meas.tdee*.18/10)*10:goal==='gain'?meas.tdee+250:meas.tdee;
+    const rt=meas.dw/meas.gap*7, own=meas.tdee-meas.mean;
+    h+=`<div class="small">Over the last ${meas.days} days you ate <b class="mono">${n(meas.mean)}</b> a day and your weight trend ${Math.abs(rt)<.05?'held flat':`moved ${rt>0?'+':'−'}${r1(Math.abs(rt))} ${u()} a week`}. On its own that puts your burn at <b class="mono">${n(meas.tdee)}</b>, a ${own>0?'deficit':'surplus'} of <b class="mono">${n(Math.abs(own))}</b> a day.${est.w<.95&&pred?` The number above still leans ${Math.round((1-est.w)*100)}% on the formula while your history builds — ${Math.ceil((42-tdeeHistory(t))/7)} more week${Math.ceil((42-tdeeHistory(t))/7)===1?'':'s'} of logging both and it is all yours.`:''}</div>`;
+    const goal=plan.goal, tgt=goal==='lose'?est.tdee-Math.round(est.tdee*.18/10)*10:goal==='gain'?est.tdee+250:est.tdee;
     if(goal&&goal!=='maintain') h+=`<div class="small muted">Your goal is set to ${goal==='lose'?'lose fat':'build'}. About <b class="mono">${n(tgt)}</b> a day would ${goal==='lose'?'take off roughly 1% of bodyweight a month without wrecking the lifting':'add weight slowly enough to stay mostly lean'}. Protein target is on the Today card.</div>`;
   } else if(pred){
     h+=`<div class="small muted">That is the formula's guess from your height, weight, age and activity. Log calories for ${28} days alongside your weigh-ins and this switches to your own numbers, which are the only ones that count.</div>`;
+  }
+  if(ts.length>=2){
+    const a0=ts[0], b0=ts[ts.length-1], dr=b0.v-a0.v;
+    h+=`<div class="sm" style="margin-top:12px"><div class="sm-h"><b>Burn over time</b><span class="v">${n(b0.v)}<small>${dr>0?'+':''}${n(dr)} since ${fmtD(a0.d)}</small></span></div>`;
+    h+=lineChart(ts.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: about ${n(x.v)} a day, ${Math.round(x.w*100)}% from your own data`})),{label:'Estimated daily burn',minStep:25,tick:fmtWhole});
+    h+=`<div class="small muted">Each point is the 28 days ending that week, so it follows you rather than holding a number set on day one.${Math.abs(dr)>=100?(dr<0?` It has come down about ${n(-dr)} since ${fmtD(a0.d)} — normal in a long deficit, and a reason to take a maintenance break rather than cut harder.`:` It has risen about ${n(dr)} since ${fmtD(a0.d)}.`):''}</div></div>`;
   }
   if(bf.length>=2){
     const w=bf.map(x=>({d:x.d,v:+x.m.waist}));

@@ -26,7 +26,7 @@ function kcalOn(d){const v=ci(addDays(d,1)).kcal;return v==null||v===''?null:+v}
 // window and calories on most of its days, or it says nothing.
 function endAvg(from,to){
   let sw=0,sd=0,n=0;
-  for(const [d,L] of Object.entries(logs)) if(d>=from&&d<=to&&inProgram(d)&&L.checkin&&L.checkin.bw!=null&&L.checkin.bw!=='') {sw+=+L.checkin.bw;sd+=D(d);n++}
+  for(let d=from;d<=to;d=addDays(d,1)){const L=logs[d];if(!L||!inProgram(d))continue;const v=L.checkin&&L.checkin.bw;if(v==null||v==='')continue;sw+=+v;sd+=D(d);n++}
   return n?{avg:sw/n,at:sd/n,n}:null;
 }
 function tdeeMeasured(date,days){
@@ -52,6 +52,37 @@ function ageNow(){const b=+plan.birthYear;if(!b||b<1900)return null;return +toda
 const ACT=[[1.375,'Light · desk job, little else'],[1.55,'Moderate · this program, desk job'],[1.725,'High · this program plus an active job'],[1.9,'Very high · manual work or two-a-days']];
 function actFactor(){const v=+plan.activity;return ACT.some(x=>x[0]===v)?v:1.55}
 function tdeePredicted(date){const b=bmr(date);return b?Math.round(b*actFactor()):null}
+// The running estimate. Your burn is not a constant: it drifts with bodyweight, with how
+// much you move, and with a long deficit. So this is recomputed for every day from the
+// window ending that day, longest window that has the data.
+// Early on the window is short and the scale noise dominates, so the estimate is pulled
+// toward the formula; the weight on your own data is the window's span over span + 10
+// days, scaled by how many of its days have calories. By a full 28-day window it is ~70%
+// yours, and `tdeeTrust` keeps climbing as history accumulates until the formula drops out.
+function tdeeOn(date){
+  const pred=tdeePredicted(date);
+  const m=tdeeMeasured(date,28)||tdeeMeasured(date,21)||tdeeMeasured(date,14);
+  if(!m) return pred?{tdee:pred,predicted:pred,measured:null,w:0}:null;
+  if(!pred) return {tdee:m.tdee,predicted:null,measured:m,w:1};
+  // Two things decide how much of your own number to use: how long you have been logging
+  // both (six weeks of it and the formula drops out entirely) and how completely you
+  // filled in the window. Today's intake is unknowable, so it is not counted against you.
+  const w=Math.min(1,tdeeHistory(date)/42);
+  return {tdee:Math.round(m.tdee*w+pred*(1-w)),predicted:pred,measured:m,w};
+}
+function tdeeHistory(date){
+  let n=0; for(let i=1;i<=42;i++){const d=addDays(date,-i),L=logs[d];if(kcalOn(d)!=null&&L&&L.checkin&&L.checkin.bw!=null&&L.checkin.bw!=='')n++}
+  return n;
+}
+// The estimate over time: one point per week, each from its own 28-day window.
+function tdeeSeries(date,weeks){
+  const out=[];
+  for(let i=(weeks||12)-1;i>=0;i--){
+    const d=addDays(date,-7*i); if(d<plan.startMonday) continue;
+    const t=tdeeOn(d); if(t&&t.measured) out.push({d,v:t.tdee,w:t.w,mean:t.measured.mean});
+  }
+  return out;
+}
 // US Navy circumference method. Men use waist and neck, women add the hips. Measurements
 // are in inches with lb, cm with kg. Typical error is 3–4 points, so it is a trend tool.
 function measOn(date){

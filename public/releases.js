@@ -4,6 +4,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.11',date:'2026-10-01',title:'A burn rate that keeps up with you',items:[
+    'Your burn is now a running estimate, recalculated every day from the 28 days behind it, so it follows a metabolism that adapts instead of holding a number worked out once. A Burn over time chart shows it moving \u2014 if it has fallen 200 a day over a long cut, the card says so and suggests a maintenance break rather than a bigger deficit.',
+    'It no longer goes quiet while you are getting started. Before there is enough data it is the formula, then a blend, then entirely your own numbers after six weeks of logging weight and calories. The card always says which you are looking at, and how many weeks are left before the formula drops out.',
+    'Stop logging calories for a while and it falls back to the formula and tells you, rather than quietly showing a stale number.']},
   {v:'1.10',date:'2026-10-01',title:'Calories, burn rate and body fat',items:[
     'Calories go in the daily check-in, under yesterday\u2019s eating. Once you have a few weeks of them next to your weigh-ins, Status works out what you actually burn: your average intake against what the scale trend did about it. That number is yours, not a formula\u2019s \u2014 it already accounts for your job, your training and your metabolism.',
     'Until there is enough data it falls back to Mifflin-St Jeor from your height, sex, age and activity (new fields in Setup \u2192 About you), and it tells you which of the two you are looking at. The two usually disagree, and when they do, yours wins.',

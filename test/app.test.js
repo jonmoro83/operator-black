@@ -592,3 +592,88 @@ test("calories belong to the day they were eaten, not the day they were logged",
   a.equal(x.kcalOn("2026-11-29"), 2200, "logged on the 30th, eaten on the 29th");
   a.equal(x.kcalOn("2026-11-30"), null, "today's intake is not known until tomorrow");
 });
+
+test("the burn estimate follows the data instead of holding day one's number", () => {
+  const x = app({ now: "2026-12-31" });
+  x.plan.startMonday = "2026-08-03"; x.plan.bridge = false;
+  Object.assign(x.plan, { sex: "m", height: 70, birthYear: 1983, activity: 1.9 });  // a high, wrong guess
+  x.bump();
+
+  // Someone whose real burn is 2600, then drops to 2250 halfway through: same intake,
+  // weight stops falling and starts rising.
+  const start = "2026-08-03";
+  let w = 200;
+  const days = Math.round((Date.parse("2026-12-31") - Date.parse(start)) / 864e5);
+  for (let i = 0; i <= days; i++) {
+    const d = x.addDays(start, i);
+    const burn = i < days / 2 ? 2600 : 2250;
+    w += (2400 - burn) / 3500;                        // eats 2400 every day
+    x.seed({ [d]: { date: d, checkin: { bw: Math.round(w * 100) / 100, kcal: 2400 } } });
+  }
+  x.bump();
+
+  const early = x.tdeeOn(x.addDays(start, 40));
+  const late = x.tdeeOn("2026-12-31");
+  a.ok(early && late);
+  a.ok(Math.abs(early.measured.tdee - 2600) < 60, `early measured ${early.measured.tdee} ~ 2600`);
+  a.ok(Math.abs(late.measured.tdee - 2250) < 60, `late measured ${late.measured.tdee} ~ 2250`);
+  a.ok(late.tdee < early.tdee - 200, "the headline number came down with it");
+
+  // The formula's bad guess gets diluted as evidence builds.
+  a.ok(late.w > early.w, `trust rose from ${early.w.toFixed(2)} to ${late.w.toFixed(2)}`);
+  a.ok(late.w > 0.9, "with months of data the formula stops mattering");
+  a.ok(late.predicted > 3000, "...which it needs to, because the formula is way off here");
+
+  // On day one there is no data, so it is the formula alone, not a refusal.
+  const x2 = app({ now: "2026-08-03" });
+  x2.plan.startMonday = "2026-08-03";
+  Object.assign(x2.plan, { sex: "m", height: 70, birthYear: 1983, activity: 1.55 });
+  x2.seed({ "2026-08-03": { date: "2026-08-03", checkin: { bw: 200 } } });
+  x2.bump();
+  const day1 = x2.tdeeOn("2026-08-03");
+  a.equal(day1.w, 0);
+  a.equal(day1.tdee, x2.tdeePredicted("2026-08-03"));
+  a.equal(day1.measured, null);
+
+  // The series is one point per week and only covers weeks that had the data.
+  const ts = x.tdeeSeries("2026-12-31", 12);
+  a.equal(ts.length, 12);
+  a.ok(ts[0].v > ts[ts.length - 1].v, "it drifts down across the series");
+  a.match(x.energyCard("2026-12-31"), /Burn over time/);
+  a.match(x.energyCard("2026-12-31"), /come down about/);
+});
+
+test("the formula's share falls as evidence builds, on one rule", () => {
+  const x = app({ now: "2026-12-31" });
+  x.plan.startMonday = "2026-08-03"; x.plan.bridge = false;
+  Object.assign(x.plan, { sex: "m", height: 70, birthYear: 1983, activity: 1.9 });
+  x.bump();
+  let w = 200;
+  for (let i = 0; i <= 150; i++) {
+    const d = x.addDays("2026-08-03", i);
+    w -= 0.03;
+    x.seed({ [d]: { date: d, checkin: { bw: Math.round(w * 100) / 100, kcal: 2400 } } });
+  }
+  x.bump();
+
+  // 42 days of logging both and the formula is gone; before that it is a straight ramp.
+  const at = (i) => x.tdeeOn(x.addDays("2026-08-03", i));
+  a.equal(Math.round(at(21).w * 100), Math.round(21 / 42 * 100));
+  a.equal(Math.round(at(35).w * 100), Math.round(35 / 42 * 100));
+  a.equal(at(60).w, 1);
+  a.equal(at(120).w, 1, "it does not drift back");
+  a.equal(at(120).tdee, at(120).measured.tdee, "at full trust the headline is your own number");
+
+  // Stop logging calories and the estimate decays back toward the formula rather than
+  // freezing on a number that is going stale.
+  for (let i = 121; i <= 150; i++) {
+    const d = x.addDays("2026-08-03", i);
+    x.seed({ [d]: { date: d, checkin: { bw: x.lg(d).checkin.bw } } });
+  }
+  x.bump();
+  const stale = x.tdeeOn("2026-12-31");
+  a.ok(!stale.measured, "no window has enough calories any more");
+  a.equal(stale.w, 0);
+  a.equal(stale.tdee, x.tdeePredicted("2026-12-31"), "falls back to the formula, and says so");
+  a.match(x.energyCard("2026-12-31"), /the formula only/);
+});

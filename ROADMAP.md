@@ -90,6 +90,22 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A running burn estimate (2026-10-01)**
+- `tdeeOn(date)` is the number the card leads with: the longest window with the data
+  (28 → 21 → 14 days), blended with Mifflin-St Jeor by `w = min(1, days logged in the
+  last 42 / 42)`. One rule rather than two — an earlier version multiplied a
+  window-reliability term by a coverage term and stuck at 73% for anyone who missed one
+  day in eight, which permanently kept a formula that was 600 kcal out.
+- `tdeeSeries()` charts it weekly, each point from its own 28-day window, so metabolic
+  adaptation across a cut is visible. Over 100 kcal of drift gets a line of prose.
+- Fallback is explicit in both directions: no data yet → the formula, named as such;
+  calories logged and then abandoned → back to the formula rather than a stale number.
+- `endAvg()` walks the date range instead of every log, since the chart calls it ~24
+  times per render.
+- Watch for: the card quotes two burn numbers on purpose — what your own data says, and
+  the blended headline — and the deficit sentence must use the measured one, or it
+  contradicts the weight trend in the same sentence.
+
 **Calories, TDEE and body fat (2026-10-01)**
 - Calories per day in the check-in (`checkin.kcal`), asked the morning after, so
   `kcalOn(d)` reads day d+1's answer: intake belongs to the day it was eaten.
