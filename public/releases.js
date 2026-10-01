@@ -4,6 +4,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.30',date:'2026-10-02',title:'Run it by the book',items:[
+    'The default cadence is now the book\u2019s: two six-week cycles, then a retest \u2014 twelve weeks between tests, which it calls the optimal length of a strength phase. Six weeks is the minimum and is there for anyone who responds better to testing often, and waiting longer is explicitly fine: if the loads still feel heavy, keep your numbers and test when they feel solid.',
+    'No scheduled deload by default. Operator does not have one \u2014 it runs cycles back to back and retests, and the recovery it prescribes is a full week or more off every three to six months, which you add from the Plan tab. The scheduled light week is still there if you want it, now labelled as our addition rather than the book\u2019s.',
+    'Setup says whether your cadence matches the book, with a <b>Match the book</b> button that sets both at once and tells you what it moved. Your existing settings are untouched until you tap it.']},
   {v:'1.29',date:'2026-10-02',title:'Checked against the books',items:[
     'Conditioning now eases on the weeks your lifting is heaviest. Weeks 3 and 6 of every cycle are the 90% and 95% weeks, and the conditioning drops to fewer rounds and a shorter steady session so the heavy lifting gets the energy. The day says so, because an easy week should not read like a week you let slip.',
     'The strength wave is confirmed correct \u2014 weeks 5 and 6 really are 3\u00d75 at 85% and 3\u00d72 at 95%. That was the open question behind every heavy week in the app, and nothing needed changing.',

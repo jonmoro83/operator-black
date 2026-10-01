@@ -50,6 +50,7 @@ test("an inserted week pushes everything back and can be removed", () => {
 
 test("a skipped deload does not appear", () => {
   const x = app();
+  x.plan.deloadEvery = 2; x.plan.testEvery = 3; x.bump();   // deloads are off by default now
   const d = x.weeks().find((w) => w.kind === "deload");
   x.plan.skips = { [d.rule]: true }; x.bump();
   a.equal(x.weeks().find((w) => w.kind === "deload" && w.after === d.after), undefined);

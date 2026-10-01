@@ -1011,7 +1011,9 @@ test("the planned length adds up, and says how", () => {
 
 test("a plan change says what it moved", () => {
   const x = app({ now: "2026-10-19" });
-  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.deloadEvery = 2; x.bump();
+  // Set both: with testEvery 2 the retest wins every second cycle and no deload remains.
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.deloadEvery = 2; x.plan.testEvery = 3; x.bump();
 
   const before = x.milestones();
   a.ok(before.deload && before.test, "there is a deload and a retest ahead");
@@ -1027,7 +1029,8 @@ test("a plan change says what it moved", () => {
   // Turning the rule off removes the scheduled deloads and says so. (An explicitly
   // inserted week is not a rule, so it survives -- hence a fresh plan here.)
   const y = app({ now: "2026-10-19" });
-  y.plan.startMonday = "2026-09-07"; y.plan.bridge = false; y.plan.deloadEvery = 2; y.bump();
+  y.plan.startMonday = "2026-09-07"; y.plan.bridge = false;
+  y.plan.deloadEvery = 2; y.plan.testEvery = 3; y.bump();
   const b2 = y.milestones();
   y.replan("Deloads off", (p) => { p.deloadEvery = 0 });
   a.match(y.milestoneDiff(b2, y.milestones()), /no deload scheduled now/);
@@ -1360,4 +1363,34 @@ test("a format with no comparable number cannot be a benchmark", () => {
   a.equal(x.hicSessions(true).filter((h) => h.f === "fobbit").length, 1);
   a.equal(x.condWeeks(12).find((w) => w.mon === x.mondayOf(d)).min, 20);
   a.ok(x.hicRut(d, 1), "and it counts toward the rotation check");
+});
+
+test("the shipped defaults are the book's cadence", () => {
+  const x = app();
+  // TB1: six-week blocks, retest after two of them, and no deload week anywhere in it.
+  a.equal(x.DEF.testEvery, 2, "twelve weeks between retests");
+  a.equal(x.DEF.deloadEvery, 0, "no scheduled deload");
+
+  // A fresh plan therefore runs cycles straight into a retest.
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const ws = x.weeks().slice(0, 26);
+  a.equal(ws.filter((w) => w.kind === "deload").length, 0, "no deloads turn up on their own");
+  const tests = ws.filter((w) => w.kind === "test");
+  a.ok(tests.length >= 2, "retests do");
+  a.deepEqual(tests.slice(0, 2).map((w) => w.after), [2, 4], "after every second cycle");
+
+  // Twelve weeks of training between them, which is what the book calls optimal.
+  const gap = (x.D(tests[1].monday) - x.D(tests[0].monday)) / 864e5 / 7;
+  a.equal(gap, 13, "12 training weeks plus the retest week itself");
+
+  // The deload is still there for anyone who wants it, and it is reachable in one tap.
+  x.plan.deloadEvery = 2; x.plan.testEvery = 0; x.bump();
+  a.ok(x.weeks().slice(0, 20).some((w) => w.kind === "deload"), "still available");
+
+  // And one tap puts it back to the book, with the usual undo.
+  x.replan("Set to the book's cadence", (p) => { p.testEvery = 2; p.deloadEvery = 0 });
+  a.equal(x.plan.testEvery, 2);
+  a.equal(x.plan.deloadEvery, 0);
+  a.ok(x.undoItem, "undoable like any plan change");
+  a.match(x.vSetup(), /By the book/, "and Setup says so rather than offering the button");
 });

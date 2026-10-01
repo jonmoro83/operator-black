@@ -342,7 +342,7 @@ const DEF={
   round:{squat:5,bench:5,pull:5,ohp:5,wpu:2.5,dead:5},
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
-  deloadEvery:2, testEvery:3,
+  deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},

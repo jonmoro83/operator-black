@@ -151,6 +151,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
 
+**Default cadence set to the book's (2026-10-02)**
+- `DEF.testEvery` 3 → **2** and `DEF.deloadEvery` 2 → **0**. TB1 runs six-week blocks back
+  to back and retests after two of them; it has no deload week, and prescribes a full week
+  or more off every 3–6 months instead.
+- The scheduled deload stays as an option, labelled in Setup and the Guide as our addition
+  rather than the book's, because a light week suits running this year-round outside a unit.
+- A stored plan beats the defaults in `deepMerge(clone(DEF), saved)`, so existing users keep
+  their cadence until they act. Hence the **Match the book** button: it runs through
+  `replan()`, so it reports what moved ("retest 11/30 → 12/7") and is undoable. No silent
+  rewrite of somebody's training schedule.
+- Two older tests leaned on the old defaults rather than setting them; both now pin
+  `deloadEvery`/`testEvery` explicitly. Note the interaction that caught one of them: when
+  `testEvery` and `deloadEvery` are equal the retest wins every time and no deload ever
+  appears.
+
 **Read against the source books (2026-10-02)**
 - The user supplied TB1 (3rd ed.) and TB2 directly, which settled the open content
   questions. `plan.wave` is confirmed correct against the Operator table.
