@@ -4,6 +4,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.24',date:'2026-10-02',title:'Make the info button work',items:[
+    'The little info marker next to each warm-up and mobility movement did nothing when tapped in 1.23. It is a proper button now, and tapping it opens the movement underneath the row \u2014 and leaves the tick box alone, which the old one did not.']},
   {v:'1.23',date:'2026-10-02',title:'The warm-up explains itself',items:[
     'All 28 warm-up and mobility movements now have the same treatment the plyo drills and jump tests have: setup, execution, cues and the errors that actually matter. Tap the name on any checklist and it opens underneath; the whole set is browsable in the Guide.',
     'They are written for the way these go wrong rather than right \u2014 the couch stretch is useless without the pelvic tuck, knee-to-wall is useless if the heel lifts, and a bent-knee calf stretch is a different muscle from the straight-leg one, not a repeat of it.']},

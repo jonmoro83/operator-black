@@ -182,12 +182,14 @@ function travelCard(dp){
 }
 function checkRow(bind,on,name,dose){
   const h=holdSecs(dose), e=mlibEntry(name), id='c-'+bind.replace(/\./g,'-'), key='m-'+bind.replace(/\./g,'-');
-  const row=`<input type="checkbox" id="${id}" data-bind="${bind}" ${on?'checked':''}><label class="crow-n" for="${id}">${esc(name)}</label>${dose?`<span class="mono small muted">${esc(dose)}</span>`:'<span></span>'}${h?`<button class="btn sm ghost hold" data-act="hold" data-n="${esc(name)}" data-s="${h.s}" data-sides="${h.sides}" aria-label="Time ${esc(name)}">\u23f1</button>`:'<span></span>'}`;
-  // With a library entry the whole row is the disclosure, so the explanation opens full
-  // width underneath. A click on the checkbox is stopped from reaching the summary.
-  if(!e) return `<div class="crow">${row}</div>`;
-  return `<details class="mrow" data-px="${key}"${openPx.has(key)?' open':''}><summary class="crow">${row}</summary>${libBody(e)}</details>`;
+  const open=!!e&&openPx.has(key);
+  // No <details> here: ticking the box re-renders, and a native disclosure would be
+  // rebuilt before its toggle event landed. The button drives openPx and the panel is
+  // rendered from it, so the two cannot race.
+  const info=e?`<button class="info${open?' on':''}" data-act="mlib" data-k="${key}" aria-expanded="${open}" aria-label="How to do ${esc(name)}">i</button>`:'<span></span>';
+  return `<div class="crow"><input type="checkbox" id="${id}" data-bind="${bind}" ${on?'checked':''}><label class="crow-n" for="${id}">${esc(name)}</label>${info}${dose?`<span class="mono small muted">${esc(dose)}</span>`:'<span></span>'}${h?`<button class="btn sm ghost hold" data-act="hold" data-n="${esc(name)}" data-s="${h.s}" data-sides="${h.sides}" aria-label="Time ${esc(name)}">\u23f1</button>`:'<span></span>'}</div>${open?libBody(e):''}`;
 }
+
 
 function warmupCard(date){
   const W=lg(date).warmup||[], short=!!lg(date).warmShort;

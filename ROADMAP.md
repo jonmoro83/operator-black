@@ -131,6 +131,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The library button, properly (2026-10-02)**
+- 1.23 shipped the ℹ as a `::after` on the row's `<label for>` inside a `<summary>`.
+  Tapping it ticked the checkbox, which fired `change` → `render()`, which rebuilt the
+  row *before* the browser's `toggle` event could reach `openPx` — so the panel opened
+  and was immediately thrown away. It looked like a dead control.
+- No native disclosure on these rows now. A real `<button data-act="mlib">` flips the key
+  in `openPx` and `checkRow` renders the panel from that, so the state cannot race the
+  re-render. The capturing click guard that existed only for the old structure is gone.
+- Lesson for anything inside a row that re-renders on input: drive disclosure from state,
+  not from the DOM element's own open attribute.
+- Verified over the DevTools protocol rather than by reading the markup: the button opens
+  the panel, does not tick the box, the panel survives ticking a box, and a second click
+  closes it.
+
 **Warm-up and mobility library (2026-10-02)**
 - `MLIB` in `src/app/01a-movements.js`: 28 entries in the same shape as `PLIB`, covering
   every movement in `WARMUP` and in all five `MOB` blocks. `libBody(e)` is the shared

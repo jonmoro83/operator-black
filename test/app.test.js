@@ -1189,17 +1189,30 @@ test("every warm-up and mobility movement has an entry, and the Guide lists them
     a.ok(guide.includes(`data-px="ml-${id}"`), `${id} is in the Guide`);
   }
 
-  // The checklist row becomes a disclosure, and the checkbox is outside the summary's
-  // reach only by the click guard -- so at least assert the structure it relies on.
-  const row = x.checkRow("warmup.8", false, "Couch stretch", "45–60 sec per side");
-  a.match(row, /^<details class="mrow"/);
-  a.match(row, /<summary class="crow">/);
-  a.match(row, /The pelvic tuck is the whole exercise/);
-  a.match(row, /data-act="hold"/, "the hold timer survives");
+  // A row with an entry gets a button that opens the panel; it is closed until asked for.
+  x.openPx.clear();
+  const shut = x.checkRow("warmup.8", false, "Couch stretch", "45–60 sec per side");
+  a.match(shut, /data-act="mlib" data-k="m-warmup-8"/, "a real button, not a label");
+  a.match(shut, /aria-expanded="false"/);
+  a.ok(!/The pelvic tuck/.test(shut), "the explanation is not rendered yet");
+  a.match(shut, /data-act="hold"/, "the hold timer survives");
+  a.ok(!/<details/.test(shut), "no native disclosure to race the re-render");
 
-  // A movement the library does not know still renders as a plain row.
+  // Opening it is state, not DOM, so a re-render keeps it open.
+  x.openPx.add("m-warmup-8");
+  const open = x.checkRow("warmup.8", false, "Couch stretch", "45–60 sec per side");
+  a.match(open, /The pelvic tuck is the whole exercise/);
+  a.match(open, /aria-expanded="true"/);
+  a.match(open, /class="info on"/);
+
+  // Ticking the box must not depend on the panel, and vice versa.
+  const ticked = x.checkRow("warmup.8", true, "Couch stretch", "45–60 sec per side");
+  a.match(ticked, /checked/);
+  a.match(ticked, /The pelvic tuck/, "still open after a tick");
+
+  // A movement the library does not know still renders as a plain row with no button.
   const custom = x.checkRow("mobility.0", true, "Jefferson curl", "3 × 5");
   a.match(custom, /^<div class="crow">/);
-  a.ok(!/<details/.test(custom));
+  a.ok(!/data-act="mlib"/.test(custom));
   a.match(custom, /checked/);
 });
