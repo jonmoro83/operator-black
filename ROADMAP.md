@@ -131,6 +131,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Full day-view read-through (2026-10-02)**
+- Rendered `vToday()` for every day type at phone width — lift, plyo+HIC, HIC, deload,
+  both retest days, off, bridge — with a seeded history, after two UI bugs in a row got
+  through by checking only the card that changed. Two blemishes, both cosmetic: the
+  suggested-minutes explanation began with a dash because the button wrapped above it,
+  and the Lift 3 swap said "Today" where the variant swap said "This session".
+- Worth keeping as a habit: `scratchpad/days.js` renders a list of dates into side-by-side
+  iframes at 390px, which is how both were spotted.
+
 **Banner/button class collision (2026-10-02)**
 - Reported with a screenshot: the bridge-week banner rendered as a tiny blue column with
   its text leaking out around the cards. 1.24's movement button was styled `.info`, and

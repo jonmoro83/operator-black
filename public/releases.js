@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.26',date:'2026-10-02',title:'Tidying after a full read-through',items:[
+    'The suggested-minutes explanation is its own sentence now instead of trailing off a dash after the button.',
+    'The lift and the Lift 3 swap both say \u201cthis session\u201d, rather than one saying \u201cthis session\u201d and the other \u201ctoday\u201d for the same thing.']},
   {v:'1.25',date:'2026-10-02',title:'Fix the squashed banners',items:[
     'The blue Bridge week notice, and every other info banner, was being crushed into a 22-pixel circle with its text spilling behind the cards \u2014 the style for the new movement info button shared a name with the banner\u2019s own. Both are back to normal.']},
   {v:'1.24',date:'2026-10-02',title:'Make the info button work',items:[

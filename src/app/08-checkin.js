@@ -285,7 +285,7 @@ function hicCard(dp,note){
     const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="small muted">No minutes logged. <button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button> \u2014 ${esc(pl.text)}${pl.rounds?`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`:''}. Change the field if you did more or less.</div>`;
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`:''}. Change the field if you did more or less.</div>`;
     }
   }
   {
