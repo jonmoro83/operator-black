@@ -1230,3 +1230,71 @@ test("new component classes do not collide with the banner modifiers", () => {
   x.openPx.clear();
   a.match(x.checkRow("warmup.8", false, "Couch stretch", "45 sec"), /class="libinfo"/);
 });
+
+test("a FOBBIT is an easy base broken by bursts, not a work/rest interval", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.ok(x.HIC.fobbit, "it is a format, not an activity");
+  a.equal(x.HIC.fobbit.name, "FOBBIT");
+
+  const o = { ...x.ivOpts("2026-10-01", "fobbit"), cool: false };
+  a.equal(o.warm, false, "no separate warm-up: the base is the warm-up");
+  a.equal(o.rounds, 6, "six rounds of 2 min base plus a burst is the standard 20 minutes");
+  a.equal(o.burst, 60, "a minute of work by default, inside the 30–90 s range");
+
+  const segs = x.ivSegments("fobbit", o);
+  a.equal(segs[0].l, "Base", "it opens on the base, unlike every other format");
+  a.equal(segs[0].s, 120);
+  a.equal(segs[segs.length - 1].l, "Base", "and closes on it: you keep moving to the end");
+  a.equal(segs.filter((s) => s.k === "work").length, 6);
+  a.equal(segs.filter((s) => s.k === "easy").length, 7, "a base either side of every burst");
+  a.equal(x.ivTotal(segs), 6 * 60 + 7 * 120, "six bursts and seven bases");
+  a.equal(x.ivTotal(segs) / 60, 20, "the 20 minutes the book prescribes");
+
+  // The burst length is the thing you vary, and it changes the session length.
+  const long = x.ivSegments("fobbit", { ...o, burst: 90 });
+  a.equal(x.ivTotal(long) / 60, 23);
+  a.equal(x.ivSegments("fobbit", { ...o, burst: 30 }).length, segs.length, "same shape, shorter bursts");
+
+  // Every other format still opens on work and drops the trailing easy period.
+  for (const f of ["map", "anaerobic", "threshold", "long"]) {
+    const s2 = x.ivSegments(f, { ...x.ivOpts("2026-10-01", f), warm: false, cool: false });
+    a.equal(s2[0].k, "work", `${f} still starts hard`);
+    a.equal(s2[s2.length - 1].k, "work", `${f} still ends hard`);
+  }
+
+  // No distance or calorie number: the work is whatever movement you chose.
+  a.equal(x.metricFor("echo", "fobbit"), null);
+  a.ok(x.metricFor("echo", "map"), "other formats keep theirs");
+
+  // ...so it is logged by minutes and bursts, and still counts as a session.
+  const d = "2026-09-30";
+  x.seed({ [d]: { date: d, done: true, hic: { format: "fobbit", mod: "run", what: "kettlebell swings", min: 20, rounds: 6 } } });
+  x.bump();
+  const s3 = x.hicSessions(true).filter((h) => h.f === "fobbit");
+  a.equal(s3.length, 1, "it reaches the conditioning log without a metric");
+  a.equal(s3[0].min, 20);
+  a.equal(x.condWeeks(12).find((w) => w.mon === x.mondayOf(d)).min, 20, "and the weekly minutes");
+
+  x.sel = d;
+  const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(card, /Burst movement/);
+  a.match(card, /data-bind="hic.rounds"/);
+  a.match(card, /data-act="ivopt" data-k="burst"/, "the burst length is pickable");
+  a.match(card, /Keep it under 30 minutes and it is a HIC/);
+
+  // On a day with nothing logged yet, the suggested length shows this format's own
+  // arithmetic rather than the work/rest one.
+  const fresh = "2026-09-29";
+  x.sel = fresh;
+  x.seed({ [fresh]: { date: fresh, hic: { format: "fobbit", mod: "run" } } }); x.bump();
+  const ask = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(ask, /Use 20 min/, "the standard session, with no warm-up bolted on");
+  a.match(ask, /6 × burst \+ 7 × base/);
+  a.ok(!/no easy period after the last one/.test(ask), "that clause is false here");
+
+  // The opening base belongs to the session, not to a warm-up that is not there.
+  const parts = x.ivParts(x.ivSegments("fobbit", o));
+  a.equal(parts.warm, 0);
+  a.equal(parts.work / 60, 20);
+});

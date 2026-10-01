@@ -4,6 +4,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.27',date:'2026-10-02',title:'FOBBITs',items:[
+    'FOBBIT is now one of the conditioning formats. You keep moving on an easy base \u2014 slow jog, skipping, easy spin \u2014 and break it every two minutes with a 30 to 90 second burst of something else: kettlebell swings, burpees, a sandbag. Twenty minutes, no ground to cover, barely any kit.',
+    'The timer runs it the right way round for once: it opens on the base, puts a base either side of every burst, and does not bolt a warm-up on the front, because the base already is one. The burst length is pickable at 30, 45, 60 or 90 seconds.',
+    'There is no calorie or distance box, because the work is whatever movement you chose \u2014 you log the minutes, the bursts and what you did. And the card says the thing that is easy to get wrong: past 30 minutes it stops counting as a HIC and becomes an easy session.']},
   {v:'1.26',date:'2026-10-02',title:'Tidying after a full read-through',items:[
     'The suggested-minutes explanation is its own sentence now instead of trailing off a dash after the button.',
     'The lift and the Lift 3 swap both say \u201cthis session\u201d, rather than one saying \u201cthis session\u201d and the other \u201ctoday\u201d for the same thing.']},

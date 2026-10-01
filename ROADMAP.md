@@ -131,6 +131,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**FOBBITs (2026-10-02)**
+- A TB II conditioning format, added to `HIC` rather than to `MOD`: it is a session
+  structure, not a tool. Checked against tacticalbarbell.com rather than built from
+  memory — 2 min easy base, 30–90 s burst of an alternative movement, ~20 min, classed
+  as an aerobic-based HIC, and an endurance session rather than a HIC past 30 minutes.
+- It inverts the interval model, so `IV.fobbit` carries `lead:true` (a base segment opens
+  the session) and `burst:[30,45,60,90]` (per-session, in `hic.iv.burst`). Unlike every
+  other format it keeps the easy period after the final round, so six bursts have seven
+  bases: 6×60 + 7×120 = exactly the 20 minutes prescribed.
+- `ivOpts` defaults `warm` to false when a format has `lead` — the base is the warm-up.
+  `ivParts` counts the lead segment as work, not warm-up, and the suggested-length
+  sentence has a FOBBIT branch, since "no easy period after the last one" is false here.
+- `metricFor` returns null for it and `hicSessions` accepts it on minutes or bursts: the
+  work is a movement, so there is no distance or calorie number to compare.
+
 **Full day-view read-through (2026-10-02)**
 - Rendered `vToday()` for every day type at phone width — lift, plyo+HIC, HIC, deload,
   both retest days, off, bridge — with a seeded history, after two UI bugs in a row got

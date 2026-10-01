@@ -2,19 +2,23 @@
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]}};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:60,rest:120,rounds:[6,8],lead:true,burst:[30,45,60,90]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
   const o=((lg(date).hic||{}).iv)||{}, r=IV[fmt];
   const lv=rLevel(readiness(ci(date))), def=r?(lv&&lv.k!=='go'?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.rounds[0])):null;
-  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:fmt!=='liss', cool:!!o.cool, lissMin:o.lissMin||35};
+  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||35,
+    burst:(r&&r.burst&&r.burst.includes(+o.burst)?+o.burst:null)||(r&&r.burst?r.work:null)};
 }
 function ivSegments(fmt,o){
   const seg=[];
   if(o.warm&&fmt!=='liss'){seg.push({k:'easy',l:'Warm-up',s:300});for(let i=1;i<=3;i++){seg.push({k:'work',l:'Pickup',sub:'Pickup '+i+' of 3',s:15});seg.push({k:'easy',l:'Easy',sub:i<3?'Then pickup '+(i+1):'Intervals next',s:i<3?45:60})}}
   if(fmt==='liss') seg.push({k:'easy',l:'Steady',sub:'Conversational pace',s:o.lissMin*60});
-  else {const r=IV[fmt];for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:r.work,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
+  else {const r=IV[fmt];
+    if(r.lead) seg.push({k:'easy',l:'Base',sub:'Settle in',s:r.rest,lead:true});
+    const wk=o.burst||r.work;
+    for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:r.lead?'Burst':'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds||r.lead)seg.push({k:'easy',l:r.lead?'Base':'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
   return seg;
 }
@@ -24,7 +28,7 @@ function ivTotal(segs){return segs.reduce((a,x)=>a+x.s,0)}
 // easy period than hard ones — the timer does not make you stand there resting after the
 // last round — so 8 × 1:00/1:00 is 15 minutes of intervals, not 16.
 function ivParts(segs){
-  const i=segs.findIndex(x=>x.round);
+  const i=segs.findIndex(x=>x.round||x.lead);
   const hasCool=segs.length&&segs[segs.length-1].l==='Cool-down';
   const cool=hasCool?segs[segs.length-1].s:0;
   const warm=i<0?0:segs.slice(0,i).reduce((a,x)=>a+x.s,0);
