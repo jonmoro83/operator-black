@@ -7,6 +7,10 @@ node_modules/
 .dev.vars
 *.log
 
+# Books and reference PDFs stay on disk, never in the repo
+*.pdf
+!Plyometric_Program_Thursday.pdf
+
 # Editors
 .vscode/*
 !.vscode/extensions.json
