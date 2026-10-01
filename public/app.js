@@ -178,6 +178,38 @@ const PLIB={
     errors:'Jumping off the box instead of stepping, which changes the landing force unpredictably. Using too high a box: the single most common error, and it converts an elastic drill into a heavy eccentric one. Pausing on landing.',
     note:'Highest-stress movement in the program. If your vertical rebound off the box is lower than a normal standing vertical jump, the box is too high. Lower it. Start at 12 inches even if that feels trivially easy.'}
 };
+// Variants for the lifts that have them. `r` is the variant's usual share of the
+// reference lift's max, used to work out the weight when you have not tested the variant
+// itself; enter a real max in Setup and that wins instead. `r:null` means there is no
+// honest ratio — what you can hold or how far you can pull caps the lift long before
+// your legs do — so those ask for their own number.
+// The first entry in each list is the reference: the max everything else is derived from,
+// the one retests measure, and what you get if you never touch this.
+const VARS={
+  squat:{
+    back:{name:'Back squat',short:'Back',r:1,note:'The reference. Everything else here is expressed against it.'},
+    high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. Carries the same max as a generic back squat for most people.'},
+    low:{name:'Low-bar back squat',short:'Low bar',r:1.03,note:'Bar on the rear delts, more hip and more forward lean. Usually a few percent heavier than high bar.'},
+    front:{name:'Front squat',short:'Front',r:.85,note:'Rack position, vertical torso, quads and upper back. About 85% of a back squat, and the upper back usually gives out first.'},
+    box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
+    pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
+    zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'},
+    goblet:{name:'Goblet squat',short:'Goblet',r:null,note:'One dumbbell or kettlebell at the chest. What you can hold runs out long before your legs do, so it has no useful ratio to a back squat — give it its own max, or keep it for travel weeks and warm-ups.'},
+    kbfront:{name:'Double KB front squat',short:'KB front',r:null,note:'Two kettlebells in the rack. Same limit as the goblet: the hold caps it. Its own max, or a travel-week movement.'}
+  },
+  dead:{
+    conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
+    sumo:{name:'Sumo deadlift',short:'Sumo',r:1,note:'Wide stance, hands inside the knees, shorter bar path and more quad. Treated as equal to conventional because the gap is personal — if yours differs, give it its own max.'},
+    trap:{name:'Trap bar deadlift',short:'Trap bar',r:1.05,note:'Neutral grip, load closer to the hips, easier on the lower back. Usually a touch heavier than conventional, more so from the high handles.'},
+    deficit:{name:'Deficit deadlift',short:'Deficit',r:.9,note:'Standing on 1–3 inches. Longer pull off the floor, harder start, and the reason to use it is a weak break from the floor.'},
+    snatch:{name:'Snatch-grip deadlift',short:'Snatch grip',r:.85,note:'Wide grip, much longer range, heavy on the upper back. Grip usually decides the set.'},
+    pause:{name:'Paused deadlift',short:'Paused',r:.85,note:'Pause an inch or two off the floor, or below the knee. Punishes any slack in the start position.'},
+    block:{name:'Block or rack pull',short:'Blocks',r:1.1,note:'Bar raised to just below the knee. Shorter pull, heavier weight, and easy to overload — keep it honest.'},
+    rdl:{name:'Romanian deadlift',short:'RDL',r:null,note:'Hinge from the top, controlled lowering, no reset on the floor. A hamstring accessory rather than a max lift, so it needs its own number if you run it here at all.'}
+  }
+};
+function varList(k){return VARS[k]||null}
+function varRef(k){return VARS[k]?Object.keys(VARS[k])[0]:null}
 // The 12–15 min warm-up as a checklist. `s` marks the 7-minute short version.
 const WARMUP=[
   {g:'Raise temp',n:'Bike, rower or easy jog',d:'4–5 min',s:1},
@@ -328,7 +360,30 @@ function n(x){if(x==null||x==='')return '—';const v=Math.round(x*100)/100;retu
 function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(const k of Object.keys(over)){const v=over[k];if(v&&typeof v==='object'&&!Array.isArray(v)&&base[k]&&typeof base[k]==='object'&&!Array.isArray(base[k]))base[k]=deepMerge(base[k],v);else base[k]=v}return base}
 function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
-function liftName(k){return k==='pull'?(plan.lift3Name||'Lat pulldown'):{squat:'Squat',bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k]}
+function liftName(k,date){
+  if(VARS[k]) return VARS[k][varOf(k,date)].name;
+  return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
+}
+// Which variant of a lift you are doing: a per-day swap wins, then the one set in Setup.
+// Retest and bridge weeks always use the reference, because that is the max the whole
+// program is derived from and the one those weeks exist to measure.
+function varOf(k,date){
+  if(!VARS[k]) return null;
+  const d=date||sel, wk=d?weekOf(d):null;
+  if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return varRef(k);
+  const o=((logs[d]||{}).var||{})[k];
+  return VARS[k][o]?o:varDefault(k);
+}
+function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&VARS[k][v]?v:varRef(k)}
+// The max for the variant you are actually doing: your own number if you have entered
+// one, otherwise the reference max scaled by that variant's usual share of it.
+function varMax(k,c,date){
+  const v=varOf(k,date), own=((plan.liftMax||{})[k]||{})[v];
+  if(own!=null&&own!=='') return {v:+own,src:'own',vr:v};
+  const base=maxFor(c)[k], r=VARS[k][v].r;
+  if(!base||r==null) return base&&r==null?null:null;
+  return r===1?{v:base.v,src:base.src,vr:v}:{v:base.v*r,src:'ratio',vr:v,from:base.v,r};
+}
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
 function activeLifts(){return ['squat','bench',...l3On(),'dead']}
 function isBarbell(k){return k!=='pull'&&k!=='wpu'}
@@ -439,12 +494,13 @@ function maxFor(c){
   }
   return mcache.m[c]=r;
 }
-function rx(wk,k){
+function rx(wk,k,date){
   let s,r,p,c;
+  const d=date||sel;
   const v=wkRx(wk);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
   if(k==='dead'&&wk.kind!=='cycle') s=1;
-  const m=maxFor(c)[k];
-  return {s,r,p,c,m,w:m?loadFor(k,m.v,p,sel):null,t:wk.kind==='cycle'?tier(p):'light'};
+  const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
+  return {s,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
@@ -966,11 +1022,20 @@ function liftCard(wk,k,dp){
   const setLbl=isDead?'1–3':r.s;
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
+  const needMax=VARS[k]&&!r.m&&VARS[k][r.vr].r==null;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
+  if(VARS[k]&&!viewing){
+    const v=r.vr, cur=VARS[k][v];
+    h+=`<label class="restsel"><span>Today</span><select class="varsel" data-act-var="${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
+    if(v!==varRef(k)) h+=`<div class="small muted">${esc(cur.note)}</div>`;
+  }
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
+  if(needMax) h+=`<div class="banner warn"><div><b>${esc(VARS[k][r.vr].name)} needs its own max.</b> There is no honest percentage of a ${esc(VARS[k][varRef(k)].name.toLowerCase())} for it — what you can hold decides the lift. Enter one in Setup → Lift variants, or pick another variant.</div><div><button class="btn sm" data-act="view" data-view="setup">Open Setup</button></div></div>`;
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
+    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted">From your ${esc(VARS[k][varRef(k)].name.toLowerCase())} max of ${n(r.m.from)}, at the ${Math.round(r.m.r*100)}% this variant usually carries. Tested it? Put the real number in Setup and this uses that.</div>`;
+    if(r.m&&r.m.src==='own') h+=`<div class="small muted">From the ${esc(VARS[k][r.vr].name.toLowerCase())} max you entered in Setup.</div>`;
     if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
@@ -2593,19 +2658,19 @@ function sessionsCsv(){
   return csvText(rows);
 }
 function liftsCsv(){
-  const U=u(), rows=[['date','program','week','session','lift','kind','sets_prescribed','reps','pct','prescribed_'+U,'working_'+U,'sets_done','grinder','test_weight_'+U,'test_reps','est_1rm_'+U,'warmups']];
+  const U=u(), rows=[['date','program','week','session','lift','variant','kind','sets_prescribed','reps','pct','prescribed_'+U,'working_'+U,'sets_done','grinder','test_weight_'+U,'test_reps','est_1rm_'+U,'warmups']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), week=wk?weekTitle(wk).t:'';
     if(dp.t==='lift'&&wk) for(const k of dp.lifts){
       const x=(L.lifts||{})[k]; if(!x) continue;
-      const r=rx(wk,k), sets=Array.isArray(x.sets)?x.sets:[], wu=(Array.isArray(x.warmup)?x.warmup:[]).filter(w=>w&&w.w!=null&&w.w!=='');
+      const r=rx(wk,k,d), sets=Array.isArray(x.sets)?x.sets:[], wu=(Array.isArray(x.warmup)?x.warmup:[]).filter(w=>w&&w.w!=null&&w.w!=='');
       const used=x.used!=null&&x.used!==''?+x.used:r.w;
-      rows.push([d,prog,week,dp.short,liftName(k),'working',k==='dead'&&wk.kind==='cycle'?'1-3':r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
+      rows.push([d,prog,week,dp.short,liftName(k,d),VARS[k]?varOf(k,d):'','working',k==='dead'&&wk.kind==='cycle'?'1-3':r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
     }
     for(const [k,t] of Object.entries(L.test||{})){
       if(!t||t.w==null||t.w==='') continue;
       const reps=t.r||(dp.t==='rm5'?5:1), e=estMax(k,t.w,reps,d);
-      rows.push([d,prog,week,dp.short||'',liftName(k),dp.t==='rm5'?'5RM test':'test','',reps,'','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',dp.t==='rm5'?'5RM test':'test','',reps,'','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
     }
   });
   return csvText(rows);
@@ -2879,6 +2944,17 @@ function vSetup(){
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
+  h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift you are running. The weight comes from your ${esc(VARS.squat.back.name.toLowerCase())} and ${esc(VARS.dead.conv.name.toLowerCase())} maxes above, scaled by what that variant usually carries — unless you enter a tested max for it, which always wins. You can also swap for a single session from the lift's card on Today.</p>`;
+  for(const k of ['squat','dead']){
+    const cur=varDefault(k), own=(plan.liftMax||{})[k]||{};
+    h+=`<div class="stack" style="gap:8px;margin-top:12px"><label class="f" style="max-width:320px">${esc(k==='squat'?'Squat':'Deadlift')}<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===cur?' selected':''}>${esc(x.name)}${x.r==null?' — needs its own max':x.r===1?'':' · ~'+Math.round(x.r*100)+'%'}</option>`).join('')}</select></label>
+    <div class="small muted">${esc(VARS[k][cur].note)}</div>
+    <details class="plain"><summary>Tested maxes for variants <small class="muted">· ${Object.keys(own).filter(v=>own[v]!=null&&own[v]!=='').length} entered</small></summary>
+      <p class="small muted" style="margin:8px 0 0">Enter one only if you have actually tested it. A number here replaces the estimate for that variant, and nothing else in the program reads it — retests and the cycle review always measure the ${esc(VARS[k][varRef(k)].name.toLowerCase())}.</p>
+      <div class="grid3" style="margin-top:8px">${Object.entries(VARS[k]).filter(([id])=>id!==varRef(k)).map(([id,x])=>`<label class="f">${esc(x.short)}${pIn('liftMax.'+k+'.'+id,own[id])}</label>`).join('')}</div>
+    </details></div>`;
+  }
+  h+=`</div>`;
   h+=`<div class="card"><h2>About you</h2><p class="small muted" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
   <div class="grid4"><label class="f">Sex<select id="p-sex" data-pbind="sex"><option value=""${!plan.sex?' selected':''}>—</option><option value="m"${plan.sex==='m'?' selected':''}>Male</option><option value="f"${plan.sex==='f'?' selected':''}>Female</option></select></label>
   <label class="f">Height (${u()==='kg'?'cm':'in'})${pIn('height',plan.height)}</label>
@@ -2987,6 +3063,7 @@ document.addEventListener('input',e=>{
   window.addEventListener('scroll',hide,{passive:true});
 })();
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.dataset&&d.dataset.px){d.open?openPx.add(d.dataset.px):openPx.delete(d.dataset.px);return}if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
+document.addEventListener('change',e=>{ const t=e.target; if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.trvday||t.dataset.np) render(); });
 // Top-level navigation: the tabs and the account menu. Remembers the tab across loads.
@@ -3060,6 +3137,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
+  if(a==='varswap'){const k=b.dataset.k,v=b.dataset.v;if(v===varOf(k,sel))return;const cur=(lg(sel).var)||{};setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v}));openWarm.clear();render();return}
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
   if(a==='calre'){calRe=!calRe;calMove=null;render();return}

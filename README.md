@@ -108,6 +108,17 @@ Operator Black → session duration; 1 month is the max). When one expires, the 
 still opens from cache, the status line reads "Signed out · tap to sign in,"
 and tapping it goes to the login page.
 
+## Lift variants
+
+`VARS` holds the squats and deadlifts the squat and deadlift slots can be run as. The
+first entry of each list is the reference, and the max you store is always that lift's.
+`varOf(k,date)` picks a per-day swap (`logs[d].var[k]`) over the default
+(`plan.liftVar[k]`), and forces the reference on test and bridge weeks. `varMax()` uses a
+tested `plan.liftMax[k][v]` when present, otherwise the reference max times the variant's
+ratio. Variants move the working weight and nothing else: records, charts, the cycle
+review and retests all stay on the reference lift, so a front-squat session can never be
+written back as a back-squat max.
+
 ## People and programs
 
 **Each person's data is their own.** The API takes the user from the verified Access

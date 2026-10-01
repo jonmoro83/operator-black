@@ -35,19 +35,19 @@ function sessionsCsv(){
   return csvText(rows);
 }
 function liftsCsv(){
-  const U=u(), rows=[['date','program','week','session','lift','kind','sets_prescribed','reps','pct','prescribed_'+U,'working_'+U,'sets_done','grinder','test_weight_'+U,'test_reps','est_1rm_'+U,'warmups']];
+  const U=u(), rows=[['date','program','week','session','lift','variant','kind','sets_prescribed','reps','pct','prescribed_'+U,'working_'+U,'sets_done','grinder','test_weight_'+U,'test_reps','est_1rm_'+U,'warmups']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), week=wk?weekTitle(wk).t:'';
     if(dp.t==='lift'&&wk) for(const k of dp.lifts){
       const x=(L.lifts||{})[k]; if(!x) continue;
-      const r=rx(wk,k), sets=Array.isArray(x.sets)?x.sets:[], wu=(Array.isArray(x.warmup)?x.warmup:[]).filter(w=>w&&w.w!=null&&w.w!=='');
+      const r=rx(wk,k,d), sets=Array.isArray(x.sets)?x.sets:[], wu=(Array.isArray(x.warmup)?x.warmup:[]).filter(w=>w&&w.w!=null&&w.w!=='');
       const used=x.used!=null&&x.used!==''?+x.used:r.w;
-      rows.push([d,prog,week,dp.short,liftName(k),'working',k==='dead'&&wk.kind==='cycle'?'1-3':r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
+      rows.push([d,prog,week,dp.short,liftName(k,d),VARS[k]?varOf(k,d):'','working',k==='dead'&&wk.kind==='cycle'?'1-3':r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
     }
     for(const [k,t] of Object.entries(L.test||{})){
       if(!t||t.w==null||t.w==='') continue;
       const reps=t.r||(dp.t==='rm5'?5:1), e=estMax(k,t.w,reps,d);
-      rows.push([d,prog,week,dp.short||'',liftName(k),dp.t==='rm5'?'5RM test':'test','',reps,'','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',dp.t==='rm5'?'5RM test':'test','',reps,'','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
     }
   });
   return csvText(rows);

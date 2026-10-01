@@ -90,6 +90,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Squat and deadlift variants (2026-10-01)**
+- `VARS` keyed by lift: nine squats, eight deadlifts. The first entry of each is the
+  reference. `varOf(k,date)` resolves a per-day swap (`logs[d].var[k]`) over
+  `plan.liftVar[k]`; `varMax(k,c,date)` returns a tested `plan.liftMax[k][v]` if there is
+  one, otherwise the reference max × the variant's ratio. `rx()` takes an optional date
+  and routes any lift in `VARS` through it.
+- `r:null` (goblet, KB front, RDL) means no honest ratio to a barbell max exists — the
+  hold or the range caps the lift — so the card refuses to prescribe and asks for a
+  tested max instead of inventing one.
+- Deliberate boundary: variants change the **working weight only**. `maxFor()` and so the
+  PR board, the strength charts, the cycle review and the retest cards all stay on the
+  reference lift, and `varOf()` forces the reference on test and bridge weeks even
+  against an explicit per-day swap. Otherwise a front-squat single would be written back
+  as a back-squat max and silently drop every weight in the next cycle by 15%.
+- Two bugs caught by tests while building it: the retest guard first returned
+  `varDefault()` (the user's choice) rather than `varRef()`, and the CSV's test rows were
+  not given the new variant column, so every field after it shifted left by one.
+- Watch for: the generic rewrite of `liftName`/`varOf` replaced a span of `03-utils.js`
+  that also held `l3On`, `l3For` and `isBW`. Anchor replacements on both ends.
+
 **Weekly check-in (2026-10-01)**
 - `weeklyCard()` on Today: measurements once a week, from Monday until they are logged,
   then a collapsed summary for the rest of the week. Last week's numbers are the input

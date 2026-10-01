@@ -256,6 +256,17 @@ function vSetup(){
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
+  h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift you are running. The weight comes from your ${esc(VARS.squat.back.name.toLowerCase())} and ${esc(VARS.dead.conv.name.toLowerCase())} maxes above, scaled by what that variant usually carries — unless you enter a tested max for it, which always wins. You can also swap for a single session from the lift's card on Today.</p>`;
+  for(const k of ['squat','dead']){
+    const cur=varDefault(k), own=(plan.liftMax||{})[k]||{};
+    h+=`<div class="stack" style="gap:8px;margin-top:12px"><label class="f" style="max-width:320px">${esc(k==='squat'?'Squat':'Deadlift')}<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===cur?' selected':''}>${esc(x.name)}${x.r==null?' — needs its own max':x.r===1?'':' · ~'+Math.round(x.r*100)+'%'}</option>`).join('')}</select></label>
+    <div class="small muted">${esc(VARS[k][cur].note)}</div>
+    <details class="plain"><summary>Tested maxes for variants <small class="muted">· ${Object.keys(own).filter(v=>own[v]!=null&&own[v]!=='').length} entered</small></summary>
+      <p class="small muted" style="margin:8px 0 0">Enter one only if you have actually tested it. A number here replaces the estimate for that variant, and nothing else in the program reads it — retests and the cycle review always measure the ${esc(VARS[k][varRef(k)].name.toLowerCase())}.</p>
+      <div class="grid3" style="margin-top:8px">${Object.entries(VARS[k]).filter(([id])=>id!==varRef(k)).map(([id,x])=>`<label class="f">${esc(x.short)}${pIn('liftMax.'+k+'.'+id,own[id])}</label>`).join('')}</div>
+    </details></div>`;
+  }
+  h+=`</div>`;
   h+=`<div class="card"><h2>About you</h2><p class="small muted" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
   <div class="grid4"><label class="f">Sex<select id="p-sex" data-pbind="sex"><option value=""${!plan.sex?' selected':''}>—</option><option value="m"${plan.sex==='m'?' selected':''}>Male</option><option value="f"${plan.sex==='f'?' selected':''}>Female</option></select></label>
   <label class="f">Height (${u()==='kg'?'cm':'in'})${pIn('height',plan.height)}</label>

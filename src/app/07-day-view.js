@@ -214,11 +214,20 @@ function liftCard(wk,k,dp){
   const setLbl=isDead?'1–3':r.s;
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
+  const needMax=VARS[k]&&!r.m&&VARS[k][r.vr].r==null;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
+  if(VARS[k]&&!viewing){
+    const v=r.vr, cur=VARS[k][v];
+    h+=`<label class="restsel"><span>Today</span><select class="varsel" data-act-var="${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
+    if(v!==varRef(k)) h+=`<div class="small muted">${esc(cur.note)}</div>`;
+  }
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
+  if(needMax) h+=`<div class="banner warn"><div><b>${esc(VARS[k][r.vr].name)} needs its own max.</b> There is no honest percentage of a ${esc(VARS[k][varRef(k)].name.toLowerCase())} for it — what you can hold decides the lift. Enter one in Setup → Lift variants, or pick another variant.</div><div><button class="btn sm" data-act="view" data-view="setup">Open Setup</button></div></div>`;
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
+    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted">From your ${esc(VARS[k][varRef(k)].name.toLowerCase())} max of ${n(r.m.from)}, at the ${Math.round(r.m.r*100)}% this variant usually carries. Tested it? Put the real number in Setup and this uses that.</div>`;
+    if(r.m&&r.m.src==='own') h+=`<div class="small muted">From the ${esc(VARS[k][r.vr].name.toLowerCase())} max you entered in Setup.</div>`;
     if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;

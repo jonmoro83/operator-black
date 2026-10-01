@@ -21,7 +21,30 @@ function n(x){if(x==null||x==='')return '—';const v=Math.round(x*100)/100;retu
 function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(const k of Object.keys(over)){const v=over[k];if(v&&typeof v==='object'&&!Array.isArray(v)&&base[k]&&typeof base[k]==='object'&&!Array.isArray(base[k]))base[k]=deepMerge(base[k],v);else base[k]=v}return base}
 function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
-function liftName(k){return k==='pull'?(plan.lift3Name||'Lat pulldown'):{squat:'Squat',bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k]}
+function liftName(k,date){
+  if(VARS[k]) return VARS[k][varOf(k,date)].name;
+  return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
+}
+// Which variant of a lift you are doing: a per-day swap wins, then the one set in Setup.
+// Retest and bridge weeks always use the reference, because that is the max the whole
+// program is derived from and the one those weeks exist to measure.
+function varOf(k,date){
+  if(!VARS[k]) return null;
+  const d=date||sel, wk=d?weekOf(d):null;
+  if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return varRef(k);
+  const o=((logs[d]||{}).var||{})[k];
+  return VARS[k][o]?o:varDefault(k);
+}
+function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&VARS[k][v]?v:varRef(k)}
+// The max for the variant you are actually doing: your own number if you have entered
+// one, otherwise the reference max scaled by that variant's usual share of it.
+function varMax(k,c,date){
+  const v=varOf(k,date), own=((plan.liftMax||{})[k]||{})[v];
+  if(own!=null&&own!=='') return {v:+own,src:'own',vr:v};
+  const base=maxFor(c)[k], r=VARS[k][v].r;
+  if(!base||r==null) return base&&r==null?null:null;
+  return r===1?{v:base.v,src:base.src,vr:v}:{v:base.v*r,src:'ratio',vr:v,from:base.v,r};
+}
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
 function activeLifts(){return ['squat','bench',...l3On(),'dead']}
 function isBarbell(k){return k!=='pull'&&k!=='wpu'}

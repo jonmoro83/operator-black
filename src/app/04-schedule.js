@@ -75,12 +75,13 @@ function maxFor(c){
   }
   return mcache.m[c]=r;
 }
-function rx(wk,k){
+function rx(wk,k,date){
   let s,r,p,c;
+  const d=date||sel;
   const v=wkRx(wk);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
   if(k==='dead'&&wk.kind!=='cycle') s=1;
-  const m=maxFor(c)[k];
-  return {s,r,p,c,m,w:m?loadFor(k,m.v,p,sel):null,t:wk.kind==='cycle'?tier(p):'light'};
+  const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
+  return {s,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.

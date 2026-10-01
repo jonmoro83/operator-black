@@ -34,6 +34,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 /* Account: initials in the header, tapping opens the menu below it. */
 .acct{position:relative;flex:0 0 auto;width:32px;height:32px;margin-left:8px;border-radius:50%;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font:600 12px/1 var(--f-body);letter-spacing:.03em;cursor:pointer;display:grid;place-items:center;padding:0}
 .acct:hover{border-color:var(--ink)}
+.varsel{max-width:220px;font-size:15px;padding:7px 8px}
 .acct-dot{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;border:2px solid var(--bg);background:var(--muted)}
 .acct-dot.ok{background:var(--green)}
 .acct-dot.wait{background:var(--yellow)}

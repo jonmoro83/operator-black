@@ -176,6 +176,38 @@ const PLIB={
     errors:'Jumping off the box instead of stepping, which changes the landing force unpredictably. Using too high a box: the single most common error, and it converts an elastic drill into a heavy eccentric one. Pausing on landing.',
     note:'Highest-stress movement in the program. If your vertical rebound off the box is lower than a normal standing vertical jump, the box is too high. Lower it. Start at 12 inches even if that feels trivially easy.'}
 };
+// Variants for the lifts that have them. `r` is the variant's usual share of the
+// reference lift's max, used to work out the weight when you have not tested the variant
+// itself; enter a real max in Setup and that wins instead. `r:null` means there is no
+// honest ratio — what you can hold or how far you can pull caps the lift long before
+// your legs do — so those ask for their own number.
+// The first entry in each list is the reference: the max everything else is derived from,
+// the one retests measure, and what you get if you never touch this.
+const VARS={
+  squat:{
+    back:{name:'Back squat',short:'Back',r:1,note:'The reference. Everything else here is expressed against it.'},
+    high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. Carries the same max as a generic back squat for most people.'},
+    low:{name:'Low-bar back squat',short:'Low bar',r:1.03,note:'Bar on the rear delts, more hip and more forward lean. Usually a few percent heavier than high bar.'},
+    front:{name:'Front squat',short:'Front',r:.85,note:'Rack position, vertical torso, quads and upper back. About 85% of a back squat, and the upper back usually gives out first.'},
+    box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
+    pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
+    zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'},
+    goblet:{name:'Goblet squat',short:'Goblet',r:null,note:'One dumbbell or kettlebell at the chest. What you can hold runs out long before your legs do, so it has no useful ratio to a back squat — give it its own max, or keep it for travel weeks and warm-ups.'},
+    kbfront:{name:'Double KB front squat',short:'KB front',r:null,note:'Two kettlebells in the rack. Same limit as the goblet: the hold caps it. Its own max, or a travel-week movement.'}
+  },
+  dead:{
+    conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
+    sumo:{name:'Sumo deadlift',short:'Sumo',r:1,note:'Wide stance, hands inside the knees, shorter bar path and more quad. Treated as equal to conventional because the gap is personal — if yours differs, give it its own max.'},
+    trap:{name:'Trap bar deadlift',short:'Trap bar',r:1.05,note:'Neutral grip, load closer to the hips, easier on the lower back. Usually a touch heavier than conventional, more so from the high handles.'},
+    deficit:{name:'Deficit deadlift',short:'Deficit',r:.9,note:'Standing on 1–3 inches. Longer pull off the floor, harder start, and the reason to use it is a weak break from the floor.'},
+    snatch:{name:'Snatch-grip deadlift',short:'Snatch grip',r:.85,note:'Wide grip, much longer range, heavy on the upper back. Grip usually decides the set.'},
+    pause:{name:'Paused deadlift',short:'Paused',r:.85,note:'Pause an inch or two off the floor, or below the knee. Punishes any slack in the start position.'},
+    block:{name:'Block or rack pull',short:'Blocks',r:1.1,note:'Bar raised to just below the knee. Shorter pull, heavier weight, and easy to overload — keep it honest.'},
+    rdl:{name:'Romanian deadlift',short:'RDL',r:null,note:'Hinge from the top, controlled lowering, no reset on the floor. A hamstring accessory rather than a max lift, so it needs its own number if you run it here at all.'}
+  }
+};
+function varList(k){return VARS[k]||null}
+function varRef(k){return VARS[k]?Object.keys(VARS[k])[0]:null}
 // The 12–15 min warm-up as a checklist. `s` marks the 7-minute short version.
 const WARMUP=[
   {g:'Raise temp',n:'Bike, rower or easy jog',d:'4–5 min',s:1},

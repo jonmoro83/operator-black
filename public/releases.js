@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.13',date:'2026-10-01',title:'Squat and deadlift variants',items:[
+    'Pick which squat you are running \u2014 back, high bar, low bar, front, box, paused, Zercher, goblet or double kettlebell front \u2014 and which deadlift: conventional, sumo, trap bar, deficit, snatch-grip, paused, blocks or RDL. Setup \u2192 Lift variants sets the default, and the lift\u2019s card on Today has a picker for swapping a single session.',
+    'The weight follows. Each variant carries a share of your main lift\u2019s max \u2014 a front squat at 85%, a trap bar pull at 105%, a deficit at 90% \u2014 and the card says where the number came from. Tested the variant for real? Enter its max in Setup and that is used instead.',
+    'Goblet squats, kettlebell front squats and RDLs have no honest percentage of a barbell max, because what you can hold runs out before your legs do. They ask for their own number rather than inventing one.',
+    'Your stored maxes do not move, and retest and bridge weeks always measure the reference lift, whatever you have been running day to day. The CSV export gains a variant column.']},
   {v:'1.12',date:'2026-10-01',title:'A weekly check-in',items:[
     'Measurements have moved out of the daily check-in into a weekly one, which sits on Today from the start of each training week until you fill it in \u2014 a weekly number asked for weekly, rather than buried under Optional every morning.',
     'It shows last week\u2019s numbers as placeholders, works out the body-fat estimate as you type, and says how far it has moved since the last one. Log it on any day of the week and it collapses to a one-line summary for the rest of the week.']},
