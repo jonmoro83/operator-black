@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.23',date:'2026-10-02',title:'The warm-up explains itself',items:[
+    'All 28 warm-up and mobility movements now have the same treatment the plyo drills and jump tests have: setup, execution, cues and the errors that actually matter. Tap the name on any checklist and it opens underneath; the whole set is browsable in the Guide.',
+    'They are written for the way these go wrong rather than right \u2014 the couch stretch is useless without the pelvic tuck, knee-to-wall is useless if the heel lifts, and a bent-knee calf stretch is a different muscle from the straight-leg one, not a repeat of it.']},
   {v:'1.22',date:'2026-10-02',title:'A note that counts',items:[
     'The bridge week\u2019s 5RM+Spin Saturday said \u201ctest these first \u2014 two lifts per day keeps the numbers honest\u201d even when it only had one lift on it. With two Lift 3 movements turned on, Friday takes one and Saturday takes the other, so it now names that lift instead of talking about two.']},
   {v:'1.21',date:'2026-10-02',title:'Pull-up road, benchmarks and plan previews',items:[

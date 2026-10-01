@@ -175,6 +175,11 @@ session, tap its new day, preview the week, Apply).
 
 ## Warm-up and mobility
 
+`MLIB` (`src/app/01a-movements.js`) holds an entry per movement — setup, execution, cues,
+common errors — matched to the checklists by normalised name through `MLIB_ALIAS`, and
+rendered by the same `libBody()` the plyo library uses. A test asserts every built-in
+warm-up and mobility item resolves to one.
+
 `WARMUP` (14 items, `s` marks the 7-minute short version) renders as a checklist on
 lifting and test days; `MOB` holds one block per session type (`lift`, `dead`, `hic`,
 `plyo`, `off`) chosen by `mobKind(dayPlan)` and overridable per person in

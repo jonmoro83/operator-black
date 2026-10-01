@@ -302,8 +302,15 @@ details.px[open]>summary>span:first-child::after{content:" ▾"}
 .cal-d.shifted{background:var(--accent-bg);border-color:var(--accent)}
 .cal-d.dim{opacity:.3;cursor:default}
 .cal-d:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.crow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 10px;align-items:center}
+.crow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 10px;align-items:center}
 .crow .check{min-width:0}
+.crow-n{min-width:0;cursor:pointer}
+/* a row with a library entry: the row is the summary, the entry opens under it */
+.mrow>summary{list-style:none;cursor:pointer}
+.mrow>summary::-webkit-details-marker{display:none}
+.mrow>summary .crow-n::after{content:" \2139";color:var(--accent);font-size:12px;vertical-align:2px}
+.mrow[open]>summary .crow-n::after{content:" \25be";color:var(--muted)}
+.mrow>.plib{margin:2px 0 10px 28px}
 .btn.hold{padding:4px 8px;font-size:15px;line-height:1}
 .pwu{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start}
 .pwu .wu-chk{height:32px;width:38px}

@@ -131,6 +131,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Warm-up and mobility library (2026-10-02)**
+- `MLIB` in `src/app/01a-movements.js`: 28 entries in the same shape as `PLIB`, covering
+  every movement in `WARMUP` and in all five `MOB` blocks. `libBody(e)` is the shared
+  renderer both libraries use now.
+- Names in those lists are editable text, so entries are matched through `MLIB_ALIAS` on a
+  normalised name (`mnorm`). A test asserts every built-in item still resolves, which is
+  what catches a reworded item silently losing its entry. A movement the library does not
+  know renders as a plain row.
+- `checkRow` returns a `<details>` whose `<summary>` is the whole row when there is an
+  entry, so the explanation opens full width rather than inside one grid column. A
+  capturing click handler stops a checkbox inside a summary from toggling the disclosure
+  as well as itself.
+- Also in the Guide, grouped by what they are for rather than by which block they appear
+  in, since several appear in more than one.
+
 **The 5RM+Spin note counts its own lifts (2026-10-02)**
 - Reported from the app: with two Lift 3 variants on, `l3On().slice(1)` leaves the bridge
   Saturday a single lift, but the note was written for the three-variant case and still

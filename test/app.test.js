@@ -1174,3 +1174,32 @@ test("a day's note matches how many lifts that day actually has", () => {
   }
   a.deepEqual(seen, [1, 2], "two Lift 3 variants leaves one for Saturday, three leaves two");
 });
+
+test("every warm-up and mobility movement has an entry, and the Guide lists them all", () => {
+  const x = app({});
+  // Nothing in the built-in checklists is left without an explanation.
+  for (const w of x.WARMUP) a.ok(x.mlibEntry(w.n), `warm-up: ${w.n}`);
+  for (const [kind, block] of Object.entries(x.MOB))
+    for (const [n] of block.items) a.ok(x.mlibEntry(n), `${kind} mobility: ${n}`);
+
+  // Every entry is complete, and every entry is reachable from the Guide.
+  const guide = x.vGuide();
+  for (const [id, e] of Object.entries(x.MLIB)) {
+    for (const f of ["name", "setup", "exec", "cues", "errors"]) a.ok(e[f], `${id} is missing ${f}`);
+    a.ok(guide.includes(`data-px="ml-${id}"`), `${id} is in the Guide`);
+  }
+
+  // The checklist row becomes a disclosure, and the checkbox is outside the summary's
+  // reach only by the click guard -- so at least assert the structure it relies on.
+  const row = x.checkRow("warmup.8", false, "Couch stretch", "45–60 sec per side");
+  a.match(row, /^<details class="mrow"/);
+  a.match(row, /<summary class="crow">/);
+  a.match(row, /The pelvic tuck is the whole exercise/);
+  a.match(row, /data-act="hold"/, "the hold timer survives");
+
+  // A movement the library does not know still renders as a plain row.
+  const custom = x.checkRow("mobility.0", true, "Jefferson curl", "3 × 5");
+  a.match(custom, /^<div class="crow">/);
+  a.ok(!/<details/.test(custom));
+  a.match(custom, /checked/);
+});

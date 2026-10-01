@@ -181,9 +181,14 @@ function travelCard(dp){
   <div class="small muted">Edit these in Setup \u2192 Travel week.</div></div>`;
 }
 function checkRow(bind,on,name,dose){
-  const h=holdSecs(dose);
-  return `<div class="crow"><label class="check"><input type="checkbox" id="c-${bind.replace(/\./g,'-')}" data-bind="${bind}" ${on?'checked':''}> <span>${esc(name)}</span></label>${dose?`<span class="mono small muted">${esc(dose)}</span>`:''}${h?`<button class="btn sm ghost hold" data-act="hold" data-n="${esc(name)}" data-s="${h.s}" data-sides="${h.sides}" aria-label="Time ${esc(name)}">⏱</button>`:'<span></span>'}</div>`;
+  const h=holdSecs(dose), e=mlibEntry(name), id='c-'+bind.replace(/\./g,'-'), key='m-'+bind.replace(/\./g,'-');
+  const row=`<input type="checkbox" id="${id}" data-bind="${bind}" ${on?'checked':''}><label class="crow-n" for="${id}">${esc(name)}</label>${dose?`<span class="mono small muted">${esc(dose)}</span>`:'<span></span>'}${h?`<button class="btn sm ghost hold" data-act="hold" data-n="${esc(name)}" data-s="${h.s}" data-sides="${h.sides}" aria-label="Time ${esc(name)}">\u23f1</button>`:'<span></span>'}`;
+  // With a library entry the whole row is the disclosure, so the explanation opens full
+  // width underneath. A click on the checkbox is stopped from reaching the summary.
+  if(!e) return `<div class="crow">${row}</div>`;
+  return `<details class="mrow" data-px="${key}"${openPx.has(key)?' open':''}><summary class="crow">${row}</summary>${libBody(e)}</details>`;
 }
+
 function warmupCard(date){
   const W=lg(date).warmup||[], short=!!lg(date).warmShort;
   const idx=WARMUP.map((x,i)=>i).filter(i=>!short||WARMUP[i].s);
