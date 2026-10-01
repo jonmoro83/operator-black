@@ -17,7 +17,8 @@ Known gaps and things to verify. Fix or close these before starting new features
   in the installed app, the update banner, rest alerts arriving on the lock screen, and
   spoken cues through AirPods with the app open.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
-  (deadlift + pulldown + OHP, plus pull-ups). Program notes say two per test day.
+  (deadlift + pulldown + OHP, plus pull-ups). Splitting them is an app choice for
+  freshness, not a rule — TB1's test day works through the whole cluster in one session.
   Bridge week already splits them; retest week doesn't yet.
 - **The current week can still re-plan.** Only fully past weeks are locked, so changing
   deload/retest spacing mid-week can change this week's type.
@@ -25,10 +26,18 @@ Known gaps and things to verify. Fix or close these before starting new features
   which movement older checkmarks line up with.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically.
-- **Content to verify against the book:**
-  - Wave weeks 5–6 (sources disagree: 3×5 @ 85% / 3×2 @ 95% vs 3×3 @ 85% / 3×1 @ 95%).
-  - The deload prescription (2×5 @ 60%), bridge/retest day layout, and deadlift and
-    test ramps are app choices, not from the book.
+- **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02.** Settled:
+  - Wave weeks 5–6 are **3×5 @ 85%** and **3×2 @ 95%**. `plan.wave` matches the Operator
+    table row for row; the disputed alternative was wrong. Closed.
+  - **There is no strength deload in the book.** Operator runs six weeks and retests; the
+    recovery guidance is a full week or more off every 3–6 months, plus the easy
+    conditioning week. Our `2×5 @ 60%` deload is an app addition — kept, because a
+    scheduled light week suits a civilian running this year-round, but labelled as ours.
+  - **Retest:** rest 2–3 days first, warm up, then ramp per lift to a 3–5RM and calculate;
+    a true single is optional. 6 weeks is the minimum between tests, 6 or 12 recommended,
+    and waiting longer is explicitly fine. The whole cluster is tested in one session.
+  - Still ours, and marked as such in the Guide: the bridge week, the per-day split on
+    retest Saturday, and the deadlift's single set on non-cycle weeks.
 - **Plyo PDF is a 10-week block with a week-10 jump retest.** The app runs its three
   phases back to back (9-week rotation) and tests jumps in the program's retest weeks
   instead, as the 18-week summary does.
@@ -141,6 +150,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   so a second format of either kind needs no new branches.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
+
+**Read against the source books (2026-10-02)**
+- The user supplied TB1 (3rd ed.) and TB2 directly, which settled the open content
+  questions. `plan.wave` is confirmed correct against the Operator table.
+- **Implemented TB2's Easy Week Principle**, which we had missed. Every third week the
+  conditioning load comes down, and the book says it is designed to coincide with the
+  90–95% strength weeks — in a six-week wave, weeks 3 and 6. `easyCondWeek(date)` is
+  exactly `tier()==='heavy'` on a cycle week; `ivOpts` then uses the low end of the round
+  range and trims LISS from 35 to 25 min. Previously conditioning only eased on a poor
+  readiness score, so the hardest lifting weeks carried a full conditioning load.
+- **Corrected the FOBBIT prescription shipped in 1.27.** The book's twenty minutes counts
+  base time only — the timer stops for the bursts — so a session is 10 × (2 min base +
+  burst), about 30 minutes in total, not 20. `IV.fobbit` gained `def:10` and emits
+  base-then-burst per round, alternating Burst A / Burst B because the session alternates
+  two movements. Also dropped the "over 30 minutes it stops being a HIC" line: that came
+  from the forum, and the book's own advanced version runs to 30 minutes.
+- Lesson: 1.27 was built from a web search because the book was not to hand. The structure
+  was right and the arithmetic was not. Where a number comes from the source, cite it.
 
 **FOBBITs (2026-10-02)**
 - A TB II conditioning format, added to `HIC` rather than to `MOD`: it is a session

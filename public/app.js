@@ -13,7 +13,7 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard, about 20 min',sys:'Aerobic base with bursts',noMetric:true}
+  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard × 10',sys:'Aerobic base with bursts',noMetric:true}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -683,6 +683,10 @@ function weeks(minIdx){
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
 function wkRx(wk){return wk.rx||(wk.kind==='cycle'?plan.wave[wk.w-1]:plan.deload)}
+// TB2's Easy Week Principle: every third week the conditioning load comes down, and it is
+// meant to land on the strength wave's 90-95% weeks so the heavy lifting gets the energy.
+// In a six-week wave those are weeks 3 and 6, which is exactly `tier()==='heavy'`.
+function easyCondWeek(date){const wk=date?weekOf(date):null;return !!(wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy')}
 // Lock every week that has fully passed: its type, cycle/week, prescription and Lift 3
 // picks. A cycle whose last week is locked also gets its maxes locked.
 function freezePast(){
@@ -1268,7 +1272,7 @@ function liftCard(wk,k,dp){
   h+=`<div class="sets">`;
   for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${isDead&&i>0?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}</small></button>`;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
-  h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book says 5 min.</span>':''}</div>`;
+  h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book calls 5\u201310 min normal at this load.</span>':''}</div>`;
   h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
   if(L.grinder&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
@@ -1561,7 +1565,7 @@ function hicCard(dp,note){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
-  if((IV[f]||{}).lead) h+=`<div class="small muted">Keep moving the whole time: an easy base — slow jog, skipping, easy spin — broken every two minutes by a hard burst of something else. The burst is whatever you have: kettlebell swings, burpees, a sandbag, press-ups. ${(+L.min||0)>30?'<b>Over 30 minutes this counts as an easy session, not a HIC</b>, so it does not replace a hard day.':'Keep it under 30 minutes and it is a HIC; longer than that and it counts as an easy session instead.'}</div>`;
+  if((IV[f]||{}).lead) h+=`<div class="small muted">Keep moving the whole time on an easy base — a pace just under a jog — and break it every two minutes with a hard burst of something else. The book alternates two movements, which is why the timer counts Burst A and Burst B: kettlebell swings then snatches, swings then burpees, whatever you have. <b>Only the base counts toward the length</b>, so the bursts put the real session a few minutes over.</div>`;
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
   if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
@@ -1582,7 +1586,7 @@ function hicCard(dp,note){
     const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, from ${pl.rounds} bursts with a base either side of each (${pl.rounds} \u00d7 burst + ${pl.rounds+1} \u00d7 base)`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, from ${pl.rounds} bursts, each one after two minutes of base (${pl.rounds} \u00d7 base + ${pl.rounds} \u00d7 burst)`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
   {
@@ -1590,7 +1594,8 @@ function hicCard(dp,note){
     h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${mmss(ivTotal(segs))} total</span></div>`;
     if(r&&r.burst) h+=`<div class="restsel"><span>Burst</span><div class="seg">${r.burst.map(v=>`<button class="segb${o.burst===v?' on':''}" data-act="ivopt" data-k="burst" data-v="${v}" aria-pressed="${o.burst===v}">${v} s</button>`).join('')}</div></div>`;
     if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
-    if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
+    if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week, so the conditioning comes down to leave the energy for them — fewer rounds, shorter sessions. This is deliberate, not a missed week.</div>`;
+  if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;
     if(plan.quietTimer) h+=`<div class="small muted">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
@@ -2199,23 +2204,29 @@ document.getElementById('ls').addEventListener('change',e=>{ const t=e.target; i
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:60,rest:120,rounds:[6,8],lead:true,burst:[30,45,60,90]}};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:60,rest:120,rounds:[7,12],def:10,lead:true,burst:[30,45,60,90]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
   const o=((lg(date).hic||{}).iv)||{}, r=IV[fmt];
-  const lv=rLevel(readiness(ci(date))), def=r?(lv&&lv.k!=='go'?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.rounds[0])):null;
-  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||35,
+  const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
+  const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
+  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
     burst:(r&&r.burst&&r.burst.includes(+o.burst)?+o.burst:null)||(r&&r.burst?r.work:null)};
 }
 function ivSegments(fmt,o){
   const seg=[];
   if(o.warm&&fmt!=='liss'){seg.push({k:'easy',l:'Warm-up',s:300});for(let i=1;i<=3;i++){seg.push({k:'work',l:'Pickup',sub:'Pickup '+i+' of 3',s:15});seg.push({k:'easy',l:'Easy',sub:i<3?'Then pickup '+(i+1):'Intervals next',s:i<3?45:60})}}
   if(fmt==='liss') seg.push({k:'easy',l:'Steady',sub:'Conversational pace',s:o.lissMin*60});
-  else {const r=IV[fmt];
-    if(r.lead) seg.push({k:'easy',l:'Base',sub:'Settle in',s:r.rest,lead:true});
-    const wk=o.burst||r.work;
-    for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:r.lead?'Burst':'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds||r.lead)seg.push({k:'easy',l:r.lead?'Base':'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
+  else {const r=IV[fmt], wk=o.burst||r.work;
+    // A base-first format (FOBBIT) counts only the base: two easy minutes before every
+    // burst, until the base adds up. The bursts sit on top, so the session runs longer
+    // than its nominal length. The book alternates two movements, hence A and B.
+    if(r.lead) for(let i=1;i<=o.rounds;i++){
+      seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
+      seg.push({k:'work',l:'Burst '+(i%2?'A':'B'),sub:'Burst '+i+' of '+o.rounds,s:wk,round:i});
+    }
+    else for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
   return seg;
 }
@@ -3426,6 +3437,7 @@ function vGuide(){
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul>
+  <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
   <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving the whole time on an easy base (slow jog, skipping, easy spin) and break it every two minutes with a 30 to 90 second burst of something else entirely: kettlebell swings, burpees, a sandbag, press-ups. About 20 minutes. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
   <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week, before HIC and never after. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>

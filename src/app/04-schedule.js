@@ -42,6 +42,10 @@ function weeks(minIdx){
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
 function wkRx(wk){return wk.rx||(wk.kind==='cycle'?plan.wave[wk.w-1]:plan.deload)}
+// TB2's Easy Week Principle: every third week the conditioning load comes down, and it is
+// meant to land on the strength wave's 90-95% weeks so the heavy lifting gets the energy.
+// In a six-week wave those are weeks 3 and 6, which is exactly `tier()==='heavy'`.
+function easyCondWeek(date){const wk=date?weekOf(date):null;return !!(wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy')}
 // Lock every week that has fully passed: its type, cycle/week, prescription and Lift 3
 // picks. A cycle whose last week is locked also gets its maxes locked.
 function freezePast(){

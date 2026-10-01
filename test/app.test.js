@@ -1231,34 +1231,41 @@ test("new component classes do not collide with the banner modifiers", () => {
   a.match(x.checkRow("warmup.8", false, "Couch stretch", "45 sec"), /class="libinfo"/);
 });
 
-test("a FOBBIT is an easy base broken by bursts, not a work/rest interval", () => {
+test("a FOBBIT counts base time only, the way the book does", () => {
   const x = app({ now: "2026-10-01" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   a.ok(x.HIC.fobbit, "it is a format, not an activity");
-  a.equal(x.HIC.fobbit.name, "FOBBIT");
 
-  const o = { ...x.ivOpts("2026-10-01", "fobbit"), cool: false };
+  // Week 1 of a cycle: an ordinary conditioning week.
+  const wk1 = x.addDays(x.weeks().find((w) => w.kind === "cycle").monday, 1);
+  a.equal(x.easyCondWeek(wk1), false);
+  const o = { ...x.ivOpts(wk1, "fobbit"), cool: false };
   a.equal(o.warm, false, "no separate warm-up: the base is the warm-up");
-  a.equal(o.rounds, 6, "six rounds of 2 min base plus a burst is the standard 20 minutes");
-  a.equal(o.burst, 60, "a minute of work by default, inside the 30–90 s range");
+  a.equal(o.rounds, 10, "ten bursts, so the base adds up to the prescribed 20 minutes");
+  a.equal(o.burst, 60);
 
   const segs = x.ivSegments("fobbit", o);
   a.equal(segs[0].l, "Base", "it opens on the base, unlike every other format");
-  a.equal(segs[0].s, 120);
-  a.equal(segs[segs.length - 1].l, "Base", "and closes on it: you keep moving to the end");
-  a.equal(segs.filter((s) => s.k === "work").length, 6);
-  a.equal(segs.filter((s) => s.k === "easy").length, 7, "a base either side of every burst");
-  a.equal(x.ivTotal(segs), 6 * 60 + 7 * 120, "six bursts and seven bases");
-  a.equal(x.ivTotal(segs) / 60, 20, "the 20 minutes the book prescribes");
+  a.equal(segs[segs.length - 1].k, "work", "and every base is followed by its burst");
+  const base = segs.filter((s) => s.k === "easy"), burst = segs.filter((s) => s.k === "work");
+  a.equal(base.length, 10);
+  a.equal(burst.length, 10, "one base per burst, not one either side");
+  a.equal(base.reduce((t, s) => t + s.s, 0) / 60, 20, "20 minutes of base is the session's nominal length");
+  a.equal(x.ivTotal(segs) / 60, 30, "the bursts sit on top, so it actually runs 30");
 
-  // The burst length is the thing you vary, and it changes the session length.
+  // The book alternates two movements; the timer names them.
+  a.equal(burst[0].l, "Burst A");
+  a.equal(burst[1].l, "Burst B");
+  a.equal(burst[2].l, "Burst A");
+
+  // Burst length varies the session without touching the base.
   const long = x.ivSegments("fobbit", { ...o, burst: 90 });
-  a.equal(x.ivTotal(long) / 60, 23);
-  a.equal(x.ivSegments("fobbit", { ...o, burst: 30 }).length, segs.length, "same shape, shorter bursts");
+  a.equal(long.filter((s) => s.k === "easy").reduce((t, s) => t + s.s, 0) / 60, 20, "base is unchanged");
+  a.equal(x.ivTotal(long) / 60, 35);
 
   // Every other format still opens on work and drops the trailing easy period.
   for (const f of ["map", "anaerobic", "threshold", "long"]) {
-    const s2 = x.ivSegments(f, { ...x.ivOpts("2026-10-01", f), warm: false, cool: false });
+    const s2 = x.ivSegments(f, { ...x.ivOpts(wk1, f), warm: false, cool: false });
     a.equal(s2[0].k, "work", `${f} still starts hard`);
     a.equal(s2[s2.length - 1].k, "work", `${f} still ends hard`);
   }
@@ -1269,36 +1276,64 @@ test("a FOBBIT is an easy base broken by bursts, not a work/rest interval", () =
 
   // ...so it is logged by minutes and bursts, and still counts as a session.
   const d = "2026-09-30";
-  x.seed({ [d]: { date: d, done: true, hic: { format: "fobbit", mod: "run", what: "kettlebell swings", min: 20, rounds: 6 } } });
+  x.seed({ [d]: { date: d, done: true, hic: { format: "fobbit", mod: "run", what: "kettlebell swings", min: 30, rounds: 10 } } });
   x.bump();
   const s3 = x.hicSessions(true).filter((h) => h.f === "fobbit");
   a.equal(s3.length, 1, "it reaches the conditioning log without a metric");
-  a.equal(s3[0].min, 20);
-  a.equal(x.condWeeks(12).find((w) => w.mon === x.mondayOf(d)).min, 20, "and the weekly minutes");
+  a.equal(s3[0].min, 30);
+  a.equal(x.condWeeks(12).find((w) => w.mon === x.mondayOf(d)).min, 30, "and the weekly minutes");
 
   x.sel = d;
   const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
   a.match(card, /Burst movement/);
   a.match(card, /data-bind="hic.rounds"/);
   a.match(card, /data-act="ivopt" data-k="burst"/, "the burst length is pickable");
-  a.match(card, /Keep it under 30 minutes and it is a HIC/);
+  a.match(card, /Only the base counts toward the length/);
+  a.ok(!/counts as an easy session/.test(card), "the 30-minute cut-off was not the book's");
 
-  // On a day with nothing logged yet, the suggested length shows this format's own
-  // arithmetic rather than the work/rest one.
-  const fresh = "2026-09-29";
-  x.sel = fresh;
-  x.seed({ [fresh]: { date: fresh, hic: { format: "fobbit", mod: "run" } } }); x.bump();
+  // On a fresh day the suggested length shows this format's own arithmetic.
+  x.sel = wk1;
+  x.seed({ [wk1]: { date: wk1, hic: { format: "fobbit", mod: "run" } } }); x.bump();
   const ask = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
-  a.match(ask, /Use 20 min/, "the standard session, with no warm-up bolted on");
-  a.match(ask, /6 × burst \+ 7 × base/);
+  a.match(ask, /Use 30 min/, "base plus bursts, not base alone");
+  a.match(ask, /10 × base \+ 10 × burst/);
   a.ok(!/no easy period after the last one/.test(ask), "that clause is false here");
-
-  // The opening base belongs to the session, not to a warm-up that is not there.
-  const parts = x.ivParts(x.ivSegments("fobbit", o));
-  a.equal(parts.warm, 0);
-  a.equal(parts.work / 60, 20);
 });
 
+test("conditioning eases on the weeks the lifting is heaviest", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+
+  // TB2 puts the easy conditioning week on the wave's 90-95% weeks on purpose.
+  const seen = [];
+  for (const w of x.weeks().filter((w) => w.kind === "cycle").slice(0, 6)) {
+    const d = x.addDays(w.monday, 1), p = +x.wkRx(w).p;
+    const easy = x.easyCondWeek(d);
+    a.equal(easy, x.tier(p) === "heavy", `week ${w.w} at ${p}%`);
+    seen.push([w.w, p, easy, x.ivOpts(d, "fobbit").rounds, x.ivOpts(d, "liss").lissMin]);
+  }
+  a.deepEqual(seen.filter((r) => r[2]).map((r) => r[0]), [3, 6], "weeks 3 and 6, the 90% and 95% weeks");
+
+  // An easy week means fewer rounds and a shorter steady session.
+  const [, , , hardRounds, hardLiss] = seen.find((r) => r[2]);
+  const [, , , normRounds, normLiss] = seen.find((r) => !r[2]);
+  a.ok(hardRounds < normRounds, `${hardRounds} rounds vs ${normRounds}`);
+  a.ok(hardLiss < normLiss, `${hardLiss} min vs ${normLiss}`);
+
+  // And the day says why, so it does not read as a week you let slip.
+  const hw = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  let d = null;
+  for (let i = 0; i < 7; i++) { const c = x.addDays(hw.monday, i); if (x.dayPlan(c).t === "hic") { d = c; break } }
+  a.ok(d, "a heavy week has a conditioning day");
+  x.sel = d;
+  const card = x.hicCard(x.dayPlan(d), "");
+  a.match(card, /Easy conditioning week/);
+  a.match(card, /deliberate, not a missed week/);
+
+  // A deload week is not a cycle week, so the rule does not fire there.
+  const dl = x.weeks().find((w) => w.kind === "deload");
+  if (dl) a.equal(x.easyCondWeek(x.addDays(dl.monday, 1)), false, "deloads are already easy");
+});
 test("a format with no comparable number cannot be a benchmark", () => {
   const x = app({ now: "2026-10-01" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();

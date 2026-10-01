@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.29',date:'2026-10-02',title:'Checked against the books',items:[
+    'Conditioning now eases on the weeks your lifting is heaviest. Weeks 3 and 6 of every cycle are the 90% and 95% weeks, and the conditioning drops to fewer rounds and a shorter steady session so the heavy lifting gets the energy. The day says so, because an easy week should not read like a week you let slip.',
+    'The strength wave is confirmed correct \u2014 weeks 5 and 6 really are 3\u00d75 at 85% and 3\u00d72 at 95%. That was the open question behind every heavy week in the app, and nothing needed changing.',
+    'FOBBITs were timed wrong. The twenty minutes counts the easy base only, so the bursts sit on top and the session runs about thirty. It is ten bursts now, not six, and the timer alternates Burst A and Burst B because the session alternates two movements.',
+    'The rest note on heavy squat and deadlift days now gives the real figure: five to ten minutes is normal at that load, not five.']},
   {v:'1.28',date:'2026-10-02',title:'FOBBITs cannot be benchmarks',items:[
     'A FOBBIT has no single number to compare between sessions \u2014 the work is whichever movement you picked \u2014 so it is no longer offered as a benchmark session. Pinning one would have left Status telling you the benchmark was overdue however many you had done.',
     'They still count everywhere a session should: the weekly minutes, the rotation nudge and the log.']},
