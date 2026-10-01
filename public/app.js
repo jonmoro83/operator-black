@@ -204,8 +204,7 @@ const VARS={
     deficit:{name:'Deficit deadlift',short:'Deficit',r:.9,note:'Standing on 1–3 inches. Longer pull off the floor, harder start, and the reason to use it is a weak break from the floor.'},
     snatch:{name:'Snatch-grip deadlift',short:'Snatch grip',r:.85,note:'Wide grip, much longer range, heavy on the upper back. Grip usually decides the set.'},
     pause:{name:'Paused deadlift',short:'Paused',r:.85,note:'Pause an inch or two off the floor, or below the knee. Punishes any slack in the start position.'},
-    block:{name:'Block or rack pull',short:'Blocks',r:1.1,note:'Bar raised to just below the knee. Shorter pull, heavier weight, and easy to overload — keep it honest.'},
-    rdl:{name:'Romanian deadlift',short:'RDL',r:null,note:'Hinge from the top, controlled lowering, no reset on the floor. A hamstring accessory rather than a max lift, so it needs its own number if you run it here at all.'}
+    block:{name:'Block or rack pull',short:'Blocks',r:1.1,note:'Bar raised to just below the knee. Shorter pull, heavier weight, and easy to overload — keep it honest.'}
   }
 };
 function varList(k){return VARS[k]||null}
@@ -305,7 +304,7 @@ const TRAVEL={
 const ACC={
   mon:['Horizontal pull: chest-supported row','Rear delt / upper back: face pull or reverse fly','Core: Pallof press or hanging knee raise','Arms: curls + triceps pushdown'],
   wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression: negatives or band-assisted'],
-  fri:['Single-leg: rear-foot-elevated split squat','Posterior chain: back extension or hamstring curl','Carry / grip: farmer carry']
+  fri:['Single-leg: rear-foot-elevated split squat','Posterior chain: Romanian deadlift, back extension or hamstring curl','Carry / grip: farmer carry']
 };
 const DEF={
   startMonday:'2026-09-28', bridge:true, unit:'lb', bar:45, bodyweight:null,

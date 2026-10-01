@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.14',date:'2026-10-01',title:'RDL is an accessory, not a deadlift',items:[
+    'The Romanian deadlift has been taken out of the deadlift variants. It has no lockout and no reset on the floor, so it has no real one-rep max to run percentages against \u2014 it is a hamstring accessory, and it is now named as one in Friday\u2019s posterior chain slot.',
+    'If you had it selected, your deadlift goes back to conventional and your maxes are untouched.']},
   {v:'1.13',date:'2026-10-01',title:'Squat and deadlift variants',items:[
     'Pick which squat you are running \u2014 back, high bar, low bar, front, box, paused, Zercher, goblet or double kettlebell front \u2014 and which deadlift: conventional, sumo, trap bar, deficit, snatch-grip, paused, blocks or RDL. Setup \u2192 Lift variants sets the default, and the lift\u2019s card on Today has a picker for swapping a single session.',
     'The weight follows. Each variant carries a share of your main lift\u2019s max \u2014 a front squat at 85%, a trap bar pull at 105%, a deficit at 90% \u2014 and the card says where the number came from. Tested the variant for real? Enter its max in Setup and that is used instead.',

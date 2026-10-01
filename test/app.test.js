@@ -829,3 +829,23 @@ test("a derived weight says where it came from, with the right percentage", () =
   x.plan.liftMax = { squat: { front: 240 } }; x.bump();
   a.match(x.liftCard(wk, "squat", x.dayPlan(wk.monday)), /From the front squat max you entered in Setup/);
 });
+
+test("a variant that no longer exists falls back instead of breaking", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  a.equal(x.VARS.dead.rdl, undefined, "RDL is not a deadlift variant");
+  const wk = x.weeks().find((w) => w.kind === "cycle");
+  let d = null;
+  for (let i = 0; i < 7; i++) { const c = x.addDays(wk.monday, i); if ((x.dayPlan(c).lifts || []).includes("dead")) { d = c; break } }
+
+  x.plan.liftVar = { dead: "rdl" };                       // left over from 1.13
+  x.seed({ [d]: { date: d, var: { dead: "rdl" } } }); x.bump();
+  a.equal(x.varOf("dead", d), "conv", "it reverts to the reference");
+  a.equal(x.rx(wk, "dead", d).m.v, 400, "and the weight is the reference max, not nothing");
+  a.equal(x.liftName("dead", d), "Conventional deadlift");
+
+  // every surviving variant with no ratio is one that was asked for by name
+  for (const [k, list] of Object.entries(x.VARS))
+    for (const [id, v] of Object.entries(list))
+      if (v.r == null) a.ok(["goblet", "kbfront"].includes(id), `${k}.${id} has no ratio`);
+});

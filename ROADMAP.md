@@ -90,6 +90,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**RDL out of the deadlift variants (2026-10-01)**
+- It shipped in `VARS.dead` with `r:null` an hour earlier. Wrong category: an RDL has no
+  lockout and no reset on the floor, so there is no 1RM to hang percentages on at all —
+  not merely one that is hard to estimate. It is named in Friday's accessory slot instead.
+- Goblet and KB front squat stay in `VARS.squat`, by request, and keep `r:null`. They are
+  the same kind of movement; the difference is that they were asked for.
+- A `plan.liftVar.dead` of `'rdl'` left over from 1.13 falls back to the reference,
+  because `varDefault()` checks the key still exists.
+
 **Squat and deadlift variants (2026-10-01)**
 - `VARS` keyed by lift: nine squats, eight deadlifts. The first entry of each is the
   reference. `varOf(k,date)` resolves a per-day swap (`logs[d].var[k]`) over
