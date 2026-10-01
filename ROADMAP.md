@@ -50,8 +50,63 @@ Nothing else is committed. Pull from Ideas below, or from whatever the gym turns
 
 ## Ideas
 
-Not committed to. Roughly in order of how useful they'd be.
+Not committed to. The technical ones first, because they protect what is already built;
+within each group, roughly in order of how useful they'd be.
 
+### Technical
+
+- **Tests for the Worker.** All 62 tests are client-side: `src/api.js`, `src/webpush.js`,
+  the D1 writes and the Access JWT check have none. That is the half that holds the data
+  and enforces that one person cannot read another's — a bug there loses a training
+  history or leaks one, and nothing would catch it before deploy. Either Miniflare under
+  `node --test`, or plain fetches against `wrangler dev` in CI. **The biggest gap in the
+  project.**
+- **Make a crash visible.** `render()` writes one big `innerHTML`; one thrown error
+  anywhere leaves a blank page with no clue, mid-session, in a gym. Wrap it in a
+  try/catch that paints a recovery banner with the error and a Reload button, add a
+  `window.onerror` handler that stores the last few, and show them in Setup. Cheap, and
+  it turns "the app broke" into something reportable.
+- **Sanity-check numeric input.** Nothing stops a bodyweight of 2050 or a 4000 lb squat,
+  and the derived numbers now carry further than they used to: one fat-fingered weigh-in
+  poisons the 7-day average, the protein target, the weighted pull-up load and the TDEE
+  estimate for a fortnight. Not a hard block — an inline "that looks wrong, keep it?"
+  on anything outside a plausible band, and leave the decision with the person.
+- **A schema version on the plan, and a migration pass on load.** Log documents gained
+  `meas`, `var`, `kcal` and `sq` in a single day. An old cached client writing an old
+  shape next to a new one is possible, and nothing would notice. `plan.schema` plus a
+  small ordered list of migrations run once at load would make the next addition safe.
+- **Stamp the service worker's `VERSION` from the build.** It is bumped by hand when
+  icons or the manifest change, which is exactly the kind of step that gets forgotten and
+  leaves a stale icon that looks like a deploy failure.
+- **Measure the cost of re-rendering on every keystroke.** Every `data-bind` input calls
+  `render()`, which rebuilds the whole view — on Status that is five SVG charts and a
+  heatmap. It feels fine on a laptop; it has not been measured on a phone in a gym with a
+  season of data. Measure first, then scope the re-render or debounce it if it is real.
+- **Verify a backup by restoring it.** Restore has never run against real data. A
+  scheduled check that restores the newest backup into a scratch namespace and diffs it
+  against live would turn "there are backups" into "the backups work".
+- **Two devices offline on the same day.** Last write wins, silently. Rare for one
+  person, but worth either a per-document version check or an honest note in Setup.
+
+### Training and UX
+
+- **Preview what a re-plan moves.** Changing the deload cadence or inserting a week
+  silently re-plans every future week. The calendar's Rearrange flow previews before
+  applying; plan-level changes do not. "This moves your next retest from 30 Nov to 7 Dec"
+  before the change lands.
+- **A pull-up progression.** The stated goal is a weighted pull-up, and the app tracks
+  `wpu` as a lift and max reps on test days, but nothing connects them into a path:
+  negatives → band-assisted → bodyweight singles → added weight, with the milestone
+  each session is working toward.
+- **Benchmark conditioning sessions.** Results only compare within one activity and
+  format, so mixing bike, ruck and hill sprints leaves every series too sparse to read.
+  A nominated benchmark — same activity, same format, repeated every four to six weeks —
+  would give one honest line to watch, and the app could prompt for it.
+- **Nudge HIC variety.** Black rotates formats; the app lets you pick but never notices
+  that the last six sessions were all MAP on the bike.
+- **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
+  then the session. Once a session is under way the cards above it are noise — collapse
+  them, or jump straight to the first lift.
 - **Calendar feed:** the plan in iPhone Calendar with weights, auto-updating.
 - **Share with a partner or coach:** opt-in, read-only progress view.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
