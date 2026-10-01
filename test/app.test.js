@@ -1298,3 +1298,31 @@ test("a FOBBIT is an easy base broken by bursts, not a work/rest interval", () =
   a.equal(parts.warm, 0);
   a.equal(parts.work / 60, 20);
 });
+
+test("a format with no comparable number cannot be a benchmark", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+
+  // Setup only offers formats that produce a number you can compare.
+  const setup = x.vSetup();
+  const opts = (setup.match(/data-pbind="benchmark\.fmt">([\s\S]*?)<\/select>/) || [])[1] || "";
+  a.ok(opts, "the benchmark format picker exists");
+  for (const [k, f] of Object.entries(x.HIC)) {
+    const listed = opts.includes(`value="${k}"`);
+    if (k === "liss" || f.noMetric) a.ok(!listed, `${k} is not offerable as a benchmark`);
+    else a.ok(listed, `${k} is`);
+  }
+
+  // A stale pin is ignored rather than left nagging: before, a pinned FOBBIT benchmark
+  // showed "never run, due" however many you had done, because it has no result to find.
+  const d = "2026-09-30";
+  x.seed({ [d]: { date: d, done: true, hic: { format: "fobbit", mod: "run", what: "swings", min: 20, rounds: 6 } } });
+  x.plan.benchmark = { mod: "run", fmt: "fobbit" }; x.bump();
+  const b = x.benchmark();
+  a.ok(!b || b.fmt !== "fobbit", "the pin does not stick");
+
+  // But the session itself still counts everywhere a session should.
+  a.equal(x.hicSessions(true).filter((h) => h.f === "fobbit").length, 1);
+  a.equal(x.condWeeks(12).find((w) => w.mon === x.mondayOf(d)).min, 20);
+  a.ok(x.hicRut(d, 1), "and it counts toward the rotation check");
+});

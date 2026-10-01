@@ -266,7 +266,7 @@ function vSetup(){
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
   <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
   <div class="grid3"><label class="f">Activity<select id="p-bmod" data-pbind="benchmark.mod">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${b.mod===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
-  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k])=>k!=='liss').map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k,x])=>k!=='liss'&&!x.noMetric).map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
   <label class="f">Repeat every (days)${pIn('benchEvery',plan.benchEvery)}</label></div></div>`})()}</div>`;
   const ptS=proteinTarget(todayStr());
   {

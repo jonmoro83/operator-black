@@ -11,7 +11,7 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard, about 20 min',sys:'Aerobic base with bursts',burst:true}
+  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard, about 20 min',sys:'Aerobic base with bursts',noMetric:true}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.

@@ -13,7 +13,7 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard, about 20 min',sys:'Aerobic base with bursts',burst:true}
+  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard, about 20 min',sys:'Aerobic base with bursts',noMetric:true}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -818,7 +818,7 @@ function effFmt(date){const L=logs[date];const dp=dayPlan(date);return (L&&L.hic
 function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
 // Sessions logged before activities existed have calories but no activity: they were on the Echo bike.
 function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
-function metricFor(mod,fmt){if(fmt==='fobbit')return null;const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
+function metricFor(mod,fmt){if(HIC[fmt]&&HIC[fmt].noMetric)return null;const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
 function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
@@ -827,7 +827,7 @@ function hicSessions(all){
   for(const [d,L] of Object.entries(logs)){
     if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
     const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||(f==='fobbit'&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
+    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
@@ -1447,7 +1447,7 @@ function hicRut(date,n0){
 // of your conditioning moves around.
 function benchmark(){
   const b=plan.benchmark;
-  if(b&&MOD[b.mod]&&HIC[b.fmt]) return b;
+  if(b&&MOD[b.mod]&&HIC[b.fmt]&&!HIC[b.fmt].noMetric) return b;
   // not chosen yet: the hard pairing you have done most
   const tally={};
   for(const x of hicSessions()) if(x.f!=='liss'&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
@@ -1561,13 +1561,13 @@ function hicCard(dp,note){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
-  if(f==='fobbit') h+=`<div class="small muted">Keep moving the whole time: an easy base — slow jog, skipping, easy spin — broken every two minutes by a hard burst of something else. The burst is whatever you have: kettlebell swings, burpees, a sandbag, press-ups. ${(+L.min||0)>30?'<b>Over 30 minutes this counts as an easy session, not a HIC</b>, so it does not replace a hard day.':'Keep it under 30 minutes and it is a HIC; longer than that and it counts as an easy session instead.'}</div>`;
+  if((IV[f]||{}).lead) h+=`<div class="small muted">Keep moving the whole time: an easy base — slow jog, skipping, easy spin — broken every two minutes by a hard burst of something else. The burst is whatever you have: kettlebell swings, burpees, a sandbag, press-ups. ${(+L.min||0)>30?'<b>Over 30 minutes this counts as an easy session, not a HIC</b>, so it does not replace a hard day.':'Keep it under 30 minutes and it is a HIC; longer than that and it counts as an easy session instead.'}</div>`;
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
   if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
-  if(mod==='other'&&f!=='fobbit') h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
-  if(f==='fobbit'){
+  if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
+  if((HIC[f]||{}).noMetric){
     h+=`<label class="f">Burst movement<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. kettlebell swings, burpees, sandbag shoulder"></label>`;
     h+=`<label class="f">Bursts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
@@ -3335,7 +3335,7 @@ function vSetup(){
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
   <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
   <div class="grid3"><label class="f">Activity<select id="p-bmod" data-pbind="benchmark.mod">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${b.mod===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
-  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k])=>k!=='liss').map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k,x])=>k!=='liss'&&!x.noMetric).map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
   <label class="f">Repeat every (days)${pIn('benchEvery',plan.benchEvery)}</label></div></div>`})()}</div>`;
   const ptS=proteinTarget(todayStr());
   {

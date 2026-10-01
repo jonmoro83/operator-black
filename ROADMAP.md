@@ -131,6 +131,17 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**No-metric formats, properly (2026-10-02)**
+- Putting FOBBIT in the format list (right: it runs on any modality) left it offerable as
+  a benchmark, where `benchmarkState` filters on a logged result — so a pinned FOBBIT
+  benchmark read "never run, due" no matter how many you had done.
+- Replaced the `fmt==='fobbit'` special cases with a `noMetric` flag on the format, used
+  by `metricFor`, `hicSessions`, the benchmark picker and `benchmark()` (which now drops a
+  stale pin). The burst fields key off `noMetric` and the base-first copy off `IV[f].lead`,
+  so a second format of either kind needs no new branches.
+- A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
+  produce a comparable number.
+
 **FOBBITs (2026-10-02)**
 - A TB II conditioning format, added to `HIC` rather than to `MOD`: it is a session
   structure, not a tool. Checked against tacticalbarbell.com rather than built from

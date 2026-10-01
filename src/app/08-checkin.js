@@ -155,7 +155,7 @@ function hicRut(date,n0){
 // of your conditioning moves around.
 function benchmark(){
   const b=plan.benchmark;
-  if(b&&MOD[b.mod]&&HIC[b.fmt]) return b;
+  if(b&&MOD[b.mod]&&HIC[b.fmt]&&!HIC[b.fmt].noMetric) return b;
   // not chosen yet: the hard pairing you have done most
   const tally={};
   for(const x of hicSessions()) if(x.f!=='liss'&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
@@ -269,13 +269,13 @@ function hicCard(dp,note){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
-  if(f==='fobbit') h+=`<div class="small muted">Keep moving the whole time: an easy base — slow jog, skipping, easy spin — broken every two minutes by a hard burst of something else. The burst is whatever you have: kettlebell swings, burpees, a sandbag, press-ups. ${(+L.min||0)>30?'<b>Over 30 minutes this counts as an easy session, not a HIC</b>, so it does not replace a hard day.':'Keep it under 30 minutes and it is a HIC; longer than that and it counts as an easy session instead.'}</div>`;
+  if((IV[f]||{}).lead) h+=`<div class="small muted">Keep moving the whole time: an easy base — slow jog, skipping, easy spin — broken every two minutes by a hard burst of something else. The burst is whatever you have: kettlebell swings, burpees, a sandbag, press-ups. ${(+L.min||0)>30?'<b>Over 30 minutes this counts as an easy session, not a HIC</b>, so it does not replace a hard day.':'Keep it under 30 minutes and it is a HIC; longer than that and it counts as an easy session instead.'}</div>`;
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
   if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
-  if(mod==='other'&&f!=='fobbit') h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
-  if(f==='fobbit'){
+  if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
+  if((HIC[f]||{}).noMetric){
     h+=`<label class="f">Burst movement<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. kettlebell swings, burpees, sandbag shoulder"></label>`;
     h+=`<label class="f">Bursts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }

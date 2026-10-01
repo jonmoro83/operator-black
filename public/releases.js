@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.28',date:'2026-10-02',title:'FOBBITs cannot be benchmarks',items:[
+    'A FOBBIT has no single number to compare between sessions \u2014 the work is whichever movement you picked \u2014 so it is no longer offered as a benchmark session. Pinning one would have left Status telling you the benchmark was overdue however many you had done.',
+    'They still count everywhere a session should: the weekly minutes, the rotation nudge and the log.']},
   {v:'1.27',date:'2026-10-02',title:'FOBBITs',items:[
     'FOBBIT is now one of the conditioning formats. You keep moving on an easy base \u2014 slow jog, skipping, easy spin \u2014 and break it every two minutes with a 30 to 90 second burst of something else: kettlebell swings, burpees, a sandbag. Twenty minutes, no ground to cover, barely any kit.',
     'The timer runs it the right way round for once: it opens on the base, puts a base either side of every burst, and does not bolt a warm-up on the front, because the base already is one. The burst length is pickable at 30, 45, 60 or 90 seconds.',

@@ -177,7 +177,7 @@ function effFmt(date){const L=logs[date];const dp=dayPlan(date);return (L&&L.hic
 function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
 // Sessions logged before activities existed have calories but no activity: they were on the Echo bike.
 function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
-function metricFor(mod,fmt){if(fmt==='fobbit')return null;const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
+function metricFor(mod,fmt){if(HIC[fmt]&&HIC[fmt].noMetric)return null;const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
 function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
@@ -186,7 +186,7 @@ function hicSessions(all){
   for(const [d,L] of Object.entries(logs)){
     if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
     const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||(f==='fobbit'&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
+    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
