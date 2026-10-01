@@ -176,13 +176,14 @@ const PLIB={
     errors:'Jumping off the box instead of stepping, which changes the landing force unpredictably. Using too high a box: the single most common error, and it converts an elastic drill into a heavy eccentric one. Pausing on landing.',
     note:'Highest-stress movement in the program. If your vertical rebound off the box is lower than a normal standing vertical jump, the box is too high. Lower it. Start at 12 inches even if that feels trivially easy.'}
 };
-// Variants for the lifts that have them. `r` is the variant's usual share of the
-// reference lift's max, used to work out the weight when you have not tested the variant
-// itself; enter a real max in Setup and that wins instead. `r:null` means there is no
-// honest ratio — what you can hold or how far you can pull caps the lift long before
-// your legs do — so those ask for their own number.
-// The first entry in each list is the reference: the max everything else is derived from,
-// the one retests measure, and what you get if you never touch this.
+// Variants for the lifts that have them. Barbell only, both slots: a movement whose
+// limit is what you can hold (goblet, double kettlebell front) or that has no lockout to
+// test (RDL) has no one-rep max to run percentages against, so it belongs in the
+// accessory and travel-week lists instead.
+// `r` is the variant's usual share of the reference lift's max, used to work out the
+// weight when you have not tested the variant itself; enter a real max in Setup and that
+// wins instead. The first entry in each list is the reference: the max everything else is
+// derived from, the one retests measure, and what you get if you never touch this.
 const VARS={
   squat:{
     back:{name:'Back squat',short:'Back',r:1,note:'The reference. Everything else here is expressed against it.'},
@@ -191,9 +192,7 @@ const VARS={
     front:{name:'Front squat',short:'Front',r:.85,note:'Rack position, vertical torso, quads and upper back. About 85% of a back squat, and the upper back usually gives out first.'},
     box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
     pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
-    zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'},
-    goblet:{name:'Goblet squat',short:'Goblet',r:null,note:'One dumbbell or kettlebell at the chest. What you can hold runs out long before your legs do, so it has no useful ratio to a back squat — give it its own max, or keep it for travel weeks and warm-ups.'},
-    kbfront:{name:'Double KB front squat',short:'KB front',r:null,note:'Two kettlebells in the rack. Same limit as the goblet: the hold caps it. Its own max, or a travel-week movement.'}
+    zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'}
   },
   dead:{
     conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
@@ -290,7 +289,7 @@ function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib
 // touches your maxes, and the cycle pauses rather than counting these as trained weeks.
 const TRAVEL={
   day1:{name:'Squat pattern and push',items:[
-    ['Goblet or DB front squat','3 × 8–12'],['Push-up or DB bench press','3 × 10–15'],
+    ['Goblet, double KB front or DB front squat','3 × 8–12'],['Push-up or DB bench press','3 × 10–15'],
     ['DB or band row','3 × 10–12'],['Plank','3 × 30–45 sec']]},
   day2:{name:'Single leg and overhead',items:[
     ['Rear-foot-elevated split squat','3 × 8–10 per side'],['DB overhead press','3 × 8–12'],

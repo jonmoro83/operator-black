@@ -755,12 +755,6 @@ test("lift variants scale the working weight without touching the reference max"
   x.plan.liftVar.dead = "trap"; x.bump();
   a.equal(x.rx(dd, "dead", dd.monday).m.v, 400 * 1.05, "trap bar goes up, not down");
 
-  // No ratio and no max of its own: it declines to prescribe rather than invent a number.
-  x.plan.liftVar.squat = "goblet"; x.bump();
-  a.equal(x.rx(wk, "squat", mon).m, null);
-  a.match(x.liftCard(wk, "squat", x.dayPlan(mon)), /needs its own max/);
-  x.plan.liftMax.squat.goblet = 90; x.bump();
-  a.equal(x.rx(wk, "squat", mon).m.v, 90);
 
   // A per-day swap beats the setting, for that day only.
   x.plan.liftVar.squat = "back"; x.bump();
@@ -847,5 +841,5 @@ test("a variant that no longer exists falls back instead of breaking", () => {
   // every surviving variant with no ratio is one that was asked for by name
   for (const [k, list] of Object.entries(x.VARS))
     for (const [id, v] of Object.entries(list))
-      if (v.r == null) a.ok(["goblet", "kbfront"].includes(id), `${k}.${id} has no ratio`);
+      a.ok(v.r > 0, `${k}.${id} is a barbell lift with a ratio to the reference`);
 });

@@ -214,7 +214,6 @@ function liftCard(wk,k,dp){
   const setLbl=isDead?'1–3':r.s;
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  const needMax=VARS[k]&&!r.m&&VARS[k][r.vr].r==null;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
   if(VARS[k]&&!viewing){
     const v=r.vr, cur=VARS[k][v];
@@ -222,7 +221,6 @@ function liftCard(wk,k,dp){
     if(v!==varRef(k)) h+=`<div class="small muted">${esc(cur.note)}</div>`;
   }
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
-  if(needMax) h+=`<div class="banner warn"><div><b>${esc(VARS[k][r.vr].name)} needs its own max.</b> There is no honest percentage of a ${esc(VARS[k][varRef(k)].name.toLowerCase())} for it — what you can hold decides the lift. Enter one in Setup → Lift variants, or pick another variant.</div><div><button class="btn sm" data-act="view" data-view="setup">Open Setup</button></div></div>`;
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);

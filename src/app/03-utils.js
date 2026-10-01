@@ -42,7 +42,7 @@ function varMax(k,c,date){
   const v=varOf(k,date), own=((plan.liftMax||{})[k]||{})[v];
   if(own!=null&&own!=='') return {v:+own,src:'own',vr:v};
   const base=maxFor(c)[k], r=VARS[k][v].r;
-  if(!base||r==null) return base&&r==null?null:null;
+  if(!base) return null;
   return r===1?{v:base.v,src:base.src,vr:v}:{v:base.v*r,src:'ratio',vr:v,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}

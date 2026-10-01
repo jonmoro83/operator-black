@@ -110,7 +110,10 @@ and tapping it goes to the login page.
 
 ## Lift variants
 
-`VARS` holds the squats and deadlifts the squat and deadlift slots can be run as. The
+`VARS` holds the squats and deadlifts the squat and deadlift slots can be run as. Barbell
+movements only: anything whose limit is the hold, or that has no lockout to test, has no
+1RM for percentages to mean anything against, and belongs in the accessory or travel-week
+lists instead. The
 first entry of each list is the reference, and the max you store is always that lift's.
 `varOf(k,date)` picks a per-day swap (`logs[d].var[k]`) over the default
 (`plan.liftVar[k]`), and forces the reference on test and bridge weeks. `varMax()` uses a

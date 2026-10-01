@@ -4,6 +4,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.15',date:'2026-10-01',title:'The main squat is barbell only',items:[
+    'Goblet and double kettlebell front squats have left the squat variants, for the same reason the RDL left the deadlifts: what you can hold runs out long before your legs do, so there is no one-rep max to run the program\u2019s percentages against. Both slots are barbell movements now, and every one of them has a sensible share of your main lift\u2019s max.',
+    'They are still in the app where they earn their place \u2014 the travel week\u2019s squat slot now reads goblet, double KB front or DB front squat.',
+    'If you had one selected, your squat goes back to the back squat and your maxes are untouched.']},
   {v:'1.14',date:'2026-10-01',title:'RDL is an accessory, not a deadlift',items:[
     'The Romanian deadlift has been taken out of the deadlift variants. It has no lockout and no reset on the floor, so it has no real one-rep max to run percentages against \u2014 it is a hamstring accessory, and it is now named as one in Friday\u2019s posterior chain slot.',
     'If you had it selected, your deadlift goes back to conventional and your maxes are untouched.']},

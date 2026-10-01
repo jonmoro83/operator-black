@@ -178,13 +178,14 @@ const PLIB={
     errors:'Jumping off the box instead of stepping, which changes the landing force unpredictably. Using too high a box: the single most common error, and it converts an elastic drill into a heavy eccentric one. Pausing on landing.',
     note:'Highest-stress movement in the program. If your vertical rebound off the box is lower than a normal standing vertical jump, the box is too high. Lower it. Start at 12 inches even if that feels trivially easy.'}
 };
-// Variants for the lifts that have them. `r` is the variant's usual share of the
-// reference lift's max, used to work out the weight when you have not tested the variant
-// itself; enter a real max in Setup and that wins instead. `r:null` means there is no
-// honest ratio — what you can hold or how far you can pull caps the lift long before
-// your legs do — so those ask for their own number.
-// The first entry in each list is the reference: the max everything else is derived from,
-// the one retests measure, and what you get if you never touch this.
+// Variants for the lifts that have them. Barbell only, both slots: a movement whose
+// limit is what you can hold (goblet, double kettlebell front) or that has no lockout to
+// test (RDL) has no one-rep max to run percentages against, so it belongs in the
+// accessory and travel-week lists instead.
+// `r` is the variant's usual share of the reference lift's max, used to work out the
+// weight when you have not tested the variant itself; enter a real max in Setup and that
+// wins instead. The first entry in each list is the reference: the max everything else is
+// derived from, the one retests measure, and what you get if you never touch this.
 const VARS={
   squat:{
     back:{name:'Back squat',short:'Back',r:1,note:'The reference. Everything else here is expressed against it.'},
@@ -193,9 +194,7 @@ const VARS={
     front:{name:'Front squat',short:'Front',r:.85,note:'Rack position, vertical torso, quads and upper back. About 85% of a back squat, and the upper back usually gives out first.'},
     box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
     pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
-    zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'},
-    goblet:{name:'Goblet squat',short:'Goblet',r:null,note:'One dumbbell or kettlebell at the chest. What you can hold runs out long before your legs do, so it has no useful ratio to a back squat — give it its own max, or keep it for travel weeks and warm-ups.'},
-    kbfront:{name:'Double KB front squat',short:'KB front',r:null,note:'Two kettlebells in the rack. Same limit as the goblet: the hold caps it. Its own max, or a travel-week movement.'}
+    zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'}
   },
   dead:{
     conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
@@ -292,7 +291,7 @@ function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib
 // touches your maxes, and the cycle pauses rather than counting these as trained weeks.
 const TRAVEL={
   day1:{name:'Squat pattern and push',items:[
-    ['Goblet or DB front squat','3 × 8–12'],['Push-up or DB bench press','3 × 10–15'],
+    ['Goblet, double KB front or DB front squat','3 × 8–12'],['Push-up or DB bench press','3 × 10–15'],
     ['DB or band row','3 × 10–12'],['Plank','3 × 30–45 sec']]},
   day2:{name:'Single leg and overhead',items:[
     ['Rear-foot-elevated split squat','3 × 8–10 per side'],['DB overhead press','3 × 8–12'],
@@ -380,7 +379,7 @@ function varMax(k,c,date){
   const v=varOf(k,date), own=((plan.liftMax||{})[k]||{})[v];
   if(own!=null&&own!=='') return {v:+own,src:'own',vr:v};
   const base=maxFor(c)[k], r=VARS[k][v].r;
-  if(!base||r==null) return base&&r==null?null:null;
+  if(!base) return null;
   return r===1?{v:base.v,src:base.src,vr:v}:{v:base.v*r,src:'ratio',vr:v,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
@@ -1021,7 +1020,6 @@ function liftCard(wk,k,dp){
   const setLbl=isDead?'1–3':r.s;
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  const needMax=VARS[k]&&!r.m&&VARS[k][r.vr].r==null;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
   if(VARS[k]&&!viewing){
     const v=r.vr, cur=VARS[k][v];
@@ -1029,7 +1027,6 @@ function liftCard(wk,k,dp){
     if(v!==varRef(k)) h+=`<div class="small muted">${esc(cur.note)}</div>`;
   }
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
-  if(needMax) h+=`<div class="banner warn"><div><b>${esc(VARS[k][r.vr].name)} needs its own max.</b> There is no honest percentage of a ${esc(VARS[k][varRef(k)].name.toLowerCase())} for it — what you can hold decides the lift. Enter one in Setup → Lift variants, or pick another variant.</div><div><button class="btn sm" data-act="view" data-view="setup">Open Setup</button></div></div>`;
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
@@ -2946,7 +2943,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift you are running. The weight comes from your ${esc(VARS.squat.back.name.toLowerCase())} and ${esc(VARS.dead.conv.name.toLowerCase())} maxes above, scaled by what that variant usually carries — unless you enter a tested max for it, which always wins. You can also swap for a single session from the lift's card on Today.</p>`;
   for(const k of ['squat','dead']){
     const cur=varDefault(k), own=(plan.liftMax||{})[k]||{};
-    h+=`<div class="stack" style="gap:8px;margin-top:12px"><label class="f" style="max-width:320px">${esc(k==='squat'?'Squat':'Deadlift')}<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===cur?' selected':''}>${esc(x.name)}${x.r==null?' — needs its own max':x.r===1?'':' · ~'+Math.round(x.r*100)+'%'}</option>`).join('')}</select></label>
+    h+=`<div class="stack" style="gap:8px;margin-top:12px"><label class="f" style="max-width:320px">${esc(k==='squat'?'Squat':'Deadlift')}<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===cur?' selected':''}>${esc(x.name)}${x.r===1?'':' · ~'+Math.round(x.r*100)+'%'}</option>`).join('')}</select></label>
     <div class="small muted">${esc(VARS[k][cur].note)}</div>
     <details class="plain"><summary>Tested maxes for variants <small class="muted">· ${Object.keys(own).filter(v=>own[v]!=null&&own[v]!=='').length} entered</small></summary>
       <p class="small muted" style="margin:8px 0 0">Enter one only if you have actually tested it. A number here replaces the estimate for that variant, and nothing else in the program reads it — retests and the cycle review always measure the ${esc(VARS[k][varRef(k)].name.toLowerCase())}.</p>
