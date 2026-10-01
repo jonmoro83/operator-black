@@ -39,9 +39,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='progexit'){exitArchive();return}
   // an archived program is read-only: only navigation works
   if(a==='csv'){exportCsv(b.dataset.v);return}
-  if(a==='dlcheck'){const wk=weekOf(sel),c=wk&&wk.cycle,v=b.dataset.v;if(!c)return;mutatePlan(p=>{if(v!=='keep')p.deloadEvery=+v;p.deloadChecks=Object.assign({},p.deloadChecks||{},{[c]:{at:realToday(),choice:v==='keep'?+p.deloadEvery||0:+v}})});return}
+  if(a==='dlcheck'){const wk=weekOf(sel),c=wk&&wk.cycle,v=b.dataset.v;if(!c)return;replan(v==='keep'?'Deload setting kept':'Deload every '+v+' cycles',p=>{if(v!=='keep')p.deloadEvery=+v;p.deloadChecks=Object.assign({},p.deloadChecks||{},{[c]:{at:realToday(),choice:v==='keep'?+p.deloadEvery||0:+v}})});return}
   if(a==='platetoggle'){const v=+b.dataset.v,cur=plateSet();const next=cur.includes(v)?cur.filter(x=>x!==v):[...cur,v];if(!next.length)return;mutatePlan(p=>{p.plates=Object.assign({},p.plates||{},{[u()]:next.sort((a,b)=>b-a)})});return}
-  if(a==='deloadevery'&&!viewing){const v=+b.dataset.v;if((+plan.deloadEvery||0)===v)return;mutatePlan(p=>{p.deloadEvery=v});return}
+  if(a==='deloadevery'&&!viewing){const v=+b.dataset.v;if((+plan.deloadEvery||0)===v)return;replan(v?'Deload every '+v+' cycles':'Deloads off',p=>{p.deloadEvery=v});return}
   if(viewing&&!['go','open','view','more','updcheck','updnow','rvsel'].includes(a)){readOnly();return}
   if(a==='prognew'){newProg={name:'Block '+((plan.programSeq||1)+1),start:addDays(mondayOf(realToday()),7),mode:'carry'};render();return}
   if(a==='progcancel'){newProg=null;render();return}
@@ -194,10 +194,10 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
-  if(a==='insert'){offerUndo('Week added',snapPlan());mutatePlan(p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
-  if(a==='uninsert'){offerUndo('Week removed',snapPlan());mutatePlan(p=>{delete p.inserts[b.dataset.monday]});return}
-  if(a==='skip'){offerUndo('Week skipped',snapPlan());mutatePlan(p=>{p.skips[b.dataset.rule]=true});return}
-  if(a==='unskip'){offerUndo('Week restored',snapPlan());mutatePlan(p=>{delete p.skips[b.dataset.rule]});return}
+  if(a==='insert'){replan((b.dataset.kind==='deload'?'Deload':b.dataset.kind==='test'?'Retest':b.dataset.kind==='travel'?'Travel':'Off')+' week added',p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
+  if(a==='uninsert'){replan('Week removed',p=>{delete p.inserts[b.dataset.monday]});return}
+  if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}
+  if(a==='unskip'){replan('Week restored',p=>{delete p.skips[b.dataset.rule]});return}
   if(a==='more'){planShow+=26;render();return}
   if(a==='applytest'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test'),nc=wk.nextCycle;if(!nc)return;offerUndo('Results applied to Cycle '+nc,snapPlan());mutatePlan(p=>{p.cycleMaxes[nc]=Object.assign({},p.cycleMaxes[nc]||{},res)});return}
   if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}

@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.21',date:'2026-10-02',title:'Pull-up road, benchmarks and plan previews',items:[
+    'A pull-up card on Status that joins your test sets up into a road: hangs and negatives, band-assisted volume, clean reps, ready to load, weighted. It names the rung you are on, counts the reps to the next one, and Wednesday\u2019s pull-up accessory now prescribes that rung instead of a generic line.',
+    'A benchmark conditioning session \u2014 one activity and format you repeat to compare against itself, charted on Status and chased up on the day when it is due. It picks the pairing you repeat most until you pin one in Setup \u2192 Conditioning.',
+    'The app now notices when you stop rotating: six hard sessions in a row on the same format or the same machine gets a nudge, because Black rotates on purpose.',
+    'Changing the deload cadence, or adding, skipping or removing a week, now says what it moved \u2014 \u201cretest 11/30 \u2192 12/7\u201d \u2014 in the undo toast, rather than silently re-planning everything after it.']},
   {v:'1.20',date:'2026-10-01',title:'Show the arithmetic',items:[
     'The suggested minutes now show their working: \u201cUse 23 min \u2014 8 min warm-up + 15 min of intervals, from 8 rounds (there is no easy period after the last one, so 8 \u00d7 hard + 7 \u00d7 easy)\u201d. Eight rounds of a minute on and a minute off is fifteen minutes of work, not sixteen, because the timer does not make you stand there resting once the last one is done.',
     'The warm-up checkbox now says what it costs: five minutes plus three pickups is about eight, not five.']},

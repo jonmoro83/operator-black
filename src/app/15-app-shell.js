@@ -22,6 +22,34 @@ function snapPlan(){
   const before=clone(plan);
   return ()=>{ plan=before; planV++; queueWrite('plan/main',()=>plan); render(); };
 }
+// The dates a plan change is liable to move. Taken before and after, the difference is
+// what the person actually cares about: "my retest moved a week".
+function milestones(){
+  const t=realToday(), list=weeks(), out={};
+  for(const kind of ['deload','test']){const w=list.find(x=>x.kind===kind&&addDays(x.monday,6)>=t); out[kind]=w?w.monday:null}
+  const c=list.find(x=>x.kind==='cycle'&&x.w===1&&x.monday>t); out.cycle=c?c.monday:null;
+  out.n=list.find(x=>x.monday<=t&&addDays(x.monday,6)>=t);
+  out.now=out.n?(out.n.kind==='cycle'?'Cycle '+out.n.cycle+' week '+out.n.w:weekTitle(out.n).t):null;
+  return out;
+}
+function milestoneDiff(a0,b0){
+  const bits=[], name={deload:'deload',test:'retest',cycle:'next cycle'};
+  for(const k of ['deload','test','cycle']){
+    if(a0[k]===b0[k]) continue;
+    if(!b0[k]) bits.push('no '+name[k]+' scheduled now');
+    else if(!a0[k]) bits.push(name[k]+' now '+fmtD(b0[k],true));
+    else bits.push(name[k]+' '+fmtD(a0[k])+' \u2192 '+fmtD(b0[k]));
+  }
+  if(a0.now!==b0.now&&b0.now) bits.push('this week is now '+b0.now);
+  return bits.join(' \u00b7 ');
+}
+// Apply a plan change and say what it moved, with the usual undo.
+function replan(label,fn){
+  const before=milestones(), snap=snapPlan();
+  mutatePlan(fn);
+  const moved=milestoneDiff(before,milestones());
+  offerUndo(label+(moved?' \u00b7 '+moved:''),snap);
+}
 function offerUndo(label,restore){
   undoItem={label,restore};
   clearTimeout(undoTimer); undoTimer=setTimeout(()=>{undoItem=null;showToast()},7000);

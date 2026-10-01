@@ -211,6 +211,15 @@ function vStatus(){
       if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included \u2014 log the real number on the day\u2019s card and it uses that instead.`:''}</div>`;
       h+=`</div>`;
     }
+    {
+      const bm=benchmarkState(t);
+      if(bm&&bm.xs.length){
+        const dir=bm.xs.length>1?bm.last.v-bm.first.v:null;
+        h+=`<div class="sm"><div class="sm-h"><b>Benchmark \u00b7 ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
+        h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
+        h+=`<div class="small muted">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
+      }
+    }
     if(!keys.length) h+=`<div class="sm"><div class="none">No HIC results logged yet. Results you log on HIC days show up here.</div></div>`;
     else{
       h+=`<div class="sm-grid">`;
@@ -229,6 +238,7 @@ function vStatus(){
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=bwCard(t);
   h+=energyCard(t);
+  h+=pullupCard(t);
   h+=prBoard();
   return h;
 }

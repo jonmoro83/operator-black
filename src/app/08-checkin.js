@@ -140,6 +140,38 @@ function readiness(c){
   return Math.round(100*part.reduce((a,x)=>a+x[0]*x[1],0)/tw);
 }
 function rLevel(sc){return sc==null?null:sc>=75?{k:'go',cls:'light',t:'Ready'}:sc>=55?{k:'care',cls:'mid',t:'Moderate'}:{k:'stop',cls:'heavy',t:'Low'}}
+// Black rotates its conditioning; the app lets you pick anything and never noticed when
+// you stopped rotating. Looks at the hard sessions only — LISS is meant to be samey.
+function hicRut(date,n0){
+  const xs=hicSessions().filter(x=>x.d<=date&&x.f!=='liss').slice(-(n0||6));
+  if(xs.length<(n0||6)) return null;
+  const f=xs[0].f, mod=xs[0].mod;
+  const sameF=xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
+  if(!sameF&&!sameM) return null;
+  return {n:xs.length,f:sameF?f:null,mod:sameM?mod:null,since:xs[0].d};
+}
+// One session you repeat to compare against itself. Results only compare within an
+// activity and a format, so a benchmark is the single line worth watching when the rest
+// of your conditioning moves around.
+function benchmark(){
+  const b=plan.benchmark;
+  if(b&&MOD[b.mod]&&HIC[b.fmt]) return b;
+  // not chosen yet: the hard pairing you have done most
+  const tally={};
+  for(const x of hicSessions()) if(x.f!=='liss'&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
+  const top=Object.keys(tally).sort((a0,b0)=>tally[b0]-tally[a0])[0];
+  if(!top) return null;
+  const [mod,fmt]=top.split('|');
+  return {mod,fmt,auto:true};
+}
+function benchmarkState(date){
+  const b=benchmark(); if(!b) return null;
+  const xs=hicSessions().filter(x=>x.d<=date&&x.mod===b.mod&&x.f===b.fmt&&x.v!=null);
+  const last=xs[xs.length-1]||null, first=xs[0]||null;
+  const days=last?Math.round((D(date)-D(last.d))/864e5):null;
+  const every=+plan.benchEvery||35;
+  return {...b,xs,last,first,days,every,due:!last||days>=every,best:xs.reduce((a0,x)=>Math.max(a0,x.v),0)};
+}
 function suggestions(date){
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), wk=weekOf(date), dp=dayPlan(date), out=[];
   if(!lv) return out;
@@ -180,6 +212,12 @@ function suggestions(date){
   const training=dp.t!=='off'&&dp.t!=='convert';
   if(c.fuel==='under'&&training) add('care','Fuel the session',`Under-eating shows up first in conditioning numbers. Eat carbs 2–3 h before training (rice, oats, potatoes, fruit)${plan.goal==='lose'?'. You can stay in a deficit, just put most of your carbs around training':''}.`);
   if(c.water==='no') add('care','Hydrate','Start with 16–24 oz of water now, and add 16–24 oz for each hour of hard conditioning. A pinch of salt helps on HIC days.');
+  if(hicFmt&&hicFmt!=='liss'){
+    const rut=hicRut(date,6);
+    if(rut) add('care','Rotate your conditioning',`Your last ${rut.n} hard sessions were all ${rut.f?HIC[rut.f].name:''}${rut.f&&rut.mod?' on the ':''}${rut.mod?MOD[rut.mod].name.toLowerCase():''}. Black rotates formats and tools on purpose \u2014 pick a different one today and the adaptation stays broad.`);
+    const bm=benchmarkState(date);
+    if(bm&&bm.due&&bm.last) add('go','Benchmark due',`It has been ${bm.days} days since your ${MOD[bm.mod].name} ${HIC[bm.fmt].name} benchmark (best ${n(bm.best)}). Run that one today and you get a number that compares straight back.`);
+  }
   if(c.alcohol==='lots') add('care','After a big night','Expect lower HIC numbers and don’t chase a PR. Extra water and a solid breakfast.');
   // trends
   let lowDays=0;for(let i=0;i<7;i++){const x=readiness(ci(addDays(date,-i)));if(x!=null&&x<55)lowDays++}
@@ -218,7 +256,7 @@ function accCard(wk,dp){
   const v=wkRx(wk);
   if(wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const L=lg(sel).acc||[];
-  return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>`).join('')}</div></div>`;
+  return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>${/pull-up progression/i.test(a)?`<div class="small muted" style="margin:-2px 0 4px 28px">${esc(pullupState(sel).st.work)}</div>`:''}`).join('')}</div></div>`;
 }
 function lastHic(fmt,mod,before){
   let best=null,last=null;

@@ -1008,3 +1008,147 @@ test("the planned length adds up, and says how", () => {
     a.match(card, /there is no easy period after the last one/);
   }
 });
+
+test("a plan change says what it moved", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.deloadEvery = 2; x.bump();
+
+  const before = x.milestones();
+  a.ok(before.deload && before.test, "there is a deload and a retest ahead");
+
+  // Inserting a week pushes everything after it back.
+  const mon = x.mondayOf("2026-10-19");
+  x.replan("Deload week added", (p) => { p.inserts[x.addDays(mon, 7)] = "deload" });
+  const moved = x.milestoneDiff(before, x.milestones());
+  a.match(moved, /retest \d+\/\d+ → \d+\/\d+/, "it names the retest move");
+  a.ok(x.undoItem, "and it is undoable");
+  a.match(x.undoItem.label, /^Deload week added · /, "the toast carries both");
+
+  // Turning the rule off removes the scheduled deloads and says so. (An explicitly
+  // inserted week is not a rule, so it survives -- hence a fresh plan here.)
+  const y = app({ now: "2026-10-19" });
+  y.plan.startMonday = "2026-09-07"; y.plan.bridge = false; y.plan.deloadEvery = 2; y.bump();
+  const b2 = y.milestones();
+  y.replan("Deloads off", (p) => { p.deloadEvery = 0 });
+  a.match(y.milestoneDiff(b2, y.milestones()), /no deload scheduled now/);
+
+  // A change that moves nothing says nothing extra.
+  const b3 = x.milestones();
+  x.replan("Rounding changed", (p) => { p.round.squat = 5 });
+  a.equal(x.milestoneDiff(b3, x.milestones()), "");
+  a.equal(x.undoItem.label, "Rounding changed", "no empty separator on the toast");
+});
+
+test("the app notices when conditioning stops rotating", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.equal(x.hicRut("2026-11-30", 6), null, "nothing logged, nothing to say");
+
+  // six hard sessions, all MAP on the bike
+  const days = [];
+  for (const w of x.weeks()) for (let i = 0; i < 7; i++) {
+    const d = x.addDays(w.monday, i);
+    if (d > "2026-11-30") continue;
+    const dp = x.dayPlan(d);
+    if (dp.t === "hic" && dp.fmt !== "liss") days.push(d);
+  }
+  const six = days.slice(-6);
+  for (const d of six) x.seed({ [d]: { date: d, done: true, hic: { format: "map", mod: "echo", cal: 120 } } });
+  x.bump();
+  const rut = x.hicRut("2026-11-30", 6);
+  a.ok(rut, "six of the same is a rut");
+  a.equal(rut.f, "map");
+  a.equal(rut.mod, "echo");
+
+  // vary both the format and the tool and there is nothing to say
+  x.seed({ [six[2]]: { date: six[2], done: true, hic: { format: "threshold", mod: "run", dist: 2000 } } }); x.bump();
+  a.equal(x.hicRut("2026-11-30", 6), null, "one genuinely different session breaks it");
+
+  // same format but different tools is still fine to flag on the tool
+  for (const d of six) x.seed({ [d]: { date: d, done: true, hic: { format: "map", mod: "echo", cal: 120 } } });
+  x.seed({ [six[1]]: { date: six[1], done: true, hic: { format: "anaerobic", mod: "echo", cal: 90 } } }); x.bump();
+  const r2 = x.hicRut("2026-11-30", 6);
+  a.ok(r2 && !r2.f && r2.mod === "echo", "all on the bike, formats mixed");
+});
+
+test("a benchmark session is picked, tracked and chased up", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.equal(x.benchmark(), null, "nothing to benchmark yet");
+
+  const hard = [];
+  for (const w of x.weeks()) for (let i = 0; i < 7; i++) {
+    const d = x.addDays(w.monday, i);
+    if (d > "2026-11-30") continue;
+    const dp = x.dayPlan(d);
+    if (dp.t === "hic" && dp.fmt !== "liss") hard.push(d);
+  }
+  // mostly bike MAP, with a couple of others
+  hard.forEach((d, i) => x.seed({ [d]: { date: d, done: true, hic: i % 4 === 3 ? { format: "threshold", mod: "run", dist: 3000 } : { format: "map", mod: "echo", cal: 100 + i } } }));
+  x.bump();
+
+  const b = x.benchmark();
+  a.deepEqual([b.mod, b.fmt], ["echo", "map"], "the pairing done most often");
+  a.equal(b.auto, true);
+
+  const st = x.benchmarkState("2026-11-30");
+  a.ok(st.xs.length >= 3);
+  a.equal(st.best, Math.max(...st.xs.map((v) => v.v)));
+  a.equal(st.due, st.days >= st.every);
+  a.match(x.vStatus(), /Benchmark · Echo bike MAP/);
+
+  // An explicit choice wins over the guess.
+  x.plan.benchmark = { mod: "ruck", fmt: "long" }; x.bump();
+  a.deepEqual([x.benchmark().mod, x.benchmark().fmt], ["ruck", "long"]);
+  a.equal(x.benchmarkState("2026-11-30").due, true, "never run, so it is due");
+});
+
+test("the pull-up road knows which rung you are on", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+
+  // Nothing logged: it says how to start rather than guessing.
+  a.match(x.pullupCard("2026-11-30"), /maps out the road/);
+  a.equal(x.pullupState("2026-11-30").stage, 0);
+
+  const rungs = [[0, "Hangs and negatives"], [1, "Band-assisted volume"], [4, "Band-assisted volume"],
+                 [5, "Clean reps"], [9, "Clean reps"], [10, "Ready to load"], [15, "Weighted"], [22, "Weighted"]];
+  for (const [reps, name] of rungs) {
+    x.seed({ "2026-10-05": { date: "2026-10-05", pullups: reps } }); x.bump();
+    a.equal(x.pullupState("2026-11-30").st.name, name, `${reps} reps is "${name}"`);
+  }
+
+  // It counts the gap to the next rung, from your best set.
+  x.seed({ "2026-10-05": { date: "2026-10-05", pullups: 7 } }); x.bump();
+  const p = x.pullupState("2026-11-30");
+  a.equal(p.reps, 7);
+  a.equal(p.next.at, 10);
+  a.equal(p.togo, 3);
+  a.match(x.pullupCard("2026-11-30"), /3 more reps/);
+
+  // A later, worse set does not demote you: the best stands.
+  x.seed({ "2026-11-02": { date: "2026-11-02", pullups: 4 } }); x.bump();
+  a.equal(x.pullupState("2026-11-30").reps, 7, "best set, not latest");
+
+  // Added weight shows as a share of bodyweight.
+  x.plan.maxes.wpu = 45;
+  x.seed({ "2026-11-03": { date: "2026-11-03", checkin: { bw: 200 } } }); x.bump();
+  const q = x.pullupState("2026-11-30");
+  a.equal(q.wpu, 45);
+  a.equal(q.pct, 23);
+  a.match(x.pullupCard("2026-11-30"), /23% of bodyweight/);
+
+  // Wednesday's accessory line tells you what the rung means today.
+  const wk = x.weeks().find((w) => w.kind === "cycle");
+  let wed = null;
+  for (let i = 0; i < 7; i++) { const d = x.addDays(wk.monday, i); const dp = x.dayPlan(d); if (dp.t === "lift" && dp.acc === "wed") { wed = d; break } }
+  if (wed) {
+    x.sel = wed;
+    const card = x.accCard(wk, x.dayPlan(wed));
+    if (/Pull-up progression/.test(card)) {
+      // the rung as it stood on that day, not today's
+      const was = x.pullupState(wed).st.work.slice(0, 24);
+      a.ok(card.includes(was), `the day's own prescription: ${was}`);
+    }
+  }
+});

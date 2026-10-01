@@ -294,6 +294,22 @@ const PLYO_UPPER=[
   {name:'Rotation',slots:[{s:3,...UP_ROT},{s:3,...UP_PULL}]},
   {name:'Elastic',slots:[{s:3,...UP_PUSH,def:'plyopush'},{s:3,...UP_THROW},{s:2,...UP_ROT}]},
 ];
+// The road to a weighted pull-up, in the order the strength actually arrives. `at` is the
+// best clean rep count that puts you on this rung. What you do on Lift 3 days, and the
+// one thing that moves you up.
+const PULLUP=[
+  {at:0,name:'Hangs and negatives',work:'5 × 10–20 s dead hang, then 4–6 negatives: jump or step to the top, lower for 5 seconds, no faster.',next:'One clean rep from a dead hang.',
+   why:'The negative builds the top half and the grip at the same time, and it is the only thing that works when you cannot yet pull your own weight.'},
+  {at:1,name:'Band-assisted volume',work:'4 × 4–6 with the lightest band that lets you finish the set clean. Keep the negatives.',next:'Five clean reps in one set.',
+   why:'Volume is what moves this. A band you can barely finish with is doing too little; one that makes it easy is doing too much.'},
+  {at:5,name:'Clean reps',work:'4–5 sets across, stopping two short of failure. Full hang at the bottom, chin clearly over at the top.',next:'Ten clean reps in one set.',
+   why:'Reps in reserve matter more here than grinding: the set that leaves you shaking costs you the next two sessions.'},
+  {at:10,name:'Ready to load',work:'Add weight: start at 10% of bodyweight for 4 × 3–5, and run it as Lift 3 on the Operator percentages.',next:'A weighted single at 25% of bodyweight.',
+   why:'Ten clean reps is the usual threshold where adding weight beats adding reps. The app can run the weighted pull-up as Lift 3 from here.'},
+  {at:15,name:'Weighted',work:'Weighted pull-ups as a cluster lift, retested like any other max.',next:'Keep adding, and keep one bodyweight set a week for the reps.',
+   why:'From here it is ordinary strength work: the percentages apply to bodyweight plus the added weight.'}
+];
+function pullupStage(reps){let i=0;for(let j=0;j<PULLUP.length;j++) if(reps>=PULLUP[j].at) i=j;return i}
 const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','Wednesday’s squat session was unusually heavy or left you sore into Thursday.'];
 function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
 // A week away from the barbell. Rep targets rather than percentages, so nothing here
@@ -311,7 +327,7 @@ const TRAVEL={
 };
 const ACC={
   mon:['Horizontal pull: chest-supported row','Rear delt / upper back: face pull or reverse fly','Core: Pallof press or hanging knee raise','Arms: curls + triceps pushdown'],
-  wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression: negatives or band-assisted'],
+  wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression'],
   fri:['Single-leg: rear-foot-elevated split squat','Posterior chain: Romanian deadlift, back extension or hamstring curl','Carry / grip: farmer carry']
 };
 const DEF={

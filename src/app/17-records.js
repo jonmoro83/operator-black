@@ -39,6 +39,36 @@ function prCard(date){
   return `<div class="card pr"><div class="lift-h"><h3>New personal best${hits.length>1?'s':''}</h3><span class="chip light">PR</span></div>
   ${hits.map(r=>`<div class="pr-row"><span>${r.label}</span><span class="pr-v">${r.fmt(r.value)}<small> ${esc(r.unit)}</small></span><span class="small muted">was ${r.fmt(r.prev)}</span></div>`).join('')}</div>`;
 }
+// Where you are on the pull-up road, from the best set you have logged. Max-rep sets are
+// logged on test days (`pullups`); weighted work shows up as the `wpu` max.
+function pullupState(date){
+  let best=null, xs=[];
+  for(const [d,L] of Object.entries(logs)){
+    if(d>date||!inProgram(d)||!L.pullups) continue;
+    xs.push({d,v:+L.pullups});
+    if(!best||+L.pullups>best.v||(+L.pullups===best.v&&d>best.d)) best={d,v:+L.pullups};
+  }
+  xs.sort((a0,b0)=>a0.d<b0.d?-1:1);
+  const wpu=(plan.maxes||{}).wpu, bw=bwFor(date);
+  const reps=best?best.v:0, i=pullupStage(reps), st=PULLUP[i], nextSt=PULLUP[i+1]||null;
+  const togo=nextSt?Math.max(0,nextSt.at-reps):0;
+  return {best,xs,stage:i,st,next:nextSt,togo,reps,wpu:wpu!=null&&wpu!==''?+wpu:null,bw,
+    pct:bw&&wpu?Math.round(+wpu/bw*100):null};
+}
+function pullupCard(date){
+  const p=pullupState(date);
+  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="small muted" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
+  h+=`<div class="miles"><div class="mile"><span class="l">Best set</span>${p.best?`<span class="big">${p.best.v}</span><span class="small muted">${fmtD(p.best.d,true)}</span>`:'<span class="small muted">Not tested yet</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Next rung</span>${p.next?`<span class="big">${p.next.at}</span><span class="small muted">${p.togo?`${p.togo} more rep${p.togo===1?'':'s'} \u00b7 ${esc(p.next.name.toLowerCase())}`:'reached \u2014 move up'}</span>`:'<span class="small muted">Top of the ladder</span>'}</div>`;
+  if(p.wpu!=null) h+=`<div class="mile"><span class="l">Added weight</span><span class="big">+${n(p.wpu)}</span><span class="small muted">${u()}${p.pct?` \u00b7 ${p.pct}% of bodyweight`:''}</span></div>`;
+  h+=`</div>`;
+  h+=`<div class="small"><b>Now:</b> ${esc(p.st.work)}</div><div class="small muted">${esc(p.st.why)}</div>`;
+  if(p.next) h+=`<div class="small muted"><b>Next:</b> ${esc(p.next.next===undefined?'':p.st.next)}</div>`;
+  if(p.xs.length>=2) h+=lineChart(p.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${x.v} reps`})),{label:'Max pull-ups',min:0,minStep:1,tick:fmtWhole});
+  h+=`<details class="plain"><summary>The whole road</summary><div class="stack small" style="margin-top:8px">${PULLUP.map((s0,i)=>`<div class="${i===p.stage?'':'muted'}"><b>${i===p.stage?'\u2192 ':''}${esc(s0.name)}</b>${s0.at?` <span class="mono">${s0.at}+ reps</span>`:' <span class="mono">0 reps</span>'}<div>${esc(s0.work)}</div></div>`).join('')}</div></details>`;
+  return h+`</div>`;
+}
 function prBoard(){
   const rs=prList();
   if(!rs.length) return `<div class="card"><h3>Personal records</h3><div class="empty">Nothing tested yet. Bests from test days, jumps, pull-ups and conditioning land here.</div></div>`;

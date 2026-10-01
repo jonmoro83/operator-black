@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-01.
+Update it as things ship. Last updated 2026-10-02.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -90,20 +90,6 @@ within each group, roughly in order of how useful they'd be.
 
 ### Training and UX
 
-- **Preview what a re-plan moves.** Changing the deload cadence or inserting a week
-  silently re-plans every future week. The calendar's Rearrange flow previews before
-  applying; plan-level changes do not. "This moves your next retest from 30 Nov to 7 Dec"
-  before the change lands.
-- **A pull-up progression.** The stated goal is a weighted pull-up, and the app tracks
-  `wpu` as a lift and max reps on test days, but nothing connects them into a path:
-  negatives → band-assisted → bodyweight singles → added weight, with the milestone
-  each session is working toward.
-- **Benchmark conditioning sessions.** Results only compare within one activity and
-  format, so mixing bike, ruck and hill sprints leaves every series too sparse to read.
-  A nominated benchmark — same activity, same format, repeated every four to six weeks —
-  would give one honest line to watch, and the app could prompt for it.
-- **Nudge HIC variety.** Black rotates formats; the app lets you pick but never notices
-  that the last six sessions were all MAP on the bike.
 - **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
   then the session. Once a session is under way the cards above it are noise — collapse
   them, or jump straight to the first lift.
@@ -144,6 +130,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Pull-up road, benchmarks, variety and plan previews (2026-10-02)**
+- `PULLUP` is five rungs with a rep threshold, a prescription and the reason it is the
+  thing that moves you up. `pullupState(date)` reads the best `logs[d].pullups` **up to
+  that date**, so a past day shows the rung you were on then, and `pullupCard()` goes on
+  Status. Wednesday's accessory line prints the rung's own prescription.
+- `benchmark()` returns `plan.benchmark` or, until one is pinned in Setup, the hard
+  activity/format pairing with the most logged results. `benchmarkState(date)` adds the
+  series, the best, days since and whether it is due (`plan.benchEvery`, default 35).
+  Charted on Status; the check-in asks for it on a conditioning day when it is due.
+- `hicRut(date,6)` flags six hard sessions in a row sharing a format or a tool. LISS is
+  excluded — it is meant to be samey.
+- `replan(label,fn)` captures `milestones()` either side of a plan change and appends the
+  difference to the undo toast: "Deload week added · retest 11/30 → 12/7". Used by the
+  deload cadence, the deload prompt, and insert / remove / skip / unskip. A change that
+  moves nothing adds nothing.
+- Chose "act, then say what moved, with undo" over a preview-then-confirm step: on a phone
+  the second tap is the cost, and undo is already there.
 
 **The planned length shows its working (2026-10-01)**
 - Asked where 23 minutes came from for 8 × 1:00/1:00, which reads like 16 + warm-up. It

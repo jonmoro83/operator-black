@@ -296,6 +296,22 @@ const PLYO_UPPER=[
   {name:'Rotation',slots:[{s:3,...UP_ROT},{s:3,...UP_PULL}]},
   {name:'Elastic',slots:[{s:3,...UP_PUSH,def:'plyopush'},{s:3,...UP_THROW},{s:2,...UP_ROT}]},
 ];
+// The road to a weighted pull-up, in the order the strength actually arrives. `at` is the
+// best clean rep count that puts you on this rung. What you do on Lift 3 days, and the
+// one thing that moves you up.
+const PULLUP=[
+  {at:0,name:'Hangs and negatives',work:'5 × 10–20 s dead hang, then 4–6 negatives: jump or step to the top, lower for 5 seconds, no faster.',next:'One clean rep from a dead hang.',
+   why:'The negative builds the top half and the grip at the same time, and it is the only thing that works when you cannot yet pull your own weight.'},
+  {at:1,name:'Band-assisted volume',work:'4 × 4–6 with the lightest band that lets you finish the set clean. Keep the negatives.',next:'Five clean reps in one set.',
+   why:'Volume is what moves this. A band you can barely finish with is doing too little; one that makes it easy is doing too much.'},
+  {at:5,name:'Clean reps',work:'4–5 sets across, stopping two short of failure. Full hang at the bottom, chin clearly over at the top.',next:'Ten clean reps in one set.',
+   why:'Reps in reserve matter more here than grinding: the set that leaves you shaking costs you the next two sessions.'},
+  {at:10,name:'Ready to load',work:'Add weight: start at 10% of bodyweight for 4 × 3–5, and run it as Lift 3 on the Operator percentages.',next:'A weighted single at 25% of bodyweight.',
+   why:'Ten clean reps is the usual threshold where adding weight beats adding reps. The app can run the weighted pull-up as Lift 3 from here.'},
+  {at:15,name:'Weighted',work:'Weighted pull-ups as a cluster lift, retested like any other max.',next:'Keep adding, and keep one bodyweight set a week for the reps.',
+   why:'From here it is ordinary strength work: the percentages apply to bodyweight plus the added weight.'}
+];
+function pullupStage(reps){let i=0;for(let j=0;j<PULLUP.length;j++) if(reps>=PULLUP[j].at) i=j;return i}
 const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','Wednesday’s squat session was unusually heavy or left you sore into Thursday.'];
 function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
 // A week away from the barbell. Rep targets rather than percentages, so nothing here
@@ -313,7 +329,7 @@ const TRAVEL={
 };
 const ACC={
   mon:['Horizontal pull: chest-supported row','Rear delt / upper back: face pull or reverse fly','Core: Pallof press or hanging knee raise','Arms: curls + triceps pushdown'],
-  wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression: negatives or band-assisted'],
+  wed:['Arms: curls + triceps pushdown','Shoulders: DB lateral raise','Pull-up progression'],
   fri:['Single-leg: rear-foot-elevated split squat','Posterior chain: Romanian deadlift, back extension or hamstring curl','Carry / grip: farmer carry']
 };
 const DEF={
@@ -1227,6 +1243,38 @@ function readiness(c){
   return Math.round(100*part.reduce((a,x)=>a+x[0]*x[1],0)/tw);
 }
 function rLevel(sc){return sc==null?null:sc>=75?{k:'go',cls:'light',t:'Ready'}:sc>=55?{k:'care',cls:'mid',t:'Moderate'}:{k:'stop',cls:'heavy',t:'Low'}}
+// Black rotates its conditioning; the app lets you pick anything and never noticed when
+// you stopped rotating. Looks at the hard sessions only — LISS is meant to be samey.
+function hicRut(date,n0){
+  const xs=hicSessions().filter(x=>x.d<=date&&x.f!=='liss').slice(-(n0||6));
+  if(xs.length<(n0||6)) return null;
+  const f=xs[0].f, mod=xs[0].mod;
+  const sameF=xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
+  if(!sameF&&!sameM) return null;
+  return {n:xs.length,f:sameF?f:null,mod:sameM?mod:null,since:xs[0].d};
+}
+// One session you repeat to compare against itself. Results only compare within an
+// activity and a format, so a benchmark is the single line worth watching when the rest
+// of your conditioning moves around.
+function benchmark(){
+  const b=plan.benchmark;
+  if(b&&MOD[b.mod]&&HIC[b.fmt]) return b;
+  // not chosen yet: the hard pairing you have done most
+  const tally={};
+  for(const x of hicSessions()) if(x.f!=='liss'&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
+  const top=Object.keys(tally).sort((a0,b0)=>tally[b0]-tally[a0])[0];
+  if(!top) return null;
+  const [mod,fmt]=top.split('|');
+  return {mod,fmt,auto:true};
+}
+function benchmarkState(date){
+  const b=benchmark(); if(!b) return null;
+  const xs=hicSessions().filter(x=>x.d<=date&&x.mod===b.mod&&x.f===b.fmt&&x.v!=null);
+  const last=xs[xs.length-1]||null, first=xs[0]||null;
+  const days=last?Math.round((D(date)-D(last.d))/864e5):null;
+  const every=+plan.benchEvery||35;
+  return {...b,xs,last,first,days,every,due:!last||days>=every,best:xs.reduce((a0,x)=>Math.max(a0,x.v),0)};
+}
 function suggestions(date){
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), wk=weekOf(date), dp=dayPlan(date), out=[];
   if(!lv) return out;
@@ -1267,6 +1315,12 @@ function suggestions(date){
   const training=dp.t!=='off'&&dp.t!=='convert';
   if(c.fuel==='under'&&training) add('care','Fuel the session',`Under-eating shows up first in conditioning numbers. Eat carbs 2–3 h before training (rice, oats, potatoes, fruit)${plan.goal==='lose'?'. You can stay in a deficit, just put most of your carbs around training':''}.`);
   if(c.water==='no') add('care','Hydrate','Start with 16–24 oz of water now, and add 16–24 oz for each hour of hard conditioning. A pinch of salt helps on HIC days.');
+  if(hicFmt&&hicFmt!=='liss'){
+    const rut=hicRut(date,6);
+    if(rut) add('care','Rotate your conditioning',`Your last ${rut.n} hard sessions were all ${rut.f?HIC[rut.f].name:''}${rut.f&&rut.mod?' on the ':''}${rut.mod?MOD[rut.mod].name.toLowerCase():''}. Black rotates formats and tools on purpose \u2014 pick a different one today and the adaptation stays broad.`);
+    const bm=benchmarkState(date);
+    if(bm&&bm.due&&bm.last) add('go','Benchmark due',`It has been ${bm.days} days since your ${MOD[bm.mod].name} ${HIC[bm.fmt].name} benchmark (best ${n(bm.best)}). Run that one today and you get a number that compares straight back.`);
+  }
   if(c.alcohol==='lots') add('care','After a big night','Expect lower HIC numbers and don’t chase a PR. Extra water and a solid breakfast.');
   // trends
   let lowDays=0;for(let i=0;i<7;i++){const x=readiness(ci(addDays(date,-i)));if(x!=null&&x<55)lowDays++}
@@ -1305,7 +1359,7 @@ function accCard(wk,dp){
   const v=wkRx(wk);
   if(wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const L=lg(sel).acc||[];
-  return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>`).join('')}</div></div>`;
+  return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>${/pull-up progression/i.test(a)?`<div class="small muted" style="margin:-2px 0 4px 28px">${esc(pullupState(sel).st.work)}</div>`:''}`).join('')}</div></div>`;
 }
 function lastHic(fmt,mod,before){
   let best=null,last=null;
@@ -2106,6 +2160,34 @@ function snapPlan(){
   const before=clone(plan);
   return ()=>{ plan=before; planV++; queueWrite('plan/main',()=>plan); render(); };
 }
+// The dates a plan change is liable to move. Taken before and after, the difference is
+// what the person actually cares about: "my retest moved a week".
+function milestones(){
+  const t=realToday(), list=weeks(), out={};
+  for(const kind of ['deload','test']){const w=list.find(x=>x.kind===kind&&addDays(x.monday,6)>=t); out[kind]=w?w.monday:null}
+  const c=list.find(x=>x.kind==='cycle'&&x.w===1&&x.monday>t); out.cycle=c?c.monday:null;
+  out.n=list.find(x=>x.monday<=t&&addDays(x.monday,6)>=t);
+  out.now=out.n?(out.n.kind==='cycle'?'Cycle '+out.n.cycle+' week '+out.n.w:weekTitle(out.n).t):null;
+  return out;
+}
+function milestoneDiff(a0,b0){
+  const bits=[], name={deload:'deload',test:'retest',cycle:'next cycle'};
+  for(const k of ['deload','test','cycle']){
+    if(a0[k]===b0[k]) continue;
+    if(!b0[k]) bits.push('no '+name[k]+' scheduled now');
+    else if(!a0[k]) bits.push(name[k]+' now '+fmtD(b0[k],true));
+    else bits.push(name[k]+' '+fmtD(a0[k])+' \u2192 '+fmtD(b0[k]));
+  }
+  if(a0.now!==b0.now&&b0.now) bits.push('this week is now '+b0.now);
+  return bits.join(' \u00b7 ');
+}
+// Apply a plan change and say what it moved, with the usual undo.
+function replan(label,fn){
+  const before=milestones(), snap=snapPlan();
+  mutatePlan(fn);
+  const moved=milestoneDiff(before,milestones());
+  offerUndo(label+(moved?' \u00b7 '+moved:''),snap);
+}
 function offerUndo(label,restore){
   undoItem={label,restore};
   clearTimeout(undoTimer); undoTimer=setTimeout(()=>{undoItem=null;showToast()},7000);
@@ -2362,6 +2444,36 @@ function prCard(date){
   const hits=prsOn(date); if(!hits.length) return '';
   return `<div class="card pr"><div class="lift-h"><h3>New personal best${hits.length>1?'s':''}</h3><span class="chip light">PR</span></div>
   ${hits.map(r=>`<div class="pr-row"><span>${r.label}</span><span class="pr-v">${r.fmt(r.value)}<small> ${esc(r.unit)}</small></span><span class="small muted">was ${r.fmt(r.prev)}</span></div>`).join('')}</div>`;
+}
+// Where you are on the pull-up road, from the best set you have logged. Max-rep sets are
+// logged on test days (`pullups`); weighted work shows up as the `wpu` max.
+function pullupState(date){
+  let best=null, xs=[];
+  for(const [d,L] of Object.entries(logs)){
+    if(d>date||!inProgram(d)||!L.pullups) continue;
+    xs.push({d,v:+L.pullups});
+    if(!best||+L.pullups>best.v||(+L.pullups===best.v&&d>best.d)) best={d,v:+L.pullups};
+  }
+  xs.sort((a0,b0)=>a0.d<b0.d?-1:1);
+  const wpu=(plan.maxes||{}).wpu, bw=bwFor(date);
+  const reps=best?best.v:0, i=pullupStage(reps), st=PULLUP[i], nextSt=PULLUP[i+1]||null;
+  const togo=nextSt?Math.max(0,nextSt.at-reps):0;
+  return {best,xs,stage:i,st,next:nextSt,togo,reps,wpu:wpu!=null&&wpu!==''?+wpu:null,bw,
+    pct:bw&&wpu?Math.round(+wpu/bw*100):null};
+}
+function pullupCard(date){
+  const p=pullupState(date);
+  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="small muted" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
+  h+=`<div class="miles"><div class="mile"><span class="l">Best set</span>${p.best?`<span class="big">${p.best.v}</span><span class="small muted">${fmtD(p.best.d,true)}</span>`:'<span class="small muted">Not tested yet</span>'}</div>`;
+  h+=`<div class="mile"><span class="l">Next rung</span>${p.next?`<span class="big">${p.next.at}</span><span class="small muted">${p.togo?`${p.togo} more rep${p.togo===1?'':'s'} \u00b7 ${esc(p.next.name.toLowerCase())}`:'reached \u2014 move up'}</span>`:'<span class="small muted">Top of the ladder</span>'}</div>`;
+  if(p.wpu!=null) h+=`<div class="mile"><span class="l">Added weight</span><span class="big">+${n(p.wpu)}</span><span class="small muted">${u()}${p.pct?` \u00b7 ${p.pct}% of bodyweight`:''}</span></div>`;
+  h+=`</div>`;
+  h+=`<div class="small"><b>Now:</b> ${esc(p.st.work)}</div><div class="small muted">${esc(p.st.why)}</div>`;
+  if(p.next) h+=`<div class="small muted"><b>Next:</b> ${esc(p.next.next===undefined?'':p.st.next)}</div>`;
+  if(p.xs.length>=2) h+=lineChart(p.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${x.v} reps`})),{label:'Max pull-ups',min:0,minStep:1,tick:fmtWhole});
+  h+=`<details class="plain"><summary>The whole road</summary><div class="stack small" style="margin-top:8px">${PULLUP.map((s0,i)=>`<div class="${i===p.stage?'':'muted'}"><b>${i===p.stage?'\u2192 ':''}${esc(s0.name)}</b>${s0.at?` <span class="mono">${s0.at}+ reps</span>`:' <span class="mono">0 reps</span>'}<div>${esc(s0.work)}</div></div>`).join('')}</div></details>`;
+  return h+`</div>`;
 }
 function prBoard(){
   const rs=prList();
@@ -2659,6 +2771,15 @@ function vStatus(){
       if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included \u2014 log the real number on the day\u2019s card and it uses that instead.`:''}</div>`;
       h+=`</div>`;
     }
+    {
+      const bm=benchmarkState(t);
+      if(bm&&bm.xs.length){
+        const dir=bm.xs.length>1?bm.last.v-bm.first.v:null;
+        h+=`<div class="sm"><div class="sm-h"><b>Benchmark \u00b7 ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
+        h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
+        h+=`<div class="small muted">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
+      }
+    }
     if(!keys.length) h+=`<div class="sm"><div class="none">No HIC results logged yet. Results you log on HIC days show up here.</div></div>`;
     else{
       h+=`<div class="sm-grid">`;
@@ -2677,6 +2798,7 @@ function vStatus(){
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=bwCard(t);
   h+=energyCard(t);
+  h+=pullupCard(t);
   h+=prBoard();
   return h;
 }
@@ -3010,7 +3132,12 @@ function vSetup(){
   h+=`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
-  h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
+  h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
+  ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
+  <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
+  <div class="grid3"><label class="f">Activity<select id="p-bmod" data-pbind="benchmark.mod">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${b.mod===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k])=>k!=='liss').map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+  <label class="f">Repeat every (days)${pIn('benchEvery',plan.benchEvery)}</label></div></div>`})()}</div>`;
   const ptS=proteinTarget(todayStr());
   {
     const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
@@ -3152,9 +3279,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='progexit'){exitArchive();return}
   // an archived program is read-only: only navigation works
   if(a==='csv'){exportCsv(b.dataset.v);return}
-  if(a==='dlcheck'){const wk=weekOf(sel),c=wk&&wk.cycle,v=b.dataset.v;if(!c)return;mutatePlan(p=>{if(v!=='keep')p.deloadEvery=+v;p.deloadChecks=Object.assign({},p.deloadChecks||{},{[c]:{at:realToday(),choice:v==='keep'?+p.deloadEvery||0:+v}})});return}
+  if(a==='dlcheck'){const wk=weekOf(sel),c=wk&&wk.cycle,v=b.dataset.v;if(!c)return;replan(v==='keep'?'Deload setting kept':'Deload every '+v+' cycles',p=>{if(v!=='keep')p.deloadEvery=+v;p.deloadChecks=Object.assign({},p.deloadChecks||{},{[c]:{at:realToday(),choice:v==='keep'?+p.deloadEvery||0:+v}})});return}
   if(a==='platetoggle'){const v=+b.dataset.v,cur=plateSet();const next=cur.includes(v)?cur.filter(x=>x!==v):[...cur,v];if(!next.length)return;mutatePlan(p=>{p.plates=Object.assign({},p.plates||{},{[u()]:next.sort((a,b)=>b-a)})});return}
-  if(a==='deloadevery'&&!viewing){const v=+b.dataset.v;if((+plan.deloadEvery||0)===v)return;mutatePlan(p=>{p.deloadEvery=v});return}
+  if(a==='deloadevery'&&!viewing){const v=+b.dataset.v;if((+plan.deloadEvery||0)===v)return;replan(v?'Deload every '+v+' cycles':'Deloads off',p=>{p.deloadEvery=v});return}
   if(viewing&&!['go','open','view','more','updcheck','updnow','rvsel'].includes(a)){readOnly();return}
   if(a==='prognew'){newProg={name:'Block '+((plan.programSeq||1)+1),start:addDays(mondayOf(realToday()),7),mode:'carry'};render();return}
   if(a==='progcancel'){newProg=null;render();return}
@@ -3307,10 +3434,10 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
-  if(a==='insert'){offerUndo('Week added',snapPlan());mutatePlan(p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
-  if(a==='uninsert'){offerUndo('Week removed',snapPlan());mutatePlan(p=>{delete p.inserts[b.dataset.monday]});return}
-  if(a==='skip'){offerUndo('Week skipped',snapPlan());mutatePlan(p=>{p.skips[b.dataset.rule]=true});return}
-  if(a==='unskip'){offerUndo('Week restored',snapPlan());mutatePlan(p=>{delete p.skips[b.dataset.rule]});return}
+  if(a==='insert'){replan((b.dataset.kind==='deload'?'Deload':b.dataset.kind==='test'?'Retest':b.dataset.kind==='travel'?'Travel':'Off')+' week added',p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
+  if(a==='uninsert'){replan('Week removed',p=>{delete p.inserts[b.dataset.monday]});return}
+  if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}
+  if(a==='unskip'){replan('Week restored',p=>{delete p.skips[b.dataset.rule]});return}
   if(a==='more'){planShow+=26;render();return}
   if(a==='applytest'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test'),nc=wk.nextCycle;if(!nc)return;offerUndo('Results applied to Cycle '+nc,snapPlan());mutatePlan(p=>{p.cycleMaxes[nc]=Object.assign({},p.cycleMaxes[nc]||{},res)});return}
   if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}
