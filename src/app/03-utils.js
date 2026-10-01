@@ -25,25 +25,40 @@ function liftName(k,date){
   if(VARS[k]) return VARS[k][varOf(k,date)].name;
   return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
 }
-// Which variant of a lift you are doing: a per-day swap wins, then the one set in Setup.
-// Retest and bridge weeks always use the reference, because that is the max the whole
-// program is derived from and the one those weeks exist to measure.
+// Which variant of a lift a session uses. Two different things:
+//
+//   the block lift   what this cycle is built on. Tactical Barbell picks its cluster
+//                    lifts for a block and runs them for the whole block, so this is a
+//                    per-cycle choice and the max you store IS that lift's max. No ratio.
+//   a one-off        a swap for a single session, because the rack is taken or your back
+//                    is unhappy. The weight is scaled off the block lift's max by the
+//                    ratio between the two, and the card says so.
+//
+// Retest and bridge weeks always use the block lift, even against a one-off, because
+// their whole job is to measure the max the next block is built on.
 function varOf(k,date){
   if(!VARS[k]) return null;
-  const d=date||sel, wk=d?weekOf(d):null;
-  if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return varRef(k);
+  const d=date||sel, wk=d?weekOf(d):null, bv=blockVar(k,d);
+  if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return bv;
   const o=((logs[d]||{}).var||{})[k];
-  return VARS[k][o]?o:varDefault(k);
+  return VARS[k][o]?o:bv;
+}
+function blockVar(k,date){
+  if(!VARS[k]) return null;
+  const d=date||sel, wk=d?weekOf(d):null;
+  const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+  const cv=((plan.cycleVar||{})[c]||{})[k];
+  return VARS[k][cv]?cv:varDefault(k);
 }
 function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&VARS[k][v]?v:varRef(k)}
-// The max for the variant you are actually doing: your own number if you have entered
-// one, otherwise the reference max scaled by that variant's usual share of it.
+// The max to work from. The block lift uses the max you stored, as it stands: that number
+// is this lift's max. A one-off is scaled from it by the two variants' ratios.
 function varMax(k,c,date){
-  const v=varOf(k,date), own=((plan.liftMax||{})[k]||{})[v];
-  if(own!=null&&own!=='') return {v:+own,src:'own',vr:v};
-  const base=maxFor(c)[k], r=VARS[k][v].r;
-  if(!base) return null;
-  return r===1?{v:base.v,src:base.src,vr:v}:{v:base.v*r,src:'ratio',vr:v,from:base.v,r};
+  const base=maxFor(c)[k]; if(!base) return null;
+  const bv=blockVar(k,date), v=varOf(k,date);
+  if(v===bv) return {v:base.v,src:base.src,vr:v,bv};
+  const r=VARS[k][v].r/VARS[k][bv].r;
+  return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
 function activeLifts(){return ['squat','bench',...l3On(),'dead']}

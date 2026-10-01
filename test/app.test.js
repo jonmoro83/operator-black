@@ -717,71 +717,89 @@ test("the weekly check-in asks for measurements once a week and then gets out of
   a.match(x.weeklyCard(), /data-bind="meas.waist"/);
 });
 
-test("lift variants scale the working weight without touching the reference max", () => {
+test("the lift you pick is the lift, and your max is that lift's max", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1);
   const mon = wk.monday;
   x.sel = mon;
 
-  // Untouched: the reference lift, exactly as before.
+  // Untouched: the reference lift.
   a.equal(x.varOf("squat", mon), "back");
-  a.equal(x.liftName("squat", mon), "Back squat");
-  const ref = x.rx(wk, "squat", mon);
-  a.equal(ref.m.v, 300);
-  a.equal(ref.m.src, "base", "no ratio applied to the reference");
+  a.equal(x.rx(wk, "squat", mon).m.v, 300);
 
-  // Front squats: 85% of the back squat max, rounded as the squat rounds.
+  // Pick front squats and the 300 is read as a front squat max -- no conversion, because
+  // that is the lift the block is built on and the number you were asked for.
   x.plan.liftVar = { squat: "front" }; x.bump();
+  a.equal(x.liftName("squat", mon), "Front squat");
   const fr = x.rx(wk, "squat", mon);
-  a.equal(fr.m.src, "ratio");
-  a.equal(fr.m.v, 300 * 0.85);
-  a.equal(fr.w, x.loadFor("squat", 255, fr.p, mon), "the weight follows the derived max");
-  a.ok(fr.w < ref.w, "and it is lighter than the back squat prescription");
-  a.equal(x.maxFor(1).squat.v, 300, "the stored max is untouched");
+  a.equal(fr.m.v, 300, "the stored max is used as it stands");
+  a.equal(fr.m.src, "base");
+  a.equal(fr.w, x.loadFor("squat", 300, fr.p, mon));
 
-  // A tested max for the variant beats the ratio.
-  x.plan.liftMax = { squat: { front: 240 } }; x.bump();
-  const own = x.rx(wk, "squat", mon);
-  a.equal(own.m.src, "own");
-  a.equal(own.m.v, 240);
-
-  // Deadlift variants work the same way, off their own reference.
+  // Deadlifts the same.
   const dd = x.weeks().find((w) => w.kind === "cycle");
-  x.plan.liftVar.dead = "deficit"; x.bump();
-  const df = x.rx(dd, "dead", dd.monday);
-  a.equal(df.m.v, 400 * 0.9);
-  a.equal(x.liftName("dead", dd.monday), "Deficit deadlift");
+  let dday = null;
+  for (let i = 0; i < 7; i++) { const d = x.addDays(dd.monday, i); if ((x.dayPlan(d).lifts || []).includes("dead")) { dday = d; break } }
   x.plan.liftVar.dead = "trap"; x.bump();
-  a.equal(x.rx(dd, "dead", dd.monday).m.v, 400 * 1.05, "trap bar goes up, not down");
-
-
-  // A per-day swap beats the setting, for that day only.
-  x.plan.liftVar.squat = "back"; x.bump();
-  x.seed({ [mon]: { date: mon, var: { squat: "box" } } }); x.bump();
-  a.equal(x.varOf("squat", mon), "box");
-  a.equal(x.rx(wk, "squat", mon).m.v, 300 * 0.95);
-  a.equal(x.varOf("squat", x.addDays(mon, 2)), "back", "the next session is back to normal");
+  a.equal(x.liftName("dead", dday), "Trap bar deadlift");
+  a.equal(x.rx(dd, "dead", dday).m.v, 400, "no ratio on the block lift");
 });
 
-test("retest and bridge weeks always measure the reference lift", () => {
+test("a one-off swap is scaled off the block lift, and only for that session", () => {
   const x = app({ now: "2026-10-19" });
-  x.plan.startMonday = "2026-09-07"; x.bump();
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.liftVar = { squat: "front" }; x.bump();           // the block runs on front squats
+  const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1);
+  const mon = wk.monday;
+  x.sel = mon;
+
+  // One session on the back squat: 300 front squat max is about 300 / 0.85 back squat.
+  x.seed({ [mon]: { date: mon, var: { squat: "back" } } }); x.bump();
+  const one = x.rx(wk, "squat", mon);
+  a.equal(one.m.src, "ratio");
+  a.equal(one.m.bv, "front", "scaled from the block lift, not from the reference");
+  a.ok(Math.abs(one.m.v - 300 / 0.85) < 0.001);
+  a.ok(one.m.v > 300, "a back squat is heavier than the front squat it is derived from");
+  a.match(x.liftCard(wk, "squat", x.dayPlan(mon)), /Swapped for this session/);
+  a.match(x.liftCard(wk, "squat", x.dayPlan(mon)), /This cycle is built on the front squat/);
+
+  // The next session is back to the block lift.
+  const nxt = x.addDays(mon, 2);
+  a.equal(x.varOf("squat", nxt), "front");
+  a.equal(x.rx(wk, "squat", nxt).m.src, "base");
+});
+
+test("a cycle can run a different lift from the one set for later cycles", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.liftVar = { squat: "back" };
+  x.plan.cycleVar = { 2: { squat: "front" } };             // cycle 2 only
+  x.bump();
+  const c1 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1);
+  const c2 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 2);
+  a.equal(x.blockVar("squat", c1.monday), "back");
+  a.equal(x.blockVar("squat", c2.monday), "front");
+  a.equal(x.liftName("squat", c2.monday), "Front squat");
+  // and each uses that cycle's max as it stands
+  a.equal(x.rx(c2, "squat", c2.monday).m.src !== "ratio", true);
+});
+
+test("retest and bridge weeks measure the block lift, not a one-off", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = true;
   x.plan.liftVar = { squat: "zercher", dead: "sumo" }; x.bump();
 
-  const test = x.weeks().find((w) => w.kind === "test");
-  const bridge = x.weeks().find((w) => w.kind === "bridge");
-  for (const w of [test, bridge]) {
+  for (const kind of ["test", "bridge"]) {
+    const w = x.weeks().find((ww) => ww.kind === kind);
     if (!w) continue;
-    a.equal(x.varOf("squat", w.monday), "back", `${w.kind} week tests the back squat`);
-    a.equal(x.varOf("dead", w.monday), "conv");
-    // even an explicit per-day swap does not apply there
+    a.equal(x.varOf("squat", w.monday), "zercher", `${kind} week tests the lift you run`);
+    a.equal(x.varOf("dead", w.monday), "sumo");
+    // a one-off swap does not change what the week exists to measure
     x.seed({ [w.monday]: { date: w.monday, var: { squat: "front" } } }); x.bump();
-    a.equal(x.varOf("squat", w.monday), "back");
+    a.equal(x.varOf("squat", w.monday), "zercher");
+    a.equal(x.rx(w, "squat", w.monday).m.src !== "ratio", true, "and it is not scaled");
   }
-  // but a normal cycle week honours it
-  const cyc = x.weeks().find((w) => w.kind === "cycle");
-  a.equal(x.varOf("squat", cyc.monday), "zercher");
 });
 
 test("the CSV keeps its columns lined up when variants are in play", () => {
@@ -810,20 +828,6 @@ test("the CSV keeps its columns lined up when variants are in play", () => {
   a.equal(test[vi], "back", "the bridge-week test is the reference lift, whatever you run day to day");
 });
 
-test("a derived weight says where it came from, with the right percentage", () => {
-  const x = app({ now: "2026-10-19" });
-  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
-  x.plan.liftVar = { squat: "front" }; x.bump();
-  const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1);
-  x.sel = wk.monday;
-  const card = x.liftCard(wk, "squat", x.dayPlan(wk.monday));
-  a.match(card, /From your back squat max of 300, at the 85% this variant usually carries/);
-  a.ok(!/\d{3,}%/.test(card.replace(/@ \d+%/g, "")), "no nonsense percentages");
-
-  x.plan.liftMax = { squat: { front: 240 } }; x.bump();
-  a.match(x.liftCard(wk, "squat", x.dayPlan(wk.monday)), /From the front squat max you entered in Setup/);
-});
-
 test("a variant that no longer exists falls back instead of breaking", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
@@ -842,4 +846,17 @@ test("a variant that no longer exists falls back instead of breaking", () => {
   for (const [k, list] of Object.entries(x.VARS))
     for (const [id, v] of Object.entries(list))
       a.ok(v.r > 0, `${k}.${id} is a barbell lift with a ratio to the reference`);
+});
+
+test("a derived max is not printed to two decimal places", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.liftVar = { squat: "front" }; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1), mon = wk.monday;
+  x.sel = mon;
+  x.seed({ [mon]: { date: mon, var: { squat: "back" } } }); x.bump();
+  const card = x.liftCard(wk, "squat", x.dayPlan(mon));
+  a.ok(!/Max \d+\.\d\d/.test(card), "no 352.94 in the header");
+  a.match(card, /Max 353/);
+  a.ok(Math.abs(x.rx(wk, "squat", mon).m.v - 300 / 0.85) < 1e-9, "the maths keeps full precision");
 });

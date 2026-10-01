@@ -90,6 +90,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Variants: block lift vs one-off (2026-10-01)**
+- 1.13 had this backwards. It treated `maxes[k]` as the *reference* lift's max always, and
+  derived every variant from it by ratio — so choosing trap bar gave you a trap bar
+  prescription computed from a conventional number you were never asked for, and the
+  bridge week still said "Conventional deadlift". Reported from the app.
+- Now: `blockVar(k,date)` is what the cycle runs on (`plan.cycleVar[c][k]`, else
+  `plan.liftVar[k]`, else the reference) and **its max is the max you stored, unscaled**.
+  `varOf()` returns a per-day swap (`logs[d].var[k]`) over it, and `varMax()` scales only
+  that case, by `r(day) / r(block)`. Test and bridge weeks return `blockVar` even against
+  an explicit swap.
+- Per-cycle rather than per-program because that is the template: cluster lifts are picked
+  for a block and kept for the block. Setup has one select for the current cycle and one
+  for later cycles, and says that changing mid-cycle is a deviation — the wave builds to
+  heavy weeks on a max set for a particular lift.
+- `plan.liftMax` (a tested max per variant) is gone: the block lift's max *is* the stored
+  max, so there was nothing left for it to hold.
+- Also fixed: `liftName(k)` defaults to `sel`, so the day summary printed the *selected*
+  day's lift for every other day in the week. Anywhere a date is in scope now passes it.
+
 **Both variant slots are barbell only (2026-10-01)**
 - Goblet and double KB front squat out of `VARS.squat`, following the RDL out of
   `VARS.dead`. Same rule, applied consistently: if the limit is what you can hold or

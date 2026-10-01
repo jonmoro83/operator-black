@@ -362,25 +362,40 @@ function liftName(k,date){
   if(VARS[k]) return VARS[k][varOf(k,date)].name;
   return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
 }
-// Which variant of a lift you are doing: a per-day swap wins, then the one set in Setup.
-// Retest and bridge weeks always use the reference, because that is the max the whole
-// program is derived from and the one those weeks exist to measure.
+// Which variant of a lift a session uses. Two different things:
+//
+//   the block lift   what this cycle is built on. Tactical Barbell picks its cluster
+//                    lifts for a block and runs them for the whole block, so this is a
+//                    per-cycle choice and the max you store IS that lift's max. No ratio.
+//   a one-off        a swap for a single session, because the rack is taken or your back
+//                    is unhappy. The weight is scaled off the block lift's max by the
+//                    ratio between the two, and the card says so.
+//
+// Retest and bridge weeks always use the block lift, even against a one-off, because
+// their whole job is to measure the max the next block is built on.
 function varOf(k,date){
   if(!VARS[k]) return null;
-  const d=date||sel, wk=d?weekOf(d):null;
-  if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return varRef(k);
+  const d=date||sel, wk=d?weekOf(d):null, bv=blockVar(k,d);
+  if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return bv;
   const o=((logs[d]||{}).var||{})[k];
-  return VARS[k][o]?o:varDefault(k);
+  return VARS[k][o]?o:bv;
+}
+function blockVar(k,date){
+  if(!VARS[k]) return null;
+  const d=date||sel, wk=d?weekOf(d):null;
+  const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+  const cv=((plan.cycleVar||{})[c]||{})[k];
+  return VARS[k][cv]?cv:varDefault(k);
 }
 function varDefault(k){const v=(plan.liftVar||{})[k];return VARS[k]&&VARS[k][v]?v:varRef(k)}
-// The max for the variant you are actually doing: your own number if you have entered
-// one, otherwise the reference max scaled by that variant's usual share of it.
+// The max to work from. The block lift uses the max you stored, as it stands: that number
+// is this lift's max. A one-off is scaled from it by the two variants' ratios.
 function varMax(k,c,date){
-  const v=varOf(k,date), own=((plan.liftMax||{})[k]||{})[v];
-  if(own!=null&&own!=='') return {v:+own,src:'own',vr:v};
-  const base=maxFor(c)[k], r=VARS[k][v].r;
-  if(!base) return null;
-  return r===1?{v:base.v,src:base.src,vr:v}:{v:base.v*r,src:'ratio',vr:v,from:base.v,r};
+  const base=maxFor(c)[k]; if(!base) return null;
+  const bv=blockVar(k,date), v=varOf(k,date);
+  if(v===bv) return {v:base.v,src:base.src,vr:v,bv};
+  const r=VARS[k][v].r/VARS[k][bv].r;
+  return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
 function activeLifts(){return ['squat','bench',...l3On(),'dead']}
@@ -899,8 +914,8 @@ function finishCard(date,dp){
     for(const k of (dp.lifts||[])){
       const x=(L.lifts||{})[k]||{}, t=((L.test||{})[k])||{};
       if(dp.t==='lift'&&wk){const r=rx(wk,k),nS=k==='dead'&&wk.kind==='cycle'?1:r.s,dn=(x.sets||[]).filter(Boolean).length;
-        bits.push(`${liftName(k)} ${dn}/${nS}${x.grinder?' · grinder':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
-      else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
+        bits.push(`${liftName(k,date)} ${dn}/${nS}${x.grinder?' · grinder':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
+      else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
@@ -1023,15 +1038,14 @@ function liftCard(wk,k,dp){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
   if(VARS[k]&&!viewing){
     const v=r.vr, cur=VARS[k][v];
-    h+=`<label class="restsel"><span>Today</span><select class="varsel" data-act-var="${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
+    h+=`<label class="restsel"><span>This session</span><select class="varsel" data-act-var="${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
     if(v!==varRef(k)) h+=`<div class="small muted">${esc(cur.note)}</div>`;
   }
   if(L3K.includes(k)&&l3On().length>1) h+=`<div class="restsel"><span>Today</span><div class="seg">${l3On().map(v=>`<button class="segb${v===k?' on':''}" data-act="l3swap" data-v="${v}" aria-pressed="${v===k}">${esc(liftName(v))}</button>`).join('')}</div></div>`;
   if(has){
-    h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
+    h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.src==='ratio'?Math.round(r.m.v):r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
-    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted">From your ${esc(VARS[k][varRef(k)].name.toLowerCase())} max of ${n(r.m.from)}, at the ${Math.round(r.m.r*100)}% this variant usually carries. Tested it? Put the real number in Setup and this uses that.</div>`;
-    if(r.m&&r.m.src==='own') h+=`<div class="small muted">From the ${esc(VARS[k][r.vr].name.toLowerCase())} max you entered in Setup.</div>`;
+    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted"><b>Swapped for this session.</b> This cycle is built on the ${esc(VARS[k][r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(VARS[k][r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
     if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
@@ -2882,7 +2896,7 @@ function vSetup(){
   <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
   <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
   <div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
-  <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
+  <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k,todayStr()))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
   {
     const t=themePref();
@@ -2940,17 +2954,20 @@ function vSetup(){
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
-  h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift you are running. The weight comes from your ${esc(VARS.squat.back.name.toLowerCase())} and ${esc(VARS.dead.conv.name.toLowerCase())} maxes above, scaled by what that variant usually carries — unless you enter a tested max for it, which always wins. You can also swap for a single session from the lift's card on Today.</p>`;
-  for(const k of ['squat','dead']){
-    const cur=varDefault(k), own=(plan.liftMax||{})[k]||{};
-    h+=`<div class="stack" style="gap:8px;margin-top:12px"><label class="f" style="max-width:320px">${esc(k==='squat'?'Squat':'Deadlift')}<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===cur?' selected':''}>${esc(x.name)}${x.r===1?'':' · ~'+Math.round(x.r*100)+'%'}</option>`).join('')}</select></label>
-    <div class="small muted">${esc(VARS[k][cur].note)}</div>
-    <details class="plain"><summary>Tested maxes for variants <small class="muted">· ${Object.keys(own).filter(v=>own[v]!=null&&own[v]!=='').length} entered</small></summary>
-      <p class="small muted" style="margin:8px 0 0">Enter one only if you have actually tested it. A number here replaces the estimate for that variant, and nothing else in the program reads it — retests and the cycle review always measure the ${esc(VARS[k][varRef(k)].name.toLowerCase())}.</p>
-      <div class="grid3" style="margin-top:8px">${Object.entries(VARS[k]).filter(([id])=>id!==varRef(k)).map(([id,x])=>`<label class="f">${esc(x.short)}${pIn('liftMax.'+k+'.'+id,own[id])}</label>`).join('')}</div>
-    </details></div>`;
+  {
+    const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+    h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
+    for(const k of ['squat','dead']){
+      const bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
+      h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(k==='squat'?'Squat':'Deadlift')}</div>
+      <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
+      <label class="f">Later cycles<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===def?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+      <div class="small muted">${esc(VARS[k][bv].note)}</div>`;
+      if(m) h+=`<div class="small muted">Your ${n(m.v)} ${u()} max is read as a <b>${esc(VARS[k][bv].name.toLowerCase())}</b> max.${bv!==varRef(k)?` If that number came from a ${esc(VARS[k][varRef(k)].name.toLowerCase())}, the usual equivalent is about <b class="mono">${n(rnd(m.v*VARS[k][bv].r,plan.round[k]))}</b> \u2014 change it in Maxes if so.`:''}</div>`;
+      h+=`</div>`;
+    }
+    h+=`<div class="small muted" style="margin-top:14px">Changing the lift mid-cycle is a deviation from the template: the wave builds to heavy weeks on a max you set for a particular lift. For one session \u2014 a taken rack, a sore back \u2014 swap it on the lift\u2019s card on Today instead, and the weight is scaled for you.</div></div>`;
   }
-  h+=`</div>`;
   h+=`<div class="card"><h2>About you</h2><p class="small muted" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
   <div class="grid4"><label class="f">Sex<select id="p-sex" data-pbind="sex"><option value=""${!plan.sex?' selected':''}>—</option><option value="m"${plan.sex==='m'?' selected':''}>Male</option><option value="f"${plan.sex==='f'?' selected':''}>Female</option></select></label>
   <label class="f">Height (${u()==='kg'?'cm':'in'})${pIn('height',plan.height)}</label>

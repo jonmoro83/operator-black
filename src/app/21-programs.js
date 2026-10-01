@@ -198,7 +198,7 @@ function vSetup(){
   <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
   <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
   <div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
-  <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
+  <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k,todayStr()))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
   {
     const t=themePref();
@@ -256,17 +256,20 @@ function vSetup(){
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label></div>`;
   const ptS=proteinTarget(todayStr());
-  h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift you are running. The weight comes from your ${esc(VARS.squat.back.name.toLowerCase())} and ${esc(VARS.dead.conv.name.toLowerCase())} maxes above, scaled by what that variant usually carries — unless you enter a tested max for it, which always wins. You can also swap for a single session from the lift's card on Today.</p>`;
-  for(const k of ['squat','dead']){
-    const cur=varDefault(k), own=(plan.liftMax||{})[k]||{};
-    h+=`<div class="stack" style="gap:8px;margin-top:12px"><label class="f" style="max-width:320px">${esc(k==='squat'?'Squat':'Deadlift')}<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===cur?' selected':''}>${esc(x.name)}${x.r===1?'':' · ~'+Math.round(x.r*100)+'%'}</option>`).join('')}</select></label>
-    <div class="small muted">${esc(VARS[k][cur].note)}</div>
-    <details class="plain"><summary>Tested maxes for variants <small class="muted">· ${Object.keys(own).filter(v=>own[v]!=null&&own[v]!=='').length} entered</small></summary>
-      <p class="small muted" style="margin:8px 0 0">Enter one only if you have actually tested it. A number here replaces the estimate for that variant, and nothing else in the program reads it — retests and the cycle review always measure the ${esc(VARS[k][varRef(k)].name.toLowerCase())}.</p>
-      <div class="grid3" style="margin-top:8px">${Object.entries(VARS[k]).filter(([id])=>id!==varRef(k)).map(([id,x])=>`<label class="f">${esc(x.short)}${pIn('liftMax.'+k+'.'+id,own[id])}</label>`).join('')}</div>
-    </details></div>`;
+  {
+    const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+    h+=`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
+    for(const k of ['squat','dead']){
+      const bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
+      h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(k==='squat'?'Squat':'Deadlift')}</div>
+      <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
+      <label class="f">Later cycles<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(VARS[k]).map(([id,x])=>`<option value="${id}"${id===def?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+      <div class="small muted">${esc(VARS[k][bv].note)}</div>`;
+      if(m) h+=`<div class="small muted">Your ${n(m.v)} ${u()} max is read as a <b>${esc(VARS[k][bv].name.toLowerCase())}</b> max.${bv!==varRef(k)?` If that number came from a ${esc(VARS[k][varRef(k)].name.toLowerCase())}, the usual equivalent is about <b class="mono">${n(rnd(m.v*VARS[k][bv].r,plan.round[k]))}</b> \u2014 change it in Maxes if so.`:''}</div>`;
+      h+=`</div>`;
+    }
+    h+=`<div class="small muted" style="margin-top:14px">Changing the lift mid-cycle is a deviation from the template: the wave builds to heavy weeks on a max you set for a particular lift. For one session \u2014 a taken rack, a sore back \u2014 swap it on the lift\u2019s card on Today instead, and the weight is scaled for you.</div></div>`;
   }
-  h+=`</div>`;
   h+=`<div class="card"><h2>About you</h2><p class="small muted" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
   <div class="grid4"><label class="f">Sex<select id="p-sex" data-pbind="sex"><option value=""${!plan.sex?' selected':''}>—</option><option value="m"${plan.sex==='m'?' selected':''}>Male</option><option value="f"${plan.sex==='f'?' selected':''}>Female</option></select></label>
   <label class="f">Height (${u()==='kg'?'cm':'in'})${pIn('height',plan.height)}</label>

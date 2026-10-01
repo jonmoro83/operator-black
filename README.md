@@ -115,12 +115,14 @@ movements only: anything whose limit is the hold, or that has no lockout to test
 1RM for percentages to mean anything against, and belongs in the accessory or travel-week
 lists instead. The
 first entry of each list is the reference, and the max you store is always that lift's.
-`varOf(k,date)` picks a per-day swap (`logs[d].var[k]`) over the default
-(`plan.liftVar[k]`), and forces the reference on test and bridge weeks. `varMax()` uses a
-tested `plan.liftMax[k][v]` when present, otherwise the reference max times the variant's
-ratio. Variants move the working weight and nothing else: records, charts, the cycle
-review and retests all stay on the reference lift, so a front-squat session can never be
-written back as a back-squat max.
+Two scopes. `blockVar(k,date)` is the lift the cycle runs on
+(`plan.cycleVar[c][k]`, else `plan.liftVar[k]`, else the reference) and **its max is
+`maxes[k]` as it stands** — no conversion, because that is the lift you were asked to
+enter a max for. `varOf(k,date)` returns a one-off swap (`logs[d].var[k]`) over it, and
+only that case is scaled, by the two variants' ratios. Test and bridge weeks return the
+block lift even against an explicit swap, so a swapped session can never be written back
+as the wrong lift's max. `liftName(k,date)` names the lift for a given day; it falls back
+to `sel`, so pass the date anywhere a date is in scope.
 
 ## People and programs
 

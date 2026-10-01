@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.16',date:'2026-10-01',title:'The lift you pick is the lift',items:[
+    'Picking trap bar deadlifts now means trap bar deadlifts everywhere \u2014 the 5RM day, every lifting day, the session screen and the export \u2014 and the max you enter is read as that lift\u2019s max, used as it stands. Before, it quietly treated your number as a conventional max and scaled off it, which is not what you asked for.',
+    'The choice is per cycle, because that is how Tactical Barbell works: you pick your cluster lifts for a block and run them for the block. Setup \u2192 Lift variants sets this cycle and what later cycles start on, separately.',
+    'For one session \u2014 a taken rack, a sore back \u2014 the lift\u2019s card on Today still swaps it, and only that session. The weight is scaled from the lift your cycle is built on and the card says so plainly, so a one-off never looks like a programme change.',
+    'Retest and bridge weeks always measure the lift the cycle runs on, even if you swapped a session that week.']},
   {v:'1.15',date:'2026-10-01',title:'The main squat is barbell only',items:[
     'Goblet and double kettlebell front squats have left the squat variants, for the same reason the RDL left the deadlifts: what you can hold runs out long before your legs do, so there is no one-rep max to run the program\u2019s percentages against. Both slots are barbell movements now, and every one of them has a sensible share of your main lift\u2019s max.',
     'They are still in the app where they earn their place \u2014 the travel week\u2019s squat slot now reads goblet, double KB front or DB front squat.',
