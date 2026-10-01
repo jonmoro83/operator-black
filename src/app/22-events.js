@@ -47,6 +47,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='progstart'){if(!newProg.arm){newProg.arm=true;newProg.err=null;render();setTimeout(()=>{if(newProg&&newProg.arm){newProg.arm=false;render()}},4000);return} startProgram();return}
   if(a==='go'){sel=b.dataset.date;openWarm.clear();openPx.clear();render();return}
   if(a==='open'){sel=b.dataset.date;view='today';render();window.scrollTo(0,0);return}
+  if(a==='bwrange'){LS.set('ob.bwRange',b.dataset.v);render();return}
   if(a==='view'){view=b.dataset.view;render();window.scrollTo(0,0);return}
   if(a==='ci'){const f=b.dataset.f,raw=b.dataset.v,v=/^\d+(\.\d+)?$/.test(raw)?+raw:raw;setLog(sel,'checkin.'+f,ci(sel)[f]==v?null:v);render();return}
   if(a==='wu'||a==='wurm'||a==='wuadd'){

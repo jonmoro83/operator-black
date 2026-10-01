@@ -463,3 +463,52 @@ test("releases are a history: newest first, each version used once", () => {
   a.equal(new Set(rs.map((r) => r.v)).size, rs.length, "no version reused");
   a.equal(x.APP_VERSION, rs[0].v);
 });
+
+test("bodyweight charts every weigh-in and the average it feeds", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const set = (r) => { x.dom.store["ob.bwRange"] = JSON.stringify(r) };
+
+  set("90");
+  a.match(x.bwCard("2026-11-30"), /Log your weight in the daily check-in/, "nothing logged yet");
+
+  // 60 days of weigh-ins, noisy, trending down
+  let w = 210;
+  for (let i = 59; i >= 0; i--) {
+    const d = x.addDays("2026-11-30", -i);
+    w -= 0.05;
+    x.seed({ [d]: { date: d, checkin: { bw: Math.round((w + [0.8, -0.9, 0.2, -0.3, 0.6][i % 5]) * 10) / 10 } } });
+  }
+  x.bump();
+
+  const h = x.bwCard("2026-11-30");
+  a.match(h, /class="ch-line2"/, "the raw weigh-ins are drawn");
+  a.match(h, /class="ch-pt2"/);
+  a.match(h, /Weighed on 60 of the last 60 days/);
+  a.match(h, /7-day average/);
+
+  // The series carries both numbers per point, and the average is steadier than the raw.
+  const xs = x.bwSeries("2026-11-30");
+  a.equal(xs.length, 60);
+  a.ok(xs.every((p) => p.raw != null && p.v != null));
+  const spread = (f) => Math.max(...xs.map(f)) - Math.min(...xs.map(f));
+  a.ok(spread((p) => p.v) < spread((p) => p.raw), "the average smooths the weigh-ins");
+
+  // The range picker changes the window, and is per device.
+  set("30");
+  a.equal(x.bwSeries("2026-11-30").length, 30);
+  a.match(x.bwCard("2026-11-30"), /aria-pressed="true">30 days/);
+  set("all");
+  a.equal(x.bwSeries("2026-11-30").length, 60, "all = back to the program start");
+  set("nonsense");
+  a.equal(x.bwRange(), 90, "an unknown range falls back to the default");
+
+  // Change over the range compares the ends the same way, so one noisy first
+  // weigh-in cannot set the headline.
+  set("all");
+  const xs2 = x.bwSeries("2026-11-30");
+  const mean = (a0) => a0.reduce((s, p) => s + p.raw, 0) / a0.length;
+  const want = mean(xs2.slice(-7)) - mean(xs2.slice(0, 7));
+  a.match(x.bwCard("2026-11-30"), new RegExp(">" + (want > 0 ? "\\+" : "") + x.r1(want) + "<"));
+  a.match(x.bwCard("2026-11-30"), /first 7 vs last 7/);
+});

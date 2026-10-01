@@ -316,6 +316,8 @@ details.px[open]>summary>span:first-child::after{content:" ▾"}
 .sm svg{width:100%;height:auto;display:block;overflow:visible}
 .sm .none{font-size:13px;color:var(--muted);padding:18px 0;border-top:1px dashed var(--line)}
 .ch-grid{stroke:var(--line);stroke-width:1}
+.ch-line2{fill:none;stroke:var(--muted);stroke-width:1.1;opacity:.5}
+.ch-pt2{fill:var(--muted);opacity:.55}
 .ch-ax{fill:var(--muted);font-family:var(--f-mono);font-size:10px}
 .ch-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .ch-area{fill:var(--accent);opacity:.08}

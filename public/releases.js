@@ -4,6 +4,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.9',date:'2026-10-01',title:'Bodyweight, properly charted',items:[
+    'Bodyweight has its own card on Status: every weigh-in as a faint line, the 7-day average solid on top of it, and the range switchable between 30 days, 90 days and the whole program. Above the chart: the current average and your latest reading, the change across the range, and the change per week.',
+    'The change across a range compares the first few weigh-ins with the last few, rather than the first reading with the last, so one heavy morning cannot set the headline.',
+    'It also says how many of the days in the range you actually weighed in on \u2014 the average is only as good as how often you step on the scale.']},
   {v:'1.8',date:'2026-10-01',title:'Status charts',items:[
     'Three additions to Status. Conditioning minutes per week over twelve weeks, counting what you logged or, where you did not, the length that format\u2019s timer would have run. An adherence heatmap: twelve weeks of sessions, green done, red missed, dashed for rest days. And under each lift, the heaviest set you actually completed \u2014 with what it implies about your 1RM when you logged your own weight for it, since a set done exactly as prescribed only restates the max it was calculated from.',
     'Fixed: the account menu\u2019s Profile and settings and What\u2019s new buttons did nothing in 1.7. Sign out was unaffected.']},

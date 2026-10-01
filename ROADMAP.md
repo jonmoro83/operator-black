@@ -90,6 +90,16 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Bodyweight card (2026-10-01)**
+- Its own card on Status, replacing the small chart that lived in Body and recovery:
+  every weigh-in as a faint second series behind the 7-day average, a 30 / 90 / all range
+  kept per device in `ob.bwRange`, and the current average, range change and weekly rate
+  above it. `lineChart` grew an optional `y2` per point for the raw series, and includes
+  it in the scale.
+- The range change compares the mean of the first `k` weigh-ins with the mean of the last
+  `k` (k up to 7), not first reading to last: with the old method a noisy first morning
+  made a 90-day cut look larger than the whole program.
+
 **One release per deploy (2026-10-01)**
 - Release 1.7 had been treated as a bucket for "recent work": entries kept being appended
   to it across two days and seven deploys, so the What's new page said 1.7 contained
