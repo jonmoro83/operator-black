@@ -690,12 +690,15 @@ test("the weekly check-in asks for measurements once a week and then gets out of
   a.match(x.weeklyCard(), /data-bind="meas.waist"/, "the inputs are there");
   a.match(x.weeklyCard(), /first one/);
 
-  // Logged earlier this week, on another day: it collapses to a summary, no inputs.
+  // Logged this week: it folds away into a summary you can open.
   x.seed({ [mon]: { date: mon, meas: { neck: 15.5, waist: 34, hip: 40 } } }); x.bump();
+  x.openPx.clear();                       // as on a fresh load, days after filling it in
   const done = x.weeklyCard();
-  a.ok(!/data-bind="meas.waist"/.test(done), "it does not ask twice in one week");
+  a.match(done, /^<details/, "collapsible once it is done");
+  a.ok(!/^<details[^>]* open/.test(done), "and shut by default when it was logged another day");
   a.match(done, /done Mon 11\/9/);
   a.match(done, /% body fat/);
+  a.match(done, /Measuring again today records a second set/);
 
   // Next week it asks again, and shows when the last one was.
   x.setToday("2026-11-18");
@@ -898,4 +901,32 @@ test("you can define a lift variant the list does not have", () => {
   // Setup offers them, and the Today picker does too.
   a.match(x.vSetup(), /Pin squat/);
   a.match(x.liftCard(wk, "squat", x.dayPlan(mon)), /<option value="cpin"/);
+});
+
+test("the weekly check-in can be collapsed, and stays that way", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  Object.assign(x.plan, { sex: "m", height: 70 });
+  x.bump();
+  const t = "2026-11-11";
+
+  // Nothing logged: the form is a plain card, and it marks itself open for when it fills.
+  x.openPx.clear();
+  a.match(x.weeklyCard(), /^<div class="card"/);
+  a.ok(x.openPx.has("wkmeas"), "so completing it does not snap it shut mid-entry");
+
+  // Filled in today: now a details, open, with the inputs still there to fix a typo.
+  x.seed({ [t]: { date: t, meas: { neck: 15.5, waist: 34, hip: 40 } } }); x.bump();
+  const open = x.weeklyCard();
+  a.match(open, /^<details[^>]* open/, "open on the day you filled it in");
+  a.match(open, /data-bind="meas.waist"/, "still editable");
+  a.match(open, /data-px="wkmeas"/, "the toggle is remembered like every other details");
+
+  // Collapsing it (what the toggle listener does) keeps it collapsed.
+  x.openPx.delete("wkmeas");
+  const shut = x.weeklyCard();
+  a.match(shut, /^<details/);
+  a.ok(!/^<details[^>]* open/.test(shut), "stays shut");
+  a.match(shut, /Weekly check-in/, "the summary still says what it holds");
+  a.match(shut, /34/, "and the numbers are one tap away");
 });

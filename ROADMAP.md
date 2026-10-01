@@ -90,6 +90,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Collapsible weekly check-in (2026-10-01)**
+- It became a `<details>` only when the week's measurements were logged on an *earlier*
+  day; filling it in today left the form open all day. Now any logged week renders the
+  `<details>`, with the inputs still inside so same-day corrections work.
+- Open/closed is remembered through `openPx` under `wkmeas`, like every other collapsible
+  block. The empty form seeds that key, so completing it does not snap the card shut
+  mid-entry; closing it keeps it closed on later days and next week's empty form re-opens
+  it.
+
 **Custom lift variants, and no generic back squat (2026-10-01)**
 - `back` (r 1) sat alongside `high` (r 1) and `low` (r 1.03), which is a distinction
   without a difference: a back squat is high bar, low bar or a safety squat bar. `high` is

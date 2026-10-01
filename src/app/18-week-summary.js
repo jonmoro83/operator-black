@@ -28,19 +28,23 @@ function weeklyCard(){
   const prev=measBefore(mon), bfNow=thisWeek?navyBf(thisWeek.m,thisWeek.d):null, bfPrev=prev?navyBf(prev.m,prev.d):null;
   const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,today[k],prev&&prev.m[k]!=null?String(prev.m[k]):'')}</label>`;
   const since=prev?Math.round((D(mon)-D(prev.d))/864e5):null;
-  if(thisWeek&&thisWeek.d!==t){
-    const dw=bfNow!=null&&bfPrev!=null?bfNow-bfPrev:null;
-    return `<details class="plain card"><summary><b>Weekly check-in</b> \u00b7 done ${fmtD(thisWeek.d,true)}${bfNow!=null?` \u00b7 ${r1(bfNow)}% body fat`:''}</summary>
-    <div class="small muted" style="margin-top:8px">Waist ${r1(thisWeek.m.waist)} ${unit}, neck ${r1(thisWeek.m.neck)}${thisWeek.m.hip?`, hips ${r1(thisWeek.m.hip)}`:''}.${dw!=null?` ${dw<0?'Down':dw>0?'Up':'Level'} ${dw?r1(Math.abs(dw))+' points':''} since ${fmtD(prev.d)}.`:''} Charts are on Status.</div></details>`;
+  const body=()=>`<p class="small muted" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
+  <div class="grid3">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>`
+    +(navyBf(today,t)!=null?`<div class="small">That puts you at <b class="mono">${r1(navyBf(today,t))}%</b> body fat${bfPrev!=null?`, ${navyBf(today,t)<bfPrev?'down':navyBf(today,t)>bfPrev?'up':'level'} ${navyBf(today,t)===bfPrev?'':r1(Math.abs(navyBf(today,t)-bfPrev))+' points '}since ${fmtD(prev.d)}`:''}.</div>`
+      :!plan.height||!plan.sex?`<div class="small muted">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`
+      :today.waist||today.neck?`<div class="small muted">Neck and waist both needed for the estimate${plan.sex==='f'?', plus hips':''}.</div>`:'');
+
+  // Done for the week: a header you can fold away. It opens by default on the day you
+  // filled it in (openPx is seeded below while the form is still showing) and stays shut
+  // once you close it, including on later days.
+  if(thisWeek){
+    const dw=bfNow!=null&&bfPrev!=null?bfNow-bfPrev:null, sameDay=thisWeek.d===t;
+    return `<details class="plain card" data-px="wkmeas"${openPx.has('wkmeas')?' open':''}><summary><b>Weekly check-in</b> \u00b7 done ${fmtD(thisWeek.d,true)}${bfNow!=null?` \u00b7 ${r1(bfNow)}% body fat`:''}</summary>
+    <div class="stack" style="gap:10px;margin-top:10px"><div class="small muted">Waist ${r1(thisWeek.m.waist)} ${unit}, neck ${r1(thisWeek.m.neck)}${thisWeek.m.hip?`, hips ${r1(thisWeek.m.hip)}`:''}.${dw!=null?` ${dw<0?'Down':dw>0?'Up':'Level'} ${dw?r1(Math.abs(dw))+' points':''} since ${fmtD(prev.d)}.`:''} Charts are on Status.</div>
+    ${sameDay?body():`<div class="small muted">Logged ${fmtD(thisWeek.d,true)}. Measuring again today records a second set \u2014 the charts take them all.</div>${body()}`}</div></details>`;
   }
-  let h=`<div class="card"><div class="lift-h"><h3>Weekly check-in</h3><span class="small muted">${prev?`last ${fmtD(prev.d,true)}${since?` \u00b7 ${since} days ago`:''}`:'first one'}</span></div>
-  <p class="small muted" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
-  <div class="grid3">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>`;
-  const bfT=navyBf(today,t);
-  if(bfT!=null) h+=`<div class="small">That puts you at <b class="mono">${r1(bfT)}%</b> body fat${bfPrev!=null?`, ${bfT<bfPrev?'down':bfT>bfPrev?'up':'level'} ${bfT===bfPrev?'':r1(Math.abs(bfT-bfPrev))+' points '}since ${fmtD(prev.d)}`:''}.</div>`;
-  else if(!plan.height||!plan.sex) h+=`<div class="small muted">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`;
-  else if(today.waist||today.neck) h+=`<div class="small muted">Neck and waist both needed for the estimate${plan.sex==='f'?', plus hips':''}.</div>`;
-  return h+`</div>`;
+  openPx.add('wkmeas');          // so it is open at the moment it gets filled in
+  return `<div class="card"><div class="lift-h"><h3>Weekly check-in</h3><span class="small muted">${prev?`last ${fmtD(prev.d,true)}${since?` \u00b7 ${since} days ago`:''}`:'first one'}</span></div>${body()}</div>`;
 }
 function weekSummaryCard(){
   if(viewing||sel!==todayStr()) return '';

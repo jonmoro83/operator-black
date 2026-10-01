@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.18',date:'2026-10-01',title:'Fold the weekly check-in away',items:[
+    'Once the weekly check-in has measurements in it, it collapses to a single line \u2014 the date and your body fat \u2014 and you can fold it shut. Before, it only did that if you had logged on an earlier day; filling it in this morning left the whole form sitting on Today for the rest of the day.',
+    'Open it again and the numbers are still editable, so a typo is one tap away rather than a lost week.']},
   {v:'1.17',date:'2026-10-01',title:'Define your own lift variants',items:[
     'The generic Back squat has gone from the squat list. If you are back squatting it is high bar, low bar or a safety squat bar, so those are the choices \u2014 high bar is the reference the others are measured against, and the safety squat bar has joined at about 90% of it.',
     'Setup \u2192 Lift variants will take your own, for either lift: a name and what share of the reference lift it carries. Pin squats, tempo work, a bar the list has never heard of. They appear everywhere the built-in ones do \u2014 the cycle picker, the one-session swap on Today, the export \u2014 and work the same way.',
