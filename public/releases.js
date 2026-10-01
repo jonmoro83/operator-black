@@ -4,6 +4,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.12',date:'2026-10-01',title:'A weekly check-in',items:[
+    'Measurements have moved out of the daily check-in into a weekly one, which sits on Today from the start of each training week until you fill it in \u2014 a weekly number asked for weekly, rather than buried under Optional every morning.',
+    'It shows last week\u2019s numbers as placeholders, works out the body-fat estimate as you type, and says how far it has moved since the last one. Log it on any day of the week and it collapses to a one-line summary for the rest of the week.']},
   {v:'1.11',date:'2026-10-01',title:'A burn rate that keeps up with you',items:[
     'Your burn is now a running estimate, recalculated every day from the 28 days behind it, so it follows a metabolism that adapts instead of holding a number worked out once. A Burn over time chart shows it moving \u2014 if it has fallen 200 a day over a long cut, the card says so and suggests a maintenance break rather than a bigger deficit.',
     'It no longer goes quiet while you are getting started. Before there is enough data it is the formula, then a blend, then entirely your own numbers after six weeks of logging weight and calories. The card always says which you are looking at, and how many weeks are left before the formula drops out.',
