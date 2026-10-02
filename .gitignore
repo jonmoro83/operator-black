@@ -7,9 +7,10 @@ node_modules/
 .dev.vars
 *.log
 
-# Books and reference PDFs stay on disk, never in the repo
+# No PDFs in the repo. Books, programs, references: all of it stays on disk.
+# No exceptions -- the repo is public, and an exception is how two commercial
+# books ended up in it.
 *.pdf
-!Plyometric_Program_Thursday.pdf
 
 # Editors
 .vscode/*

@@ -151,6 +151,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
 
+**All PDFs out of the repo (2026-10-02)**
+- The repo is public. `*.pdf` is now absolute: the `!Plyometric_Program_Thursday.pdf`
+  exception is gone and that file is untracked (still on disk, still the source for the
+  plyo library -- only the source comments in `01-constants.js` point at it now).
+- Still open: the two commercial books remain in commit `92130aa`, which is public and
+  downloadable. Gitignoring does nothing about that. Purging means a history rewrite and
+  a force-push, plus asking GitHub Support to drop the cached blobs, since a force-push
+  alone leaves them reachable by SHA.
+
 **FOBBITs rebuilt from the book (2026-10-02)**
 - Second correction to the same feature. 1.29 fixed the timing but kept a 30–90 second
   burst picker, which the book never prescribes: its bursts are **sets of reps** — 20 KB
