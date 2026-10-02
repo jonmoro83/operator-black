@@ -155,10 +155,17 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - The repo is public. `*.pdf` is now absolute: the `!Plyometric_Program_Thursday.pdf`
   exception is gone and that file is untracked (still on disk, still the source for the
   plyo library -- only the source comments in `01-constants.js` point at it now).
-- Still open: the two commercial books remain in commit `92130aa`, which is public and
-  downloadable. Gitignoring does nothing about that. Purging means a history rewrite and
-  a force-push, plus asking GitHub Support to drop the cached blobs, since a force-push
-  alone leaves them reachable by SHA.
+- History rewritten and force-pushed: `git filter-branch --index-filter` stripped the two
+  commercial books from every commit, so they are gone from `main` entirely rather than
+  just untracked. Gitignoring alone would not have done this -- the blobs were public and
+  downloadable from the old `92130aa` for a day. Every SHA from that commit forward
+  changed (`92130aa` is now `5f48111`); any older clone has the pre-rewrite history.
+- Backup kept locally until this is confirmed settled: tag `pre-pdf-purge` and
+  `refs/original/refs/heads/main`, both at the old `150a3f5`. Deleting those two refs and
+  running `git gc --prune=now` drops the blobs from this machine too.
+- Left in history deliberately: `Plyometric_Program_Thursday.pdf`, which is ours.
+- GitHub Support still has to purge their cached objects. A force-push leaves the old
+  commit reachable by SHA on github.com until their GC runs.
 
 **FOBBITs rebuilt from the book (2026-10-02)**
 - Second correction to the same feature. 1.29 fixed the timing but kept a 30–90 second
