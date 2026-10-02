@@ -104,8 +104,8 @@ document.getElementById('rest').addEventListener('click',e=>{
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ if(!rest.done) holdScreen(true); tickRest() } });
 function nextAfterSet(k,sets){
   const wk=weekOf(sel), dp=dayPlan(sel); if(!wk||dp.t!=='lift') return null;
-  const r=rx(wk,k), isDead=k==='dead'&&wk.kind==='cycle', nSets=isDead?3:r.s;
-  for(let i=0;i<nSets;i++) if(!sets[i]) return liftName(k)+' · set '+(i+1)+(isDead&&i>0?' (optional)':'');
+  const r=rx(wk,k), nSets=r.sMax;
+  for(let i=0;i<nSets;i++) if(!sets[i]) return liftName(k)+' · set '+(i+1)+(i>=r.s?' (optional)':'');
   const li=dp.lifts.indexOf(k);
   for(let j=li+1;j<dp.lifts.length;j++){const s2=((lg(sel).lifts||{})[dp.lifts[j]]||{}).sets||[];if(!s2[0])return liftName(dp.lifts[j])+' · set 1'}
   return undefined; // nothing left: no rest needed

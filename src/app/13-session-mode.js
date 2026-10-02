@@ -32,8 +32,8 @@ function lsSteps(date){
     const r=rx(wk,k), L=(lg(date).lifts||{})[k]||{}, T=L.used!=null&&L.used!==''?+L.used:r.w;
     if(T==null) continue;
     if(ls&&ls.warm!==false){ ramp(k,T,r.t,dp.deload).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:x.w,r:x.r,lbl:x.lbl})) }
-    const isDead=k==='dead'&&wk.kind==='cycle', nS=isDead?3:r.s;
-    for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:isDead&&j>0,pct:r.p});
+    const nS=r.sMax;
+    for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
   const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
   if(!dp.deload&&!heavy&&dp.acc) steps.push({type:'acc'});
@@ -126,7 +126,7 @@ function lsRender(){
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   } else {
     const L=lg(ls.date);
-    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=k==='dead'&&wk.kind==='cycle'?1:r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${k==='dead'&&wk.kind==='cycle'?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
+    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
     h+=`<div class="ls-card"><div class="ls-lift">Session summary</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>
       <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label></div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;

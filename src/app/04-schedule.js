@@ -83,9 +83,15 @@ function rx(wk,k,date){
   let s,r,p,c;
   const d=date||sel;
   const v=wkRx(wk);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
-  if(k==='dead'&&wk.kind!=='cycle') s=1;
+  // Operator I/A lets the lifter choose the volume: a wave entry can carry `sMax`, a
+  // ceiling above the prescribed sets. `s` stays what the program asks for; the sets from
+  // s+1 to sMax are yours to take or leave on the day. Deadlift is the standard template's
+  // own version of the same idea -- one set required, up to three -- so it goes through
+  // here too rather than being special-cased by every caller.
+  let sx=v.sMax!=null&&+v.sMax>s?+v.sMax:s;
+  if(k==='dead'){ s=1; sx=wk.kind==='cycle'?3:1 }
   const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
-  return {s,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
+  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.

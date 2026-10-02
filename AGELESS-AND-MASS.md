@@ -33,8 +33,9 @@ cheap to build.
 
 ### The programmable claims
 
-1. **Operator I/A over Operator Standard.** Flexible set ranges rather than fixed sets, so
-   volume can be dialled down on a bad week without leaving the plan.
+1. **Operator I/A over Operator Standard.** *(Partly shipped in 1.32 — see the note below;
+   this entry understated what full I/A involves.)* Flexible set ranges rather than fixed
+   sets, so volume can be dialled up or down session by session without leaving the plan.
 2. **Always train off a training max**, never a true 1RM. The book's rule of thumb: you should
    have complete confidence you can finish every session in the block.
 3. **3‑1‑3‑1 recovery.** Three training weeks, one recovery week, three, one. A recovery week
@@ -177,8 +178,11 @@ holds.
    `dayPlanSlot()` reads from it instead of its hard-coded arrays. `plan.template` selects one.
    This is a pure refactor with no behaviour change, and the existing schedule tests should
    pass untouched — which is exactly how we would know it was done right.
-2. **Allow a wave entry to be a range.** `{s:[3,5], r:5, p:80}` for Operator I/A, with the day
-   card offering the range and recording what was actually done.
+2. ~~**Allow a wave entry to be a range.**~~ **Done in 1.32**, as `{s:3, sMax:10, r:5, p:75}`
+   rather than the `s:[3,5]` tuple sketched here — two scalar fields bind straight to the
+   existing `data-pbind` path handling and survive `deepMerge` without any parsing. `rx()`
+   now returns both `s` (required) and `sMax` (ceiling), and it absorbed the deadlift's
+   1–3 rule, which had been duplicated at six call sites.
 3. **Add the `recovery` week kind** and the 3‑1‑3‑1 rule, behind `plan.mode = 'ageless'`.
 4. **Add Mass Template** once 1 and 2 exist: a three-week wave and a four-day layout.
 5. **Block rotation last.** `plan.rotation = [{template, weeks}, …]` consumed by `weeks()`,
@@ -211,3 +215,58 @@ depends on them:
 - Mass Protocol's conditioning session list — whether it differs from TB2's vault
 - Nutrition Formula 2, for trainees starting overweight
 - Ageless Athlete's Old Warhorse progression table
+
+---
+
+## Addendum (2026-10-02) — what Operator I/A actually costs
+
+Re-read of pp. 75–78 after the first pass. The entry above files I/A under "flexible set
+ranges", which is the smallest of the three things it changes. The book's spec:
+
+- Three workouts at 75%, three at 80%, three at 85/90% — **nine sessions to a wave**, two
+  waves to a block, then test or force progression. Five reps in the 75–80% range, three in
+  the 85–90% range, and whether 90% happens at all is the trainee's call.
+- **Up to ten sets per lift**, against standard Operator's fixed sets.
+- A **floating 48–72 hour** gap between sessions.
+- For the kettlebell accessory work, I/A uses **70–80–90** rather than the standard
+  75–85–95 (p. 93).
+
+### The part that is not a parameter change
+
+I/A's unit of progression is the **session**. This app's is the **date**: everything descends
+from `idxOf(date)` → `weekOf` → `wkRx(wk)` → `plan.wave[wk.w-1]`. Under I/A a session's
+percentage depends on how many sessions have been logged, not on today's date. That inverts
+the primary key, and with it `freezePast()` (locks maxes on `w===6`), `easyCondWeek()`
+(defined as `tier()==='heavy'` over a six-entry wave), `dayPlanSlot()`'s seven-day array, the
+plyo phases and the week grid. A 72-hour gap across three sessions spans nine days, so the
+existing within-week `dayOrder` reordering cannot express it either.
+
+That calendar-as-index choice is also *why* all of those features were cheap. Trading it for
+I/A would be a bad deal.
+
+### Worth recording: I/A tests twice as often
+
+Two I/A waves is 18 sessions. A standard Operator block is 6 weeks × 3 = 18 sessions, and our
+`testEvery:2` means testing at 36. So `testEvery` would not carry across; anyone running real
+I/A retests at half the session count.
+
+### What we shipped instead, and why
+
+The three loosenings separate cleanly. Variable sets and friendlier percentages are nearly
+free — 1.32 does the first, and the second was always just data in the Setup wave table.
+The floating schedule is the expensive one, and we left it.
+
+The argument is the book's own, not convenience. Madden recommends I/A as "close to the ideal
+for the ageless athlete" and then does not run the floating part (p. 77):
+
+> You don't need to take 72 hours of rest between your Operator I/A workouts. That's just a
+> card you have up your sleeve. For the most part I still take 48 hours... it works to keep
+> the three sessions/week schedule in place. The variability for the intensity/reps/sets is,
+> however, **absolutely integral** to my approach now.
+
+Fixed calendar, variable volume. That is what the app now supports.
+
+**Still not supported, and deliberately:** session-indexed waves, the 48–72h float, the
+nine-session wave shape, and the 70–80–90 accessory ladder. Anyone wanting real I/A should
+know the app will not keep their place.
+

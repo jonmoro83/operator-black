@@ -1391,3 +1391,54 @@ test("the shipped defaults are the book's cadence", () => {
   a.ok(x.undoItem, "undoable like any plan change");
   a.match(x.vSetup(), /By the book/, "and Setup says so rather than offering the button");
 });
+
+test("a wave week can carry an optional set ceiling, which is Operator I/A's volume choice", () => {
+  const x = app({ now: "2026-10-05" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const w1 = x.weeks().filter((w) => w.kind === "cycle" && w.w === 1)[0];
+  const mon = w1.monday, dp = x.dayPlan(mon);
+  a.equal(dp.t, "lift", "week 1 day 1 is a lifting day");
+
+  // Out of the box nothing changes: the wave prescribes three sets and that is all you get.
+  a.equal(x.rx(w1, "squat", mon).sMax, x.rx(w1, "squat", mon).s, "no ceiling by default");
+  let card = x.liftCard(w1, "squat", dp);
+  a.match(card, /<span class="rx">3 × 5 @ 70%/, "a plain count, not a range");
+  a.equal((card.match(/class="setb[^"]*"/g) || []).length, 3, "three buttons");
+  a.ok(!/setb[^"]*\bopt\b/.test(card), "none of them optional");
+
+  // Deadlift has always been a range, and now it says so through rx() like everything else.
+  const fri = x.addDays(mon, 4), fdp = x.dayPlan(fri);
+  a.ok(fdp.lifts.includes("dead"), "day 3 is the deadlift day");
+  const rd = x.rx(w1, "dead", fri);
+  a.deepEqual([rd.s, rd.sMax], [1, 3], "one set required, up to three");
+  const dcard = x.liftCard(w1, "dead", fdp);
+  a.match(dcard, /<span class="rx">1–3 ×/, "shown as a range");
+  a.equal((dcard.match(/class="setb[^"]*opt/g) || []).length, 2, "sets two and three are optional");
+
+  // Now ask for I/A on week 1: three prescribed, up to ten, the lifter's call on the day.
+  x.plan.wave[0].sMax = 10; x.bump();
+  const r = x.rx(w1, "squat", mon);
+  a.deepEqual([r.s, r.sMax], [3, 10]);
+  card = x.liftCard(w1, "squat", dp);
+  a.match(card, /<span class="rx">3–10 × 5 @ 70%/);
+  a.equal((card.match(/class="setb[^"]*"/g) || []).length, 10, "ten buttons");
+  a.equal((card.match(/class="setb[^"]*opt/g) || []).length, 7, "seven of them dashed");
+  a.match(card, /3 sets is the prescription/, "and the card says which are optional");
+  a.match(card, /two-minute rest still applies/, "the Golden Rule survives the extra volume");
+
+  // Session mode offers the same ten, and skipping the optional ones is not a gap.
+  const work = x.lsSteps(mon).filter((s) => s.type === "work" && s.k === "squat");
+  a.equal(work.length, 10, "ten work steps");
+  a.deepEqual(work.map((s) => !!s.opt), [false, false, false, true, true, true, true, true, true, true]);
+
+  // A ceiling at or below the prescription is meaningless, so it is ignored.
+  x.plan.wave[0].sMax = 2; x.bump();
+  a.equal(x.rx(w1, "squat", mon).sMax, 3, "never fewer than the wave asks for");
+  x.plan.wave[0].sMax = null; x.bump();
+  a.equal(x.rx(w1, "squat", mon).sMax, 3, "and clearing it goes back to a plain three");
+
+  // Setup exposes it per week, blank by default.
+  const setup = x.vSetup();
+  a.match(setup, /data-pbind="wave\.0\.sMax"/, "an input on the wave table");
+  a.match(setup, /Operator I\/A/, "named, so the field is not a mystery");
+});

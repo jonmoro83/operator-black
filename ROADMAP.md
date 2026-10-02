@@ -151,6 +151,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
 
+**Optional sets on the wave — Operator I/A's volume choice (2026-10-02)**
+- A wave entry can carry `sMax`, a ceiling above the prescribed sets. `rx()` now returns `s`
+  (required) and `sMax` (ceiling); the lift card renders the surplus as dashed buttons, the
+  session-mode stepper marks them `opt` so skipping them is not a gap, and the day summary
+  shows `2/3+`.
+- This absorbed the deadlift's 1–3 rule, which was duplicated at six call sites
+  (day view ×2, session mode ×2, alerts, CSV). Deadlift is now just the first wave entry
+  with a range, and `rx()` is the only place that knows.
+- Setup's wave table gained an **Up to** column, blank by default. That table had four number
+  inputs at a fixed 84px and already scrolled sideways on a phone; `.wavetbl` tightens the
+  cells so all four editable columns fit at 390px.
+- Deliberately *not* I/A: the 48–72h floating schedule. See AGELESS-AND-MASS.md's addendum
+  — I/A indexes by session where this app indexes by date, and the book's own author keeps
+  a fixed three-a-week calendar and takes his variability in volume instead.
+
 **All PDFs out of the repo (2026-10-02)**
 - The repo is public. `*.pdf` is now absolute: the `!Plyometric_Program_Thursday.pdf`
   exception is gone and that file is untracked (still on disk, still the source for the

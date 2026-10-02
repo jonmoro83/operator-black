@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.32',date:'2026-10-02',title:'Optional sets',items:[
+    'Any week of the wave can now have an \u201cUp to\u201d number in Setup. Leave it blank and nothing changes. Set it higher than the prescribed sets and the extra ones appear on the lift card as dashed buttons \u2014 take them when you have it in you, leave them when you don\u2019t, and the day still counts as complete either way.',
+    'This is the one idea from Operator I/A worth having on a calendar: you decide the volume session by session. Ageless Athlete allows up to ten sets per lift and calls a couple of extra sets the gentlest way to add size, especially on weighted pull-ups.',
+    'The deadlift has always worked this way \u2014 one set required, up to three \u2014 and now it runs through the same code as everything else instead of being a special case in six places.',
+    'The wave table in Setup fits a phone screen again.']},
   {v:'1.31',date:'2026-10-02',title:'FOBBITs, from the book this time',items:[
     'The bursts are sets of reps, not timed intervals. The book alternates twenty kettlebell swings and ten snatches per arm; the 30\u201390 second burst picker was something I invented and it is gone.',
     'The timer now holds at each set instead of counting down. You step off, do the reps, tap Done, and the base picks up again \u2014 which is how the session actually runs, since only the base is on the clock.',

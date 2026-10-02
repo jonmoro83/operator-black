@@ -402,6 +402,10 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 tr.cur td{background:var(--accent-bg)}
 tr.past td{color:var(--muted)}
 td input[type=number]{padding:5px 7px;width:84px;font-size:14px}
+/* The wave table carries four numbers a row; at phone width the default 84px inputs push
+   it into a long sideways scroll, so this one table gets tighter cells. */
+.wavetbl td input[type=number]{width:56px}
+.wavetbl th,.wavetbl td{padding-left:6px;padding-right:6px}
 .wk-row{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .wk-row.cur{background:var(--accent-bg);margin-inline:-16px;padding-inline:16px}
 .wk-row.past{opacity:.6}

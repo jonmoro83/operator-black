@@ -42,7 +42,7 @@ function liftsCsv(){
       const x=(L.lifts||{})[k]; if(!x) continue;
       const r=rx(wk,k,d), sets=Array.isArray(x.sets)?x.sets:[], wu=(Array.isArray(x.warmup)?x.warmup:[]).filter(w=>w&&w.w!=null&&w.w!=='');
       const used=x.used!=null&&x.used!==''?+x.used:r.w;
-      rows.push([d,prog,week,dp.short,liftName(k,d),VARS[k]?varOf(k,d):'','working',k==='dead'&&wk.kind==='cycle'?'1-3':r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
+      rows.push([d,prog,week,dp.short,liftName(k,d),VARS[k]?varOf(k,d):'','working',r.sMax>r.s?r.s+'-'+r.sMax:r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
     }
     for(const [k,t] of Object.entries(L.test||{})){
       if(!t||t.w==null||t.w==='') continue;
