@@ -2,7 +2,9 @@
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:60,rest:120,rounds:[7,12],def:10,lead:true,burst:[30,45,60,90]}};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,rounds:[7,15],def:10,lead:true,hold:true,
+    roundOpts:[[7,'15 min'],[10,'20 min'],[15,'30 min']],
+    reps:[['Swings','20'],['Snatches','10 per arm']], repsEasy:[['Swings','10'],['Snatches','5 per arm']]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
@@ -10,7 +12,7 @@ function ivOpts(date,fmt){
   const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-    burst:(r&&r.burst&&r.burst.includes(+o.burst)?+o.burst:null)||(r&&r.burst?r.work:null)};
+    reps:(r&&r.reps)?(ease?r.repsEasy:r.reps):null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -21,8 +23,9 @@ function ivSegments(fmt,o){
     // burst, until the base adds up. The bursts sit on top, so the session runs longer
     // than its nominal length. The book alternates two movements, hence A and B.
     if(r.lead) for(let i=1;i<=o.rounds;i++){
+      const rp=(o.reps||r.reps)[(i-1)%2];
       seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
-      seg.push({k:'work',l:'Burst '+(i%2?'A':'B'),sub:'Burst '+i+' of '+o.rounds,s:wk,round:i});
+      seg.push({k:'work',l:rp[0],sub:rp[1],s:wk,round:i,hold:!!r.hold,reps:rp[1]});
     }
     else for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
@@ -38,16 +41,19 @@ function ivParts(segs){
   const hasCool=segs.length&&segs[segs.length-1].l==='Cool-down';
   const cool=hasCool?segs[segs.length-1].s:0;
   const warm=i<0?0:segs.slice(0,i).reduce((a,x)=>a+x.s,0);
-  return {warm,work:ivTotal(segs)-warm-cool,cool,rounds:segs.filter(x=>x.round&&x.k==='work').length};
+  const held=segs.reduce((a0,x)=>a0+(x.hold?x.s:0),0);   // rep bursts are not on the clock
+  return {warm,work:ivTotal(segs)-warm-cool-held,cool,rounds:segs.filter(x=>x.round&&x.k==='work').length};
 }
 function ivPartsLabel(f,o){
   const segs=ivSegments(f,o), p=ivParts(segs), m=s0=>Math.round(s0/60), bits=[];
   if(p.warm) bits.push(m(p.warm)+' min warm-up');
-  bits.push(m(p.work)+(f==='liss'?' min steady':' min of intervals'));
+  bits.push(m(p.work)+(f==='liss'?' min steady':(IV[f]||{}).lead?' min of base':' min of intervals'));
   if(p.cool) bits.push(m(p.cool)+' min cool-down');
-  return {text:bits.join(' + '),rounds:p.rounds,total:m(ivTotal(segs))};
+  return {text:bits.join(' + '),rounds:p.rounds,total:m(p.warm+p.work+p.cool)};
 }
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
+// A held burst is not part of the session's length, so the countdown reports base only.
+function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
 function tone(freq,dur,delay){try{if(quiet()||!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
@@ -92,11 +98,12 @@ function ivRender(){
   const seg=iv.segs[p.i], nx=iv.segs[p.i+1], left=Math.ceil(p.left);
   el.className=(iv.mini?'mini ':'')+(iv.paused?'paused':seg.k);
   document.getElementById('iv-phase').textContent=iv.paused?'Paused':seg.l;
-  document.getElementById('iv-time').textContent=mmss(left);
+  if(seg.hold&&!iv.paused&&!iv.done){ iv.paused=Date.now(); LS.set('ob.iv',iv); }
+  document.getElementById('iv-time').textContent=seg.hold?seg.reps:mmss(left);
   document.getElementById('iv-sub').textContent=(seg.sub||'')+(iv.paused?'':'');
-  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+' '+mmss(nx.s)+' · ':'Last one · ')+mmss(total-t)+' left in session';
-  document.getElementById('iv-fill').style.width=(100*p.into/seg.s)+'%';
-  document.getElementById('iv-pause').textContent=iv.paused?'Resume':'Pause';
+  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+(nx.hold?' '+nx.reps:' '+mmss(nx.s))+' · ':'Last one · ')+mmss(ivBaseLeft(p,t))+' of base left';
+  document.getElementById('iv-fill').style.width=(seg.hold?0:100*p.into/seg.s)+'%';
+  document.getElementById('iv-pause').textContent=seg.hold?'Done':iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
   if(!iv.paused){
     if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){tone(1320,.45);vib([300])} else {tone(660,.45);vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) } ivLast.idx=p.i; }
@@ -137,7 +144,10 @@ document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
   unlockAudio();
-  if(a==='pause'){ if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;holdScreen(true)} else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
+  if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
+    if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;holdScreen(true);
+      if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
+    } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) api('POST','/push/cancel').catch(()=>{}); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }

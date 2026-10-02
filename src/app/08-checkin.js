@@ -269,35 +269,39 @@ function hicCard(dp,note){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
-  if((IV[f]||{}).lead) h+=`<div class="small muted">Keep moving the whole time on an easy base — a pace just under a jog — and break it every two minutes with a hard burst of something else. The book alternates two movements, which is why the timer counts Burst A and Burst B: kettlebell swings then snatches, swings then burpees, whatever you have. <b>Only the base counts toward the length</b>, so the bursts put the real session a few minutes over.</div>`;
+  if((IV[f]||{}).lead){
+    const rp=ivOpts(sel,f).reps||[];
+    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements: <b>${rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join('</b>, then <b>')}</b>. Kettlebells are the book\u2019s choice; dumbbells do the job, and a push-press can stand in for the snatch. Row, skip, cycle or take the stairs if you would rather not run.</div>
+    <div class="small muted"><b>The sets are not on the clock.</b> Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.</div>`;
+  }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
   if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((HIC[f]||{}).noMetric){
-    h+=`<label class="f">Burst movement<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. kettlebell swings, burpees, sandbag shoulder"></label>`;
-    h+=`<label class="f">Bursts done${numIn('hic.rounds',L.rounds,'')}</label>`;
+    h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="KB swings / snatches"></label>`;
+    h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
   {
-    const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
+    const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;
   }
   if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
   if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
   h+=`</div>`;
   {
-    const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
+    const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, from ${pl.rounds} bursts, each one after two minutes of base (${pl.rounds} \u00d7 base + ${pl.rounds} \u00d7 burst)`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, counted as ${pl.rounds} \u00d7 two minutes of base; the ${pl.rounds} sets of reps sit on top, so the clock will say more`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
   {
     const o=ivOpts(sel,f), r=IV[f], segs=ivSegments(f,o), running=iv&&iv.date===sel&&!iv.done;
-    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${mmss(ivTotal(segs))} total</span></div>`;
-    if(r&&r.burst) h+=`<div class="restsel"><span>Burst</span><div class="seg">${r.burst.map(v=>`<button class="segb${o.burst===v?' on':''}" data-act="ivopt" data-k="burst" data-v="${v}" aria-pressed="${o.burst===v}">${v} s</button>`).join('')}</div></div>`;
-    if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
+    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).hold?' of base':' total'}</span></div>`;
+    if(r&&r.roundOpts) h+=`<div class="restsel"><span>Session</span><div class="seg">${r.roundOpts.map(([v,l])=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}" aria-pressed="${o.rounds===v}">${l}</button>`).join('')}</div></div>`;
+    else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week, so the conditioning comes down to leave the energy for them — fewer rounds, shorter sessions. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;

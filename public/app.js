@@ -13,7 +13,7 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'2 min easy / 30–90 sec hard × 10',sys:'Aerobic base with bursts',noMetric:true}
+  fobbit:{name:'FOBBIT',sess:'2 min base, then a set of reps × 10',sys:'Aerobic base with bursts',noMetric:true}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -1565,35 +1565,39 @@ function hicCard(dp,note){
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
-  if((IV[f]||{}).lead) h+=`<div class="small muted">Keep moving the whole time on an easy base — a pace just under a jog — and break it every two minutes with a hard burst of something else. The book alternates two movements, which is why the timer counts Burst A and Burst B: kettlebell swings then snatches, swings then burpees, whatever you have. <b>Only the base counts toward the length</b>, so the bursts put the real session a few minutes over.</div>`;
+  if((IV[f]||{}).lead){
+    const rp=ivOpts(sel,f).reps||[];
+    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements: <b>${rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join('</b>, then <b>')}</b>. Kettlebells are the book\u2019s choice; dumbbells do the job, and a push-press can stand in for the snatch. Row, skip, cycle or take the stairs if you would rather not run.</div>
+    <div class="small muted"><b>The sets are not on the clock.</b> Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.</div>`;
+  }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
   if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((HIC[f]||{}).noMetric){
-    h+=`<label class="f">Burst movement<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. kettlebell swings, burpees, sandbag shoulder"></label>`;
-    h+=`<label class="f">Bursts done${numIn('hic.rounds',L.rounds,'')}</label>`;
+    h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="KB swings / snatches"></label>`;
+    h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
   {
-    const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
+    const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;
   }
   if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
   if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
   h+=`</div>`;
   {
-    const plan0=Math.round(ivTotal(ivSegments(f,ivOpts(sel,f)))/60);
+    const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, from ${pl.rounds} bursts, each one after two minutes of base (${pl.rounds} \u00d7 base + ${pl.rounds} \u00d7 burst)`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, counted as ${pl.rounds} \u00d7 two minutes of base; the ${pl.rounds} sets of reps sit on top, so the clock will say more`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
   {
     const o=ivOpts(sel,f), r=IV[f], segs=ivSegments(f,o), running=iv&&iv.date===sel&&!iv.done;
-    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${mmss(ivTotal(segs))} total</span></div>`;
-    if(r&&r.burst) h+=`<div class="restsel"><span>Burst</span><div class="seg">${r.burst.map(v=>`<button class="segb${o.burst===v?' on':''}" data-act="ivopt" data-k="burst" data-v="${v}" aria-pressed="${o.burst===v}">${v} s</button>`).join('')}</div></div>`;
-    if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
+    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).hold?' of base':' total'}</span></div>`;
+    if(r&&r.roundOpts) h+=`<div class="restsel"><span>Session</span><div class="seg">${r.roundOpts.map(([v,l])=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}" aria-pressed="${o.rounds===v}">${l}</button>`).join('')}</div></div>`;
+    else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week, so the conditioning comes down to leave the energy for them — fewer rounds, shorter sessions. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;
@@ -2204,7 +2208,9 @@ document.getElementById('ls').addEventListener('change',e=>{ const t=e.target; i
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:60,rest:120,rounds:[7,12],def:10,lead:true,burst:[30,45,60,90]}};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,rounds:[7,15],def:10,lead:true,hold:true,
+    roundOpts:[[7,'15 min'],[10,'20 min'],[15,'30 min']],
+    reps:[['Swings','20'],['Snatches','10 per arm']], repsEasy:[['Swings','10'],['Snatches','5 per arm']]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
@@ -2212,7 +2218,7 @@ function ivOpts(date,fmt){
   const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-    burst:(r&&r.burst&&r.burst.includes(+o.burst)?+o.burst:null)||(r&&r.burst?r.work:null)};
+    reps:(r&&r.reps)?(ease?r.repsEasy:r.reps):null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -2223,8 +2229,9 @@ function ivSegments(fmt,o){
     // burst, until the base adds up. The bursts sit on top, so the session runs longer
     // than its nominal length. The book alternates two movements, hence A and B.
     if(r.lead) for(let i=1;i<=o.rounds;i++){
+      const rp=(o.reps||r.reps)[(i-1)%2];
       seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
-      seg.push({k:'work',l:'Burst '+(i%2?'A':'B'),sub:'Burst '+i+' of '+o.rounds,s:wk,round:i});
+      seg.push({k:'work',l:rp[0],sub:rp[1],s:wk,round:i,hold:!!r.hold,reps:rp[1]});
     }
     else for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
@@ -2240,16 +2247,19 @@ function ivParts(segs){
   const hasCool=segs.length&&segs[segs.length-1].l==='Cool-down';
   const cool=hasCool?segs[segs.length-1].s:0;
   const warm=i<0?0:segs.slice(0,i).reduce((a,x)=>a+x.s,0);
-  return {warm,work:ivTotal(segs)-warm-cool,cool,rounds:segs.filter(x=>x.round&&x.k==='work').length};
+  const held=segs.reduce((a0,x)=>a0+(x.hold?x.s:0),0);   // rep bursts are not on the clock
+  return {warm,work:ivTotal(segs)-warm-cool-held,cool,rounds:segs.filter(x=>x.round&&x.k==='work').length};
 }
 function ivPartsLabel(f,o){
   const segs=ivSegments(f,o), p=ivParts(segs), m=s0=>Math.round(s0/60), bits=[];
   if(p.warm) bits.push(m(p.warm)+' min warm-up');
-  bits.push(m(p.work)+(f==='liss'?' min steady':' min of intervals'));
+  bits.push(m(p.work)+(f==='liss'?' min steady':(IV[f]||{}).lead?' min of base':' min of intervals'));
   if(p.cool) bits.push(m(p.cool)+' min cool-down');
-  return {text:bits.join(' + '),rounds:p.rounds,total:m(ivTotal(segs))};
+  return {text:bits.join(' + '),rounds:p.rounds,total:m(p.warm+p.work+p.cool)};
 }
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
+// A held burst is not part of the session's length, so the countdown reports base only.
+function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
 function tone(freq,dur,delay){try{if(quiet()||!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
@@ -2294,11 +2304,12 @@ function ivRender(){
   const seg=iv.segs[p.i], nx=iv.segs[p.i+1], left=Math.ceil(p.left);
   el.className=(iv.mini?'mini ':'')+(iv.paused?'paused':seg.k);
   document.getElementById('iv-phase').textContent=iv.paused?'Paused':seg.l;
-  document.getElementById('iv-time').textContent=mmss(left);
+  if(seg.hold&&!iv.paused&&!iv.done){ iv.paused=Date.now(); LS.set('ob.iv',iv); }
+  document.getElementById('iv-time').textContent=seg.hold?seg.reps:mmss(left);
   document.getElementById('iv-sub').textContent=(seg.sub||'')+(iv.paused?'':'');
-  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+' '+mmss(nx.s)+' · ':'Last one · ')+mmss(total-t)+' left in session';
-  document.getElementById('iv-fill').style.width=(100*p.into/seg.s)+'%';
-  document.getElementById('iv-pause').textContent=iv.paused?'Resume':'Pause';
+  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+(nx.hold?' '+nx.reps:' '+mmss(nx.s))+' · ':'Last one · ')+mmss(ivBaseLeft(p,t))+' of base left';
+  document.getElementById('iv-fill').style.width=(seg.hold?0:100*p.into/seg.s)+'%';
+  document.getElementById('iv-pause').textContent=seg.hold?'Done':iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
   if(!iv.paused){
     if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){tone(1320,.45);vib([300])} else {tone(660,.45);vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) } ivLast.idx=p.i; }
@@ -2339,7 +2350,10 @@ document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
   unlockAudio();
-  if(a==='pause'){ if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;holdScreen(true)} else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
+  if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
+    if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;holdScreen(true);
+      if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
+    } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) api('POST','/push/cancel').catch(()=>{}); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
@@ -3444,7 +3458,7 @@ function vGuide(){
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul>
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
-  <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving the whole time on an easy base (slow jog, skipping, easy spin) and break it every two minutes with a 30 to 90 second burst of something else entirely: kettlebell swings, burpees, a sandbag, press-ups. About 20 minutes. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
+  <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving on an easy base — a pace just under a jog — and step off every two minutes for a set of reps, alternating two movements: twenty kettlebell swings, then ten snatches per arm. Twenty minutes of base is the standard dose; fifteen is the easy version with the reps halved, thirty the hard one. The sets are not on the clock, so the session runs longer than its name. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
   <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week, before HIC and never after. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>

@@ -151,6 +151,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
 
+**FOBBITs rebuilt from the book (2026-10-02)**
+- Second correction to the same feature. 1.29 fixed the timing but kept a 30–90 second
+  burst picker, which the book never prescribes: its bursts are **sets of reps** — 20 KB
+  swings, then 10 snatches per arm, alternating — and the base is a pace *just under* a jog.
+- Segments gained `hold`. A held segment auto-pauses on entry, shows the rep prescription
+  instead of a countdown, and the Pause button becomes Done; finishing resumes and skips to
+  the end of the segment, reusing the existing pause/skip machinery rather than rewriting
+  `ivPos`. Held time is excluded from `ivParts`, `ivPartsLabel.total`, the card's suggested
+  minutes and the timer header, so every number on the card is base-only and they all agree.
+- Session length is the thing you pick (15 / 20 / 30 min of base = 7 / 10 / 15 rounds).
+  The easy conditioning week takes the book's basic version: 15 minutes *and* halved reps.
+- Worth noting for anything built off `AGELESS-AND-MASS.md`: twice now the structure was
+  right and the prescription was wrong. The rendered page is the source; a plausible-looking
+  parameter is not.
+
 **Default cadence set to the book's (2026-10-02)**
 - `DEF.testEvery` 3 → **2** and `DEF.deloadEvery` 2 → **0**. TB1 runs six-week blocks back
   to back and retests after two of them; it has no deload week, and prescribes a full week

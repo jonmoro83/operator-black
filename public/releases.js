@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.31',date:'2026-10-02',title:'FOBBITs, from the book this time',items:[
+    'The bursts are sets of reps, not timed intervals. The book alternates twenty kettlebell swings and ten snatches per arm; the 30\u201390 second burst picker was something I invented and it is gone.',
+    'The timer now holds at each set instead of counting down. You step off, do the reps, tap Done, and the base picks up again \u2014 which is how the session actually runs, since only the base is on the clock.',
+    'Session length is what you choose now: 15 minutes of base for the easy version (with the reps halved), 20 standard, 30 hard. The card and the timer agree on that number instead of quietly adding the bursts to it.',
+    'Named movements and the alternatives the book gives: dumbbells for kettlebells, a push-press for the snatch, and rowing, skipping, cycling or stairs instead of running.']},
   {v:'1.30',date:'2026-10-02',title:'Run it by the book',items:[
     'The default cadence is now the book\u2019s: two six-week cycles, then a retest \u2014 twelve weeks between tests, which it calls the optimal length of a strength phase. Six weeks is the minimum and is there for anyone who responds better to testing often, and waiting longer is explicitly fine: if the loads still feel heavy, keep your numbers and test when they feel solid.',
     'No scheduled deload by default. Operator does not have one \u2014 it runs cycles back to back and retests, and the recovery it prescribes is a full week or more off every three to six months, which you add from the Plan tab. The scheduled light week is still there if you want it, now labelled as our addition rather than the book\u2019s.',
