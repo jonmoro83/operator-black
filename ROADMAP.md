@@ -151,6 +151,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
 
+**Release notes rewritten in a plainer voice (2026-10-02)**
+- All 34 entries reworded. Em-dashes 52 -> 1 (the one left quotes the interface), contractions
+  30 -> 90, and the habit of ending every bullet on a tidy aphorism mostly gone.
+- Facts verified unchanged: all 58 numeric tokens across every entry match the previous file
+  exactly. Only `FOBBITs cannot be benchmarks` -> `FOBBITs can't be benchmarks` changed in a
+  title. No version bump, since nothing was added or removed.
+- The file header now says rewording a shipped entry is allowed (the facts are the history,
+  not the prose) and what the voice should be, so this does not drift back.
+
 **Add a set on the day, from the lift card (2026-10-02)**
 - 1.32 made the ceiling a Setup field, which still meant leaving the session to change it.
   A `+` tile now sits at the end of the sets on every lift card, and `+ One more set` on the
