@@ -151,6 +151,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - A test walks `HIC` and asserts the benchmark picker offers exactly the formats that
   produce a comparable number.
 
+**Add a set on the day, from the lift card (2026-10-02)**
+- 1.32 made the ceiling a Setup field, which still meant leaving the session to change it.
+  A `+` tile now sits at the end of the sets on every lift card, and `+ One more set` on the
+  last working set in the full-screen stepper. It writes `logs[date].lifts[k].extra`, so it
+  is a decision about today: the plan is untouched and the next session is back to normal.
+- `addSet(k,delta,date)` holds the ceiling (the book's ten, or higher if the wave says so)
+  and the guard that stops a ticked set being pulled out from under its own tick. Both
+  surfaces call it, and because the stub DOM in the harness dispatches no events, having the
+  logic in a named function is the only way any of it is testable — worth remembering for
+  the Worker/API gap, which has the same shape.
+- `rx()` folds `extra` into `sMax`, so the day summary, session stepper, rest-timer "next up"
+  and CSV all picked it up without changes.
+
 **Optional sets on the wave — Operator I/A's volume choice (2026-10-02)**
 - A wave entry can carry `sMax`, a ceiling above the prescribed sets. `rx()` now returns `s`
   (required) and `sMax` (ceiling); the lift card renders the surplus as dashed buttons, the

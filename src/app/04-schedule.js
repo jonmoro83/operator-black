@@ -67,6 +67,18 @@ function freezePast(){
   return changed;
 }
 let mcache={v:-1,m:{}};
+// How many sets the + button will go to: the book's ten, or higher if the wave says so.
+function SETCAP(r){return Math.max(10,r.sMax)}
+// Add or drop one set for a lift on a single day. The lift card and the full-screen stepper
+// both come through here, so the ceiling and the don't-strand-a-ticked-set guard live once.
+function addSet(k,delta,date){
+  const d=date||sel, wk=weekOf(d); if(!wk) return false;
+  const r=rx(wk,k,d), L=lg(d), cur=Math.max(0,+(((L.lifts||{})[k]||{}).extra)||0);
+  if(delta>0){ if(r.sMax>=SETCAP(r)) return false }
+  else if(!cur||(((L.lifts||{})[k]||{}).sets||[])[r.sMax-1]) return false;
+  setLog(d,'lifts.'+k+'.extra',Math.max(0,cur+delta));
+  return true;
+}
 function maxFor(c){
   if(mcache.v!==planV) mcache={v:planV,m:{}};
   if(mcache.m[c]) return mcache.m[c];
@@ -90,6 +102,10 @@ function rx(wk,k,date){
   // here too rather than being special-cased by every caller.
   let sx=v.sMax!=null&&+v.sMax>s?+v.sMax:s;
   if(k==='dead'){ s=1; sx=wk.kind==='cycle'?3:1 }
+  // ...and a set added on the day widens it further, for this session only. Setup declares
+  // the program's intent; this is the lifter deciding in the gym, which is the half of
+  // Operator I/A that actually matters.
+  sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
   const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
   return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
 }

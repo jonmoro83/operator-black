@@ -4,6 +4,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.33',date:'2026-10-02',title:'Add a set without leaving the session',items:[
+    'A + tile now sits at the end of the sets on every lift card. Tap it and you get another set \u2014 for that lift, on that day only. The program is not touched and the next session is back to normal.',
+    'The full-screen session mode has the same thing: \u201c+ One more set\u201d on the last working set of a lift, so you never have to come out of it to decide you have another one in you.',
+    'Changed your mind before you logged it? \u201cRemove the last set\u201d takes it back. Once a set is ticked it stays, so nothing you actually did can vanish.',
+    'Ten sets per lift is the ceiling, which is where Ageless Athlete puts it \u2014 unless you have set a higher one for the week in Setup.']},
   {v:'1.32',date:'2026-10-02',title:'Optional sets',items:[
     'Any week of the wave can now have an \u201cUp to\u201d number in Setup. Leave it blank and nothing changes. Set it higher than the prescribed sets and the extra ones appear on the lift card as dashed buttons \u2014 take them when you have it in you, leave them when you don\u2019t, and the day still counts as complete either way.',
     'This is the one idea from Operator I/A worth having on a calendar: you decide the volume session by session. Ageless Athlete allows up to ten sets per lift and calls a couple of extra sets the gentlest way to add size, especially on weighted pull-ups.',

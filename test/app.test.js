@@ -1403,7 +1403,7 @@ test("a wave week can carry an optional set ceiling, which is Operator I/A's vol
   a.equal(x.rx(w1, "squat", mon).sMax, x.rx(w1, "squat", mon).s, "no ceiling by default");
   let card = x.liftCard(w1, "squat", dp);
   a.match(card, /<span class="rx">3 × 5 @ 70%/, "a plain count, not a range");
-  a.equal((card.match(/class="setb[^"]*"/g) || []).length, 3, "three buttons");
+  a.equal((card.match(/data-act="set"/g) || []).length, 3, "three buttons");
   a.ok(!/setb[^"]*\bopt\b/.test(card), "none of them optional");
 
   // Deadlift has always been a range, and now it says so through rx() like everything else.
@@ -1413,7 +1413,7 @@ test("a wave week can carry an optional set ceiling, which is Operator I/A's vol
   a.deepEqual([rd.s, rd.sMax], [1, 3], "one set required, up to three");
   const dcard = x.liftCard(w1, "dead", fdp);
   a.match(dcard, /<span class="rx">1–3 ×/, "shown as a range");
-  a.equal((dcard.match(/class="setb[^"]*opt/g) || []).length, 2, "sets two and three are optional");
+  a.equal((dcard.match(/class="setb opt"/g) || []).length, 2, "sets two and three are optional");
 
   // Now ask for I/A on week 1: three prescribed, up to ten, the lifter's call on the day.
   x.plan.wave[0].sMax = 10; x.bump();
@@ -1421,8 +1421,8 @@ test("a wave week can carry an optional set ceiling, which is Operator I/A's vol
   a.deepEqual([r.s, r.sMax], [3, 10]);
   card = x.liftCard(w1, "squat", dp);
   a.match(card, /<span class="rx">3–10 × 5 @ 70%/);
-  a.equal((card.match(/class="setb[^"]*"/g) || []).length, 10, "ten buttons");
-  a.equal((card.match(/class="setb[^"]*opt/g) || []).length, 7, "seven of them dashed");
+  a.equal((card.match(/data-act="set"/g) || []).length, 10, "ten buttons");
+  a.equal((card.match(/class="setb opt"/g) || []).length, 7, "seven of them dashed");
   a.match(card, /3 sets is the prescription/, "and the card says which are optional");
   a.match(card, /two-minute rest still applies/, "the Golden Rule survives the extra volume");
 
@@ -1441,4 +1441,54 @@ test("a wave week can carry an optional set ceiling, which is Operator I/A's vol
   const setup = x.vSetup();
   a.match(setup, /data-pbind="wave\.0\.sMax"/, "an input on the wave table");
   a.match(setup, /Operator I\/A/, "named, so the field is not a mystery");
+});
+
+test("a set can be added on the day itself, without going near Setup", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const w1 = x.weeks().filter((w) => w.kind === "cycle" && w.w === 1)[0];
+  const mon = w1.monday, dp = x.dayPlan(mon);
+  a.equal(mon, "2026-09-07", "today is the day we are rendering");
+
+  // Nothing configured: three sets, and a + tile offering a fourth.
+  a.equal(x.rx(w1, "squat", mon).sMax, 3);
+  let card = x.liftCard(w1, "squat", dp);
+  a.equal((card.match(/data-act="set"/g) || []).length, 3);
+  a.match(card, /data-act="addset" data-lift="squat"/, "the + tile is there");
+  a.ok(!/data-act="rmset"/.test(card), "nothing to remove yet");
+
+  // Add one. It lands in the day's log, not the plan.
+  a.equal(x.addSet("squat", 1, mon), true);
+  a.equal(((x.logs[mon].lifts || {}).squat || {}).extra, 1, "stored on the day");
+  a.equal(x.plan.wave[0].sMax, undefined, "the program itself is untouched");
+  a.deepEqual([x.rx(w1, "squat", mon).s, x.rx(w1, "squat", mon).sMax], [3, 4]);
+  card = x.liftCard(w1, "squat", dp);
+  a.equal((card.match(/data-act="set"/g) || []).length, 4, "a fourth button");
+  a.equal((card.match(/class="setb opt"/g) || []).length, 1, "and it is optional");
+  a.match(card, /data-act="rmset"/, "which can be taken back");
+
+  // The next session is unaffected: this was a decision about today.
+  a.equal(x.rx(w1, "squat", x.addDays(mon, 2)).sMax, 3, "Wednesday is back to three");
+
+  // The full-screen stepper offers the same fourth set rather than ending at three.
+  a.equal(x.lsSteps(mon).filter((s) => s.type === "work" && s.k === "squat").length, 4);
+
+  // A ticked set cannot be pulled out from under its own tick.
+  x.seed({ [mon]: { date: mon, lifts: { squat: { extra: 1, sets: [true, true, true, true] } } } }); x.bump();
+  a.equal(x.addSet("squat", -1, mon), false, "set four is logged, so it stays");
+  a.ok(!/data-act="rmset"/.test(x.liftCard(w1, "squat", dp)), "and the button is not offered");
+  x.seed({ [mon]: { date: mon, lifts: { squat: { extra: 1, sets: [true, true, true, false] } } } }); x.bump();
+  a.equal(x.addSet("squat", -1, mon), true, "untick it and it can go");
+  a.equal(x.rx(w1, "squat", mon).sMax, 3);
+
+  // The + stops at the book\u2019s ten.
+  for (let i = 0; i < 20; i++) x.addSet("squat", 1, mon);
+  a.equal(x.rx(w1, "squat", mon).sMax, 10, "ten sets per lift is the ceiling");
+  a.ok(!/data-act="addset"/.test(x.liftCard(w1, "squat", dp)), "and the + tile goes away");
+
+  // Deadlift keeps its own range and grows from there.
+  const fri = x.addDays(mon, 4);
+  a.deepEqual([x.rx(w1, "dead", fri).s, x.rx(w1, "dead", fri).sMax], [1, 3]);
+  x.addSet("dead", 1, fri);
+  a.deepEqual([x.rx(w1, "dead", fri).s, x.rx(w1, "dead", fri).sMax], [1, 4], "a fourth deadlift set");
 });

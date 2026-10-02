@@ -266,6 +266,12 @@ for the ageless athlete" and then does not run the floating part (p. 77):
 
 Fixed calendar, variable volume. That is what the app now supports.
 
+**Update (1.33):** the ceiling alone still meant a trip to Setup, which is the opposite of
+deciding in the gym. A `+` on the lift card and in the session stepper now adds a set to the
+day's log (`lifts[k].extra`), leaving the program alone. Setup's **Up to** stays as the way to
+declare a standing I/A-style range for a week; the `+` is the per-session decision the book
+actually describes.
+
 **Still not supported, and deliberately:** session-indexed waves, the 48–72h float, the
 nine-session wave shape, and the 70–80–90 accessory ladder. Anyone wanting real I/A should
 know the app will not keep their place.

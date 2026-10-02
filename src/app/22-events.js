@@ -69,6 +69,10 @@ document.getElementById('main').addEventListener('click',e=>{
     if(arr[i]){popKey=k+':'+i;setTimeout(()=>{popKey=null},400)}
     if(arr[i]&&sel===todayStr()){unlockAudio();const nx=nextAfterSet(k,arr);if(nx!==undefined)startRest(k,nx);else stopRest()}
     render();return}
+  if(a==='addset'||a==='rmset'){
+    const k=b.dataset.lift, snap=snapLog(sel);
+    if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
+    return}
   if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
   if(a==='rvapply'||a==='rvdismiss'){
     const c=+b.dataset.c;
