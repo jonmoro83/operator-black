@@ -91,3 +91,15 @@ test("Lift 3 rotates the way the setting says", () => {
   x.seed({ "2026-10-12": { date: "2026-10-12", l3: "pull" } });
   a.equal(l3("2026-10-12"), "pull", "a per-day swap overrides the rotation");
 });
+
+test("ramp rest defaults to 90 s, is per lift, and ignores nonsense", () => {
+  const x = app();
+  a.equal(x.warmRestSecs("squat"), 90);                      // the default, not the old 45
+  x.plan.warmRest = { squat: 120, bench: 30 };
+  a.equal(x.warmRestSecs("squat"), 120);                     // shortened or lengthened per lift
+  a.equal(x.warmRestSecs("bench"), 30);
+  a.equal(x.warmRestSecs("dead"), 90);                       // a lift with nothing set
+  x.plan.warmRest = { squat: 0, bench: 9000, pull: "x" };
+  for (const k of ["squat", "bench", "pull"]) a.equal(x.warmRestSecs(k), 90);
+  a.deepEqual(x.WARM_RESTS.map(x.warmRestLabel), ["30s", "45s", "60s", "90s", "2 min"]);
+});

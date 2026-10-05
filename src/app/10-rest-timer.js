@@ -3,6 +3,11 @@
 // locking, the app being backgrounded, or a reload.
 let rest=LS.get('ob.rest'), restTick=null, audioCtx=null, wakeLock=null;
 function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
+// Seconds between ramp sets. Short enough to stay warm, long enough that the last
+// ramp single doesn't eat into the first working set.
+const WARM_RESTS=[30,45,60,90,120];
+function warmRestSecs(k){const v=+((plan.warmRest||{})[k]);return v>=15&&v<=600?v:90}
+function warmRestLabel(v){return v<120?v+'s':(v/60)+' min'}
 // Spoken cues (Setup / timer card). iOS only speaks after a first utterance inside a
 // tap, so unlockAudio primes it with a silent one.
 let voicePrimed=false;

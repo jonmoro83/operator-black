@@ -178,9 +178,12 @@ document.getElementById('ls').addEventListener('click',e=>{
     const next=lsSteps(ls.date)[ls.i+1];
     if(next&&(next.type==='warm'||next.type==='work'||next.type==='test')){
       const label=liftName(next.k)+' · '+(next.type==='warm'?'warm-up '+(next.j+1):next.type==='test'?(next.isRm5?'5-rep max':'heavy single'):'set '+(next.j+1));
-      // 45 s between ramp sets, but the lift's full rest before the first working set
+      // the lift's warm-up rest between ramp sets, its full rest before the first working set
       const intoWork=st.type==='warm'&&next.type!=='warm';
-      if(st.type==='warm') startRest(st.k,label,intoWork?restMins(st.k)*60:45,(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+      if(st.type==='warm'){
+        startRest(st.k,label,intoWork?restMins(st.k)*60:warmRestSecs(st.k),(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+        if(!intoWork&&rest){rest.ramp=1;LS.set('ob.rest',rest)}
+      }
       else startRest(st.k,label);
     } else if(st.type==='work') stopRest();
     return go(ls.i+1);

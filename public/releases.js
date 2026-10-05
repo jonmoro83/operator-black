@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.34',date:'2026-10-04',title:"Longer rests between warm-up sets",items:[
+    "The rest between ramp sets was 45 seconds, which is too short once the bar gets heavy. It\u2019s 90 seconds now.",
+    "You can change it, and it\u2019s per lift. Open the warm-up block on a lift card and pick 30s, 45s, 60s, 90s or 2 min. Deadlift can sit longer than the pulldown if that\u2019s what you want.",
+    "The rest before your first working set hasn\u2019t changed. That\u2019s still the lift\u2019s own rest, somewhere between 2 and 5 minutes.",
+    "Mid-rest, the \u00b130s buttons on the timer work the same as always, and now they nudge the warm-up rest too."]},
   {v:'1.33',date:'2026-10-02',title:"Add a set without leaving the session",items:[
     "There\u2019s a + at the end of the sets on every lift card now. Tap it and you get another one. It applies to that lift on that day and nothing else, so your program stays put and the next session is back to normal.",
     "Session mode has the same thing: \u201c+ One more set\u201d on the last working set, so you don\u2019t have to drop out of full screen just to decide you\u2019ve got another one in you.",

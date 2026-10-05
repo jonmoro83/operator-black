@@ -346,6 +346,7 @@ const DEF={
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
+  warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},

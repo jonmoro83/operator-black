@@ -348,6 +348,7 @@ const DEF={
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
+  warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
@@ -1317,7 +1318,7 @@ function warmupLog(k,sug,basis){
   for(let i=0;i<rows;i++){const x=W[i]||{}, s=sug[i];
     const ew=x.w!=null&&x.w!==''?+x.w:s&&s.w, pl=isBarbell(k)&&ew?platesShort(ew):'';
     body+=`<div class="wu-row"><span class="wu-lbl">${s?s.lbl:'+'+(i+1)}</span>${numIn(`lifts.${k}.warmup.${i}.w`,x.w,s?n(s.w):u(),`aria-label="Warm-up ${i+1} weight"`)}<span class="wu-x">×</span>${numIn(`lifts.${k}.warmup.${i}.r`,x.r,s?String(s.r):'reps',`aria-label="Warm-up ${i+1} reps"`)}<button class="wu-chk${x.done?' on':''}" data-act="wu" data-lift="${k}" data-i="${i}" aria-pressed="${!!x.done}" aria-label="Warm-up ${i+1} done">✓</button>${s?'<span></span>':`<button class="wu-rm" data-act="wurm" data-lift="${k}" data-i="${i}" aria-label="Remove warm-up ${i+1}">×</button>`}${pl?`<span class="wu-pl">${pl}</span>`:''}</div>`}
-  return `<details class="wu" data-lift="${k}"${open?' open':''}><summary><span class="wu-t">Warm-up${rows?` ${done}/${rows}`:''}</span>${chips||'<span class="muted">none logged</span>'}</summary><div class="wu-body">${sug.length?`<div class="small muted">${basis?basis+' ':''}Tap ✓ to log a set as suggested, or type what you actually used.</div>`:'<div class="small muted">Enter a target weight above to get calculated warm-ups.</div>'}${body}<div><button class="btn sm ghost" data-act="wuadd" data-lift="${k}">+ Add warm-up set</button></div></div></details>`;
+  return `<details class="wu" data-lift="${k}"${open?' open':''}><summary><span class="wu-t">Warm-up${rows?` ${done}/${rows}`:''}</span>${chips||'<span class="muted">none logged</span>'}</summary><div class="wu-body">${sug.length?`<div class="small muted">${basis?basis+' ':''}Tap ✓ to log a set as suggested, or type what you actually used.</div>`:'<div class="small muted">Enter a target weight above to get calculated warm-ups.</div>'}${viewing?'':`<div class="restsel"><span>Rest between warm-ups</span><div class="seg">${WARM_RESTS.map(v=>`<button class="segb${warmRestSecs(k)===v?' on':''}" data-act="warmrest" data-lift="${k}" data-v="${v}" aria-pressed="${warmRestSecs(k)===v}">${warmRestLabel(v)}</button>`).join('')}</div></div>`}${body}<div><button class="btn sm ghost" data-act="wuadd" data-lift="${k}">+ Add warm-up set</button></div></div></details>`;
 }
 
 /* ---------- daily check-in ---------- */
@@ -1839,6 +1840,11 @@ function deloadCheckCard(c){
 // locking, the app being backgrounded, or a reload.
 let rest=LS.get('ob.rest'), restTick=null, audioCtx=null, wakeLock=null;
 function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
+// Seconds between ramp sets. Short enough to stay warm, long enough that the last
+// ramp single doesn't eat into the first working set.
+const WARM_RESTS=[30,45,60,90,120];
+function warmRestSecs(k){const v=+((plan.warmRest||{})[k]);return v>=15&&v<=600?v:90}
+function warmRestLabel(v){return v<120?v+'s':(v/60)+' min'}
 // Spoken cues (Setup / timer card). iOS only speaks after a first utterance inside a
 // tap, so unlockAudio primes it with a silent one.
 let voicePrimed=false;
@@ -2221,9 +2227,12 @@ document.getElementById('ls').addEventListener('click',e=>{
     const next=lsSteps(ls.date)[ls.i+1];
     if(next&&(next.type==='warm'||next.type==='work'||next.type==='test')){
       const label=liftName(next.k)+' · '+(next.type==='warm'?'warm-up '+(next.j+1):next.type==='test'?(next.isRm5?'5-rep max':'heavy single'):'set '+(next.j+1));
-      // 45 s between ramp sets, but the lift's full rest before the first working set
+      // the lift's warm-up rest between ramp sets, its full rest before the first working set
       const intoWork=st.type==='warm'&&next.type!=='warm';
-      if(st.type==='warm') startRest(st.k,label,intoWork?restMins(st.k)*60:45,(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+      if(st.type==='warm'){
+        startRest(st.k,label,intoWork?restMins(st.k)*60:warmRestSecs(st.k),(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+        if(!intoWork&&rest){rest.ramp=1;LS.set('ob.rest',rest)}
+      }
       else startRest(st.k,label);
     } else if(st.type==='work') stopRest();
     return go(ls.i+1);
@@ -3711,6 +3720,9 @@ document.getElementById('main').addEventListener('click',e=>{
       else startRest(null,'HIC: '+HIC[effFmt(sel)].name,600,'Rest before HIC');
     }
     render();return}
+  if(a==='warmrest'){const k=b.dataset.lift,v=+b.dataset.v;if(warmRestSecs(k)===v)return;mutatePlan(p=>{p.warmRest=Object.assign({},p.warmRest,{[k]:v})});
+    if(rest&&rest.ramp&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=v;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
+    return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}

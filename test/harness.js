@@ -4,7 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const CONSTS = ["APP_VERSION", "RELEASES", "PLYO_UPPER", "PLIB", "VARS", "openPx", "MLIB", "PULLUP", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "IV", "DELOAD_OPTS", "L3K", "LK"];
+const CONSTS = ["APP_VERSION", "RELEASES", "PLYO_UPPER", "PLIB", "VARS", "openPx", "MLIB", "PULLUP", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "IV", "DELOAD_OPTS", "WARM_RESTS", "L3K", "LK"];
 const STATE = ["plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey"];
 
 function stubDom() {
