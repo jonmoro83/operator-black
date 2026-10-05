@@ -1492,3 +1492,43 @@ test("a set can be added on the day itself, without going near Setup", () => {
   x.addSet("dead", 1, fri);
   a.deepEqual([x.rx(w1, "dead", fri).s, x.rx(w1, "dead", fri).sMax], [1, 4], "a fourth deadlift set");
 });
+
+test("the generic timer counts both ways and survives pausing", () => {
+  const x = loadApp();
+  a.deepEqual([30, 90, 600, 3600, 3725].map(x.gtFmt), ["0:30", "1:30", "10:00", "1:00:00", "1:02:05"]);
+
+  const realNow = Date.now;
+  let t = realNow();
+  Date.now = () => t;                                  // a clock the test can move
+  try {
+    x.gtStart("down", 120);
+    a.equal(x.gtSecs(), 120);
+    t += 45000;
+    a.equal(x.gtSecs(), 75);
+
+    x.gtPause();
+    t += 20000;                                        // 20 s spent paused
+    a.equal(x.gtSecs(), 75);                           // frozen, not draining
+    x.gtPause();
+    a.equal(x.gtSecs(), 75);                           // resumed with nothing lost
+    t += 15000;
+    a.equal(x.gtSecs(), 60);
+
+    x.gtAdd(30);
+    a.equal(x.gtSecs(), 90);
+    x.gtAdd(-30);
+    a.equal(x.gtSecs(), 60);
+
+    x.gtStart("up");                                   // the stopwatch counts the other way
+    a.equal(x.gtSecs(), 0);
+    t += 65000;
+    a.equal(x.gtSecs(), 65);
+    x.gtPause(); t += 30000;
+    a.equal(x.gtSecs(), 65);                           // and pauses the same way
+    x.gtPause(); t += 5000;
+    a.equal(x.gtSecs(), 70);
+
+    x.gtStop();
+    a.equal(x.gt, null);
+  } finally { Date.now = realNow }
+});

@@ -67,7 +67,12 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .upd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--accent-bg);color:var(--ink);border-radius:8px;padding:8px 10px 8px 12px;font-size:13.5px;font-weight:600}
 #status.link{text-decoration:underline;cursor:pointer}
 #status.err{color:var(--red)}
-nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.navrow{display:flex;align-items:stretch;gap:4px;min-width:0}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.tmr-b{all:unset;box-sizing:border-box;cursor:pointer;flex:0 0 auto;align-self:center;width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1}
+.tmr-b[aria-expanded="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tmr-b.on{border-color:var(--accent);color:var(--accent)}
+.tmr-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 nav button{all:unset;cursor:pointer;padding:8px 12px 10px;font-weight:650;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 nav button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
 nav button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
@@ -215,8 +220,23 @@ body.iv-mini .wrap{padding-bottom:190px}
 #toast[hidden]{display:none}
 #toast .btn{background:transparent;border-color:rgb(255 255 255 / .35);color:var(--bg);font-weight:750}
 body.timing #toast,body.iv-mini #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}
+body.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
+body.timing.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 244px)}
 /* rest timer */
-#rest{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12);padding-bottom:env(safe-area-inset-bottom,0px)}
+#bars{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+#rest{background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
+#gt{background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
+#gt.done{background:var(--green-bg)}
+#gt.done .gt-t{color:var(--green)}
+.gt-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:8px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:6px 12px;align-items:center}
+.gt-txt{grid-area:txt;min-width:0}
+#gt-l{font-weight:800;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gt-t{grid-area:time;font-family:var(--f-display);font-stretch:68%;font-weight:900;font-size:36px;line-height:1;font-variant-numeric:tabular-nums}
+.gt-btns{grid-area:btns;display:flex;gap:6px}
+.gt-btns .btn{flex:1}
+.tmr-m{min-width:min(320px,calc(100vw - 32px));display:flex;flex-direction:column;gap:10px;padding:12px}
+.gt-m-h{font-weight:800;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tmr-m{top:88px}
 .rest-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:8px 12px;align-items:center}
 .rest-txt{grid-area:txt;display:flex;flex-direction:column;min-width:0}
 #rest-lbl{font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
@@ -230,6 +250,8 @@ body.timing #toast,body.iv-mini #toast{bottom:calc(env(safe-area-inset-bottom,0p
 #rest.done .rest-time{color:var(--green)}
 #rest.done .rest-bar i{background:var(--green)}
 body.timing .wrap{padding-bottom:150px}
+body.gt-on .wrap{padding-bottom:104px}
+body.timing.gt-on .wrap{padding-bottom:244px}
 .pex{display:flex;flex-direction:column;gap:6px}
 details.px>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-weight:650;font-size:14px}
 details.px>summary::-webkit-details-marker{display:none}

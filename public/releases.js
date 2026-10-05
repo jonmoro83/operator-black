@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.35',date:'2026-10-05',title:"A timer for anything",items:[
+    "There\u2019s a \u23f1 at the end of the tab row now. Tap it and you get a countdown or a stopwatch, on any tab, with no session started and nothing logged.",
+    "Pick 30 seconds, 1, 2, 3, 5 or 10 minutes, or type the minutes you want. \u00b130s while it runs, and pause and resume whenever.",
+    "It runs on its own. Start one while a rest or an interval is going and both keep counting, stacked at the bottom of the screen.",
+    "It beeps and speaks when it finishes, same as the rest timer, and sends a notification if you have rest alerts on and nothing else is using them.",
+    "Lock the phone or reload the app and it\u2019s still right, because it counts to a fixed time rather than ticking. One left running overnight clears itself."]},
   {v:'1.34',date:'2026-10-04',title:"Longer rests between warm-up sets",items:[
     "The rest between ramp sets was 45 seconds, which is too short once the bar gets heavy. It\u2019s 90 seconds now.",
     "You can change it, and it\u2019s per lift. Open the warm-up block on a lift card and pick 30s, 45s, 60s, 90s or 2 min. Deadlift can sit longer than the pulldown if that\u2019s what you want.",

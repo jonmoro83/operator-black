@@ -236,6 +236,15 @@ running both sides when the dose says per side; the rest wait for a tap. `plan.g
 at 0:00 on `guide.wait` until tapped. State lives in `ob.guide` with absolute end times,
 so locking the phone doesn't lose the place.
 
+## Timer
+
+`src/app/10b-timer.js` is a countdown and stopwatch for anything, opened from the ⏱ at
+the end of the tab row and deliberately not tied to a session. State lives in `ob.gt` as
+absolute times, so locking or reloading doesn't drift it and a timer older than 12 hours
+is dropped at boot. It renders into its own bar inside `#bars`, which stacks it above the
+rest bar rather than replacing it, and it only touches the push queue when no rest or
+interval owns it.
+
 ## Interval timer
 
 HIC and LISS cards have a guided timer built from the Black formats (MAP 1:00/1:00 ×8–10,

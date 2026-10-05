@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/app.css?b=4b5dbe9914">
+<link rel="stylesheet" href="/app.css?b=a7a5b14602">
 
 </head>
 <body>
@@ -44,6 +44,7 @@
       </svg>
       <h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div>
       <button id="acct" class="acct" aria-haspopup="true" aria-expanded="false" aria-label="Account and sync status"><span id="acct-i">•</span><i id="acct-dot" class="acct-dot"></i></button></div>
+    <div id="tmr-m" class="acct-m tmr-m" hidden aria-labelledby="tmr-b"></div>
     <div id="acct-m" class="acct-m" hidden role="menu" aria-labelledby="acct">
       <div class="acct-who"><span class="small muted">Signed in as</span><span id="acct-e">—</span><span class="acct-st" id="acct-st"></span></div>
       <button class="acct-b" data-view="setup" role="menuitem">Profile and settings</button>
@@ -51,6 +52,7 @@
       <a class="acct-b out" id="acct-out" href="/cdn-cgi/access/logout" role="menuitem">Sign out</a>
     </div>
     <div id="upd" class="upd" hidden><span>A new version of the app is ready.</span><span class="upd-b"><button class="btn sm" id="upd-what">What’s new</button><button class="btn sm primary" id="upd-go">Reload</button></span></div>
+    <div class="navrow">
     <nav id="nav" aria-label="Sections">
       <button data-view="today">Today</button>
       <button data-view="status">Status</button>
@@ -59,6 +61,8 @@
       <button data-view="setup">Setup</button>
       <button data-view="guide">Guide</button>
     </nav>
+    <button id="tmr-b" class="tmr-b" aria-haspopup="true" aria-expanded="false" aria-label="Timer"><span aria-hidden="true">⏱</span></button>
+    </div>
   </div>
 </header>
 <div class="wrap"><main id="main"></main></div>
@@ -82,6 +86,19 @@
   </div>
 </div>
 <div id="toast" hidden role="status"><span id="toast-msg"></span><button class="btn sm" id="toast-undo">Undo</button></div>
+<div id="bars">
+<div id="gt" hidden aria-live="polite">
+  <div class="gt-in">
+    <div class="gt-txt"><span id="gt-l">Timer</span></div>
+    <div id="gt-t" class="gt-t">0:00</div>
+    <div class="gt-btns">
+      <button class="btn sm" data-act="gtadd" data-v="-30" aria-label="30 seconds less">−30s</button>
+      <button class="btn sm" data-act="gtadd" data-v="30" aria-label="30 seconds more">+30s</button>
+      <button class="btn sm" data-act="gtpause" id="gt-p">Pause</button>
+      <button class="btn sm primary" data-act="gtstop">Stop</button>
+    </div>
+  </div>
+</div>
 <div id="rest" hidden aria-live="polite">
   <div class="rest-in">
     <div class="rest-txt"><span id="rest-lbl"></span><span id="rest-next"></span></div>
@@ -94,8 +111,9 @@
   </div>
   <div class="rest-bar"><i id="rest-fill"></i></div>
 </div>
+</div>
 
-<script src="/releases.js?b=4b5dbe9914"></script>
-<script src="/app.js?b=4b5dbe9914"></script>
+<script src="/releases.js?b=a7a5b14602"></script>
+<script src="/app.js?b=a7a5b14602"></script>
 </body>
 </html>

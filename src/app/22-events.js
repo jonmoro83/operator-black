@@ -217,6 +217,8 @@ applyTheme();
 loadLocal();
 render();
 if(rest) showRest();
+if(gt && Date.now() - (gt.mode === 'down' ? gt.end : gt.start) > GT_STALE_MS){ gt = null; LS.set('ob.gt', null) }
+if(gt) gtShow();
 if(iv&&Date.now()-iv.start>3*3600*1000){iv=null;LS.set('ob.iv',null)}
 if(iv) ivShow();
 if(ls&&ls.date!==realToday()){ls=null;LS.set('ob.ls',null)}
