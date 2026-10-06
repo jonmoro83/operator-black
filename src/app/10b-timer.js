@@ -24,13 +24,13 @@ function gtStart(mode, secs){
   const now = Date.now();
   gt = mode === 'up' ? { mode:'up', start:now, pausedMs:0, paused:null }
                      : { mode:'down', dur:secs, end:now + secs * 1000, pausedMs:0, paused:null, done:false };
-  gtSave(); holdScreen(true); gtShow(); gtPush();
+  gtSave(); syncScreen(); gtShow(); gtPush();
 }
 function gtPause(){
   if(!gt) return;
-  if(gt.paused){ const d = Date.now() - gt.paused; gt.pausedMs += d; if(gt.mode === 'down') gt.end += d; gt.paused = null; holdScreen(true) }
+  if(gt.paused){ const d = Date.now() - gt.paused; gt.pausedMs += d; if(gt.mode === 'down') gt.end += d; gt.paused = null }
   else gt.paused = Date.now();
-  gtSave(); gtRender(); gtPanelDraw(); gtPush();
+  gtSave(); syncScreen(); gtRender(); gtPanelDraw(); gtPush();
 }
 function gtAdd(s){
   if(!gt || gt.mode !== 'down') return;
@@ -43,7 +43,7 @@ function gtAdd(s){
 function gtStop(){
   gt = null; gtSave();
   clearInterval(gtTick); gtTick = null;
-  if(!rest || rest.done) holdScreen(false);
+  syncScreen();
   gtShow(); gtPanelDraw(); gtPush();
 }
 function gtShow(){
@@ -64,7 +64,7 @@ function gtRender(){
   document.getElementById('gt-p').textContent = gt.paused ? 'Resume' : 'Pause';
   el.classList.toggle('done', over);
   if(over && !gt.done){
-    gt.done = true; gtSave(); beep(); holdScreen(false);
+    gt.done = true; gtSave(); beep(); syncScreen();
     setTimeout(() => say('Timer done'), 700);
   }
   if(over && Date.now() - gt.end > 5 * 60000) gtStop();   // nobody dismissed it

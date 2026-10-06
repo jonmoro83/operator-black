@@ -1532,3 +1532,32 @@ test("the generic timer counts both ways and survives pausing", () => {
     a.equal(x.gt, null);
   } finally { Date.now = realNow }
 });
+
+test("the screen is held for a whole session, not just while a rest counts", () => {
+  const x = loadApp();
+  a.equal(x.wantScreen(), false);                      // nothing going on
+
+  x.rest = { k:"squat", end: Date.now() + 60000, dur:60, done:false };
+  a.equal(x.wantScreen(), true);
+  x.rest.done = true;
+  a.equal(x.wantScreen(), false);                      // a finished rest alone doesn't
+
+  x.ls = { date:"2026-10-19", i:0 };                   // but the session it belongs to does
+  a.equal(x.wantScreen(), true);
+  x.ls = null;
+  x.guide = { date:"2026-10-19" };
+  a.equal(x.wantScreen(), true);
+  x.guide = null;
+
+  x.gt = { mode:"down", end: Date.now() + 60000, dur:60, paused:null, done:false };
+  a.equal(x.wantScreen(), true);
+  x.gt.paused = Date.now();                            // a paused timer lets it sleep
+  a.equal(x.wantScreen(), false);
+  x.gt = null;
+
+  x.iv = { done:false };
+  a.equal(x.wantScreen(), true);
+  x.iv = null;
+  x.rest = null;
+  a.equal(x.wantScreen(), false);
+});

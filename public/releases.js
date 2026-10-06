@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.36',date:'2026-10-06',title:"The screen stays on, and the beep comes back",items:[
+    "The screen now stays awake for the whole session, not just while a rest is counting. Before, it let go the moment a rest hit zero, so it would go dark while you were actually lifting.",
+    "That was also why the rest between working sets often didn\u2019t beep. Once the screen had slept, iOS had muted the app\u2019s audio and the app never woke it back up. It does now, every time you come back to it.",
+    "The rest between warm-up sets used to be labelled \u201cRamp rest\u201d, which reads like something off a bike test. It says \u201cWarm-up rest\u201d.",
+    "The screen is held while session mode or a guided warm-up is open, and while any timer is running. A paused timer lets it sleep."]},
   {v:'1.35',date:'2026-10-05',title:"A timer for anything",items:[
     "There\u2019s a \u23f1 at the end of the tab row now. Tap it and you get a countdown or a stopwatch, on any tab, with no session started and nothing logged.",
     "Pick 30 seconds, 1, 2, 3, 5 or 10 minutes, or type the minutes you want. \u00b130s while it runs, and pause and resume whenever.",

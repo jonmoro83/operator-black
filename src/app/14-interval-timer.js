@@ -62,7 +62,7 @@ function ivStart(fmt){
   unlockAudio(); stopRest(); clearTimeout(pushTimer); // a pending rest-alert cancel must not wipe the interval queue
   iv={date:sel,fmt,mod:modOf(sel),segs,start:Date.now()+1500,paused:null,pausedMs:0,mini:false,rounds:o.rounds||0,done:false};
   if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
-  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); holdScreen(true); ivShow(); ivPush();
+  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); ivPush();
 }
 function ivPush(){
   if(!alertsOn()||!iv) return;
@@ -122,7 +122,7 @@ function ivSpeech(seg){
   return 'Easy. '+dur+'.';
 }
 function ivFinish(){
-  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);holdScreen(false);
+  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);
     const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     // the session you actually did, not the one that was planned
@@ -139,17 +139,17 @@ function ivFinish(){
     box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result"></label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
   }
 }
-function ivClose(){iv=null;LS.set('ob.iv',null);holdScreen(false);ivShow();render()}
+function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();render()}
 document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
   unlockAudio();
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
-    if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;holdScreen(true);
+    if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();
       if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) api('POST','/push/cancel').catch(()=>{}); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&iv&&!iv.done&&!iv.paused) holdScreen(true) });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });

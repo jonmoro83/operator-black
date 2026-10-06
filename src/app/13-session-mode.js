@@ -53,8 +53,8 @@ function wuListFor(date,k){const W=((lg(date).lifts||{})[k]||{}).warmup;return A
 function lsFirstOpen(){const st=lsSteps(ls.date);
   if(!st.some(x=>['warm','work','test','pullups'].includes(x.type)&&lsStepDone(x))) return 0;
   const i=st.findIndex(x=>['warm','work','test','pullups'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
-function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); holdScreen(true); lsShow(); }
-function lsClose(){ ls=null; LS.set('ob.ls',null); if(!rest||rest.done) holdScreen(false); lsShow(); render(); }
+function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); syncScreen(); lsShow(); }
+function lsClose(){ ls=null; LS.set('ob.ls',null); syncScreen(); lsShow(); render(); }
 function lsShow(){
   const el=document.getElementById('ls');
   if(!ls||viewing){el.hidden=true;clearInterval(lsTick);lsTick=null;document.body.style.overflow='';return}
@@ -181,7 +181,7 @@ document.getElementById('ls').addEventListener('click',e=>{
       // the lift's warm-up rest between ramp sets, its full rest before the first working set
       const intoWork=st.type==='warm'&&next.type!=='warm';
       if(st.type==='warm'){
-        startRest(st.k,label,intoWork?restMins(st.k)*60:warmRestSecs(st.k),(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+        startRest(st.k,label,intoWork?restMins(st.k)*60:warmRestSecs(st.k),(intoWork?'Rest before working sets · ':'Warm-up rest · ')+liftName(st.k));
         if(!intoWork&&rest){rest.ramp=1;LS.set('ob.rest',rest)}
       }
       else startRest(st.k,label);

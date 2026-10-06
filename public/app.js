@@ -1865,18 +1865,42 @@ function unlockAudio(){
 }
 function beep(){
   try{
-    if(quiet()||!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
+    if(quiet()) return; if(!audioCtx) unlockAudio(); if(!audioCtx) return;
+    if(audioCtx.state==='suspended') audioCtx.resume();
     const t0=audioCtx.currentTime;
     [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
   }catch(e){}
   try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
 }
+// iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
+// object, so re-check `released` rather than trusting we still hold it.
 async function holdScreen(on){
   try{
-    if(on&&!wakeLock&&navigator.wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})}
-    else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
+    if(on){
+      if(!navigator.wakeLock) return;
+      if(wakeLock&&!wakeLock.released) return;
+      wakeLock=await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release',()=>{wakeLock=null});
+    } else if(wakeLock){ const w=wakeLock; wakeLock=null; await w.release() }
   }catch(e){wakeLock=null}
 }
+// The screen stays on for as long as anything is actually going on, not just while a
+// rest happens to be counting: a session is open, or any timer is running.
+function wantScreen(){
+  if(ls||guide) return true;                      // session mode, or the guided runner
+  if(rest&&!rest.done) return true;
+  if(iv&&!iv.done) return true;
+  if(gt&&!gt.paused&&!gt.done) return true;
+  return false;
+}
+function syncScreen(){ holdScreen(wantScreen()) }
+// Coming back to the app: take the lock again if we still need it, and wake the audio
+// context, which iOS suspends while the page is hidden and a silent beep never recovers.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  syncScreen();
+  try{ if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume() }catch(e){}
+});
 
 /* ---------- a timer for anything ---------- */
 // Deliberately not tied to a session: open it from the header on any tab, any day, with
@@ -1904,13 +1928,13 @@ function gtStart(mode, secs){
   const now = Date.now();
   gt = mode === 'up' ? { mode:'up', start:now, pausedMs:0, paused:null }
                      : { mode:'down', dur:secs, end:now + secs * 1000, pausedMs:0, paused:null, done:false };
-  gtSave(); holdScreen(true); gtShow(); gtPush();
+  gtSave(); syncScreen(); gtShow(); gtPush();
 }
 function gtPause(){
   if(!gt) return;
-  if(gt.paused){ const d = Date.now() - gt.paused; gt.pausedMs += d; if(gt.mode === 'down') gt.end += d; gt.paused = null; holdScreen(true) }
+  if(gt.paused){ const d = Date.now() - gt.paused; gt.pausedMs += d; if(gt.mode === 'down') gt.end += d; gt.paused = null }
   else gt.paused = Date.now();
-  gtSave(); gtRender(); gtPanelDraw(); gtPush();
+  gtSave(); syncScreen(); gtRender(); gtPanelDraw(); gtPush();
 }
 function gtAdd(s){
   if(!gt || gt.mode !== 'down') return;
@@ -1923,7 +1947,7 @@ function gtAdd(s){
 function gtStop(){
   gt = null; gtSave();
   clearInterval(gtTick); gtTick = null;
-  if(!rest || rest.done) holdScreen(false);
+  syncScreen();
   gtShow(); gtPanelDraw(); gtPush();
 }
 function gtShow(){
@@ -1944,7 +1968,7 @@ function gtRender(){
   document.getElementById('gt-p').textContent = gt.paused ? 'Resume' : 'Pause';
   el.classList.toggle('done', over);
   if(over && !gt.done){
-    gt.done = true; gtSave(); beep(); holdScreen(false);
+    gt.done = true; gtSave(); beep(); syncScreen();
     setTimeout(() => say('Timer done'), 700);
   }
   if(over && Date.now() - gt.end > 5 * 60000) gtStop();   // nobody dismissed it
@@ -2102,7 +2126,7 @@ function gdStart(kind){
   if(!gdItems(kind,sel).length) return;
   unlockAudio(); stopRest();
   guide={kind,date:sel,pos:0};
-  gdBegin(); holdScreen(true); gdShow();
+  gdBegin(); syncScreen(); gdShow();
 }
 function gdGo(pos){
   const items=gdItems(guide.kind,guide.date);
@@ -2115,7 +2139,7 @@ function gdFinish(){
   tone(880,.18); tone(1320,.35,.22); vib([160,90,220]);
   gdClose();
 }
-function gdClose(){ guide=null; LS.set('ob.guide',null); if(!rest||rest.done) holdScreen(false); gdShow(); render(); }
+function gdClose(){ guide=null; LS.set('ob.guide',null); syncScreen(); gdShow(); render(); }
 function gdShow(){
   const el=document.getElementById('gd');
   if(!guide||viewing){el.hidden=true;clearInterval(gdTick);gdTick=null;document.body.style.overflow='';return}
@@ -2168,7 +2192,7 @@ document.getElementById('gd').addEventListener('click',e=>{
   }
   if(a==='auto'){ mutatePlan(p=>{p.guideAuto=p.guideAuto===false}); return gdRender() }
   if(a==='pause'){
-    if(guide.paused){ guide.end+=Date.now()-guide.paused; guide.paused=null; holdScreen(true) }
+    if(guide.paused){ guide.end+=Date.now()-guide.paused; guide.paused=null }
     else guide.paused=Date.now();
     LS.set('ob.guide',guide); gdRender();
   }
@@ -2229,8 +2253,8 @@ function wuListFor(date,k){const W=((lg(date).lifts||{})[k]||{}).warmup;return A
 function lsFirstOpen(){const st=lsSteps(ls.date);
   if(!st.some(x=>['warm','work','test','pullups'].includes(x.type)&&lsStepDone(x))) return 0;
   const i=st.findIndex(x=>['warm','work','test','pullups'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
-function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); holdScreen(true); lsShow(); }
-function lsClose(){ ls=null; LS.set('ob.ls',null); if(!rest||rest.done) holdScreen(false); lsShow(); render(); }
+function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); syncScreen(); lsShow(); }
+function lsClose(){ ls=null; LS.set('ob.ls',null); syncScreen(); lsShow(); render(); }
 function lsShow(){
   const el=document.getElementById('ls');
   if(!ls||viewing){el.hidden=true;clearInterval(lsTick);lsTick=null;document.body.style.overflow='';return}
@@ -2357,7 +2381,7 @@ document.getElementById('ls').addEventListener('click',e=>{
       // the lift's warm-up rest between ramp sets, its full rest before the first working set
       const intoWork=st.type==='warm'&&next.type!=='warm';
       if(st.type==='warm'){
-        startRest(st.k,label,intoWork?restMins(st.k)*60:warmRestSecs(st.k),(intoWork?'Rest before working sets · ':'Ramp rest · ')+liftName(st.k));
+        startRest(st.k,label,intoWork?restMins(st.k)*60:warmRestSecs(st.k),(intoWork?'Rest before working sets · ':'Warm-up rest · ')+liftName(st.k));
         if(!intoWork&&rest){rest.ramp=1;LS.set('ob.rest',rest)}
       }
       else startRest(st.k,label);
@@ -2432,7 +2456,7 @@ function ivStart(fmt){
   unlockAudio(); stopRest(); clearTimeout(pushTimer); // a pending rest-alert cancel must not wipe the interval queue
   iv={date:sel,fmt,mod:modOf(sel),segs,start:Date.now()+1500,paused:null,pausedMs:0,mini:false,rounds:o.rounds||0,done:false};
   if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
-  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); holdScreen(true); ivShow(); ivPush();
+  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); ivPush();
 }
 function ivPush(){
   if(!alertsOn()||!iv) return;
@@ -2492,7 +2516,7 @@ function ivSpeech(seg){
   return 'Easy. '+dur+'.';
 }
 function ivFinish(){
-  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);holdScreen(false);
+  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);
     const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     // the session you actually did, not the one that was planned
@@ -2509,20 +2533,20 @@ function ivFinish(){
     box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result"></label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
   }
 }
-function ivClose(){iv=null;LS.set('ob.iv',null);holdScreen(false);ivShow();render()}
+function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();render()}
 document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
   unlockAudio();
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
-    if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;holdScreen(true);
+    if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();
       if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) api('POST','/push/cancel').catch(()=>{}); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&iv&&!iv.done&&!iv.paused) holdScreen(true) });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });
 
 /* ---------- what's new (RELEASES comes from releases.js) ---------- */
 const APP_VERSION=RELEASES[0].v;
@@ -2741,14 +2765,14 @@ function syncPush(){
 function startHold(name,secs,sides,side){
   unlockAudio();
   rest={k:null,lbl:name,next:sides>1?(side<sides?'Switch sides':'Hold done'):'',end:Date.now()+secs*1000,dur:secs,done:false,hold:1,baseLbl:name,sides,side};
-  LS.set('ob.rest',rest); holdScreen(true); showRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
 }
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
-  LS.set('ob.rest',rest); holdScreen(true); showRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
 }
-function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;holdScreen(false);showRest();if(was)syncPush()}
+function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();if(was)syncPush()}
 function showRest(){
   const el=document.getElementById('rest');
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
@@ -2767,7 +2791,7 @@ function tickRest(){
   el.classList.toggle('done',left===0);
   if(left===10&&rest.dur>20&&!rest.said10){rest.said10=true;say('Ten seconds')}
   if(left===0&&!rest.done){
-    rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false);
+    rest.done=true;LS.set('ob.rest',rest);beep();syncScreen();
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
     else setTimeout(()=>say(rest&&rest.hold?(rest.baseLbl+' done'):rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700);
   }
@@ -2780,9 +2804,9 @@ document.getElementById('rest').addEventListener('click',e=>{
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
-  LS.set('ob.rest',rest); holdScreen(true); tickRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); tickRest(); syncPush();
 });
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ if(!rest.done) holdScreen(true); tickRest() } });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ syncScreen(); tickRest() } });
 function nextAfterSet(k,sets){
   const wk=weekOf(sel), dp=dayPlan(sel); if(!wk||dp.t!=='lift') return null;
   const r=rx(wk,k), nSets=r.sMax;

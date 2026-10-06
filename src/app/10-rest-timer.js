@@ -28,15 +28,39 @@ function unlockAudio(){
 }
 function beep(){
   try{
-    if(quiet()||!audioCtx) return; if(audioCtx.state==='suspended') audioCtx.resume();
+    if(quiet()) return; if(!audioCtx) unlockAudio(); if(!audioCtx) return;
+    if(audioCtx.state==='suspended') audioCtx.resume();
     const t0=audioCtx.currentTime;
     [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
   }catch(e){}
   try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
 }
+// iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
+// object, so re-check `released` rather than trusting we still hold it.
 async function holdScreen(on){
   try{
-    if(on&&!wakeLock&&navigator.wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})}
-    else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}
+    if(on){
+      if(!navigator.wakeLock) return;
+      if(wakeLock&&!wakeLock.released) return;
+      wakeLock=await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release',()=>{wakeLock=null});
+    } else if(wakeLock){ const w=wakeLock; wakeLock=null; await w.release() }
   }catch(e){wakeLock=null}
 }
+// The screen stays on for as long as anything is actually going on, not just while a
+// rest happens to be counting: a session is open, or any timer is running.
+function wantScreen(){
+  if(ls||guide) return true;                      // session mode, or the guided runner
+  if(rest&&!rest.done) return true;
+  if(iv&&!iv.done) return true;
+  if(gt&&!gt.paused&&!gt.done) return true;
+  return false;
+}
+function syncScreen(){ holdScreen(wantScreen()) }
+// Coming back to the app: take the lock again if we still need it, and wake the audio
+// context, which iOS suspends while the page is hidden and a silent beep never recovers.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  syncScreen();
+  try{ if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume() }catch(e){}
+});

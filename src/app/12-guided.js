@@ -29,7 +29,7 @@ function gdStart(kind){
   if(!gdItems(kind,sel).length) return;
   unlockAudio(); stopRest();
   guide={kind,date:sel,pos:0};
-  gdBegin(); holdScreen(true); gdShow();
+  gdBegin(); syncScreen(); gdShow();
 }
 function gdGo(pos){
   const items=gdItems(guide.kind,guide.date);
@@ -42,7 +42,7 @@ function gdFinish(){
   tone(880,.18); tone(1320,.35,.22); vib([160,90,220]);
   gdClose();
 }
-function gdClose(){ guide=null; LS.set('ob.guide',null); if(!rest||rest.done) holdScreen(false); gdShow(); render(); }
+function gdClose(){ guide=null; LS.set('ob.guide',null); syncScreen(); gdShow(); render(); }
 function gdShow(){
   const el=document.getElementById('gd');
   if(!guide||viewing){el.hidden=true;clearInterval(gdTick);gdTick=null;document.body.style.overflow='';return}
@@ -95,7 +95,7 @@ document.getElementById('gd').addEventListener('click',e=>{
   }
   if(a==='auto'){ mutatePlan(p=>{p.guideAuto=p.guideAuto===false}); return gdRender() }
   if(a==='pause'){
-    if(guide.paused){ guide.end+=Date.now()-guide.paused; guide.paused=null; holdScreen(true) }
+    if(guide.paused){ guide.end+=Date.now()-guide.paused; guide.paused=null }
     else guide.paused=Date.now();
     LS.set('ob.guide',guide); gdRender();
   }

@@ -60,14 +60,14 @@ function syncPush(){
 function startHold(name,secs,sides,side){
   unlockAudio();
   rest={k:null,lbl:name,next:sides>1?(side<sides?'Switch sides':'Hold done'):'',end:Date.now()+secs*1000,dur:secs,done:false,hold:1,baseLbl:name,sides,side};
-  LS.set('ob.rest',rest); holdScreen(true); showRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
 }
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
-  LS.set('ob.rest',rest); holdScreen(true); showRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
 }
-function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;holdScreen(false);showRest();if(was)syncPush()}
+function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();if(was)syncPush()}
 function showRest(){
   const el=document.getElementById('rest');
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
@@ -86,7 +86,7 @@ function tickRest(){
   el.classList.toggle('done',left===0);
   if(left===10&&rest.dur>20&&!rest.said10){rest.said10=true;say('Ten seconds')}
   if(left===0&&!rest.done){
-    rest.done=true;LS.set('ob.rest',rest);beep();holdScreen(false);
+    rest.done=true;LS.set('ob.rest',rest);beep();syncScreen();
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
     else setTimeout(()=>say(rest&&rest.hold?(rest.baseLbl+' done'):rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700);
   }
@@ -99,9 +99,9 @@ document.getElementById('rest').addEventListener('click',e=>{
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
-  LS.set('ob.rest',rest); holdScreen(true); tickRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); tickRest(); syncPush();
 });
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ if(!rest.done) holdScreen(true); tickRest() } });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ syncScreen(); tickRest() } });
 function nextAfterSet(k,sets){
   const wk=weekOf(sel), dp=dayPlan(sel); if(!wk||dp.t!=='lift') return null;
   const r=rx(wk,k), nSets=r.sMax;

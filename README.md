@@ -236,6 +236,17 @@ running both sides when the dose says per side; the rest wait for a tap. `plan.g
 at 0:00 on `guide.wait` until tapped. State lives in `ob.guide` with absolute end times,
 so locking the phone doesn't lose the place.
 
+## Keeping the screen on
+
+One owner: `wantScreen()` says whether anything is going on (session mode or the guided
+runner open, or a rest, interval or generic timer running) and `syncScreen()` acts on it.
+Nothing calls `holdScreen` directly, because the old scattered calls released the lock
+the moment a rest ended even though the session was still going. iOS also drops the lock
+whenever the page hides and leaves a released lock looking like a live one, so
+`holdScreen` re-checks `released` rather than trusting it, and a `visibilitychange`
+handler re-takes the lock and resumes the AudioContext, which iOS suspends while hidden
+and which a beep can't recover on its own.
+
 ## Timer
 
 `src/app/10b-timer.js` is a countdown and stopwatch for anything, opened from the ⏱ at
