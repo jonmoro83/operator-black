@@ -23,8 +23,9 @@ const MOD={
   ski:{name:'Ski erg',hic:['cal','cal'],liss:['dist','m'],wu:'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'},
   run:{name:'Run / sprints',hic:['dist','m'],liss:['dist','mi'],wu:'5 min jog, leg swings, then 3–4 strides building up to HIC pace.',tip:'Running adds impact. Keep hard efforts smooth (about 90%) on MAP, threshold and long intervals, and save true sprints for anaerobic days. Hills are easier on the legs than flat sprints.'},
   cycle:{name:'Cycling',hic:['watts','avg W'],liss:['dist','mi'],wu:'10 min easy spin, then 3 × 15 s at HIC pace.'},
+  trail:{name:'Trail run',hic:['dist','m'],liss:['dist','mi'],elev:true,wu:'10 min easy jog on flat ground, then 3 × 20 s hard uphill with an easy jog back down.',tip:'Uneven ground makes pace meaningless, so run the hard efforts by breathing rather than by watch. Downhills are where the damage is: that is eccentric load, and it turns up as sore quads two days later, so take them easy before a squat day.'},
   ruck:{name:'Ruck',hic:['dist','mi'],liss:['dist','mi'],load:true,tip:'Build ruck load gradually, starting around 10–15% of bodyweight. Rucking loads the back and hips, so keep it easy before heavy squat or deadlift days.'},
-  hike:{name:'Hike',hic:['dist','mi'],liss:['dist','mi'],wu:'10 min easy walking, then 3 × 20 s hard uphill with a walk back down.',tip:'Hills do the work: on HIC days use a steep section for the hard efforts and walk down easy. On LISS days keep it conversational the whole way.'},
+  hike:{name:'Hike',hic:['dist','mi'],liss:['dist','mi'],elev:true,wu:'10 min easy walking, then 3 × 20 s hard uphill with a walk back down.',tip:'Hills do the work: on HIC days use a steep section for the hard efforts and walk down easy. On LISS days keep it conversational the whole way.'},
   swim:{name:'Swim',hic:['dist','yd'],liss:['dist','yd'],wu:'200 easy, then 4 × 25 building to HIC pace.'},
   other:{name:'Other',hic:null,liss:null}
 };
@@ -638,6 +639,7 @@ function fmtLoad(k,w){return isBW(k)?(w>0?'+'+n(w):'BW'):n(w)}
 function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
 function tier(p){return p<=75?'light':p>=90?'heavy':'mid'}
 function e1rm(w,r){w=+w;r=+r;if(!w||!r)return null;return w/(PCT5[r]||1/(1+r/30))}
+function elevUnit(){return u()==='kg'?'m':'ft'}
 function u(){return plan.unit||'lb'}
 
 /* ---------------- schedule engine ---------------- */
@@ -854,7 +856,7 @@ function hicSessions(all){
   for(const [d,L] of Object.entries(logs)){
     if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
     const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
+    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev});
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
@@ -1612,6 +1614,7 @@ function hicCard(dp,note){
   }
   if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
   if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
+  if(M.elev) h+=`<label class="f">Elevation gain (${elevUnit()})${numIn('hic.elev',L.elev,'')}</label>`;
   h+=`</div>`;
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
@@ -3240,12 +3243,12 @@ function eachDateInPrograms(fn){
   } finally { plan=savedPlan; viewing=savedViewing; sel=savedSel; planV++; }
 }
 function sessionsCsv(){
-  const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','calories','bodyweight_'+U,'neck','waist','hip','bodyfat_pct','hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'warmup_done','mobility_done','plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
+  const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','calories','bodyweight_'+U,'neck','waist','hip','bodyfat_pct','hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'elevation_gain_'+elevUnit(),'warmup_done','mobility_done','plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), c=L.checkin||{}, H=L.hic||{}, P=L.plyo||{}, J=L.jumps||{};
     const hasHic=dp.t==='hic'||dp.t==='plyohic'||L.hic, f=hasHic?effFmt(d):null, mod=hasHic?modOf(d):null, met=f&&mod?metricFor(mod,f):null;
     rows.push([d,prog,wk?weekTitle(wk).t:'',dp.short||'',L.done?'yes':'',L.rpe??'',readiness(c)??'',c.sleepH??'',c.sleepQ??'',c.energy??'',c.soreness??'',c.stress??'',c.protein??'',c.fuel??'',c.water??'',c.alcohol??'',c.kcal??'',c.bw??'',(L.meas||{}).neck??'',(L.meas||{}).waist??'',(L.meas||{}).hip??'',(L.meas&&navyBf(L.meas,d))??'',
-      f?HIC[f].name:'',mod?(mod==='other'&&H.what?H.what:MOD[mod].name):'',met?(H[met[0]]??''):'',met&&H[met[0]]!=null?met[1]:'',H.min??'',H.rounds??'',H.load??'',
+      f?HIC[f].name:'',mod?(mod==='other'&&H.what?H.what:MOD[mod].name):'',met?(H[met[0]]??''):'',met&&H[met[0]]!=null?met[1]:'',H.min??'',H.rounds??'',H.load??'',H.elev??'',
       (L.warmup||[]).filter(Boolean).length||'',(L.mobility||[]).filter(Boolean).length||'',
       dp.t==='plyohic'&&wk?plyoPhase(wk).name:'',P.contacts??'',P.mark??'',P.best??'',J.broad??'',J.vertical??'',J.triple??'',L.pullups??'',L.notes??'']);
   });
@@ -3460,7 +3463,7 @@ function vHistory(){
     const groups={};for(const x of hic) if(x.f!=='liss'&&x.v!=null)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
     const top=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,4);
     if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:32px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
-    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
+    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':'',x.elev?'↑'+n(x.elev)+' '+elevUnit():''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
   }
   h+=`</div>`;
   // Jumps

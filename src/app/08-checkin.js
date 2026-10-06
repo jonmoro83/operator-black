@@ -289,6 +289,7 @@ function hicCard(dp,note){
   }
   if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
   if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
+  if(M.elev) h+=`<label class="f">Elevation gain (${elevUnit()})${numIn('hic.elev',L.elev,'')}</label>`;
   h+=`</div>`;
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;

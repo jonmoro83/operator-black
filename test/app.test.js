@@ -1561,3 +1561,24 @@ test("the screen is held for a whole session, not just while a rest counts", () 
   x.rest = null;
   a.equal(x.wantScreen(), false);
 });
+
+test("trail running and hiking log elevation gain", () => {
+  const x = loadApp();
+  a.ok(x.MOD.trail, "trail run is an activity");
+  a.equal(x.MOD.trail.elev, true);
+  a.equal(x.MOD.hike.elev, true);
+  a.ok(!x.MOD.run.elev, "road running doesn't ask for it");
+  a.ok(!x.MOD.echo.elev);
+
+  a.equal(x.elevUnit(), "ft");                         // follows the weight unit
+  x.plan.unit = "kg"; x.bump();
+  a.equal(x.elevUnit(), "m");
+  x.plan.unit = "lb"; x.bump();
+
+  x.seed({ "2026-10-17": { date:"2026-10-17", hic:{ mod:"trail", format:"liss", min:70, dist:5, elev:1800 } } });
+  const s = x.hicSessions(true).find((e) => e.d === "2026-10-17");
+  a.equal(s.mod, "trail");
+  a.equal(s.elev, 1800);                               // carried through for history and CSV
+  a.deepEqual(x.metricFor("trail", "liss"), ["dist", "mi"]);
+  a.deepEqual(x.metricFor("trail", "map"), ["dist", "m"]);
+});

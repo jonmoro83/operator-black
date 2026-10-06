@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.37',date:'2026-10-06',title:"Trail running, and elevation gain",items:[
+    "Trail run is in the activity list now, next to Run / sprints. It warms up and advises differently: pace means nothing on uneven ground, so the hard efforts go by breathing, and the downhills are the part that leaves you sore two days later.",
+    "Trail runs and hikes have an elevation gain box. Five miles with 100 feet of climbing isn\u2019t five miles with 3,000, and now the log says which one you did.",
+    "It shows up in History next to the distance and in the sessions CSV. Nothing in the programming uses it yet, it\u2019s there to be looked at.",
+    "Feet if you train in pounds, metres if you train in kilos."]},
   {v:'1.36',date:'2026-10-06',title:"The screen stays on, and the beep comes back",items:[
     "The screen now stays awake for the whole session, not just while a rest is counting. Before, it let go the moment a rest hit zero, so it would go dark while you were actually lifting.",
     "That was also why the rest between working sets often didn\u2019t beep. Once the screen had slept, iOS had muted the app\u2019s audio and the app never woke it back up. It does now, every time you come back to it.",

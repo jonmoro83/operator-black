@@ -212,7 +212,7 @@ function hicSessions(all){
   for(const [d,L] of Object.entries(logs)){
     if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
     const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load});
+    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev});
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
