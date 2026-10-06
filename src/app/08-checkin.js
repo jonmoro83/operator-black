@@ -261,7 +261,7 @@ function accCard(wk,dp){
 function lastHic(fmt,mod,before){
   let best=null,last=null;
   for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
-    if(!last||x.d>last.d) last=x; if(!best||x.v>best.v) best=x; }
+    if(!last||x.d>last.d) last=x; if(!best||hicValue(x)>hicValue(best)) best=x; }
   return {best,last};
 }
 function hicCard(dp,note){
@@ -310,7 +310,7 @@ function hicCard(dp,note){
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
   if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
-    h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hist.best.v)}</span></div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
+    h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]}${flatEquiv(hist.last)!=null?` (<span class="mono">${n(flatEquiv(hist.last))}</span> ${met[1]} flat)`:''} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hicValue(hist.best))}</span>${flatEquiv(hist.best)!=null?' flat':''}</div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
   return h+`</div>`;
 }
 const openPx=new Set();
@@ -416,8 +416,15 @@ function convertCard(wk){
   return `<div class="card"><h3>Convert 5RMs to maxes</h3><p class="small muted" style="margin:0">Each 5RM ÷ 0.87, rounded down. Missing a lift? Enter it in Setup.</p><div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Est. 1RM</th><th class="n">Saved max</th></tr></thead><tbody>${rows}</tbody></table></div>
   <div><button class="btn primary" data-act="savemaxes" data-monday="${wk.monday}" ${!Object.keys(res).length||done?'disabled':''}>${done&&Object.keys(res).length?'Saved as your maxes':'Save as my maxes'}</button></div></div>`;
 }
+function painAt(L){const a=L.painAt;return Array.isArray(a)?a:a?[a]:[]}
 function footer(active){
   if(!active) return '';
-  const L=lg(sel);
-  return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label></div>`;
+  const L=lg(sel), dp=dayPlan(sel), lifting=dp.t==='lift'||dp.t==='rm5'||dp.t==='test';
+  const after=lifting?`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">
+    <div class="restsel"><span>How did it move?</span><div class="seg">${FEELS.map(([v,l])=>`<button class="segb${L.feel===v?' on':''}" data-act="sfeel" data-v="${v}" aria-pressed="${L.feel===v}">${l}</button>`).join('')}</div></div>
+    <div class="restsel"><span>Anything hurt?</span><div class="seg">${PAINS.map(([v,l])=>`<button class="segb${L.pain===v?' on':''}" data-act="spain" data-v="${v}" aria-pressed="${L.pain===v}">${l}</button>`).join('')}</div></div>
+    ${L.pain&&L.pain!=='none'?`<div class="restsel"><span>Where</span><div class="seg">${Object.entries(PAIN_AT).map(([k,x])=>`<button class="segb${painAt(L).includes(k)?' on':''}" data-act="spainat" data-v="${k}" aria-pressed="${painAt(L).includes(k)}">${x.name}</button>`).join('')}</div></div>
+    <div class="small muted">${L.pain==='sharp'?'Sharp pain counts against that lift at the end of the cycle. Stop the movement causing it rather than working around it.':'Logged as a flag. It won’t move your numbers, but it shows up in the cycle review if it keeps happening.'}</div>`:''}
+  </div>`:'';
+  return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label>${after}</div>`;
 }

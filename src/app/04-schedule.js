@@ -207,6 +207,16 @@ function metricFor(mod,fmt){if(HIC[fmt]&&HIC[fmt].noMetric)return null;const m=M
 function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
+// Distance plus what the climbing was worth, for sessions logged in miles or km.
+function flatEquiv(x){
+  if(!x||x.elev==null||x.elev===''||!(+x.v>0)) return null;
+  if(x.u!=='mi'&&x.u!=='km') return null;
+  const per=elevPerDist(); if(!(per>0)) return null;
+  const v=+x.v+(+x.elev)/per;
+  return Math.abs(v-+x.v)<0.05?null:Math.round(v*10)/10;
+}
+/** What to rank a session by: flat-equivalent where climbing applies, else the raw result. */
+function hicValue(x){const fe=flatEquiv(x);return fe!=null?fe:(x?+x.v:null)}
 function hicSessions(all){
   const out=[];
   for(const [d,L] of Object.entries(logs)){

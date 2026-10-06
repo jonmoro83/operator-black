@@ -74,6 +74,12 @@ function lsRestTick(){
   document.getElementById('ls-rest-t').textContent=Math.floor(left/60)+':'+pad(left%60);
   box.classList.toggle('done',left===0);
 }
+// how it moved and whether anything hurt, asked on the finish screen too
+function lsAfter(L){
+  return `<label class="f">How did it move?<div class="seg">${FEELS.map(([v,l])=>`<button class="segb${L.feel===v?' on':''}" data-ls="sfeel" data-v="${v}">${l}</button>`).join('')}</div></label>
+  <label class="f">Anything hurt?<div class="seg">${PAINS.map(([v,l])=>`<button class="segb${L.pain===v?' on':''}" data-ls="spain" data-v="${v}">${l}</button>`).join('')}</div></label>
+  ${L.pain&&L.pain!=='none'?`<label class="f">Where<div class="seg">${Object.entries(PAIN_AT).map(([k,x])=>`<button class="segb${painAt(L).includes(k)?' on':''}" data-ls="spainat" data-v="${k}">${x.name}</button>`).join('')}</div></label>`:''}`;
+}
 function lsRender(){
   const box=document.getElementById('ls-in'); if(!ls||!box) return;
   const steps=lsSteps(ls.date); if(!steps.length){lsClose();return}
@@ -123,13 +129,13 @@ function lsRender(){
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
     h+=`<div class="ls-card"><div class="ls-lift">Test results</div><div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Result</th><th class="n">Est. 1RM</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="small muted">${isRm5?'Sunday turns these into your maxes (Today → Sunday → Save as my maxes).':'Use “Feed results forward” on Saturday’s card to set next cycle’s maxes.'}</div>
-      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label></div>
+      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   } else {
     const L=lg(ls.date);
     const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
     h+=`<div class="ls-card"><div class="ls-lift">Session summary</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>
-      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label></div>
+      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   }
   h+=`<div class="ls-row"><button class="btn" data-ls="back" ${ls.i===0?'disabled':''}>‹ Back</button><button class="btn" data-ls="skip" ${ls.i>=steps.length-1?'disabled':''}>Skip ›</button></div>`;
@@ -159,6 +165,9 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
   if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }
+  if(a==='sfeel'){ const v=b.dataset.v; setLog(ls.date,'feel',lg(ls.date).feel===v?null:v); return lsRender() }
+  if(a==='spain'){ const v=b.dataset.v, same=lg(ls.date).pain===v; setLog(ls.date,'pain',same?null:v); if(!same&&v==='none') setLog(ls.date,'painAt',[]); return lsRender() }
+  if(a==='spainat'){ const k=b.dataset.v, cur=painAt(lg(ls.date)); setLog(ls.date,'painAt',cur.includes(k)?cur.filter(y=>y!==k):[...cur,k]); return lsRender() }
   if(a==='finish'){ if(!lg(ls.date).done) setLog(ls.date,'done',true); stopRest(); say('Session done. Nice work.'); return lsClose() }
   if(a==='t-'||a==='t+'){ const inc=+plan.round[st.k]||5, base=st.w!=null?st.w:0; setLog(ls.date,'test.'+st.k+'.target',Math.max(isBW(st.k)?-500:+plan.bar||0,base+(a==='t+'?inc:-inc))); return lsRender() }
   if(a==='tsave'){

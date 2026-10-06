@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.39',date:'2026-10-06',title:"Climbing counts, and a word after you lift",items:[
+    "Elevation now turns into distance. A thousand feet of climbing counts as a mile, so five miles with 3,000 ft of gain shows as eight miles flat. The raw numbers stay on screen, the equivalent sits next to them.",
+    "That is also what \u201clast\u201d and \u201cbest\u201d compare for trail runs, hikes and rucks, so a brutal climbing day stops looking worse than an easy flat one.",
+    "Status has a climbing total: this week, the last four weeks, and whether that is up or down on the four before. The factor is in Setup if a thousand feet isn\u2019t your mile.",
+    "After a lifting session there are two more questions. How did it move, easy or about right or hard. And did anything hurt: nothing, a niggle, or sharp pain, and where.",
+    "A niggle is only ever reported back to you. Sharp pain on a lift holds its max at the end of the cycle instead of adding to it, twice and it comes down, and the review says which joint it was. Both show on Status if they keep turning up."]},
   {v:'1.38',date:'2026-10-06',title:"Elevation gain on rucks too",items:[
     "Rucking asks for elevation gain now, the same as trail runs and hikes. It sits next to the pack weight, which is the pairing that actually tells you what the session was."]},
   {v:'1.37',date:'2026-10-06',title:"Trail running, and elevation gain",items:[

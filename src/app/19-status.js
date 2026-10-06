@@ -199,6 +199,13 @@ function vStatus(){
     h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Volume per week, then results per activity</span></div>`;
     h+=Object.keys(mix).length?`<div class="row" style="gap:6px"><span class="small muted">Last 4 weeks:</span>${Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`<span class="chip">${MOD[m].name} · ${c}</span>`).join('')}</div>`:'';
     {
+      // climbing: what the hills actually added up to
+      const wkStart=mondayOf(t);
+      const gain=(from)=>all.reduce((a,x)=>a+(x.d>=from&&x.elev?+x.elev:0),0);
+      const thisWeek=gain(wkStart), fourWeeks=gain(since), prevFour=all.reduce((a,x)=>a+(x.d>=addDays(since,-28)&&x.d<since&&x.elev?+x.elev:0),0);
+      if(fourWeeks||thisWeek) h+=`<div class="miles"><div class="mile"><span class="l">Climbing this week</span><span class="big">${n(thisWeek)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${n(Math.round(thisWeek/elevPerDist()*10)/10)} ${u()==='kg'?'km':'mi'} of flat walking</span></div><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${n(fourWeeks)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${prevFour?(fourWeeks>=prevFour?'up from ':'down from ')+n(prevFour)+' the 4 before':'first four weeks logged'}</span></div></div>`;
+    }
+    {
       const cw=condWeeks(12), tot=cw.reduce((a,x)=>a+x.min,0), thisWk=mondayOf(t);
       // this week is still running, so it is drawn hollow and left out of the average
       const full=cw.filter(x=>x.mon!==thisWk), last4=full.slice(-4);
@@ -232,6 +239,15 @@ function vStatus(){
   // --- body + recovery
   const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
   const jm=progLogs().map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+  {
+    const since=addDays(t,-27), flags=progLogs().filter(([d,L])=>d>=since&&d<=t&&(L.pain==='sharp'||L.pain==='niggle'));
+    if(flags.length){
+      const sharp=flags.filter(([,L])=>L.pain==='sharp').length, where={};
+      for(const [,L] of flags) for(const w of painAt(L)) where[w]=(where[w]||0)+1;
+      const spots=Object.entries(where).sort((a,b)=>b[1]-a[1]).map(([k,c])=>((PAIN_AT[k]||{}).name||k)+' ×'+c).join(' · ');
+      h+=`<div class="banner ${sharp?'alert':'warn'}"><div class="small"><b>${flags.length} session${flags.length===1?'':'s'} with something hurting</b> in the last 4 weeks${sharp?`, ${sharp} of them sharp`:''}.${spots?' '+esc(spots)+'.':''} ${sharp?'Sharp pain holds that lift back at the end of the cycle.':'Noted, not acted on — worth watching if it keeps appearing.'}</div></div>`;
+    }
+  }
   h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
   h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
   h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;

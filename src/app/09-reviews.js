@@ -26,8 +26,13 @@ function cycleStats(c){
         const sets=Array.isArray(x.sets)?x.sets:[], ticked=sets.filter(Boolean).length;
         if(!ticked&&!x.grinder) continue;
         const need=k==='dead'?1:+wkRx(wk).s;
-        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[]});
+        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[],sharp:0,niggle:0,where:{}});
         S.n++; if(x.grinder){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        // a complaint counts against the lifts its location plausibly belongs to
+        if(L.pain==='sharp'||L.pain==='niggle'){
+          const where=painAt(L), mine=where.length?where.filter(w=>((PAIN_AT[w]||{}).lifts||[]).includes(k)):[];
+          if(!where.length||mine.length){ S[L.pain==='sharp'?'sharp':'niggle']++; for(const w of mine) S.where[w]=(S.where[w]||0)+1 }
+        }
         if(L.done&&ticked<need) S.missed++;
         if(heavy&&L.rpe) S.rpe.push(+L.rpe);
       }
@@ -39,10 +44,19 @@ function reviewOptions(k,cur){
   const inc=+plan.inc[k]||0, rd=+plan.round[k]||5;
   return {reduce:floorTo(cur*.95,rd), hold:cur, standard:cur+inc, bigger:cur+inc+rd};
 }
+function painWords(S){
+  const w=Object.entries(S.where||{}).sort((a,b)=>b[1]-a[1]).map(([k])=>(PAIN_AT[k]||{}).name||k);
+  return w.length?' ('+w.join(', ').toLowerCase()+')':'';
+}
 function recommend(S,rdAvg){
-  if(!S||S.n<3) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
+  if(!S) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
   const rpe=S.rpe.length?S.rpe.reduce((a,b)=>a+b,0)/S.rpe.length:null;
-  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).join(' · ');
+  const pain=[]; if(S.sharp) pain.push(`${S.sharp} with sharp pain${painWords(S)}`); if(S.niggle) pain.push(`${S.niggle} with a niggle`);
+  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).concat(pain).join(' · ');
+  // pain outranks everything else, including too few sessions to judge on
+  if(S.sharp>=2) return ['reduce',bits+'. Sharp pain more than once on this lift: take the weight down and find out why before adding any.'];
+  if(S.sharp>=1) return ['hold',bits+'. Sharp pain on this lift: hold the max rather than adding to it.'];
+  if(S.n<3) return ['standard',(S.niggle?bits+'. ':'')+'Not enough logged sessions to judge, so the standard increase.'];
   if(S.missed>=3||S.lightGrind>=2) return ['reduce',bits+'. Grinding at moderate weights means the max is too high.'];
   if(S.missed>=1||S.heavyGrind>=1||S.grind>=2) return ['hold',bits+'. Repeat this max and own it.'];
   if(rpe!=null&&rpe<=7&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. Heavy weeks moved easily.'];

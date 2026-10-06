@@ -1583,3 +1583,43 @@ test("trail running and hiking log elevation gain", () => {
   a.deepEqual(x.metricFor("trail", "liss"), ["dist", "mi"]);
   a.deepEqual(x.metricFor("trail", "map"), ["dist", "m"]);
 });
+
+test("climbing counts as distance, and ranks sessions by the flat equivalent", () => {
+  const x = loadApp();
+  a.equal(x.elevPerDist(), 1000);                      // 1,000 ft of gain = 1 mile
+  a.equal(x.flatEquiv({ v:5, u:"mi", elev:2000 }), 7);
+  a.equal(x.flatEquiv({ v:5, u:"mi", elev:0 }), null); // flat stays flat
+  a.equal(x.flatEquiv({ v:400, u:"m", elev:300 }), null, "metres of repeats aren't miles");
+  a.equal(x.hicValue({ v:6, u:"mi" }), 6);
+  a.equal(x.hicValue({ v:5, u:"mi", elev:2000 }), 7);
+
+  x.plan.unit = "kg"; x.bump();
+  a.equal(x.elevPerDist(), 190);
+  x.plan.elevPer = { kg: 200 }; x.bump();
+  a.equal(x.elevPerDist(), 200);
+  x.plan.unit = "lb"; x.bump();
+
+  // the longer flat day wins on raw distance; the climbing day wins once the hills count
+  x.seed({
+    "2026-10-10": { date:"2026-10-10", hic:{ mod:"trail", format:"liss", dist:6, elev:200 } },
+    "2026-10-17": { date:"2026-10-17", hic:{ mod:"trail", format:"liss", dist:5, elev:3000 } },
+  });
+  const runs = x.hicSessions(true).filter((e) => e.mod === "trail");
+  a.deepEqual(runs.map((e) => e.v), [6, 5]);
+  a.deepEqual(runs.map(x.hicValue), [6.2, 8]);
+  a.equal(x.lastHic("liss", "trail", "2026-10-20").best.d, "2026-10-17");
+});
+
+test("sharp pain holds a lift back; a niggle only gets reported", () => {
+  const x = loadApp();
+  const base = { n:6, grind:0, heavyGrind:0, lightGrind:0, missed:0, rpe:[7,7], sharp:0, niggle:0, where:{} };
+  a.equal(x.recommend({ ...base }, 70)[0], "bigger");                      // clean cycle
+
+  a.equal(x.recommend({ ...base, niggle:3 }, 70)[0], "bigger");            // a niggle doesn't move it
+  a.ok(x.recommend({ ...base, niggle:3 }, 70)[1].includes("niggle"));      // but it is said out loud
+
+  a.equal(x.recommend({ ...base, sharp:1, where:{ elbow:1 } }, 70)[0], "hold");
+  a.ok(x.recommend({ ...base, sharp:1, where:{ elbow:1 } }, 70)[1].includes("elbow"));
+  a.equal(x.recommend({ ...base, sharp:2 }, 70)[0], "reduce");
+  a.equal(x.recommend({ ...base, n:1, sharp:1 }, 70)[0], "hold", "outranks too-few-sessions");
+});

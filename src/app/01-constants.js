@@ -350,6 +350,21 @@ const DEF={
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
+  elevPer:{lb:1000,kg:190},
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
+
+// Where a complaint plausibly comes from. Used to attach it to the right lifts in the
+// cycle review, and spelled out there in words so the reasoning is never a mystery.
+const PAIN_AT={
+  shoulder:{name:'Shoulder',lifts:['bench','ohp','pull','wpu']},
+  elbow:{name:'Elbow',lifts:['bench','ohp','pull','wpu']},
+  wrist:{name:'Wrist or hand',lifts:['bench','ohp','pull','wpu']},
+  back:{name:'Lower back',lifts:['dead','squat']},
+  hip:{name:'Hip',lifts:['squat','dead']},
+  knee:{name:'Knee',lifts:['squat','dead']},
+  other:{name:'Somewhere else',lifts:[]}
+};
+const FEELS=[['easy','Easy'],['right','About right'],['hard','Hard']];
+const PAINS=[['none','Nothing'],['niggle','A niggle'],['sharp','Sharp pain']];

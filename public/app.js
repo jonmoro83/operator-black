@@ -352,9 +352,24 @@ const DEF={
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
+  elevPer:{lb:1000,kg:190},
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
+
+// Where a complaint plausibly comes from. Used to attach it to the right lifts in the
+// cycle review, and spelled out there in words so the reasoning is never a mystery.
+const PAIN_AT={
+  shoulder:{name:'Shoulder',lifts:['bench','ohp','pull','wpu']},
+  elbow:{name:'Elbow',lifts:['bench','ohp','pull','wpu']},
+  wrist:{name:'Wrist or hand',lifts:['bench','ohp','pull','wpu']},
+  back:{name:'Lower back',lifts:['dead','squat']},
+  hip:{name:'Hip',lifts:['squat','dead']},
+  knee:{name:'Knee',lifts:['squat','dead']},
+  other:{name:'Somewhere else',lifts:[]}
+};
+const FEELS=[['easy','Easy'],['right','About right'],['hard','Hard']];
+const PAINS=[['none','Nothing'],['niggle','A niggle'],['sharp','Sharp pain']];
 
 /* ---------------- warm-up and mobility library ---------------- */
 // The same treatment the plyometric drills get: what it is for, how to set it up, what
@@ -640,6 +655,9 @@ function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
 function tier(p){return p<=75?'light':p>=90?'heavy':'mid'}
 function e1rm(w,r){w=+w;r=+r;if(!w||!r)return null;return w/(PCT5[r]||1/(1+r/30))}
 function elevUnit(){return u()==='kg'?'m':'ft'}
+// Climbing counted as distance: the trail rule of thumb is 1,000 ft of gain ≈ 1 mile
+// (190 m ≈ 1 km). One factor for every activity, so the numbers stay comparable.
+function elevPerDist(){const v=+((plan.elevPer||{})[u()]);return v>0?v:(u()==='kg'?190:1000)}
 function u(){return plan.unit||'lb'}
 
 /* ---------------- schedule engine ---------------- */
@@ -851,6 +869,16 @@ function metricFor(mod,fmt){if(HIC[fmt]&&HIC[fmt].noMetric)return null;const m=M
 function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
+// Distance plus what the climbing was worth, for sessions logged in miles or km.
+function flatEquiv(x){
+  if(!x||x.elev==null||x.elev===''||!(+x.v>0)) return null;
+  if(x.u!=='mi'&&x.u!=='km') return null;
+  const per=elevPerDist(); if(!(per>0)) return null;
+  const v=+x.v+(+x.elev)/per;
+  return Math.abs(v-+x.v)<0.05?null:Math.round(v*10)/10;
+}
+/** What to rank a session by: flat-equivalent where climbing applies, else the raw result. */
+function hicValue(x){const fe=flatEquiv(x);return fe!=null?fe:(x?+x.v:null)}
 function hicSessions(all){
   const out=[];
   for(const [d,L] of Object.entries(logs)){
@@ -1586,7 +1614,7 @@ function accCard(wk,dp){
 function lastHic(fmt,mod,before){
   let best=null,last=null;
   for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
-    if(!last||x.d>last.d) last=x; if(!best||x.v>best.v) best=x; }
+    if(!last||x.d>last.d) last=x; if(!best||hicValue(x)>hicValue(best)) best=x; }
   return {best,last};
 }
 function hicCard(dp,note){
@@ -1635,7 +1663,7 @@ function hicCard(dp,note){
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
   if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
-    h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hist.best.v)}</span></div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
+    h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]}${flatEquiv(hist.last)!=null?` (<span class="mono">${n(flatEquiv(hist.last))}</span> ${met[1]} flat)`:''} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hicValue(hist.best))}</span>${flatEquiv(hist.best)!=null?' flat':''}</div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
   return h+`</div>`;
 }
 const openPx=new Set();
@@ -1741,10 +1769,17 @@ function convertCard(wk){
   return `<div class="card"><h3>Convert 5RMs to maxes</h3><p class="small muted" style="margin:0">Each 5RM ÷ 0.87, rounded down. Missing a lift? Enter it in Setup.</p><div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Est. 1RM</th><th class="n">Saved max</th></tr></thead><tbody>${rows}</tbody></table></div>
   <div><button class="btn primary" data-act="savemaxes" data-monday="${wk.monday}" ${!Object.keys(res).length||done?'disabled':''}>${done&&Object.keys(res).length?'Saved as your maxes':'Save as my maxes'}</button></div></div>`;
 }
+function painAt(L){const a=L.painAt;return Array.isArray(a)?a:a?[a]:[]}
 function footer(active){
   if(!active) return '';
-  const L=lg(sel);
-  return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label></div>`;
+  const L=lg(sel), dp=dayPlan(sel), lifting=dp.t==='lift'||dp.t==='rm5'||dp.t==='test';
+  const after=lifting?`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">
+    <div class="restsel"><span>How did it move?</span><div class="seg">${FEELS.map(([v,l])=>`<button class="segb${L.feel===v?' on':''}" data-act="sfeel" data-v="${v}" aria-pressed="${L.feel===v}">${l}</button>`).join('')}</div></div>
+    <div class="restsel"><span>Anything hurt?</span><div class="seg">${PAINS.map(([v,l])=>`<button class="segb${L.pain===v?' on':''}" data-act="spain" data-v="${v}" aria-pressed="${L.pain===v}">${l}</button>`).join('')}</div></div>
+    ${L.pain&&L.pain!=='none'?`<div class="restsel"><span>Where</span><div class="seg">${Object.entries(PAIN_AT).map(([k,x])=>`<button class="segb${painAt(L).includes(k)?' on':''}" data-act="spainat" data-v="${k}" aria-pressed="${painAt(L).includes(k)}">${x.name}</button>`).join('')}</div></div>
+    <div class="small muted">${L.pain==='sharp'?'Sharp pain counts against that lift at the end of the cycle. Stop the movement causing it rather than working around it.':'Logged as a flag. It won’t move your numbers, but it shows up in the cycle review if it keeps happening.'}</div>`:''}
+  </div>`:'';
+  return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label>${after}</div>`;
 }
 
 /* ---------- end-of-cycle review ---------- */
@@ -1775,8 +1810,13 @@ function cycleStats(c){
         const sets=Array.isArray(x.sets)?x.sets:[], ticked=sets.filter(Boolean).length;
         if(!ticked&&!x.grinder) continue;
         const need=k==='dead'?1:+wkRx(wk).s;
-        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[]});
+        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[],sharp:0,niggle:0,where:{}});
         S.n++; if(x.grinder){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        // a complaint counts against the lifts its location plausibly belongs to
+        if(L.pain==='sharp'||L.pain==='niggle'){
+          const where=painAt(L), mine=where.length?where.filter(w=>((PAIN_AT[w]||{}).lifts||[]).includes(k)):[];
+          if(!where.length||mine.length){ S[L.pain==='sharp'?'sharp':'niggle']++; for(const w of mine) S.where[w]=(S.where[w]||0)+1 }
+        }
         if(L.done&&ticked<need) S.missed++;
         if(heavy&&L.rpe) S.rpe.push(+L.rpe);
       }
@@ -1788,10 +1828,19 @@ function reviewOptions(k,cur){
   const inc=+plan.inc[k]||0, rd=+plan.round[k]||5;
   return {reduce:floorTo(cur*.95,rd), hold:cur, standard:cur+inc, bigger:cur+inc+rd};
 }
+function painWords(S){
+  const w=Object.entries(S.where||{}).sort((a,b)=>b[1]-a[1]).map(([k])=>(PAIN_AT[k]||{}).name||k);
+  return w.length?' ('+w.join(', ').toLowerCase()+')':'';
+}
 function recommend(S,rdAvg){
-  if(!S||S.n<3) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
+  if(!S) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
   const rpe=S.rpe.length?S.rpe.reduce((a,b)=>a+b,0)/S.rpe.length:null;
-  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).join(' · ');
+  const pain=[]; if(S.sharp) pain.push(`${S.sharp} with sharp pain${painWords(S)}`); if(S.niggle) pain.push(`${S.niggle} with a niggle`);
+  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).concat(pain).join(' · ');
+  // pain outranks everything else, including too few sessions to judge on
+  if(S.sharp>=2) return ['reduce',bits+'. Sharp pain more than once on this lift: take the weight down and find out why before adding any.'];
+  if(S.sharp>=1) return ['hold',bits+'. Sharp pain on this lift: hold the max rather than adding to it.'];
+  if(S.n<3) return ['standard',(S.niggle?bits+'. ':'')+'Not enough logged sessions to judge, so the standard increase.'];
   if(S.missed>=3||S.lightGrind>=2) return ['reduce',bits+'. Grinding at moderate weights means the max is too high.'];
   if(S.missed>=1||S.heavyGrind>=1||S.grind>=2) return ['hold',bits+'. Repeat this max and own it.'];
   if(rpe!=null&&rpe<=7&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. Heavy weeks moved easily.'];
@@ -2277,6 +2326,12 @@ function lsRestTick(){
   document.getElementById('ls-rest-t').textContent=Math.floor(left/60)+':'+pad(left%60);
   box.classList.toggle('done',left===0);
 }
+// how it moved and whether anything hurt, asked on the finish screen too
+function lsAfter(L){
+  return `<label class="f">How did it move?<div class="seg">${FEELS.map(([v,l])=>`<button class="segb${L.feel===v?' on':''}" data-ls="sfeel" data-v="${v}">${l}</button>`).join('')}</div></label>
+  <label class="f">Anything hurt?<div class="seg">${PAINS.map(([v,l])=>`<button class="segb${L.pain===v?' on':''}" data-ls="spain" data-v="${v}">${l}</button>`).join('')}</div></label>
+  ${L.pain&&L.pain!=='none'?`<label class="f">Where<div class="seg">${Object.entries(PAIN_AT).map(([k,x])=>`<button class="segb${painAt(L).includes(k)?' on':''}" data-ls="spainat" data-v="${k}">${x.name}</button>`).join('')}</div></label>`:''}`;
+}
 function lsRender(){
   const box=document.getElementById('ls-in'); if(!ls||!box) return;
   const steps=lsSteps(ls.date); if(!steps.length){lsClose();return}
@@ -2326,13 +2381,13 @@ function lsRender(){
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
     h+=`<div class="ls-card"><div class="ls-lift">Test results</div><div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Result</th><th class="n">Est. 1RM</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="small muted">${isRm5?'Sunday turns these into your maxes (Today → Sunday → Save as my maxes).':'Use “Feed results forward” on Saturday’s card to set next cycle’s maxes.'}</div>
-      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label></div>
+      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   } else {
     const L=lg(ls.date);
     const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
     h+=`<div class="ls-card"><div class="ls-lift">Session summary</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>
-      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label></div>
+      <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   }
   h+=`<div class="ls-row"><button class="btn" data-ls="back" ${ls.i===0?'disabled':''}>‹ Back</button><button class="btn" data-ls="skip" ${ls.i>=steps.length-1?'disabled':''}>Skip ›</button></div>`;
@@ -2362,6 +2417,9 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
   if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }
+  if(a==='sfeel'){ const v=b.dataset.v; setLog(ls.date,'feel',lg(ls.date).feel===v?null:v); return lsRender() }
+  if(a==='spain'){ const v=b.dataset.v, same=lg(ls.date).pain===v; setLog(ls.date,'pain',same?null:v); if(!same&&v==='none') setLog(ls.date,'painAt',[]); return lsRender() }
+  if(a==='spainat'){ const k=b.dataset.v, cur=painAt(lg(ls.date)); setLog(ls.date,'painAt',cur.includes(k)?cur.filter(y=>y!==k):[...cur,k]); return lsRender() }
   if(a==='finish'){ if(!lg(ls.date).done) setLog(ls.date,'done',true); stopRest(); say('Session done. Nice work.'); return lsClose() }
   if(a==='t-'||a==='t+'){ const inc=+plan.round[st.k]||5, base=st.w!=null?st.w:0; setLog(ls.date,'test.'+st.k+'.target',Math.max(isBW(st.k)?-500:+plan.bar||0,base+(a==='t+'?inc:-inc))); return lsRender() }
   if(a==='tsave'){
@@ -3174,6 +3232,13 @@ function vStatus(){
     h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Volume per week, then results per activity</span></div>`;
     h+=Object.keys(mix).length?`<div class="row" style="gap:6px"><span class="small muted">Last 4 weeks:</span>${Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`<span class="chip">${MOD[m].name} · ${c}</span>`).join('')}</div>`:'';
     {
+      // climbing: what the hills actually added up to
+      const wkStart=mondayOf(t);
+      const gain=(from)=>all.reduce((a,x)=>a+(x.d>=from&&x.elev?+x.elev:0),0);
+      const thisWeek=gain(wkStart), fourWeeks=gain(since), prevFour=all.reduce((a,x)=>a+(x.d>=addDays(since,-28)&&x.d<since&&x.elev?+x.elev:0),0);
+      if(fourWeeks||thisWeek) h+=`<div class="miles"><div class="mile"><span class="l">Climbing this week</span><span class="big">${n(thisWeek)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${n(Math.round(thisWeek/elevPerDist()*10)/10)} ${u()==='kg'?'km':'mi'} of flat walking</span></div><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${n(fourWeeks)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${prevFour?(fourWeeks>=prevFour?'up from ':'down from ')+n(prevFour)+' the 4 before':'first four weeks logged'}</span></div></div>`;
+    }
+    {
       const cw=condWeeks(12), tot=cw.reduce((a,x)=>a+x.min,0), thisWk=mondayOf(t);
       // this week is still running, so it is drawn hollow and left out of the average
       const full=cw.filter(x=>x.mon!==thisWk), last4=full.slice(-4);
@@ -3207,6 +3272,15 @@ function vStatus(){
   // --- body + recovery
   const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
   const jm=progLogs().map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+  {
+    const since=addDays(t,-27), flags=progLogs().filter(([d,L])=>d>=since&&d<=t&&(L.pain==='sharp'||L.pain==='niggle'));
+    if(flags.length){
+      const sharp=flags.filter(([,L])=>L.pain==='sharp').length, where={};
+      for(const [,L] of flags) for(const w of painAt(L)) where[w]=(where[w]||0)+1;
+      const spots=Object.entries(where).sort((a,b)=>b[1]-a[1]).map(([k,c])=>((PAIN_AT[k]||{}).name||k)+' ×'+c).join(' · ');
+      h+=`<div class="banner ${sharp?'alert':'warn'}"><div class="small"><b>${flags.length} session${flags.length===1?'':'s'} with something hurting</b> in the last 4 weeks${sharp?`, ${sharp} of them sharp`:''}.${spots?' '+esc(spots)+'.':''} ${sharp?'Sharp pain holds that lift back at the end of the cycle.':'Noted, not acted on — worth watching if it keeps appearing.'}</div></div>`;
+    }
+  }
   h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
   h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
   h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
@@ -3463,7 +3537,7 @@ function vHistory(){
     const groups={};for(const x of hic) if(x.f!=='liss'&&x.v!=null)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
     const top=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,4);
     if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:32px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
-    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':'',x.elev?'↑'+n(x.elev)+' '+elevUnit():''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
+    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':'',x.elev?'↑'+n(x.elev)+' '+elevUnit():'',flatEquiv(x)!=null?'≈ '+n(flatEquiv(x))+' '+x.u+' flat':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
   }
   h+=`</div>`;
   // Jumps
@@ -3547,7 +3621,8 @@ function vSetup(){
   h+=`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
-  h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
+  h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
+  <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
   <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
   <div class="grid3"><label class="f">Activity<select id="p-bmod" data-pbind="benchmark.mod">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${b.mod===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
@@ -3877,6 +3952,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='warmrest'){const k=b.dataset.lift,v=+b.dataset.v;if(warmRestSecs(k)===v)return;mutatePlan(p=>{p.warmRest=Object.assign({},p.warmRest,{[k]:v})});
     if(rest&&rest.ramp&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=v;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}
+  if(a==='sfeel'){const v=b.dataset.v;setLog(sel,'feel',lg(sel).feel===v?null:v);render();return}
+  if(a==='spain'){const v=b.dataset.v,same=lg(sel).pain===v;setLog(sel,'pain',same?null:v);if(!same&&v==='none')setLog(sel,'painAt',[]);render();return}
+  if(a==='spainat'){const k=b.dataset.v,cur=painAt(lg(sel));setLog(sel,'painAt',cur.includes(k)?cur.filter(x=>x!==k):[...cur,k]);render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}
