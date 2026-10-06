@@ -1567,6 +1567,7 @@ test("trail running and hiking log elevation gain", () => {
   a.ok(x.MOD.trail, "trail run is an activity");
   a.equal(x.MOD.trail.elev, true);
   a.equal(x.MOD.hike.elev, true);
+  a.equal(x.MOD.ruck.elev, true);
   a.ok(!x.MOD.run.elev, "road running doesn't ask for it");
   a.ok(!x.MOD.echo.elev);
 

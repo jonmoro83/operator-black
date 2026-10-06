@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.38',date:'2026-10-06',title:"Elevation gain on rucks too",items:[
+    "Rucking asks for elevation gain now, the same as trail runs and hikes. It sits next to the pack weight, which is the pairing that actually tells you what the session was."]},
   {v:'1.37',date:'2026-10-06',title:"Trail running, and elevation gain",items:[
     "Trail run is in the activity list now, next to Run / sprints. It warms up and advises differently: pace means nothing on uneven ground, so the hard efforts go by breathing, and the downhills are the part that leaves you sore two days later.",
     "Trail runs and hikes have an elevation gain box. Five miles with 100 feet of climbing isn\u2019t five miles with 3,000, and now the log says which one you did.",
