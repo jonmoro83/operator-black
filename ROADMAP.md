@@ -72,11 +72,11 @@ within each group, roughly in order of how useful they'd be.
 
 ### Technical
 
-- **Tests for the Worker — the two halves that matter are done.** `test/api.test.js`
-  covers backups and the Access JWT check, with hand-written stand-ins for the R2 and KV
-  bindings: no Miniflare, no `wrangler dev`, still a plain `node --test` run. Still
-  uncovered: the document read/write routes, restore, push, and the three calendar
-  endpoints. Restore is the next one worth doing, since it overwrites everything.
+- **Tests for the Worker — only push is left.** `test/api.test.js` covers backups, the
+  Access JWT check, restore, the document routes and the calendar endpoints, with
+  hand-written stand-ins for D1, R2 and KV: no Miniflare, no `wrangler dev`, still a plain
+  `node --test` run. Push (`src/webpush.js` and the Durable Object) is the remainder, and
+  it is the least dangerous of them: a failed alert is a missed buzz, not lost data.
 - **Verify a backup by restoring it.** Restore has never run against real data. A
   scheduled check that restores the newest backup into a scratch namespace and diffs it
   against live would turn "there are backups" into "the backups work".
@@ -123,6 +123,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Restore, the document routes and the calendar endpoints are tested (2026-10-07)**
+- A D1 stand-in that interprets the handful of statements `src/api.js` actually issues,
+  over real rows, so restore's delete-then-insert can be checked rather than assumed. It
+  throws on any query it does not recognise, so a new one cannot slip past by being
+  ignored.
+- Restore: it replaces rather than merges, takes a time-stamped safety backup of what it
+  is about to destroy, does it in **one batch with the DELETE first**, refuses anything
+  that is not a backup before touching a row, skips malformed entries, and cannot reach
+  another person's documents.
+- Document routes: per-user scoping (one person's state never contains another's), the
+  path allowlist, PUT-only, and the JSON/size checks.
+- Calendar: on / rotate / off, upload rejected without a feed or without a calendar body,
+  the feed served as `text/calendar`, an unknown token refused, and **rotate killing the
+  old address immediately**.
+- Found while writing them: `logs/2026-02-31` and `logs/2026-13-99` were accepted, by the
+  document route and by restore. The pattern matched the shape of a date without asking
+  whether the date exists. `realDate()` now checks both places.
+- Six mutations — skipping the safety backup, not clearing first, accepting a non-backup,
+  allowing impossible dates in either place, accepting any body as a calendar — all fail.
+  127 → 140 tests.
 
 **A number that looks wrong says so (2026-10-07)**
 - `oddNote()` inside `numIn` and `pIn`, so every numeric input gets the check from one

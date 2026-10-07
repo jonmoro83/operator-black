@@ -425,3 +425,304 @@ test("with Access unconfigured the API refuses everything rather than letting it
     a.equal(res.status, 503, "a missing setting closes the door, it does not open it");
   }
 });
+
+/* ---------------- a D1 stand-in ----------------
+Restore deletes every document a person has and writes the file's in their place, in one
+batch. Testing that against a map would prove nothing, so this interprets the handful of
+statements src/api.js actually issues, over real rows. Narrow on purpose: it answers the
+queries this code sends and throws on anything it does not recognise, so a new query
+cannot pass by being quietly ignored. */
+function fakeDB() {
+  const docs = [], feeds = [];
+  const norm = (s) => s.replace(/\s+/g, " ").trim();
+  const exec = (sql, a) => {
+    const q = norm(sql);
+    if (/^SELECT path, data FROM docs WHERE user = \?1$/.test(q))
+      return docs.filter((d) => d.user === a[0]).map((d) => ({ path: d.path, data: d.data }));
+    if (/^SELECT COUNT\(\*\) AS n FROM docs WHERE user = \?1$/.test(q))
+      return [{ n: docs.filter((d) => d.user === a[0]).length }];
+    if (/^SELECT DISTINCT user FROM docs WHERE user != \?1$/.test(q))
+      return [...new Set(docs.filter((d) => d.user !== a[0]).map((d) => d.user))].map((user) => ({ user }));
+    if (/^UPDATE docs SET user = \?1 WHERE user = \?2$/.test(q)) {
+      for (const d of docs) if (d.user === a[1]) d.user = a[0];
+      return [];
+    }
+    if (/^INSERT INTO docs/.test(q)) {
+      const hit = docs.find((d) => d.user === a[0] && d.path === a[1]);
+      if (hit) { hit.data = a[2]; hit.updated_at = a[3] }
+      else docs.push({ user: a[0], path: a[1], data: a[2], updated_at: a[3] });
+      return [];
+    }
+    if (/^DELETE FROM docs WHERE user = \?1$/.test(q)) {
+      const keep = docs.filter((d) => d.user !== a[0]);
+      docs.length = 0; docs.push(...keep);
+      return [];
+    }
+    if (/^SELECT token, updated_at FROM cal_feeds WHERE user = \?1$/.test(q))
+      return feeds.filter((f) => f.user === a[0]).map((f) => ({ token: f.token, updated_at: f.updated_at }));
+    if (/^SELECT ics FROM cal_feeds WHERE token = \?1$/.test(q))
+      return feeds.filter((f) => f.token === a[0]).map((f) => ({ ics: f.ics }));
+    if (/^INSERT INTO cal_feeds/.test(q)) {
+      const hit = feeds.find((f) => f.user === a[1]);
+      if (hit) { hit.token = a[0]; hit.ics = ""; hit.updated_at = a[2] }
+      else feeds.push({ token: a[0], user: a[1], ics: "", updated_at: a[2] });
+      return [];
+    }
+    if (/^UPDATE cal_feeds SET ics = \?1, updated_at = \?2 WHERE user = \?3$/.test(q)) {
+      const hit = feeds.find((f) => f.user === a[2]);
+      if (hit) { hit.ics = a[0]; hit.updated_at = a[1] }
+      return [];
+    }
+    if (/^DELETE FROM cal_feeds WHERE user = \?1$/.test(q)) {
+      const keep = feeds.filter((f) => f.user !== a[0]);
+      feeds.length = 0; feeds.push(...keep);
+      return [];
+    }
+    throw new Error("fakeDB does not know this query: " + q);
+  };
+  const batches = [];
+  return {
+    docs, feeds, batches,
+    prepare(sql) {
+      return { bind: (...args) => ({
+        __sql: sql, __args: args,
+        all: async () => ({ results: exec(sql, args) }),
+        first: async () => exec(sql, args)[0] || null,
+        run: async () => (exec(sql, args), {}),
+      }) };
+    },
+    async batch(stmts) { batches.push(stmts.map((s) => norm(s.__sql))); for (const s of stmts) exec(s.__sql, s.__args); return [] },
+  };
+}
+
+function dbEnv(extra = {}) {
+  const db = fakeDB();
+  return Object.assign({ DB: db, BACKUPS: fakeKV(), R2BACKUPS: fakeR2(), ACCESS_TEAM_DOMAIN: TEAM, ACCESS_AUD: AUD }, extra);
+}
+const put = (env, path, body, token) => call2(env, "doc/" + path, { method: "PUT", body: JSON.stringify(body) }, token);
+async function call2(env, route, init, token) {
+  const { handleApi } = await load();
+  const headers = Object.assign({}, init?.headers, token ? { "cf-access-jwt-assertion": token } : {});
+  return handleApi(new Request("https://operatorblack.com/api/" + route, Object.assign({}, init, { headers })), env);
+}
+const seedDocs = (env, user, obj) => { for (const [p, v] of Object.entries(obj)) env.DB.docs.push({ user, path: p, data: JSON.stringify(v), updated_at: 1 }) };
+
+/* ---------------- restore ---------------- */
+
+test("restoring replaces everything you have with the file's", async () => {
+  const k = await setupKeys(); const token = await mint(k.a);
+  const env = dbEnv();
+  seedDocs(env, "lifter@example.com", {
+    "plan/main": { bar: 45, old: true },
+    "logs/2026-01-01": { date: "2026-01-01" },
+    "logs/2026-01-02": { date: "2026-01-02" },
+  });
+
+  const file = {
+    backedUpAt: "2026-09-01T09:00:00Z",
+    plan: { bar: 20, fresh: true },
+    logs: { "2026-05-05": { date: "2026-05-05", done: true } },
+    programs: { "block-1": { id: "block-1" } },
+  };
+  const res = await call2(env, "restore", { method: "POST", body: JSON.stringify(file) }, token);
+  a.equal(res.status, 200);
+  const out = await res.json();
+  a.deepEqual(out.restored, { plan: true, logs: 1, programs: 1 });
+  a.equal(out.from, "2026-09-01T09:00:00Z");
+
+  const mine = env.DB.docs.filter((d) => d.user === "lifter@example.com");
+  a.deepEqual(mine.map((d) => d.path).sort(), ["logs/2026-05-05", "plan/main", "programs/block-1"]);
+  a.deepEqual(JSON.parse(mine.find((d) => d.path === "plan/main").data), { bar: 20, fresh: true }, "the old plan is gone, not merged");
+  a.ok(!mine.some((d) => d.path === "logs/2026-01-01"), "and days not in the file are gone");
+
+  // One batch, delete first: a half-finished restore would be worse than none.
+  a.equal(env.DB.batches.length, 1, "it is a single batch");
+  a.match(env.DB.batches[0][0], /^DELETE FROM docs WHERE user/, "clearing out comes first");
+  a.equal(env.DB.batches[0].length, 4, "then one insert per document");
+});
+
+test("a restore takes a safety copy of what it is about to destroy", async () => {
+  const k = await setupKeys(); const token = await mint(k.a);
+  const env = dbEnv();
+  seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 }, "logs/2026-01-01": { date: "2026-01-01" } });
+
+  const res = await call2(env, "restore", { method: "POST", body: JSON.stringify({ logs: {}, plan: { bar: 20 } }) }, token);
+  const out = await res.json();
+  a.match(out.safetyBackup, /^\d{4}-\d{2}-\d{2}-before-restore-\d{6}$/, "time-stamped, so two restores in a day both keep one");
+
+  const { readBackup } = await load();
+  const saved = JSON.parse(await readBackup(env, "lifter@example.com", out.safetyBackup));
+  a.deepEqual(saved.plan, { bar: 45 }, "it holds what was there before, not after");
+  a.deepEqual(Object.keys(saved.logs), ["2026-01-01"]);
+});
+
+test("a file that is not a backup is refused before anything is touched", async () => {
+  const k = await setupKeys(); const token = await mint(k.a);
+  for (const [body, status, why] of [
+    ["not json at all", 400, "not JSON"],
+    [JSON.stringify(null), 400, "null"],
+    [JSON.stringify({ plan: {} }), 400, "no logs in it"],
+    [JSON.stringify({ logs: "nope" }), 400, "logs is not an object"],
+  ]) {
+    const env = dbEnv();
+    seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 } });
+    const res = await call2(env, "restore", { method: "POST", body }, await mint(k.a));
+    a.equal(res.status, status, why);
+    a.equal(env.DB.docs.length, 1, `${why}: existing data is untouched`);
+    a.equal(env.DB.batches.length, 0, `${why}: nothing was written`);
+  }
+  a.ok(k);
+});
+
+test("rubbish inside a backup is skipped, not restored", async () => {
+  const k = await setupKeys(); const token = await mint(k.a);
+  const env = dbEnv();
+  const file = {
+    plan: [1, 2, 3],                                   // an array is not a plan
+    logs: { "2026-05-05": { ok: true }, "not-a-date": { x: 1 }, "2026-05-06": null },
+    programs: { "good-1": { id: "good-1" }, "BAD ID": { x: 1 } },
+  };
+  const res = await call2(env, "restore", { method: "POST", body: JSON.stringify(file) }, token);
+  const out = await res.json();
+  a.deepEqual(out.restored, { plan: false, logs: 1, programs: 1 }, "only the well-formed entries");
+  const paths = env.DB.docs.filter((d) => d.user === "lifter@example.com").map((d) => d.path).sort();
+  a.deepEqual(paths, ["logs/2026-05-05", "programs/good-1"]);
+});
+
+test("restoring is scoped to you, and cannot reach anyone else's rows", async () => {
+  const k = await setupKeys();
+  const env = dbEnv();
+  seedDocs(env, "lifter@example.com", { "plan/main": { mine: true } });
+  seedDocs(env, "someone.else@example.com", { "plan/main": { theirs: true }, "logs/2026-02-02": { date: "2026-02-02" } });
+
+  await call2(env, "restore", { method: "POST", body: JSON.stringify({ logs: {}, plan: { replaced: true } }) }, await mint(k.a));
+
+  const theirs = env.DB.docs.filter((d) => d.user === "someone.else@example.com");
+  a.equal(theirs.length, 2, "their documents are all still there");
+  a.deepEqual(JSON.parse(theirs.find((d) => d.path === "plan/main").data), { theirs: true }, "and unchanged");
+});
+
+/* ---------------- document routes ---------------- */
+
+test("documents are stored under the signed-in person and nobody else", async () => {
+  const k = await setupKeys();
+  const env = dbEnv();
+  seedDocs(env, "someone.else@example.com", { "plan/main": { theirs: true }, "logs/2026-02-02": { date: "2026-02-02" } });
+
+  a.equal((await put(env, "plan/main", { bar: 45 }, await mint(k.a))).status, 204, "stored, nothing to say back");
+  a.equal((await put(env, "logs/2026-03-03", { date: "2026-03-03" }, await mint(k.a))).status, 204);
+
+  const state = await (await call2(env, "state", {}, await mint(k.a))).json();
+  a.equal(state.user, "lifter@example.com");
+  a.deepEqual(state.plan, { bar: 45 });
+  a.deepEqual(Object.keys(state.logs), ["2026-03-03"], "their day is not in my state");
+  a.ok(!JSON.stringify(state).includes("theirs"), "nothing of theirs leaks through");
+
+  // A second write replaces rather than duplicating.
+  await put(env, "plan/main", { bar: 20 }, await mint(k.a));
+  a.equal(env.DB.docs.filter((d) => d.user === "lifter@example.com" && d.path === "plan/main").length, 1);
+});
+
+test("only the three document shapes are writable, and only by PUT", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  for (const bad of ["plan/other", "logs/nope", "programs/Has Spaces", "../plan/main", "backups/x",
+                     "logs/2026-13-99", "logs/2026-02-31", "logs/2026-00-00"]) {
+    const res = await put(env, bad, { x: 1 }, await mint(k.a));
+    a.equal(res.status, 404, `${bad} is not a document path`);
+  }
+  for (const good of ["plan/main", "logs/2026-03-03", "logs/2024-02-29", "programs/block-1"]) {
+    a.equal((await put(env, good, { x: 1 }, await mint(k.a))).status, 204, good);
+  }
+  a.equal(env.DB.docs.filter((d) => d.path.startsWith("logs/")).length, 2, "both real days, no impossible ones");
+  const get = await call2(env, "doc/plan/main", { method: "GET" }, await mint(k.a));
+  a.equal(get.status, 405, "documents are written, not read, through this route");
+});
+
+test("a document body has to be a JSON object of a sane size", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  const send = (body) => call2(env, "doc/plan/main", { method: "PUT", body }, undefined);
+  const tok = async () => mint(k.a);
+
+  a.equal((await call2(env, "doc/plan/main", { method: "PUT", body: "{oops" }, await tok())).status, 400, "not JSON");
+  a.equal((await call2(env, "doc/plan/main", { method: "PUT", body: "[1,2]" }, await tok())).status, 400, "an array is not a document");
+  a.equal((await call2(env, "doc/plan/main", { method: "PUT", body: "null" }, await tok())).status, 400, "null is not a document");
+  a.equal((await call2(env, "doc/plan/main", { method: "PUT", body: JSON.stringify({ big: "x".repeat(300 * 1024) }) }, await tok())).status, 413, "too large");
+  a.equal(env.DB.docs.length, 0, "and none of that was stored");
+  a.ok(send);
+});
+
+/* ---------------- the calendar endpoints ---------------- */
+
+test("the calendar feed is off until you turn it on, and then has an address", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  const tok = async () => mint(k.a);
+
+  a.deepEqual(await (await call2(env, "calendar", {}, await tok())).json(), { enabled: false });
+
+  const on = await (await call2(env, "calendar/on", { method: "POST" }, await tok())).json();
+  a.equal(on.enabled, true);
+  a.match(on.url, /^https:\/\/operatorblack\.com\/cal\/[0-9a-f]{32}\.ics$/, "an unguessable address");
+
+  const again = await (await call2(env, "calendar/on", { method: "POST" }, await tok())).json();
+  a.equal(again.url, on.url, "turning it on twice keeps the same address");
+});
+
+test("the feed serves what the app uploaded, to anyone with the address and nobody else", async () => {
+  const { calendarFeed } = await load();
+  const k = await setupKeys(); const env = dbEnv();
+  const on = await (await call2(env, "calendar/on", { method: "POST" }, await mint(k.a))).json();
+  const token = on.url.match(/cal\/([0-9a-f]{32})\.ics/)[1];
+
+  a.equal((await calendarFeed(token, env)).status, 404, "nothing to serve before the app uploads");
+
+  const ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
+  a.equal((await call2(env, "calendar/ics", { method: "PUT", body: ics }, await mint(k.a))).status, 200);
+
+  const feed = await calendarFeed(token, env);
+  a.equal(feed.status, 200);
+  a.match(feed.headers.get("content-type"), /^text\/calendar/, "served as a calendar, not a download");
+  a.equal(await feed.text(), ics);
+
+  a.equal((await calendarFeed("0".repeat(32), env)).status, 404, "an unknown token gets nothing");
+  a.equal((await calendarFeed("../../etc/passwd", env)).status, 404, "and nothing that is not a token");
+});
+
+test("only a calendar can be uploaded, and only to a feed that exists", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  const ics = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n";
+  a.equal((await call2(env, "calendar/ics", { method: "PUT", body: ics }, await mint(k.a))).status, 409, "no feed to upload to yet");
+
+  await call2(env, "calendar/on", { method: "POST" }, await mint(k.a));
+  a.equal((await call2(env, "calendar/ics", { method: "PUT", body: "<html>hello" }, await mint(k.a))).status, 400, "that is not a calendar");
+  a.equal((await call2(env, "calendar/ics", { method: "PUT", body: "B".repeat(300 * 1024) }, await mint(k.a))).status, 413, "too large");
+});
+
+test("a new address kills the old one, and turning it off removes it", async () => {
+  const { calendarFeed } = await load();
+  const k = await setupKeys(); const env = dbEnv();
+  const first = await (await call2(env, "calendar/on", { method: "POST" }, await mint(k.a))).json();
+  const t1 = first.url.match(/cal\/([0-9a-f]{32})\.ics/)[1];
+  await call2(env, "calendar/ics", { method: "PUT", body: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n" }, await mint(k.a));
+  a.equal((await calendarFeed(t1, env)).status, 200);
+
+  const second = await (await call2(env, "calendar/rotate", { method: "POST" }, await mint(k.a))).json();
+  const t2 = second.url.match(/cal\/([0-9a-f]{32})\.ics/)[1];
+  a.notEqual(t2, t1, "a different address");
+  a.equal((await calendarFeed(t1, env)).status, 404, "the shared link stops working immediately");
+  a.equal((await calendarFeed(t2, env)).status, 404, "and the new one is empty until the app uploads again");
+
+  await call2(env, "calendar/ics", { method: "PUT", body: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n" }, await mint(k.a));
+  a.equal((await calendarFeed(t2, env)).status, 200);
+  await call2(env, "calendar/off", { method: "POST" }, await mint(k.a));
+  a.equal((await calendarFeed(t2, env)).status, 404, "off means gone");
+  a.equal(env.DB.feeds.length, 0);
+});
+
+test("a day that cannot happen is not restored either", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  const file = { logs: { "2026-02-31": { x: 1 }, "2026-13-01": { x: 1 }, "2024-02-29": { ok: true }, "2026-03-03": { ok: true } } };
+  const out = await (await call2(env, "restore", { method: "POST", body: JSON.stringify(file) }, await mint(k.a))).json();
+  a.equal(out.restored.logs, 2, "the leap day and the ordinary day, not the impossible ones");
+  a.deepEqual(env.DB.docs.filter((d) => d.user === "lifter@example.com").map((d) => d.path).sort(),
+    ["logs/2024-02-29", "logs/2026-03-03"]);
+});

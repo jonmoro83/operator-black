@@ -29,6 +29,13 @@
 import { vapidPublicKey } from "./webpush.js";
 
 const DOC_PATH = /^(plan\/main|logs\/\d{4}-\d{2}-\d{2}|programs\/[a-z0-9-]{1,40})$/;
+// The shape of a date is not the same as a date. 2026-02-31 and 2026-13-99 both match the
+// pattern above, and a day that cannot happen has no business being stored against one.
+function realDate(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
 const MAX_BYTES = 256 * 1024;
 const LEGACY = "__legacy__";
 
@@ -147,6 +154,7 @@ export async function handleApi(request, env) {
   if (route.startsWith("doc/")) {
     const path = route.slice(4);
     if (!DOC_PATH.test(path)) return json({ error: "Unknown document." }, 404);
+    if (path.startsWith("logs/") && !realDate(path.slice(5))) return json({ error: "That is not a real date." }, 404);
     if (request.method !== "PUT") return json({ error: "Method not allowed." }, 405);
 
     const text = await request.text();
@@ -287,7 +295,7 @@ async function restoreFrom(env, user, data) {
   const docs = [];
   if (data.plan && typeof data.plan === "object" && !Array.isArray(data.plan)) docs.push(["plan/main", data.plan]);
   for (const [d, v] of Object.entries(logs)) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !v || typeof v !== "object") continue;
+    if (!realDate(d) || !v || typeof v !== "object") continue;
     docs.push(["logs/" + d, v]);
   }
   for (const [id, v] of Object.entries(data.programs || {})) {
