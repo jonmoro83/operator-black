@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.45',date:'2026-10-07',title:'Training time and reminders',items:[
+    'The calendar feed can book sessions at the time you actually train instead of leaving them as all-day entries. Setup \u2192 Calendar feed \u2192 In the calendar \u2192 At a set time, then give it your usual time. Weekends can have their own.',
+    'Each session takes as long as it really takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the interval timer says that format runs to, so a 23-minute MAP session books 23 minutes rather than a round hour.',
+    'Reminders, off unless you pick one: at the start, or 15 minutes, half an hour, one hour or two hours before. If you keep all-day entries you can still have 8pm the night before, which is the one worth having for packing a bag.',
+    'The time is local wherever you are. Set 6am and it stays 6am in another country instead of sliding with the time difference.']},
   {v:'1.44',date:'2026-10-07',title:'How to use the calendar feed',items:[
     'The Guide has a Calendar feed section now, with the actual steps for both phones. iPhone is two taps. Android needs a computer, because Google Calendar won\u2019t add a subscription from the phone app, and then one easy-to-miss step: turn Sync on for the new calendar in the Google Calendar app or it never shows up on the phone.',
     'It also covers what the feed does and doesn\u2019t carry, how often it updates and why Google is slow about it, and how to revoke the address if it ever gets out.',

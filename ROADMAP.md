@@ -143,6 +143,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Calendar feed: training time and reminders (2026-10-07)**
+- `plan.cal` = `{mode,time,weekend,alarm}`, so the setting syncs across devices and a
+  change queues an upload through the existing plan-write hook.
+- Timed events use **floating local time**: `DTSTART:20260907T060000`, no `Z` and no
+  `TZID`. 6am stays 6am when you travel, and it avoids embedding a `VTIMEZONE` block,
+  which is the usual reason hand-rolled ICS breaks.
+- Duration per session type, and conditioning asks `ivPartsLabel(fmt, ivOpts(date,fmt))`
+  so the calendar block matches what the session card promises rather than a round hour.
+- `VALARM` with `ACTION:DISPLAY` and a relative `TRIGGER`. All-day mode offers only
+  −4 h, which is 8pm the night before, since offsets from midnight are meaningless.
+- Covered: defaults stay all-day with no alarm, durations, the weekend clock, a late start
+  rolling `DTEND` into the next day, every trigger value, and malformed times falling back
+  to 06:00 without producing a broken calendar. 91 → 95 tests.
+
 **Calendar feed: Guide section (2026-10-07)**
 - Step-by-step for both platforms in the Guide, above the warm-up reference cards. The
   Android path is the one worth having written down: Google Calendar cannot add a

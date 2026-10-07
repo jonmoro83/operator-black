@@ -343,6 +343,9 @@ const DEF={
   acc:null,
   basis:'1rm', tmPct:90,
   round:{squat:5,bench:5,pull:5,ohp:5,wpu:2.5,dead:5},
+  // Calendar feed. mode 'allday' or 'timed'; time/weekend are HH:MM in your own local
+  // time wherever you are; alarm is minutes before the start, null for none.
+  cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
@@ -3533,7 +3536,7 @@ async function exportCsv(which){
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -3935,6 +3938,9 @@ function vGuide(){
   <p><b>Turning it on.</b> Setup &rarr; Calendar feed &rarr; <b>Turn on the feed</b>. You get a private web address ending in <code>.ics</code>. That address is all anyone needs to read your schedule, so treat it like a password: don\u2019t post it anywhere, and don\u2019t let it into a shared document.</p>
   <p><b>On iPhone or iPad.</b> The quickest way is the <b>Add to iPhone</b> button on that card, which opens Calendar with the address already filled in. Tap Subscribe, then Add. If the button does nothing, copy the address and go to Settings &rarr; Apps &rarr; Calendar &rarr; Calendar Accounts &rarr; Add Account &rarr; Other &rarr; Add Subscribed Calendar, and paste it there. On older versions of iOS the same screen is at Settings &rarr; Calendar &rarr; Accounts.</p>
   <p><b>On Android.</b> Google Calendar can only add a subscription on a computer, not in the phone app. Open <b>calendar.google.com</b>, find <b>Other calendars</b> in the left column, press <b>+</b>, choose <b>From URL</b>, paste the address and press Add calendar. Then open Google Calendar on the phone, go to the menu &rarr; Settings, find the new calendar in the list and turn <b>Sync</b> on. That last step catches people out: until you do it the calendar exists on your account but never appears on the phone.</p>
+  <p><b>Putting it at the time you train.</b> By default every session is an all-day entry, which sits at the top of the day and blocks nothing out. On the same Setup card, switch <b>In the calendar</b> to <b>At a set time</b> and give it your usual training time, and each session is booked properly instead: 75 minutes for a lifting day, 90 for a retest, and for conditioning however long the timer says that format actually runs, so a 23-minute MAP session books 23 minutes. If you train later at weekends, put that time in the <b>Saturdays and Sundays</b> box; leave it empty to use the same time all week.</p>
+  <p>The time is read as the local time wherever you are. Set 6am and it stays 6am in another country, rather than sliding to 1am because of the time difference. That is what you want for a training time, and it is why the entries carry no timezone.</p>
+  <p><b>Reminders.</b> Pick one under <b>Reminder</b> and every session gets an alert: at the start, or 15 minutes, half an hour, one hour or two hours before. The reminder hangs off the session time, so it needs <b>At a set time</b> to mean anything precise. If you would rather keep all-day entries, the one reminder on offer there is <b>8pm the night before</b>, which is the useful one anyway for packing a bag. Reminders are off until you choose one.</p>
   <p><b>How often it updates.</b> The app writes the calendar, not the server, because the schedule is worked out on your phone and a second copy on the server would eventually disagree with it. So the feed is as fresh as the last time you opened the app. Move a week, change a max, swap a lift: open the app once and the calendar follows. Your calendar app then picks the change up on its own schedule. iPhone usually does that within a few hours, and you can force it by pulling down in Calendar. <b>Google is slow</b> and can take most of a day for the first sync and for later changes. That is Google\u2019s refresh interval, not something this app can hurry.</p>
   <p><b>What is in it, and what is not.</b> The feed carries the schedule only: dates, session types, lifts, prescriptions and working weights. It does not carry what you logged, your maxes, bodyweight, measurements, readiness scores or anything about your account. Someone who found the address would learn what you are planning to lift, and nothing else.</p>
   <p><b>If you need to revoke it.</b> <b>New address</b> on the same card issues a fresh one and stops the old address working immediately. Use it if the link gets out. You then have to re-subscribe on your devices, because the old subscription is pointing at an address that no longer exists. <b>Turn off</b> removes the feed entirely.</p>
@@ -3974,6 +3980,29 @@ function icsFold(line){
   return b.map((x,i)=>i?' '+x.s:x.s).join('\r\n');
 }
 function icsDate(d){return d.replace(/-/g,'')}
+// Floating local time: no Z and no TZID, so 06:00 means 06:00 wherever you happen to be.
+// That is what "my usual gym time" means, and it avoids shipping a VTIMEZONE block.
+function icsLocal(d,min){const h=Math.floor(min/60),m=min%60;return icsDate(d)+'T'+pad(h)+pad(m)+'00'}
+function hhmm(v){const m=/^(\d{1,2}):(\d{2})$/.exec(String(v||''));if(!m)return null;
+  const h=+m[1],mi=+m[2];return h<24&&mi<60?h*60+mi:null}
+function icsTrigger(min){ if(!min) return '-PT0S'; return min%60===0?'-PT'+(min/60)+'H':'-PT'+min+'M' }
+
+// The feed's timing settings, with anything missing or malformed falling back to sane.
+function calOpts(){
+  const c=plan.cal||{};
+  const alarm=c.alarm==null||c.alarm===''?null:Math.max(0,+c.alarm||0);
+  return {timed:c.mode==='timed',start:hhmm(c.time)??360,weekend:hhmm(c.weekend),alarm};
+}
+// How long to block out. Conditioning asks the interval timer, so the calendar agrees
+// with the session card instead of guessing.
+function calMins(dp,date){
+  if(dp.t==='lift') return 75;
+  if(dp.t==='test'||dp.t==='rm5') return 90;
+  if(dp.t==='se') return 45;
+  let m=0; if(dp.fmt){ try{ m=ivPartsLabel(dp.fmt,ivOpts(date,dp.fmt)).total||0 }catch(e){} }
+  if(dp.t==='plyohic') return (m||40)+20;   // plyos first, rest, then the HIC
+  return m||45;
+}
 
 // One line per lift: what it is, the prescription, and the weight to put on the bar.
 function calLiftLines(wk,dp,date){
@@ -4010,7 +4039,7 @@ function calEvent(date){
   if(dp.acc) body.push('Accessories: '+accList(dp.acc).join(', '));
   if(dp.note) body.push(dp.note);
   body.push('operatorblack.com');
-  return {date,summary:calTitle(wk,dp,date),desc:body.filter(Boolean).join('\n')};
+  return {date,dp,summary:calTitle(wk,dp,date),desc:body.filter(Boolean).join('\n')};
 }
 
 function icsFeed(){
@@ -4021,18 +4050,29 @@ function icsFeed(){
     'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:'+icsEsc(progName()),
     'X-WR-CALDESC:'+icsEsc('Your Operator + Black plan. Updates when you open the app.'),
     'REFRESH-INTERVAL;VALUE=DURATION:PT6H','X-PUBLISHED-TTL:PT6H'];
+  const o=calOpts();
   for(let d=from;d<=to;d=addDays(d,1)){
     const e=calEvent(d); if(!e) continue;
     L.push('BEGIN:VEVENT',
       // Stable per day, so a refresh updates the event instead of adding a second one.
       'UID:ob-'+e.date+'@operatorblack.com',
-      'DTSTAMP:'+stamp,
-      'DTSTART;VALUE=DATE:'+icsDate(e.date),
-      'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
-      'TRANSP:TRANSPARENT',
-      'SUMMARY:'+icsEsc(e.summary),
-      'DESCRIPTION:'+icsEsc(e.desc),
-      'END:VEVENT');
+      'DTSTAMP:'+stamp);
+    if(o.timed){
+      const wknd=dow(d)>=5&&o.weekend!=null, st=wknd?o.weekend:o.start;
+      const end=st+calMins(e.dp,d);
+      L.push('DTSTART:'+icsLocal(d,st),
+        // Past midnight is possible with a late start, so the end rolls into the next day.
+        'DTEND:'+icsLocal(addDays(d,Math.floor(end/1440)),end%1440),
+        'TRANSP:OPAQUE');
+    } else {
+      L.push('DTSTART;VALUE=DATE:'+icsDate(e.date),
+        'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
+        'TRANSP:TRANSPARENT');
+    }
+    L.push('SUMMARY:'+icsEsc(e.summary),'DESCRIPTION:'+icsEsc(e.desc));
+    if(o.alarm!=null) L.push('BEGIN:VALARM','ACTION:DISPLAY',
+      'DESCRIPTION:'+icsEsc(e.summary),'TRIGGER:'+icsTrigger(o.alarm),'END:VALARM');
+    L.push('END:VEVENT');
   }
   L.push('END:VCALENDAR');
   return L.map(icsFold).join('\r\n')+'\r\n';
@@ -4084,7 +4124,7 @@ function calCount(){ try{ return (icsFeed().match(/BEGIN:VEVENT/g)||[]).length }
 function calFeedCard(){
   const f=calFeed;
   let h=`<div class="card"><h2>Calendar feed</h2>
-  <p class="small muted" style="margin:0">Put the plan in your phone's calendar: every session as an all-day entry, with the lifts and the weights on it. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
+  <p class="small muted" style="margin:0">Put the plan in your phone's calendar: every session with the lifts and the weights on it, either as an all-day entry or booked at the time you usually train. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
   if(!f) return h+`<div class="muted small">Checking\u2026</div></div>`;
   if(f.broken) return h+`<div class="banner warn"><div>${f.broken==='offline'?'Could not reach the server. The feed will show up when you are back online.':'The server could not answer. If this site was just updated, the calendar table may not exist yet \u2014 run <code>npm run db:migrate:remote</code>.'}</div></div></div>`;
   if(!f.enabled){
@@ -4097,9 +4137,31 @@ function calFeedCard(){
   <div class="row"><a class="btn primary" href="${esc(web)}">Add to iPhone</a><button class="btn" data-act="calcopy">Copy address</button></div>
   <div class="small muted"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
   <b>Android:</b> on a computer open Google Calendar \u2192 Other calendars \u2192 + \u2192 From URL, and paste it there. It then syncs to the phone. Google refreshes subscribed calendars on its own schedule, which can take a day.</div>
+  ${calTimeFields()}
   <div class="small muted">${calCount()} sessions, ${CAL_BACK} weeks back and ${CAL_AHEAD} ahead. It is rewritten whenever you open the app and something has changed.</div>
   <div class="row"><button class="btn sm ghost" data-act="calrotate"${calBusy?' disabled':''}>New address</button><button class="btn sm ghost" data-act="caloff"${calBusy?' disabled':''}>Turn off</button></div>
   <div class="small muted">New address stops the old one working, for a link you shared and want back.</div></div>`;
+  return h;
+}
+
+// When the sessions land, and whether they nudge you. Bound straight to the plan, so a
+// change syncs to your other devices and queues a fresh upload like any other plan edit.
+function calTimeFields(){
+  const c=plan.cal||{}, o=calOpts();
+  const al=o.alarm==null?'':String(o.alarm);
+  const opts=o.timed
+    ? [['','No reminder'],['0','At the start'],['15','15 min before'],['30','30 min before'],['60','1 hour before'],['120','2 hours before']]
+    : [['','No reminder'],['240','8pm the night before']];
+  let h=`<div class="grid2"><label class="f">In the calendar<select id="cal-mode" data-pbind="cal.mode">
+    <option value="allday"${o.timed?'':' selected'}>All-day entries</option>
+    <option value="timed"${o.timed?' selected':''}>At a set time</option></select></label>`;
+  h+=o.timed?`<label class="f">Usual training time<input type="time" id="cal-time" data-pbind="cal.time" value="${esc(c.time||'06:00')}"></label></div>
+    <div class="grid2"><label class="f">Saturdays and Sundays<input type="time" id="cal-wk" data-pbind="cal.weekend" value="${esc(c.weekend||'')}" placeholder="same"></label>`
+    :'</div><div class="grid2">';
+  h+=`<label class="f">Reminder<select id="cal-alarm" data-pbind="cal.alarm" data-type="num">${opts.map(([v,l])=>`<option value="${v}"${v===al?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
+  h+=o.timed
+    ? `<div class="small muted">Sessions are booked from that time for as long as each one takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the timer says that format runs to. Leave the weekend box empty to use the same time every day. The time is read as the local time wherever you are, so it stays at ${esc(c.time||'06:00')} when you travel rather than shifting with the clocks.</div>`
+    : `<div class="small muted">All-day entries sit at the top of the day and don't block out any time. Switch to <b>At a set time</b> if you want the session in your day properly, or a reminder closer to it than the evening before.</div>`;
   return h;
 }
 

@@ -341,6 +341,9 @@ const DEF={
   acc:null,
   basis:'1rm', tmPct:90,
   round:{squat:5,bench:5,pull:5,ohp:5,wpu:2.5,dead:5},
+  // Calendar feed. mode 'allday' or 'timed'; time/weekend are HH:MM in your own local
+  // time wherever you are; alarm is minutes before the start, null for none.
+  cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},

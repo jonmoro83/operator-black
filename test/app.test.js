@@ -1841,3 +1841,75 @@ test("the feed is only re-uploaded when it actually changes", () => {
   x.plan.maxes.squat = 400; x.bump();
   a.notEqual(x.icsKey(x.icsFeed()), before, "a new max rewrites the weights");
 });
+
+test("the feed is all-day with no reminder until you ask for one", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const t = x.icsFeed();
+  a.match(t, /DTSTART;VALUE=DATE:20260907\r\nDTEND;VALUE=DATE:20260908\r\nTRANSP:TRANSPARENT/);
+  a.ok(!t.includes("BEGIN:VALARM"), "nothing nags you by default");
+  a.ok(!/DTSTART:\d{8}T/.test(t), "and nothing is given a time");
+});
+
+test("a usual training time books the session for as long as it takes", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.cal = { mode: "timed", time: "06:00", weekend: "", alarm: null }; x.bump();
+  const t = x.icsFeed();
+  const ev = (d) => t.split("BEGIN:VEVENT").find((b) => b.includes("DTSTART:" + d)) || "";
+
+  // No Z and no TZID: 06:00 stays 06:00 when you travel instead of shifting.
+  a.ok(!/DTSTART:\d{8}T\d{6}Z/.test(t), "times float with the local clock");
+  a.ok(!t.includes("TZID"), "so no VTIMEZONE block is needed");
+  a.match(t, /TRANSP:OPAQUE/, "a timed session blocks the time out");
+
+  // A lifting day gets 75 minutes.
+  a.match(ev("20260907"), /DTSTART:20260907T060000\r\nDTEND:20260907T071500/);
+  // Conditioning asks the interval timer, so the calendar and the session card agree.
+  const mins = x.ivPartsLabel("map", x.ivOpts("2026-09-08", "map")).total;
+  const end = 360 + mins;
+  a.match(ev("20260908"), new RegExp("DTEND:20260908T" + String(Math.floor(end / 60)).padStart(2, "0") + String(end % 60).padStart(2, "0") + "00"));
+});
+
+test("weekends can run on their own clock, and a late start rolls past midnight", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.cal = { mode: "timed", time: "06:00", weekend: "09:30", alarm: null }; x.bump();
+  let t = x.icsFeed();
+  a.equal(x.dow("2026-09-12"), 5, "Saturday");
+  a.match(t, /DTSTART:20260912T093000/, "Saturday uses the weekend time");
+  a.match(t, /DTSTART:20260911T060000/, "Friday does not");
+
+  // Blank weekend box means the same time every day.
+  x.plan.cal.weekend = ""; x.bump();
+  a.match(x.icsFeed(), /DTSTART:20260912T060000/, "same time at the weekend");
+
+  // 23:30 + 75 min is 00:45 the next morning, and the end date has to say so.
+  x.plan.cal.time = "23:30"; x.bump();
+  a.match(x.icsFeed(), /DTSTART:20260907T233000\r\nDTEND:20260908T004500/);
+});
+
+test("the reminder is whatever you picked, and nonsense falls back to something sane", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.cal = { mode: "timed", time: "06:00", weekend: "", alarm: 30 }; x.bump();
+  let t = x.icsFeed();
+  const events = (t.match(/BEGIN:VEVENT/g) || []).length;
+  a.equal((t.match(/BEGIN:VALARM/g) || []).length, events, "every session carries it");
+  a.match(t, /ACTION:DISPLAY\r\nDESCRIPTION:.*\r\nTRIGGER:-PT30M/, "a display alarm, 30 min before");
+
+  for (const [mins, trig] of [[0, "-PT0S"], [60, "-PT1H"], [120, "-PT2H"], [15, "-PT15M"]]) {
+    x.plan.cal.alarm = mins; x.bump();
+    a.match(x.icsFeed(), new RegExp("TRIGGER:" + trig.replace("-", "\\-")), `${mins} min`);
+  }
+
+  // All-day mode offers the evening before, which is 4 hours back from midnight.
+  x.plan.cal = { mode: "allday", alarm: 240 }; x.bump();
+  a.match(x.icsFeed(), /TRIGGER:-PT4H/);
+
+  // A time the picker could never produce should not produce a broken calendar.
+  x.plan.cal = { mode: "timed", time: "nonsense", weekend: "25:99", alarm: null }; x.bump();
+  t = x.icsFeed();
+  a.match(t, /DTSTART:20260907T060000/, "falls back to 06:00");
+  a.ok(t.split("\r\n").every((l) => Buffer.byteLength(l, "utf8") <= 75), "and is still valid");
+});
