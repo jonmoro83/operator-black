@@ -129,8 +129,9 @@ test("a backup is written to R2, and read back from it", async () => {
   const res = await backupNow(env, USER, { manual: true });
   a.match(res.name, /^\d{4}-\d{2}-\d{2}-manual$/);
   a.equal(res.logs, 1, "it counted the day it saved");
-  a.equal(env.R2BACKUPS.m.size, 1, "it went to R2");
-  a.equal(env.BACKUPS.m.size, 0, "and not to KV");
+  a.equal(nBackups(env.R2BACKUPS), 1, "it went to R2");
+  a.equal(nBackups(env.BACKUPS), 0, "and not to KV");
+  a.equal(res.verified, true, "and it read back as what it should hold");
 
   const body = JSON.parse(await readBackup(env, USER, res.name));
   a.deepEqual(body.plan, { bar: 45 }, "the plan is in there");
@@ -164,7 +165,7 @@ test("backups taken before the move to R2 are still listed, readable and prunabl
   // Pruning has to reach into KV or old backups would be immortal.
   await deleteBackup(env, USER, "2026-09-06");
   a.equal((await listBackups(env, USER)).length, 2);
-  a.equal(env.BACKUPS.m.size, 1, "it really went");
+  a.equal(nBackups(env.BACKUPS), 1, "it really went");
 });
 
 test("the same name in both stores resolves to R2, and deleting clears both", async () => {
@@ -179,15 +180,15 @@ test("the same name in both stores resolves to R2, and deleting clears both", as
   a.equal(await readBackup(env, USER, "2026-10-04"), '{"from":"r2"}', "R2 wins");
 
   await deleteBackup(env, USER, "2026-10-04");
-  a.equal(env.R2BACKUPS.m.size, 0);
-  a.equal(env.BACKUPS.m.size, 0, "no orphan left behind in KV");
+  a.equal(nBackups(env.R2BACKUPS), 0);
+  a.equal(nBackups(env.BACKUPS), 0, "no orphan left behind in KV");
 });
 
 test("without the R2 binding it still works, writing to KV", async () => {
   const { backupNow, listBackups, readBackup } = await load();
   const env = fakeEnv({ r2: false, docs: [{ path: "logs/2026-10-05", data: '{"date":"2026-10-05"}' }] });
   const res = await backupNow(env, USER, { manual: false });
-  a.equal(env.BACKUPS.m.size, 1, "fell back rather than failing");
+  a.equal(nBackups(env.BACKUPS), 1, "fell back rather than failing");
   a.equal((await listBackups(env, USER)).length, 1);
   a.ok((await readBackup(env, USER, res.name)).includes("2026-10-05"));
 });
@@ -236,7 +237,7 @@ test("the weekly run backs up every real user and skips the legacy rows", async 
   });
   await backupEveryone(env);
   a.equal(excludedFromRollCall, "__legacy__", "the legacy rows are excluded in SQL, not after");
-  a.equal(env.R2BACKUPS.m.size, 2, "one each");
+  a.equal(nBackups(env.R2BACKUPS), 2, "one each");
 });
 
 test("taking a backup prunes by kind for real, not just in the helper", async () => {
@@ -247,23 +248,25 @@ test("taking a backup prunes by kind for real, not just in the helper", async ()
   const env = fakeEnv({ docs: [{ path: "logs/2026-10-05", data: "{}" }] });
   const p = await backupPrefix(USER);
 
-  // A full six months of weeklies, then a busy afternoon of manual ones on top.
+  // A full six months of real weekly dates, then a busy afternoon of manual ones.
+  const weeklies = [];
   for (let i = 0; i < 26; i++) {
-    const at = `2026-04-${String(i + 1).padStart(2, "0")}T09:00:00Z`;
-    await env.R2BACKUPS.put(p + `week-${String(i).padStart(2, "0")}`, "{}", { customMetadata: { at } });
+    const d = new Date(Date.UTC(2026, 3, 5) - i * 7 * 864e5).toISOString().slice(0, 10);
+    weeklies.push(d);
+    await env.R2BACKUPS.put(p + d, "{}", { customMetadata: { at: d + "T09:00:00Z" } });
   }
-  for (let i = 0; i < 8; i++) {
-    const at = `2026-10-06T0${i}:00:00Z`;
-    await env.R2BACKUPS.put(p + `2026-10-0${i}-manual`, "{}", { customMetadata: { at } });
+  for (let i = 1; i <= 8; i++) {
+    await env.R2BACKUPS.put(p + `2026-10-0${i}-manual`, "{}", { customMetadata: { at: `2026-10-0${i}T09:00:00Z` } });
   }
-  a.equal(env.R2BACKUPS.m.size, 34);
+  a.equal(nBackups(env.R2BACKUPS), 34);
 
   await backupNow(env, USER, { manual: true });
 
   const after = await listBackups(env, USER);
-  const kept = (pred) => after.filter((b) => pred(b.name)).length;
-  a.equal(kept((n) => n.startsWith("week-")), 26, "every weekly survived the burst");
-  a.equal(kept((n) => n.endsWith("-manual")), 6, "and the manual ones were capped at six");
+  const names = after.map((b) => b.name);
+  a.equal(weeklies.filter((d) => names.includes(d)).length, 26, "every weekly survived the burst");
+  a.equal(names.filter((n) => n.endsWith("-manual")).length, 6, "and the manual ones were capped at six");
+  a.ok(!names.some((n) => n.endsWith("_check")), "the verification record is not itself a backup");
 });
 
 /* ---------------- the Access JWT check ----------------
@@ -505,6 +508,7 @@ async function call2(env, route, init, token) {
   const headers = Object.assign({}, init?.headers, token ? { "cf-access-jwt-assertion": token } : {});
   return handleApi(new Request("https://operatorblack.com/api/" + route, Object.assign({}, init, { headers })), env);
 }
+const nBackups = (store) => [...store.m.keys()].filter((k) => !k.endsWith("_check")).length;
 const seedDocs = (env, user, obj) => { for (const [p, v] of Object.entries(obj)) env.DB.docs.push({ user, path: p, data: JSON.stringify(v), updated_at: 1 }) };
 
 /* ---------------- restore ---------------- */
@@ -725,4 +729,54 @@ test("a day that cannot happen is not restored either", async () => {
   a.equal(out.restored.logs, 2, "the leap day and the ordinary day, not the impossible ones");
   a.deepEqual(env.DB.docs.filter((d) => d.user === "lifter@example.com").map((d) => d.path).sort(),
     ["logs/2024-02-29", "logs/2026-03-03"]);
+});
+
+test("a backup is read straight back and checked, and a bad write is caught", async () => {
+  const { backupNow, readCheck } = await load();
+  const env = fakeEnv({ docs: [{ path: "plan/main", data: "{}" }, { path: "logs/2026-10-05", data: "{}" }] });
+
+  const good = await backupNow(env, USER, { manual: true });
+  a.equal(good.verified, true, "a healthy round trip verifies");
+  const check = await readCheck(env, USER);
+  a.equal(check.ok, true);
+  a.equal(check.name, good.name, "and the record says which backup it checked");
+  a.equal(check.logs, 1);
+
+  // A store that accepts a write and gives back something else is the failure this
+  // exists to catch: it looks fine until the day you need the file.
+  const env2 = fakeEnv({ docs: [{ path: "logs/2026-10-05", data: "{}" }] });
+  const realPut = env2.R2BACKUPS.put.bind(env2.R2BACKUPS);
+  // Truncate the backup itself but not the record of the check, or the test would be
+  // measuring the wrong write.
+  env2.R2BACKUPS.put = async (key, body, opts) => realPut(key, key.endsWith("_check") ? body : body.slice(0, 20), opts);
+  const bad = await backupNow(env2, USER, { manual: true });
+  a.equal(bad.verified, false, "a truncated write does not pass");
+  a.equal((await readCheck(env2, USER)).ok, false, "and the record says so");
+
+  // A store that loses it entirely.
+  const env3 = fakeEnv({ docs: [{ path: "logs/2026-10-05", data: "{}" }] });
+  env3.R2BACKUPS.put = async () => {};
+  a.equal((await backupNow(env3, USER, { manual: true })).verified, false, "nor does a write that vanished");
+
+  // The subtle one: a store that hands back valid JSON of the right shape, but not the
+  // bytes we gave it. Counts alone would say this is fine.
+  const env4 = fakeEnv({ docs: [{ path: "logs/2026-10-05", data: "{}" }] });
+  const realPut4 = env4.R2BACKUPS.put.bind(env4.R2BACKUPS);
+  env4.R2BACKUPS.put = async (key, body, opts) =>
+    realPut4(key, key.endsWith("_check") ? body : JSON.stringify({ ...JSON.parse(body), meddled: true }), opts);
+  a.equal((await backupNow(env4, USER, { manual: true })).verified, false, "nor one that came back altered");
+});
+
+test("the verification record is reported alongside the backups, not as one", async () => {
+  const k = await setupKeys();
+  const { backupNow } = await load();
+  const env = dbEnv();
+  seedDocs(env, "lifter@example.com", { "logs/2026-10-05": { date: "2026-10-05" } });
+  await backupNow(env, "lifter@example.com", { manual: true });
+
+  const out = await (await call2(env, "backups", {}, await mint(k.a))).json();
+  a.equal(out.backups.length, 1, "one backup");
+  a.ok(!out.backups.some((b) => b.name.includes("_check")), "the record is not listed as one");
+  a.equal(out.check.ok, true, "it comes back on its own");
+  a.equal(out.check.name, out.backups[0].name);
 });

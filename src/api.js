@@ -114,7 +114,7 @@ export async function handleApi(request, env) {
   }
 
   if (route === "backups" && request.method === "GET") {
-    return json({ backups: await listBackups(env, user) }, 200, { "cache-control": "no-store" });
+    return json({ backups: await listBackups(env, user), check: await readCheck(env, user) }, 200, { "cache-control": "no-store" });
   }
   if (route === "backups" && request.method === "POST") {
     return json(await backupNow(env, user), 200);
@@ -278,9 +278,18 @@ export async function backupNow(env, user, { manual = true, suffix } = {}) {
       metadata: { bytes: body.length, logs, at: data.backedUpAt },
     });
   }
+  // Read it straight back and check it is what we meant to store. "There are backups"
+  // and "the backups are good" are different claims, and only this one is testable
+  // without restoring over live data. It costs one extra read of something already in
+  // memory, and it catches a truncated write, a store that silently dropped it, or
+  // anything that cannot be parsed again -- the failures that otherwise stay invisible
+  // until the day you need the file.
+  const verified = await verifyBackup(env, user, name, data, body);
+  await writeCheck(env, user, { name, at: data.backedUpAt, ok: verified, logs });
+
   const all = await listBackups(env, user);
   for (const gone of backupsToPrune(all)) await deleteBackup(env, user, gone);
-  return { name, bytes: body.length, logs };
+  return { name, bytes: body.length, logs, verified };
 }
 
 /**
@@ -321,6 +330,41 @@ async function restoreFrom(env, user, data) {
 }
 
 /** Weekly cron: back up everyone who has data. */
+// The verdict lives beside the backups under a name no backup can have, so the weekly
+// run leaves a record rather than failing in silence. listBackups filters it out.
+const CHECK_KEY = "_check";
+async function writeCheck(env, user, info) {
+  try {
+    const key = (await backupPrefix(user)) + CHECK_KEY;
+    const body = JSON.stringify(info);
+    const bucket = r2(env);
+    if (bucket) await bucket.put(key, body, { httpMetadata: { contentType: "application/json" } });
+    else if (env.BACKUPS) await env.BACKUPS.put(key, body);
+  } catch {}
+}
+export async function readCheck(env, user) {
+  try {
+    const key = (await backupPrefix(user)) + CHECK_KEY;
+    const bucket = r2(env);
+    const raw = bucket ? await (await bucket.get(key))?.text() : env.BACKUPS ? await env.BACKUPS.get(key) : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null }
+}
+
+/** Does the stored copy read back as exactly what we wrote? */
+export async function verifyBackup(env, user, name, data, body) {
+  try {
+    const back = await readBackup(env, user, name);
+    if (!back || back.length !== body.length) return false;
+    const got = JSON.parse(back);
+    if (Object.keys(got.logs || {}).length !== Object.keys(data.logs || {}).length) return false;
+    if (Object.keys(got.programs || {}).length !== Object.keys(data.programs || {}).length) return false;
+    return !!got.plan === !!data.plan && got.user === data.user;
+  } catch {
+    return false;
+  }
+}
+
 export async function backupEveryone(env) {
   const { results } = await env.DB.prepare("SELECT DISTINCT user FROM docs WHERE user != ?1").bind(LEGACY).all();
   for (const r of results) await backupNow(env, r.user, { manual: false });
@@ -338,6 +382,7 @@ export async function listBackups(env, user) {
       for (const o of page.objects) {
         const m = o.customMetadata || {};
         const name = o.key.slice(prefix.length);
+        if (!BACKUP_NAME.test(name)) continue;          // the check record is not a backup
         seen.set(name, { name, bytes: o.size, logs: m.logs ? +m.logs : undefined, at: m.at || o.uploaded.toISOString() });
       }
       cursor = page.truncated ? page.cursor : null;
@@ -349,6 +394,7 @@ export async function listBackups(env, user) {
       const page = await env.BACKUPS.list({ prefix, cursor });
       for (const k of page.keys) {
         const name = k.name.slice(prefix.length);
+        if (!BACKUP_NAME.test(name)) continue;
         if (!seen.has(name)) seen.set(name, { name, ...(k.metadata || {}) });
       }
       cursor = page.list_complete ? null : page.cursor;

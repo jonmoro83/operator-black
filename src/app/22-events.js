@@ -77,6 +77,7 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='reload'){ location.reload(); return }
   if(a==='errclear'){ crashClear(); return }
+  if(a==='syncclear'){ clearConflicts(); return }
   if(a==='errcopy'){
     const text=crashReport();
     const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };

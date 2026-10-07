@@ -2064,3 +2064,58 @@ test("the bands move with the units, so kilograms are not all flagged", () => {
   x.plan.unit = "lb"; x.bump();
   a.match(x.oddNote("bodyweight", 930), /lb/, "and back again");
 });
+
+test("a day changed on two devices at once is noticed, not silently dropped", () => {
+  const x = app({ now: "2026-10-07" });
+  const d = "2026-10-05";
+  a.deepEqual(x.conflicts(), [], "nothing to say by default");
+
+  // This device has an unsent change for that day.
+  x.setLog(d, "lifts.squat.sets", [true, true, true]);
+  a.equal(x.pending("logs/" + d), true, "it is queued");
+
+  // The server comes back with a different version of the same day: the other device
+  // got there first. Ours is kept — that is the rule — but it is now written down.
+  x.applyState({ logs: { [d]: { date: d, lifts: { squat: { sets: [true] } } } } });
+  a.deepEqual(x.lg(d).lifts.squat.sets, [true, true, true], "this device's version wins");
+  const c = x.conflicts();
+  a.equal(c.length, 1, "and the clash is recorded");
+  a.equal(c[0].path, "logs/" + d);
+
+  // Setup says so, in words.
+  const card = x.syncCard();
+  a.match(card, /Changes that crossed/);
+  a.match(card, /version was kept/);
+  a.match(card, /data-act="syncclear"/);
+  a.match(x.vSetup(), /Changes that crossed/);
+
+  x.clearConflicts();
+  a.deepEqual(x.conflicts(), []);
+  a.equal(x.syncCard(), "");
+});
+
+test("the same document arriving unchanged is not a clash", () => {
+  const x = app({ now: "2026-10-07" });
+  const d = "2026-10-05";
+  x.setLog(d, "pullups", 12);
+  const same = JSON.parse(JSON.stringify(x.lg(d)));
+
+  x.applyState({ logs: { [d]: same } });
+  a.deepEqual(x.conflicts(), [], "identical copies are not a disagreement");
+
+  // Nor is a server change to a day this device is not holding.
+  x.applyState({ logs: { [d]: same, "2026-10-06": { date: "2026-10-06", pullups: 9 } } });
+  a.deepEqual(x.conflicts(), [], "a day we have nothing to say about just arrives");
+  a.equal(x.lg("2026-10-06").pullups, 9, "and is taken");
+});
+
+test("repeat clashes on one day stay one entry, and the list is capped", () => {
+  const x = app({ now: "2026-10-07" });
+  const d = "2026-10-05";
+  x.setLog(d, "pullups", 12);
+  for (let i = 0; i < 3; i++) x.applyState({ logs: { [d]: { date: d, pullups: i } } });
+  a.equal(x.conflicts().length, 1, "one day, one entry, however often it polls");
+
+  for (let i = 0; i < x.CONFLICT_KEEP + 4; i++) x.noteConflict("logs/2026-01-" + String((i % 28) + 1).padStart(2, "0"));
+  a.equal(x.conflicts().length, x.CONFLICT_KEEP, "and it does not grow forever");
+});

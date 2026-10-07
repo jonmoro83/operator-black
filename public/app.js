@@ -1090,10 +1090,32 @@ function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]=
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 
+/* ---------------- when two devices disagree ----------------
+Writes replace whole documents and the last one in wins. For one person that is almost
+always right, because a device with nothing to say sends nothing: only documents this
+phone actually changed are ever uploaded.
+
+The exception is both devices editing the same day while offline. Below, a document with
+unsent local changes is kept and the server's copy dropped — which is a defensible
+choice, but it used to happen in silence. Now it is written down and shown in Setup, so
+"my Tuesday looks wrong" has an answer instead of being a mystery.
+
+Device-local, like the error log: it describes what this phone did, not what happened. */
+const CONFLICT_KEEP=10;
+function conflicts(){const v=LS.get('ob.conflicts');return Array.isArray(v)?v:[]}
+function clearConflicts(){LS.set('ob.conflicts',[]);render()}
+function noteConflict(path){
+  try{
+    const all=conflicts().filter(c=>c.path!==path);
+    all.unshift({path,at:new Date().toISOString()});
+    LS.set('ob.conflicts',all.slice(0,CONFLICT_KEEP));
+  }catch(e){}
+}
+
 function applyState(st){
   let changed=false;
   for(const [id,d] of Object.entries(st.programs||{})){
-    if(pending('programs/'+id)) continue;
+    if(pending('programs/'+id)){ if(JSON.stringify(d)!==JSON.stringify(programs[id])) noteConflict('programs/'+id); continue }
     if(JSON.stringify(d)!==JSON.stringify(programs[id])){programs[id]=d;changed=true}
   }
   if(stash){ // viewing an archive: refresh the current plan behind it
@@ -1103,7 +1125,7 @@ function applyState(st){
     if(JSON.stringify(next)!==JSON.stringify(plan)){plan=next;planV++;changed=true}
   }
   for(const [id,d] of Object.entries(st.logs||{})){
-    if(pending('logs/'+id)) continue;
+    if(pending('logs/'+id)){ if(JSON.stringify(d)!==JSON.stringify(logs[id])) noteConflict('logs/'+id); continue }
     if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true;logsV++}
   }
   // entries removed on the server go away here too (unless this phone has unsent changes)
@@ -3684,6 +3706,17 @@ function exitArchive(){
   plan=stash.plan; sel=realToday(); stash=null; viewing=null; planV++;
   render(); window.scrollTo(0,0);
 }
+// Days this device kept its own version of while the server had a different one.
+function syncCard(){
+  const list=conflicts(); if(!list.length) return '';
+  const label=p=>p.startsWith('logs/')?fmtLong(p.slice(5)):p.startsWith('programs/')?'an archived program':p;
+  return `<div class="card"><div class="lift-h"><h2>Changes that crossed</h2><span class="chip">${list.length}</span></div>
+  <p class="small muted" style="margin:0">These days were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
+  <div class="stack">${list.map(c=>`<div class="banner"><div class="small"><b>${esc(label(c.path))}</b><div class="muted">noticed ${esc(fmtD(c.at.slice(0,10),true))} ${esc(c.at.slice(11,16))}</div></div></div>`).join('')}</div>
+  <div class="row"><button class="btn ghost" data-act="syncclear">Dismiss</button></div>
+  <div class="small muted">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
+}
+
 function archiveBanner(){
   if(schemaAhead) return `<div class="banner alert"><div><b>This copy of the app is out of date.</b> Your training data was last saved by a newer version, and writing to it from here could undo something. Nothing will be saved until you reload. If reloading does not help, close the app and open it again.</div><div><button class="btn sm primary" data-act="reload">Reload</button></div></div>`;
   if(!viewing) return '';
@@ -3982,6 +4015,7 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
+  h+=syncCard();
   h+=crashCard();
   h+=calFeedCard();
   h+=`<div class="card"><h2>Backups</h2><p class="small muted" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday. The last 26 of those are kept, so about six months, and your own backups are counted separately: the newest six you take by hand and the newest six taken before a restore. Taking a few by hand can’t push out the weekly history.</p>
@@ -3989,6 +4023,7 @@ function vSetup(){
   <div class="row"><button class="btn" data-act="backupnow" ${backups.busy?'disabled':''}>${backups.busy?'Backing up…':'Back up now'}</button><a class="btn ghost" href="/api/export">Download current data</a><label class="btn ghost" for="restore-file">Restore from a file…</label><input type="file" id="restore-file" accept="application/json,.json" hidden></div>
   ${restoreState.file?`<div class="banner warn"><div class="small"><b>Restore ${esc(restoreState.file.name)}?</b> It holds ${restoreState.file.logs} logged day${restoreState.file.logs===1?'':'s'}${restoreState.file.from?' from '+esc(fmtLong(restoreState.file.from.slice(0,10))):''}${restoreState.file.user&&me&&restoreState.file.user!==me?`, saved by <b>${esc(restoreState.file.user)}</b>, not you`:''}. This replaces everything in your account. A safety backup is taken first.</div><div class="row"><button class="btn sm primary" data-act="restorefile" ${restoreState.busy?'disabled':''}>Replace my data with this file</button><button class="btn sm ghost" data-act="restorecancel">Cancel</button></div></div>`:''}
   ${restoreState.msg?`<div class="small">${esc(restoreState.msg)}</div>`:''}
+  ${backupCheckLine()}
   <div class="small muted">Restoring replaces your plan, every logged day and archived programs with the backup’s. A “before restore” backup of your current data is saved first, so a restore can be undone.</div></div>`;
   h+=`<div class="card"><h2>Export to a spreadsheet</h2><p class="small muted" style="margin:0">CSV files for Numbers, Excel or Google Sheets, covering every program. <b>Sessions</b>: one row per day (check-in, conditioning, plyos, jumps, notes). <b>Lifts</b>: one row per lift per session (prescribed vs working weight, sets done, grinders, warm-ups, test results).</p><div class="row"><button class="btn" data-act="csv" data-v="sessions">Export sessions</button><button class="btn" data-act="csv" data-v="lifts">Export lifts</button></div></div>`;
   if(!backups.list&&!backups.busy&&!backups.err&&!backups.loading) loadBackups();
@@ -4023,9 +4058,20 @@ document.addEventListener('change',e=>{
   rd.readAsText(f);
 });
 const backups={list:null,err:null,busy:false,loading:false};
+// Every backup is read straight back after it is written and checked against what was
+// meant to be stored. "There are backups" and "the backups are good" are different
+// claims; this is the second one, and it is worth saying out loud either way.
+function backupCheckLine(){
+  const c=backups.check;
+  if(!c) return '';
+  const when=c.at?fmtD(String(c.at).slice(0,10),true):'';
+  if(c.ok) return `<div class="small muted">\u2713 Checked ${esc(when)}: the newest backup was read back and matched what it should hold${c.logs!=null?' ('+c.logs+' logged day'+(c.logs===1?'':'s')+')':''}.</div>`;
+  return `<div class="banner alert"><div><b>The last backup did not verify.</b> It was written on ${esc(when)} but did not read back as what it should hold. Take one now, and if this keeps happening do not rely on these backups \u2014 use <b>Download current data</b> instead.</div><div><button class="btn sm primary" data-act="backupnow">Back up now</button></div></div>`;
+}
+
 async function loadBackups(){
   backups.loading=true;
-  try{const r=await api('GET','/backups');backups.list=r.backups;backups.err=null}
+  try{const r=await api('GET','/backups');backups.list=r.backups;backups.check=r.check||null;backups.err=null}
   catch(e){backups.err=e&&(e.status===401||e.status===403)?'Sign in again to see backups.':navigator.onLine===false?'Backups need a connection.':'Couldn’t load backups.'}
   backups.loading=false; if(view==='setup') render();
 }
@@ -4369,6 +4415,7 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='reload'){ location.reload(); return }
   if(a==='errclear'){ crashClear(); return }
+  if(a==='syncclear'){ clearConflicts(); return }
   if(a==='errcopy'){
     const text=crashReport();
     const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };

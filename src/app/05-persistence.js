@@ -88,10 +88,32 @@ function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]=
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 
+/* ---------------- when two devices disagree ----------------
+Writes replace whole documents and the last one in wins. For one person that is almost
+always right, because a device with nothing to say sends nothing: only documents this
+phone actually changed are ever uploaded.
+
+The exception is both devices editing the same day while offline. Below, a document with
+unsent local changes is kept and the server's copy dropped — which is a defensible
+choice, but it used to happen in silence. Now it is written down and shown in Setup, so
+"my Tuesday looks wrong" has an answer instead of being a mystery.
+
+Device-local, like the error log: it describes what this phone did, not what happened. */
+const CONFLICT_KEEP=10;
+function conflicts(){const v=LS.get('ob.conflicts');return Array.isArray(v)?v:[]}
+function clearConflicts(){LS.set('ob.conflicts',[]);render()}
+function noteConflict(path){
+  try{
+    const all=conflicts().filter(c=>c.path!==path);
+    all.unshift({path,at:new Date().toISOString()});
+    LS.set('ob.conflicts',all.slice(0,CONFLICT_KEEP));
+  }catch(e){}
+}
+
 function applyState(st){
   let changed=false;
   for(const [id,d] of Object.entries(st.programs||{})){
-    if(pending('programs/'+id)) continue;
+    if(pending('programs/'+id)){ if(JSON.stringify(d)!==JSON.stringify(programs[id])) noteConflict('programs/'+id); continue }
     if(JSON.stringify(d)!==JSON.stringify(programs[id])){programs[id]=d;changed=true}
   }
   if(stash){ // viewing an archive: refresh the current plan behind it
@@ -101,7 +123,7 @@ function applyState(st){
     if(JSON.stringify(next)!==JSON.stringify(plan)){plan=next;planV++;changed=true}
   }
   for(const [id,d] of Object.entries(st.logs||{})){
-    if(pending('logs/'+id)) continue;
+    if(pending('logs/'+id)){ if(JSON.stringify(d)!==JSON.stringify(logs[id])) noteConflict('logs/'+id); continue }
     if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true;logsV++}
   }
   // entries removed on the server go away here too (unless this phone has unsent changes)

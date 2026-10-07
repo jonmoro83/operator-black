@@ -77,11 +77,6 @@ within each group, roughly in order of how useful they'd be.
   hand-written stand-ins for D1, R2 and KV: no Miniflare, no `wrangler dev`, still a plain
   `node --test` run. Push (`src/webpush.js` and the Durable Object) is the remainder, and
   it is the least dangerous of them: a failed alert is a missed buzz, not lost data.
-- **Verify a backup by restoring it.** Restore has never run against real data. A
-  scheduled check that restores the newest backup into a scratch namespace and diffs it
-  against live would turn "there are backups" into "the backups work".
-- **Two devices offline on the same day.** Last write wins, silently. Rare for one
-  person, but worth either a per-document version check or an honest note in Setup.
 
 ### Training and UX
 
@@ -123,6 +118,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Backups check themselves, and a crossed change says so (2026-10-07)**
+- Every backup is read straight back after it is written and compared with what was meant
+  to be stored: byte length, the plan, the log and program counts, the owner. The verdict
+  is kept beside the backups under a name no backup can have, so the **weekly run leaves a
+  record** rather than failing in silence, and Setup shows a tick or a warning.
+- This is the roadmap's "verify by restoring", done without restoring over live data —
+  which would have been a scheduled job that writes, to protect against a risk that is
+  mostly about reading. Restore itself is now covered by tests instead.
+- Caught by the tests: a truncated write, a write that vanished, and the subtle one — a
+  store that hands back valid JSON of the right shape but not the bytes we gave it. That
+  last case is the only one the byte-length check catches on its own, and without a test
+  for it the check was dead weight.
+- **Two devices offline on the same day** is no longer silent. `applyState` kept this
+  device's unsent version and dropped the server's without a word; it now records the
+  clash and Setup lists the days under **Changes that crossed**. Detection, not merging:
+  last write still wins, which is almost always right for one person, but "my Tuesday
+  looks wrong" has an answer now. Device-local, deduped per day, capped at 10.
+- Not done, deliberately: per-document version checks. Whole-document writes mean a real
+  merge needs field-level timestamps, which is a large change to the riskiest code in the
+  app, for a case that needs two devices editing the same day while both are offline.
+- 140 → 145 tests.
 
 **Restore, the document routes and the calendar endpoints are tested (2026-10-07)**
 - A D1 stand-in that interprets the handful of statements `src/api.js` actually issues,

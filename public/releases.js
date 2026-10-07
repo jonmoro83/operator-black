@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.52',date:'2026-10-07',title:'Backups that check themselves',items:[
+    'Every backup is now read straight back after it is saved and checked against what it should contain. Setup \u2192 Backups says when it was last checked, and warns you loudly if one ever fails. \u201cThere are backups\u201d and \u201cthe backups are good\u201d are different claims.',
+    'If you ever use the app on two devices at once and both are offline, and both change the same day, the one that syncs last used to quietly win. It still wins, but the day is now listed in Setup under Changes that crossed, so you can check it rather than wonder.',
+    'Behind the scenes: restore, the calendar feed and the data routes all have proper tests now. A day that cannot exist, like the 31st of February, is no longer accepted by either.']},
   {v:'1.51',date:'2026-10-07',title:'A second look at odd numbers',items:[
     'Type a bodyweight of 2050 or a 4000 lb squat and the app now says so underneath the box. It still keeps exactly what you typed \u2014 it is a second look, not a rule.',
     'The ranges are wide on purpose, so a heavy squat or a light bodyweight never gets questioned. They follow your units too, so kilograms and centimetres are judged on their own terms.',
