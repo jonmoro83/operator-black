@@ -91,6 +91,7 @@ function fmtLoad(k,w){return isBW(k)?(w>0?'+'+n(w):'BW'):n(w)}
 function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
 function tier(p){return p<=75?'light':p>=90?'heavy':'mid'}
 function e1rm(w,r){w=+w;r=+r;if(!w||!r)return null;return w/(PCT5[r]||1/(1+r/30))}
+function monAdd(m,i){return addDays(m,i)}
 function elevUnit(){return u()==='kg'?'m':'ft'}
 // Climbing counted as distance: the trail rule of thumb is 1,000 ft of gain ≈ 1 mile
 // (190 m ≈ 1 km). One factor for every activity, so the numbers stay comparable.

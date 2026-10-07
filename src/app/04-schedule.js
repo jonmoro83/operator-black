@@ -19,19 +19,26 @@ function weeks(minIdx){
   if(wcache.v===planV&&wcache.list.length>need) return wcache.list;
   // Past weeks are locked in plan.frozen (see freezePast), so settings changes only
   // re-plan from the current week on. Locked weeks form a prefix from the start date.
-  const out=[], fz=plan.frozen||{}; let g=null, m=plan.startMonday, cw=0, lastC=0, resume=null;
+  const out=[], fz=plan.frozen||{}; let g=null, m=plan.startMonday, cw=0, lastC=0, resume=null, bbLeft=0, bbVer='standard';
   for(let i=0;i<=need+10;i++){
     let wk;
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
+      if(wk.kind==='bb'&&wk.w<8){bbLeft=8-wk.w;bbVer=wk.ver||'standard'}
       if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<6?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
-      if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
+      if(bbLeft>0){ wk={kind:'bb',w:9-bbLeft,ver:bbVer,inserted:true}; bbLeft--; }
+      else if(ins==='bb'){ bbVer=((plan.bbVer||{})[m])||'standard'; wk={kind:'bb',w:1,ver:bbVer,inserted:true}; bbLeft=7; }
+      else if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
     }
     wk=Object.assign({},wk,{monday:m,idx:i});
     if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
+    if(wk.kind==='bb'&&wk.rx==null){
+      const i=(wk.ver==='strength')?wk.w-1:wk.w-6;      // which lifting week of the block
+      if(i>=0) wk.rx=clone(plan.wave[Math.min(i,plan.wave.length-1)]);
+    }
     if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
     out.push(wk); m=addDays(m,7);
   }
@@ -55,8 +62,8 @@ function freezePast(){
   for(let i=0;i<cur&&i<list.length;i++){
     const wk=list[i]; if(fz[wk.monday]) continue;
     const f={kind:wk.kind};
-    for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle']) if(wk[key]!=null) f[key]=wk[key];
-    if(wk.kind==='cycle'||wk.kind==='deload'){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
+    if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
     fz[wk.monday]=f; changed=true;
     if(changed) planV++;
   }
@@ -164,6 +171,19 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'},
     {t:'test',lifts:['dead',...l3On()],pullups:true,apply:true,short:'Test'},
     {t:'off',short:'Off'}][d];
+  if(wk.kind==='bb'){
+    const row=bbRow(wk)[d]||['rest'], k=row[0];
+    if(k==='se') return {t:'se',circuits:row[1],reps:row[2],short:'SE '+row[1]+'×'+row[2]};
+    if(k==='e') return {t:'hic',fmt:'liss',eMin:row[1],eMax:row[2]||row[1],short:'E '+row[1]+(row[2]?'–'+row[2]:'')+'m',
+      note:d===5?'The long one. You have a recovery day behind you and a rest day ahead, so push the duration — a long ruck, a longer run than you have done, or one of the fun-runs.':'Minimum 30 minutes, conversational. Run-walk-run is fine and still aerobic.'};
+    if(k==='hic') return {t:'hic',fmt:(plan.bbHic||{})[monAdd(wk.monday,d)]||'map',bbHic:true,short:'HIC',
+      note:'Weeks 6–8 use the aerobic-leaning HIC sessions only. Keep off the purely lactic ones: you cannot build the aerobic and lactic systems at once.'};
+    if(k==='ms') return {t:'lift',lifts:d===0?['squat','bench',l3For(date)]:['squat','bench','dead'],bbLift:true,short:'Strength',
+      note:'Two strength days a week this block, kept spartan. Two or three compounds, no assistance work.'};
+    if(k==='rec') return {t:'off',recovery:true,short:'Recovery',
+      note:'Movement drills, mobility, an easy swim or bike, a walk, yoga, a massage. Or nothing. If you are still raring to go, one easy E session or half an SE circuit is allowed.'};
+    return {t:'off',short:'Rest',note:'Complete rest. No structured training. Walking, a casual swim or pick-up sport is fine.'};
+  }
   if(wk.kind==='bridge') return [
     {t:'off',short:'—',note:'Bridge week starts Tuesday.'},
     {t:'rm5',lifts:['squat','bench'],short:'5RM'},
@@ -182,11 +202,22 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'}][d];
   return {t:'off',short:'Off',note:'Off week. Walk, sleep, eat. The plan resumes next Monday.'};
 }
+// The block's row for a week, after the strength-first swap if that version is running.
+function bbRow(wk){
+  const base=BB_WEEKS[Math.min(Math.max((wk.w||1)-1,0),BB_WEEKS.length-1)];
+  if((wk.ver||'standard')!=='strength') return base;
+  const r=BB_SF_SE[Math.min(Math.max((wk.w||6)-6,0),BB_SF_SE.length-1)];
+  return base.map((x,i)=>x[0]==='se'?['ms']:x[0]==='ms'?['se',i===0?r[0]:2,r[1]]:x);
+}
 function weekTitle(wk){
   if(!wk) return 'Before start';
   if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
   if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
+  if(wk.kind==='bb'){
+    const r=bbRow(wk), se=r.filter(x=>x[0]==='se').length, ms=r.filter(x=>x[0]==='ms').length;
+    return {t:'Base Building · Week '+wk.w+' of 8',chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
+  }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
   if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};

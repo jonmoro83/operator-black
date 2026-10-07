@@ -1623,3 +1623,53 @@ test("sharp pain holds a lift back; a niggle only gets reported", () => {
   a.equal(x.recommend({ ...base, sharp:2 }, 70)[0], "reduce");
   a.equal(x.recommend({ ...base, n:1, sharp:1 }, 70)[0], "hold", "outranks too-few-sessions");
 });
+
+test("Base Building inserts eight weeks and hands back to the cycle after", () => {
+  const x = loadApp();
+  Object.assign(x.plan.maxes, { squat:300, bench:200, pull:180, ohp:135, dead:400 });
+  const mon = "2026-11-16";
+  x.plan.inserts[mon] = "bb"; x.bump();
+
+  const L = x.weeks(), i = L.findIndex((w) => w.monday === mon);
+  a.equal(L[i - 1].kind, "cycle");
+  a.deepEqual(L.slice(i, i + 8).map((w) => w.kind + w.w), ["bb1","bb2","bb3","bb4","bb5","bb6","bb7","bb8"]);
+  a.equal(L[i + 8].kind, "cycle");
+  a.equal(L[i + 8].cycle, L[i - 1].cycle + 1, "the next cycle, not a repeat");
+
+  // weeks 1-5 have no barbell work; 6-8 bring back two strength days
+  const week = (w) => [0,1,2,3,4,5,6].map((d) => x.dayPlan(x.addDays(x.addDays(mon, (w-1)*7), d)).t);
+  a.deepEqual(week(1), ["se","hic","hic","se","off","hic","off"]);
+  a.deepEqual(week(6), ["lift","hic","off","lift","hic","hic","off"]);
+  a.equal(week(1).filter((t) => t === "lift").length, 0);
+
+  const d1 = x.dayPlan(mon);
+  a.equal(d1.circuits, 3); a.equal(d1.reps, 20);
+  a.equal(x.dayPlan(x.addDays(mon, 3)).circuits, 2);
+  a.equal(x.dayPlan(x.addDays(mon, 1)).eMin, 30);                 // E 30M
+  a.equal(x.dayPlan(x.addDays(mon, 21 + 1)).eMin, 60);            // week 4 is E 60M
+
+  // the lifting weeks walk up the wave
+  a.deepEqual(L.slice(i + 5, i + 8).map((w) => w.rx.p), [70, 80, 90]);
+
+  // strength-first swaps the two
+  x.plan.bbVer = { [mon]: "strength" }; x.bump();
+  a.deepEqual(week(1), ["lift","hic","hic","lift","off","hic","off"]);
+  a.equal(x.dayPlan(x.addDays(mon, 35)).t, "se", "week 6 day 1 is SE now");
+  a.equal(x.dayPlan(x.addDays(mon, 35)).reps, 30);
+});
+
+test("SE circuits take a cluster, per day or by default", () => {
+  const x = loadApp();
+  a.equal(x.seCluster("2026-11-16"), "bw");                        // the default
+  a.equal(x.seList("bw").length, 6);
+  a.ok(x.seList("bar").includes("Front squat"));
+  a.deepEqual(x.seList("mine"), []);                               // nothing set yet
+
+  x.plan.se = { cluster:"kb", custom:["Thrusters","Burpees"], rest:45 }; x.bump();
+  a.equal(x.seCluster("2026-11-16"), "kb");
+  a.equal(x.seRestSecs(), 45);
+  a.deepEqual(x.seList("mine"), ["Thrusters","Burpees"]);
+
+  x.seed({ "2026-11-16": { date:"2026-11-16", se:{ cluster:"bar" } } });
+  a.equal(x.seCluster("2026-11-16"), "bar", "the day overrides the default");
+});

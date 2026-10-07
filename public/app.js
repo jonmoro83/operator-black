@@ -353,6 +353,8 @@ const DEF={
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
   elevPer:{lb:1000,kg:190},
+  se:{cluster:'bw',custom:[],rest:60},
+  bbVer:{},
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
@@ -370,6 +372,36 @@ const PAIN_AT={
 };
 const FEELS=[['easy','Easy'],['right','About right'],['hard','Hard']];
 const PAINS=[['none','Nothing'],['niggle','A niggle'],['sharp','Sharp pain']];
+
+/* Base Building — Tactical Barbell II, Block I. Eight weeks, straight from the book's
+   template. Day rows are [kind, ...args]: se = circuits × reps, e = endurance minutes
+   (one number, or a floor and a ceiling), ms = max strength, rec = recovery, rest. */
+const BB_WEEKS=[
+  [['se',3,20],['e',30],['e',30],['se',2,20],['rec'],['e',35,120],['rest']],
+  [['se',3,30],['e',40],['e',40],['se',2,30],['rec'],['e',45,120],['rest']],
+  [['se',3,40],['e',50],['e',50],['se',2,40],['rec'],['e',55,120],['rest']],
+  [['se',1,50],['e',60],['e',60],['se',1,50],['rec'],['e',60,120],['rest']],
+  [['se',3,50],['e',45,60],['e',45,60],['se',2,50],['rec'],['e',45,120],['rest']],
+  [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']],
+  [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']],
+  [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']]
+];
+// Strength-first reverses SE and Max Strength. The book says only "reverse it" and gives
+// no rep scheme for the late SE weeks, so this ramp to 50 is ours, and says so on screen.
+const BB_SF_SE=[[3,30],[3,40],[3,50]];
+// The book's example clusters. Five to eight exercises covering the whole body.
+const SE_CLUSTERS={
+  bw:{name:'Bodyweight',ex:['Push-ups','Squats','Kipping pull-ups or inverted rows','Bicycle crunches','Dips','Back extensions'],
+      note:'Add a weight vest or a pack with 5–10 lb to make it harder.'},
+  bar:{name:'Barbell',ex:['Push press','Front squat','Row','Bench or floor press','Shrugs','Romanian deadlift'],
+      note:'One bar, one light weight, the whole circuit. An Olympic bar with a pair of 10s is the right idea.'},
+  kb:{name:'Kettlebell',ex:['Swings','Goblet squat','Renegade rows','Single-arm floor press','Kettlebell deadlift'],
+      note:'Anything one arm or one leg at a time splits the reps: 30 means 15 a side.'},
+  db:{name:'Dumbbell',ex:['Bench or floor press','Lunges','Rows','Dumbbell push press','Squats','Lying leg raises'],
+      note:'A pair of light dumbbells for everything except the leg raises.'},
+  mine:{name:'Mine',ex:[],note:'Your own five to eight, covering the whole body.'}
+};
+const SE_RESTS=[0,30,45,60,90,120];
 
 /* ---------------- warm-up and mobility library ---------------- */
 // The same treatment the plyometric drills get: what it is for, how to set it up, what
@@ -654,6 +686,7 @@ function fmtLoad(k,w){return isBW(k)?(w>0?'+'+n(w):'BW'):n(w)}
 function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
 function tier(p){return p<=75?'light':p>=90?'heavy':'mid'}
 function e1rm(w,r){w=+w;r=+r;if(!w||!r)return null;return w/(PCT5[r]||1/(1+r/30))}
+function monAdd(m,i){return addDays(m,i)}
 function elevUnit(){return u()==='kg'?'m':'ft'}
 // Climbing counted as distance: the trail rule of thumb is 1,000 ft of gain ≈ 1 mile
 // (190 m ≈ 1 km). One factor for every activity, so the numbers stay comparable.
@@ -681,19 +714,26 @@ function weeks(minIdx){
   if(wcache.v===planV&&wcache.list.length>need) return wcache.list;
   // Past weeks are locked in plan.frozen (see freezePast), so settings changes only
   // re-plan from the current week on. Locked weeks form a prefix from the start date.
-  const out=[], fz=plan.frozen||{}; let g=null, m=plan.startMonday, cw=0, lastC=0, resume=null;
+  const out=[], fz=plan.frozen||{}; let g=null, m=plan.startMonday, cw=0, lastC=0, resume=null, bbLeft=0, bbVer='standard';
   for(let i=0;i<=need+10;i++){
     let wk;
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
+      if(wk.kind==='bb'&&wk.w<8){bbLeft=8-wk.w;bbVer=wk.ver||'standard'}
       if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<6?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
-      if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
+      if(bbLeft>0){ wk={kind:'bb',w:9-bbLeft,ver:bbVer,inserted:true}; bbLeft--; }
+      else if(ins==='bb'){ bbVer=((plan.bbVer||{})[m])||'standard'; wk={kind:'bb',w:1,ver:bbVer,inserted:true}; bbLeft=7; }
+      else if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
     }
     wk=Object.assign({},wk,{monday:m,idx:i});
     if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
+    if(wk.kind==='bb'&&wk.rx==null){
+      const i=(wk.ver==='strength')?wk.w-1:wk.w-6;      // which lifting week of the block
+      if(i>=0) wk.rx=clone(plan.wave[Math.min(i,plan.wave.length-1)]);
+    }
     if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
     out.push(wk); m=addDays(m,7);
   }
@@ -717,8 +757,8 @@ function freezePast(){
   for(let i=0;i<cur&&i<list.length;i++){
     const wk=list[i]; if(fz[wk.monday]) continue;
     const f={kind:wk.kind};
-    for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle']) if(wk[key]!=null) f[key]=wk[key];
-    if(wk.kind==='cycle'||wk.kind==='deload'){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
+    if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
     fz[wk.monday]=f; changed=true;
     if(changed) planV++;
   }
@@ -826,6 +866,19 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'},
     {t:'test',lifts:['dead',...l3On()],pullups:true,apply:true,short:'Test'},
     {t:'off',short:'Off'}][d];
+  if(wk.kind==='bb'){
+    const row=bbRow(wk)[d]||['rest'], k=row[0];
+    if(k==='se') return {t:'se',circuits:row[1],reps:row[2],short:'SE '+row[1]+'×'+row[2]};
+    if(k==='e') return {t:'hic',fmt:'liss',eMin:row[1],eMax:row[2]||row[1],short:'E '+row[1]+(row[2]?'–'+row[2]:'')+'m',
+      note:d===5?'The long one. You have a recovery day behind you and a rest day ahead, so push the duration — a long ruck, a longer run than you have done, or one of the fun-runs.':'Minimum 30 minutes, conversational. Run-walk-run is fine and still aerobic.'};
+    if(k==='hic') return {t:'hic',fmt:(plan.bbHic||{})[monAdd(wk.monday,d)]||'map',bbHic:true,short:'HIC',
+      note:'Weeks 6–8 use the aerobic-leaning HIC sessions only. Keep off the purely lactic ones: you cannot build the aerobic and lactic systems at once.'};
+    if(k==='ms') return {t:'lift',lifts:d===0?['squat','bench',l3For(date)]:['squat','bench','dead'],bbLift:true,short:'Strength',
+      note:'Two strength days a week this block, kept spartan. Two or three compounds, no assistance work.'};
+    if(k==='rec') return {t:'off',recovery:true,short:'Recovery',
+      note:'Movement drills, mobility, an easy swim or bike, a walk, yoga, a massage. Or nothing. If you are still raring to go, one easy E session or half an SE circuit is allowed.'};
+    return {t:'off',short:'Rest',note:'Complete rest. No structured training. Walking, a casual swim or pick-up sport is fine.'};
+  }
   if(wk.kind==='bridge') return [
     {t:'off',short:'—',note:'Bridge week starts Tuesday.'},
     {t:'rm5',lifts:['squat','bench'],short:'5RM'},
@@ -844,11 +897,22 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'}][d];
   return {t:'off',short:'Off',note:'Off week. Walk, sleep, eat. The plan resumes next Monday.'};
 }
+// The block's row for a week, after the strength-first swap if that version is running.
+function bbRow(wk){
+  const base=BB_WEEKS[Math.min(Math.max((wk.w||1)-1,0),BB_WEEKS.length-1)];
+  if((wk.ver||'standard')!=='strength') return base;
+  const r=BB_SF_SE[Math.min(Math.max((wk.w||6)-6,0),BB_SF_SE.length-1)];
+  return base.map((x,i)=>x[0]==='se'?['ms']:x[0]==='ms'?['se',i===0?r[0]:2,r[1]]:x);
+}
 function weekTitle(wk){
   if(!wk) return 'Before start';
   if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
   if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
+  if(wk.kind==='bb'){
+    const r=bbRow(wk), se=r.filter(x=>x[0]==='se').length, ms=r.filter(x=>x[0]==='ms').length;
+    return {t:'Base Building · Week '+wk.w+' of 8',chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
+  }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
   if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};
@@ -1240,6 +1304,7 @@ function sessionHtml(wk,dp){
     if(dp.cardio) h+=`<div class="divider">Then, easy</div>`+hicCard(dp,'');
     return h+mobCard(sel,dp)+footer(true);
   }
+  if(dp.t==='se') return h+warmupCard(sel)+seCard(dp)+mobCard(sel,dp)+footer(true);
   if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
   if(dp.t==='convert') return h+convertCard(wk)+mobCard(sel,dp)+footer(false);
   return h;
@@ -1299,6 +1364,28 @@ function mobCard(date,dp){
     ${items.map(([n,d],i)=>checkRow('mobility.'+i,L[i],n,d)).join('')}
     <div class="row"><button class="btn" data-act="guide" data-k="mobility">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="mclear">Clear</button>`:''}</div>
   </div></details>`;
+}
+/* ---------- strength-endurance circuits ---------- */
+function seCluster(date){const o=(lg(date).se||{}).cluster;return SE_CLUSTERS[o]?o:(((plan.se||{}).cluster)in SE_CLUSTERS?plan.se.cluster:'bw')}
+function seList(key){
+  if(key==='mine'){const a=(plan.se||{}).custom;return Array.isArray(a)?a.filter(Boolean):[]}
+  return (SE_CLUSTERS[key]||SE_CLUSTERS.bw).ex;
+}
+function seRestSecs(){const v=+((plan.se||{}).rest);return SE_RESTS.includes(v)?v:60}
+function seDone(date){const d=(lg(date).se||{}).done;return Array.isArray(d)?d:[]}
+function seCard(dp){
+  const key=seCluster(sel), ex=seList(key), S=lg(sel).se||{}, done=seDone(sel), C=dp.circuits, R=dp.reps;
+  const ticks=ex.reduce((a,_,i)=>a+((done[i]||[]).filter(Boolean).length),0), total=ex.length*C;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps</span></div>
+  <div class="small muted">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
+  <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key}">${c.name}</button>`).join('')}</div></div>`;
+  if(!ex.length) return h+`<div class="banner warn"><div class="small">No exercises in your own cluster yet. Add five to eight in <b>Setup → Strength-endurance</b>, or pick one of the book's above.</div></div></div>`;
+  h+=`<div class="setbl">${ex.map((name,i)=>`<div class="serow"><span class="sename">${esc(name)}</span><div class="sets">${Array.from({length:C},(_,j)=>`<button class="setb sm${(done[i]||[])[j]?' on':''}" data-act="setick" data-i="${i}" data-j="${j}" aria-pressed="${!!(done[i]||[])[j]}">${R}<small>${j+1}</small></button>`).join('')}</div></div>`).join('')}</div>
+  <div class="row between"><span class="small muted">${ticks} of ${total} sets</span><span class="small muted">${esc(SE_CLUSTERS[key].note)}</span></div>
+  <div class="restsel"><span>Rest between exercises</span><div class="seg">${SE_RESTS.map(v=>`<button class="segb${seRestSecs()===v?' on':''}" data-act="serest" data-v="${v}">${v?v+'s':'none'}</button>`).join('')}</div></div>
+  ${key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
+  </div>`;
+  return h;
 }
 function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
 function liftCard(wk,k,dp){
@@ -3495,8 +3582,10 @@ function vPlanList(){
     let menu='';
     if(!past){
       const opts=[];
-      if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
+      if(wk.kind==='bb') opts.push(`<button class="btn sm" data-act="bbremove" data-monday="${wk.monday}">Remove the whole block</button>`);
+      else if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
       else if(wk.rule) opts.push(`<button class="btn sm" data-act="skip" data-rule="${wk.rule}">Skip this ${wk.kind==='test'?'retest':'deload'}</button>`);
+      if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button>`);
       if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
       menu=`<details class="menu"><summary>Change</summary><div class="pop">${opts.join('')}</div></details>`;
     }
@@ -3615,6 +3704,13 @@ function vSetup(){
     <div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
     <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div>
     <div><button class="btn" data-act="view" data-view="releases">What’s new in each release</button></div></div>`;
+  }
+  {
+    const key=((plan.se||{}).cluster)in SE_CLUSTERS?plan.se.cluster:'bw';
+    h+=`<div class="card"><h2>Strength-endurance</h2><p class="small muted" style="margin:0">Circuits of five to eight exercises covering the whole body, light and high-rep. Used by Base Building, and you can pick a different cluster on any single day.</p>
+    <div class="restsel"><span>Default cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${key===k?' on':''}" data-act="sedef" data-v="${k}">${c.name}</button>`).join('')}</div></div>
+    <label class="f">My own cluster<textarea id="se-mine" data-seMine rows="7" placeholder="One exercise per line, five to eight of them">${esc(((plan.se||{}).custom||[]).join('\n'))}</textarea></label>
+    <div class="small muted">Pick movements you can get to without queueing, since the short rests are the point. Anything one arm or one leg at a time splits the reps. With barbells or dumbbells use roughly 15–30% of your one-rep max.</div></div>`;
   }
   const mobs=plan.mob||{};
   h+=`<div class="card"><h2>Mobility</h2><p class="small muted" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
@@ -3735,6 +3831,13 @@ function vGuide(){
   <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
   <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
   <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Jump tests',['broad','vertj','triple']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
+  <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
+  <ul class="tight"><li>Weeks 1–5 are endurance and strength-endurance dense, with no barbell work at all. That is deliberate: it frees the energy for the long sessions and gives tendons and joints a break before heavy lifting returns.</li><li>Weeks 6–8 taper the long work and bring back two strength days and the aerobic-leaning HIC sessions.</li><li>Every E session is a minimum of 30 minutes. Day 6 is the long one, with a recovery day before it and a rest day after, so push the duration there.</li><li>Recovery days are movement drills, mobility, an easy swim or bike, a walk, yoga, or nothing at all.</li><li>At least one completely free day a week. Walking and pick-up sport are fine.</li><li>Eat for it. The book asks for 1–2 g of protein per pound of bodyweight through the block and is firmly against going low-carb while the volume is up.</li><li><b>Strength-first</b> reverses it: lift for the first five weeks, strength-endurance for the last three. The book doesn't give rep numbers for those late SE weeks, so the app ramps 3×30, 3×40, 3×50.</li></ul></div>
+  <div class="card guide"><h3>Strength-endurance circuits</h3><p>Five to eight exercises covering the whole body, done one after another. Do your reps, take a short rest, move to the next. After a full circuit, rest two minutes and go again. The shorter you can make the rests, the better — down to none if you can hold it together.</p>
+  <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that grey area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
+  <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
+  <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
   <div class="card guide"><h3>Accessories</h3><ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
@@ -3769,6 +3872,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
   else if(t.dataset.trvday){ const d=t.dataset.trvday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.travel=Object.assign({},plan.travel||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
+  else if(t.hasAttribute&&t.hasAttribute('data-seMine')){ const xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.se=Object.assign({},plan.se,{custom:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.mobday){ const d=t.dataset.mobday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.mob=Object.assign({},plan.mob||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.accday){ const d=t.dataset.accday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.acc=Object.assign({},plan.acc||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
 });
@@ -3955,6 +4059,37 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='sfeel'){const v=b.dataset.v;setLog(sel,'feel',lg(sel).feel===v?null:v);render();return}
   if(a==='spain'){const v=b.dataset.v,same=lg(sel).pain===v;setLog(sel,'pain',same?null:v);if(!same&&v==='none')setLog(sel,'painAt',[]);render();return}
   if(a==='spainat'){const k=b.dataset.v,cur=painAt(lg(sel));setLog(sel,'painAt',cur.includes(k)?cur.filter(x=>x!==k):[...cur,k]);render();return}
+  if(a==='bbadd'){
+    const mon=b.dataset.monday, ver=b.dataset.ver==='strength'?'strength':'standard';
+    if(mon<mondayOf(realToday())) return;
+    offerUndo('Base Building added · 8 weeks from '+fmtD(mon),snapPlan());
+    mutatePlan(p=>{p.inserts=Object.assign({},p.inserts,{[mon]:'bb'});p.bbVer=Object.assign({},p.bbVer,{[mon]:ver})});
+    return}
+  if(a==='bbremove'){
+    // find the block's first week, then drop the insert that starts it
+    const list=weeks(), i=list.findIndex(w=>w.monday===b.dataset.monday);
+    let s=i; while(s>0&&list[s-1].kind==='bb'&&list[s].w>1) s--;
+    const mon=list[s].monday;
+    offerUndo('Base Building removed',snapPlan());
+    mutatePlan(p=>{const ins=Object.assign({},p.inserts),v=Object.assign({},p.bbVer);delete ins[mon];delete v[mon];p.inserts=ins;p.bbVer=v});
+    return}
+  if(a==='sedef'){const v=b.dataset.v;mutatePlan(p=>{p.se=Object.assign({},p.se,{cluster:v})});return}
+  if(a==='secl'){const v=b.dataset.v;if(seCluster(sel)===v)return;setLog(sel,'se.cluster',v);render();return}
+  if(a==='serest'){const v=+b.dataset.v;if(seRestSecs()===v)return;mutatePlan(p=>{p.se=Object.assign({},p.se,{rest:v})});return}
+  if(a==='setick'){
+    const i=+b.dataset.i,j=+b.dataset.j,dp=dayPlan(sel),ex=seList(seCluster(sel));
+    const done=seDone(sel).map(r=>Array.isArray(r)?r.slice():[]);
+    while(done.length<ex.length) done.push([]);
+    const row=done[i]; while(row.length<dp.circuits) row.push(false);
+    row[j]=!row[j]; setLog(sel,'se.done',done);
+    if(row[j]&&sel===todayStr()){
+      unlockAudio();
+      const last=i===ex.length-1, nextName=last?ex[0]:ex[i+1];
+      if(last&&j+1<dp.circuits) startRest(null,'Circuit '+(j+2)+' · '+nextName,120,'Rest · circuit done');
+      else if(!last&&seRestSecs()) startRest(null,nextName,seRestSecs(),'Rest · '+ex[i]);
+      else if(last) stopRest();
+    }
+    render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}

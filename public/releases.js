@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.40',date:'2026-10-07',title:"Base Building",items:[
+    "You can drop Tactical Barbell's Block I in as your next cycle. Plan tab, open Change on any future week, and pick Base Building. Eight weeks, straight from the book's template, and Operator picks up afterwards at the same maxes.",
+    "Weeks 1 to 5 are endurance and strength-endurance with no barbell work at all. Weeks 6 to 8 taper the long sessions and bring back two strength days and the aerobic HIC sessions.",
+    "Strength-endurance circuits are a new session type. Pick a cluster, tick each exercise off per circuit, and the rest timer runs short between exercises and two minutes between circuits.",
+    "The book's four clusters are built in, bodyweight, barbell, kettlebell and dumbbell, and you can write your own in Setup. Switch cluster on any single day from the session card.",
+    "There is a strength-first version too, which lifts for the first five weeks and does the circuits in the last three. The book only says to reverse it and gives no rep numbers for those late weeks, so the app ramps 3×30, 3×40, 3×50, and says so.",
+    "The Guide has the whole eight-week table, the circuit rules and the clusters."]},
   {v:'1.39',date:'2026-10-06',title:"Climbing counts, and a word after you lift",items:[
     "Elevation now turns into distance. A thousand feet of climbing counts as a mile, so five miles with 3,000 ft of gain shows as eight miles flat. The raw numbers stay on screen, the equivalent sits next to them.",
     "That is also what \u201clast\u201d and \u201cbest\u201d compare for trail runs, hikes and rucks, so a brutal climbing day stops looking worse than an easy flat one.",

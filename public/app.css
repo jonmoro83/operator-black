@@ -455,3 +455,6 @@ ul.tight{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 /* Upper-body plyo: the movement picker sits above each slot's sets. */
 .up-pick{gap:2px}
 .up-pick select{font-size:15px;padding:7px 8px}
+.setbl{display:flex;flex-direction:column;gap:8px}
+.serow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.sename{font-weight:650;font-size:14px;min-width:0}

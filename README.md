@@ -247,6 +247,21 @@ whenever the page hides and leaves a released lock looking like a live one, so
 handler re-takes the lock and resumes the AudioContext, which iOS suspends while hidden
 and which a beep can't recover on its own.
 
+## Base Building
+
+`BB_WEEKS` is Tactical Barbell II's Block I template, eight rows of seven days, each day
+`[kind, ...args]`: `se` circuits × reps, `e` endurance minutes, `ms` max strength, `rec`,
+`rest`. Insert it with `plan.inserts[monday]='bb'` and `plan.bbVer[monday]`; `weeks()`
+emits eight consecutive `bb` weeks and does **not** advance the rule generator, so the
+Operator cycle resumes afterwards where it left off and at the same maxes. `bbRow(wk)`
+applies the strength-first swap — the book says only "reverse it" and gives no rep scheme
+for the late SE weeks, so `BB_SF_SE` is ours and the Guide says so. Weeks that carry
+lifting get `wk.rx` walked up the wave, so `rx()` works unchanged.
+
+Strength-endurance is its own session type (`t:'se'`). `SE_CLUSTERS` holds the book's four
+clusters plus the user's own (`plan.se.custom`); the cluster can be overridden per day in
+`logs[d].se.cluster`, and ticks live in `logs[d].se.done[exercise][circuit]`.
+
 ## Timer
 
 `src/app/10b-timer.js` is a countdown and stopwatch for anything, opened from the ⏱ at

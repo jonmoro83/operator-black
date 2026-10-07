@@ -153,6 +153,7 @@ function sessionHtml(wk,dp){
     if(dp.cardio) h+=`<div class="divider">Then, easy</div>`+hicCard(dp,'');
     return h+mobCard(sel,dp)+footer(true);
   }
+  if(dp.t==='se') return h+warmupCard(sel)+seCard(dp)+mobCard(sel,dp)+footer(true);
   if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
   if(dp.t==='convert') return h+convertCard(wk)+mobCard(sel,dp)+footer(false);
   return h;
@@ -212,6 +213,28 @@ function mobCard(date,dp){
     ${items.map(([n,d],i)=>checkRow('mobility.'+i,L[i],n,d)).join('')}
     <div class="row"><button class="btn" data-act="guide" data-k="mobility">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="mclear">Clear</button>`:''}</div>
   </div></details>`;
+}
+/* ---------- strength-endurance circuits ---------- */
+function seCluster(date){const o=(lg(date).se||{}).cluster;return SE_CLUSTERS[o]?o:(((plan.se||{}).cluster)in SE_CLUSTERS?plan.se.cluster:'bw')}
+function seList(key){
+  if(key==='mine'){const a=(plan.se||{}).custom;return Array.isArray(a)?a.filter(Boolean):[]}
+  return (SE_CLUSTERS[key]||SE_CLUSTERS.bw).ex;
+}
+function seRestSecs(){const v=+((plan.se||{}).rest);return SE_RESTS.includes(v)?v:60}
+function seDone(date){const d=(lg(date).se||{}).done;return Array.isArray(d)?d:[]}
+function seCard(dp){
+  const key=seCluster(sel), ex=seList(key), S=lg(sel).se||{}, done=seDone(sel), C=dp.circuits, R=dp.reps;
+  const ticks=ex.reduce((a,_,i)=>a+((done[i]||[]).filter(Boolean).length),0), total=ex.length*C;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps</span></div>
+  <div class="small muted">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
+  <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key}">${c.name}</button>`).join('')}</div></div>`;
+  if(!ex.length) return h+`<div class="banner warn"><div class="small">No exercises in your own cluster yet. Add five to eight in <b>Setup → Strength-endurance</b>, or pick one of the book's above.</div></div></div>`;
+  h+=`<div class="setbl">${ex.map((name,i)=>`<div class="serow"><span class="sename">${esc(name)}</span><div class="sets">${Array.from({length:C},(_,j)=>`<button class="setb sm${(done[i]||[])[j]?' on':''}" data-act="setick" data-i="${i}" data-j="${j}" aria-pressed="${!!(done[i]||[])[j]}">${R}<small>${j+1}</small></button>`).join('')}</div></div>`).join('')}</div>
+  <div class="row between"><span class="small muted">${ticks} of ${total} sets</span><span class="small muted">${esc(SE_CLUSTERS[key].note)}</span></div>
+  <div class="restsel"><span>Rest between exercises</span><div class="seg">${SE_RESTS.map(v=>`<button class="segb${seRestSecs()===v?' on':''}" data-act="serest" data-v="${v}">${v?v+'s':'none'}</button>`).join('')}</div></div>
+  ${key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
+  </div>`;
+  return h;
 }
 function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
 function liftCard(wk,k,dp){

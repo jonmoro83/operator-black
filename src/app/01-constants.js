@@ -351,6 +351,8 @@ const DEF={
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
   elevPer:{lb:1000,kg:190},
+  se:{cluster:'bw',custom:[],rest:60},
+  bbVer:{},
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
@@ -368,3 +370,33 @@ const PAIN_AT={
 };
 const FEELS=[['easy','Easy'],['right','About right'],['hard','Hard']];
 const PAINS=[['none','Nothing'],['niggle','A niggle'],['sharp','Sharp pain']];
+
+/* Base Building — Tactical Barbell II, Block I. Eight weeks, straight from the book's
+   template. Day rows are [kind, ...args]: se = circuits × reps, e = endurance minutes
+   (one number, or a floor and a ceiling), ms = max strength, rec = recovery, rest. */
+const BB_WEEKS=[
+  [['se',3,20],['e',30],['e',30],['se',2,20],['rec'],['e',35,120],['rest']],
+  [['se',3,30],['e',40],['e',40],['se',2,30],['rec'],['e',45,120],['rest']],
+  [['se',3,40],['e',50],['e',50],['se',2,40],['rec'],['e',55,120],['rest']],
+  [['se',1,50],['e',60],['e',60],['se',1,50],['rec'],['e',60,120],['rest']],
+  [['se',3,50],['e',45,60],['e',45,60],['se',2,50],['rec'],['e',45,120],['rest']],
+  [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']],
+  [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']],
+  [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']]
+];
+// Strength-first reverses SE and Max Strength. The book says only "reverse it" and gives
+// no rep scheme for the late SE weeks, so this ramp to 50 is ours, and says so on screen.
+const BB_SF_SE=[[3,30],[3,40],[3,50]];
+// The book's example clusters. Five to eight exercises covering the whole body.
+const SE_CLUSTERS={
+  bw:{name:'Bodyweight',ex:['Push-ups','Squats','Kipping pull-ups or inverted rows','Bicycle crunches','Dips','Back extensions'],
+      note:'Add a weight vest or a pack with 5–10 lb to make it harder.'},
+  bar:{name:'Barbell',ex:['Push press','Front squat','Row','Bench or floor press','Shrugs','Romanian deadlift'],
+      note:'One bar, one light weight, the whole circuit. An Olympic bar with a pair of 10s is the right idea.'},
+  kb:{name:'Kettlebell',ex:['Swings','Goblet squat','Renegade rows','Single-arm floor press','Kettlebell deadlift'],
+      note:'Anything one arm or one leg at a time splits the reps: 30 means 15 a side.'},
+  db:{name:'Dumbbell',ex:['Bench or floor press','Lunges','Rows','Dumbbell push press','Squats','Lying leg raises'],
+      note:'A pair of light dumbbells for everything except the leg raises.'},
+  mine:{name:'Mine',ex:[],note:'Your own five to eight, covering the whole body.'}
+};
+const SE_RESTS=[0,30,45,60,90,120];

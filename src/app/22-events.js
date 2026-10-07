@@ -15,6 +15,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
   else if(t.dataset.trvday){ const d=t.dataset.trvday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.travel=Object.assign({},plan.travel||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
+  else if(t.hasAttribute&&t.hasAttribute('data-seMine')){ const xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.se=Object.assign({},plan.se,{custom:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.mobday){ const d=t.dataset.mobday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.mob=Object.assign({},plan.mob||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.accday){ const d=t.dataset.accday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.acc=Object.assign({},plan.acc||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
 });
@@ -201,6 +202,37 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='sfeel'){const v=b.dataset.v;setLog(sel,'feel',lg(sel).feel===v?null:v);render();return}
   if(a==='spain'){const v=b.dataset.v,same=lg(sel).pain===v;setLog(sel,'pain',same?null:v);if(!same&&v==='none')setLog(sel,'painAt',[]);render();return}
   if(a==='spainat'){const k=b.dataset.v,cur=painAt(lg(sel));setLog(sel,'painAt',cur.includes(k)?cur.filter(x=>x!==k):[...cur,k]);render();return}
+  if(a==='bbadd'){
+    const mon=b.dataset.monday, ver=b.dataset.ver==='strength'?'strength':'standard';
+    if(mon<mondayOf(realToday())) return;
+    offerUndo('Base Building added · 8 weeks from '+fmtD(mon),snapPlan());
+    mutatePlan(p=>{p.inserts=Object.assign({},p.inserts,{[mon]:'bb'});p.bbVer=Object.assign({},p.bbVer,{[mon]:ver})});
+    return}
+  if(a==='bbremove'){
+    // find the block's first week, then drop the insert that starts it
+    const list=weeks(), i=list.findIndex(w=>w.monday===b.dataset.monday);
+    let s=i; while(s>0&&list[s-1].kind==='bb'&&list[s].w>1) s--;
+    const mon=list[s].monday;
+    offerUndo('Base Building removed',snapPlan());
+    mutatePlan(p=>{const ins=Object.assign({},p.inserts),v=Object.assign({},p.bbVer);delete ins[mon];delete v[mon];p.inserts=ins;p.bbVer=v});
+    return}
+  if(a==='sedef'){const v=b.dataset.v;mutatePlan(p=>{p.se=Object.assign({},p.se,{cluster:v})});return}
+  if(a==='secl'){const v=b.dataset.v;if(seCluster(sel)===v)return;setLog(sel,'se.cluster',v);render();return}
+  if(a==='serest'){const v=+b.dataset.v;if(seRestSecs()===v)return;mutatePlan(p=>{p.se=Object.assign({},p.se,{rest:v})});return}
+  if(a==='setick'){
+    const i=+b.dataset.i,j=+b.dataset.j,dp=dayPlan(sel),ex=seList(seCluster(sel));
+    const done=seDone(sel).map(r=>Array.isArray(r)?r.slice():[]);
+    while(done.length<ex.length) done.push([]);
+    const row=done[i]; while(row.length<dp.circuits) row.push(false);
+    row[j]=!row[j]; setLog(sel,'se.done',done);
+    if(row[j]&&sel===todayStr()){
+      unlockAudio();
+      const last=i===ex.length-1, nextName=last?ex[0]:ex[i+1];
+      if(last&&j+1<dp.circuits) startRest(null,'Circuit '+(j+2)+' · '+nextName,120,'Rest · circuit done');
+      else if(!last&&seRestSecs()) startRest(null,nextName,seRestSecs(),'Rest · '+ex[i]);
+      else if(last) stopRest();
+    }
+    render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
     if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
     return}
