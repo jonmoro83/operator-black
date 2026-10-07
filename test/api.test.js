@@ -933,3 +933,41 @@ test("state tells the page whether it is an admin, and tells nobody else", async
   a.equal((await (await call2(env, "state", {}, await asOther(k))).json()).admin, undefined, "absent, not false");
   a.equal((await (await call2(dbEnv(), "state", {}, await mint(k.a))).json()).admin, undefined, "nobody is an admin by default");
 });
+
+test("an administrator is an ordinary user too, with the sharp edges guarded", async () => {
+  const k = await setupKeys();
+  // The secret is typed by hand into a prompt, so spacing and case must not decide it.
+  for (const secret of ["lifter@example.com", " lifter@example.com ", "LIFTER@Example.COM",
+                        "someone@else.com, lifter@example.com", "lifter@example.com,"]) {
+    const env = dbEnv({ ADMIN_EMAILS: secret });
+    a.equal((await (await call2(env, "state", {}, await mint(k.a))).json()).admin, true, `secret ${JSON.stringify(secret)}`);
+  }
+  // A near-miss is not a match.
+  for (const secret of ["lifter@example.co", "lifter@example.com.au", "ifter@example.com", ""]) {
+    const env = dbEnv({ ADMIN_EMAILS: secret });
+    a.equal((await (await call2(env, "state", {}, await mint(k.a))).json()).admin, undefined, `secret ${JSON.stringify(secret)}`);
+  }
+
+  // Being an admin changes nothing about using the app normally.
+  const env = adminEnv();
+  seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 }, "logs/2026-10-01": { date: "2026-10-01" } });
+  const st = await (await call2(env, "state", {}, await mint(k.a))).json();
+  a.deepEqual(st.plan, { bar: 45 }, "my own training still comes back");
+  a.deepEqual(Object.keys(st.logs), ["2026-10-01"]);
+
+  // I appear in my own list, flagged, and cannot be removed from there however hard I try.
+  const list = (await (await call2(env, "admin/users", {}, await mint(k.a))).json()).users;
+  const me = list.find((u) => u.user === "lifter@example.com");
+  a.equal(me.admin, true);
+  a.equal(me.logs, 1, "with my real counts, like anyone else");
+  for (const confirm of ["lifter@example.com", "LIFTER@EXAMPLE.COM"]) {
+    const res = await call2(env, "admin/users/" + encodeURIComponent("lifter@example.com"),
+      { method: "DELETE", body: JSON.stringify({ confirm }) }, await mint(k.a));
+    a.equal(res.status, 400, "the self-delete guard holds");
+  }
+  a.equal(env.DB.docs.filter((d) => d.user === "lifter@example.com").length, 2, "and my data is intact");
+
+  // Deleting my ordinary data is still possible the ordinary way, through restore.
+  a.equal((await call2(env, "restore", { method: "POST", body: JSON.stringify({ logs: {} }) }, await mint(k.a))).status, 200,
+    "being an admin does not lock me out of my own account's normal routes");
+});
