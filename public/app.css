@@ -397,6 +397,8 @@ details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
 .setb small{font-size:10px;font-weight:500;color:var(--muted);font-family:var(--f-body);letter-spacing:.04em;text-transform:uppercase}
 .setb.opt{border-style:dashed}
 .setb.add{border-style:dashed;color:var(--muted);font-size:22px;font-weight:400}
+/* "that number looks wrong" under an input. Never blocks: the value is kept as typed. */
+.oddnote{flex:0 0 100%;font-weight:500;font-size:12px;line-height:1.35;color:var(--yellow);background:var(--yellow-bg);border-radius:6px;padding:5px 8px;margin-top:2px}
 .setb.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .setb.on small{color:var(--accent-ink)}
 .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}

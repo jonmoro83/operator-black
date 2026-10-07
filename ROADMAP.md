@@ -77,11 +77,6 @@ within each group, roughly in order of how useful they'd be.
   bindings: no Miniflare, no `wrangler dev`, still a plain `node --test` run. Still
   uncovered: the document read/write routes, restore, push, and the three calendar
   endpoints. Restore is the next one worth doing, since it overwrites everything.
-- **Sanity-check numeric input.** Nothing stops a bodyweight of 2050 or a 4000 lb squat,
-  and the derived numbers now carry further than they used to: one fat-fingered weigh-in
-  poisons the 7-day average, the protein target, the weighted pull-up load and the TDEE
-  estimate for a fortnight. Not a hard block — an inline "that looks wrong, keep it?"
-  on anything outside a plausible band, and leave the decision with the person.
 - **Verify a backup by restoring it.** Restore has never run against real data. A
   scheduled check that restores the newest backup into a scratch namespace and diffs it
   against live would turn "there are backups" into "the backups work".
@@ -128,6 +123,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**A number that looks wrong says so (2026-10-07)**
+- `oddNote()` inside `numIn` and `pIn`, so every numeric input gets the check from one
+  place rather than each card remembering to ask.
+- A note, never a block: the value is stored exactly as typed and the wording says so.
+  It also does not dismiss — it stays until the number changes, because a typo should
+  keep asking rather than be waved away once and forgotten.
+- Bands are deliberately wide (bodyweight 60–400 lb, lifts 0–1200 lb) so a genuinely
+  strong or genuinely light person never sees one. They convert with the unit setting,
+  and measurements switch to centimetres, so kilograms are not all flagged.
+- Covered: ordinary values stay silent, the roadmap's two cases are caught, blanks and
+  non-numbers say nothing, fields with no sensible band are left alone, warm-up rows are
+  excluded (too cramped for a note), and the unit conversion works both ways.
+- The one row-flex label that holds a numeric input (working weight) wraps now, so the
+  note lands on its own line instead of squeezing the field.
 
 **A crash says so instead of going blank (2026-10-07)**
 - `render()` splits into a thin `render()` that catches and `renderMain()` that does the

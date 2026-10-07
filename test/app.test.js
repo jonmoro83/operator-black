@@ -2017,3 +2017,50 @@ test("a crash in one view does not take the rest of the app with it", () => {
   a.match(x.vSetup(), /Problems/, "with the errors on it");
   a.doesNotThrow(() => x.vGuide(), "and an unrelated view is unaffected");
 });
+
+test("an implausible number gets a note, and a plausible one does not", () => {
+  const x = app({ now: "2026-10-07" });
+
+  // Nothing normal is ever flagged, including genuinely strong or light people.
+  for (const [bind, v] of [["bodyweight", 196], ["bodyweight", 95], ["bodyweight", 310],
+                           ["maxes.squat", 500], ["maxes.squat", 95], ["checkin.kcal", 3800],
+                           ["meas.waist", 31], ["pullups", 25], ["checkin.sleepH", 7.5]]) {
+    a.equal(x.oddNote(bind, v), "", `${bind}=${v} is ordinary`);
+  }
+
+  // The cases from the roadmap.
+  a.match(x.oddNote("bodyweight", 2050), /outside the usual/, "a fat-fingered weigh-in");
+  a.match(x.oddNote("maxes.squat", 4000), /outside the usual/, "a 4000 lb squat");
+  a.match(x.oddNote("bodyweight", 2050), /60–400/, "and it says what it expected");
+  a.match(x.oddNote("bodyweight", 2050), /Kept as typed/, "while making clear it is not a block");
+
+  // Blank is not wrong, it is just blank.
+  for (const v of [null, undefined, "", NaN]) a.equal(x.oddNote("bodyweight", v), "", `${v} says nothing`);
+
+  // Fields with no sensible band say nothing rather than guessing.
+  a.equal(x.oddNote("hic.cal", 99999), "");
+  a.equal(x.oddNote("lifts.squat.warmup.0.w", 9999), "", "ramp rows are left alone");
+
+  // It reaches the real inputs, both kinds.
+  a.match(x.numIn("bodyweight", 2050, ""), /oddnote/);
+  a.match(x.numIn("bodyweight", 196, ""), /^<input/);
+  a.ok(!/oddnote/.test(x.numIn("bodyweight", 196, "")));
+});
+
+test("the bands move with the units, so kilograms are not all flagged", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.unit = "kg"; x.bump();
+  a.equal(x.u(), "kg");
+
+  a.equal(x.oddNote("bodyweight", 89), "", "89 kg is an ordinary bodyweight");
+  a.equal(x.oddNote("maxes.squat", 200), "", "a 200 kg squat is strong, not impossible");
+  a.match(x.oddNote("bodyweight", 930), /outside the usual/, "930 kg is not");
+  a.match(x.oddNote("bodyweight", 930), /kg/, "and it says so in kilograms");
+
+  // Measurements switch to centimetres with the same treatment.
+  a.equal(x.oddNote("meas.waist", 84), "", "84 cm waist");
+  a.match(x.oddNote("meas.waist", 400), /cm/);
+
+  x.plan.unit = "lb"; x.bump();
+  a.match(x.oddNote("bodyweight", 930), /lb/, "and back again");
+});

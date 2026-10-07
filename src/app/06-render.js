@@ -1,5 +1,42 @@
 /* ---------------- rendering helpers ---------------- */
-function numIn(bind,val,ph,attrs){return `<input type="number" inputmode="decimal" step="any" id="in-${bind.replace(/\./g,'-')}" data-bind="${bind}" data-type="num" value="${val??''}" placeholder="${esc(ph??'')}" ${attrs||''}>`}
+function numIn(bind,val,ph,attrs){return `<input type="number" inputmode="decimal" step="any" id="in-${bind.replace(/\./g,'-')}" data-bind="${bind}" data-type="num" value="${val??''}" placeholder="${esc(ph??'')}" ${attrs||''}>`+oddNote(bind,val)}
+
+/* ---------------- does that number look right? ----------------
+Nothing stops a bodyweight of 2050 or a 4000 lb squat, and a single fat-fingered weigh-in
+now carries a long way: the 7-day average, the protein target, the weighted pull-up load
+and the burn estimate all read from it for a fortnight.
+
+This is a note, not a block. Ranges are deliberately wide enough that a genuinely strong
+or genuinely light person never sees one, and the value is kept exactly as typed either
+way. The note stays until the number is changed, which is the point: a typo should keep
+asking rather than be dismissed once and forgotten. */
+function oddBand(bind){
+  const kg=u()==='kg';
+  const W=(lo,hi)=>kg?[Math.round(lo/2.205),Math.round(hi/2.205),'kg']:[lo,hi,'lb'];
+  const L=(lo,hi)=>kg?[Math.round(lo*2.54),Math.round(hi*2.54),'cm']:[lo,hi,'in'];
+  const b=String(bind||'');
+  if(b.includes('.warmup.')) return null;            // ramp rows are too cramped for a note
+  if(b==='bodyweight'||b==='checkin.bw') return W(60,400);
+  if(b==='bar') return W(5,100);
+  if(b==='checkin.kcal') return [500,8000,'kcal'];
+  if(b==='checkin.sleepH') return [0,24,'h'];
+  if(b==='sleepTarget') return [3,14,'h'];
+  if(b==='proteinPerLb') return [0.2,2,'g'];
+  if(b==='pullups') return [0,100,'reps'];
+  if(b==='meas.neck') return L(8,25);
+  if(b==='meas.waist') return L(20,70);
+  if(b==='meas.hip') return L(25,80);
+  if(/^maxes\./.test(b)||/^test\.[a-z]+\.w$/.test(b)||/^lifts\.[a-z0-9]+\.used$/.test(b)) return W(0,1200);
+  return null;
+}
+function oddNote(bind,val){
+  if(val==null||val==='') return '';
+  const v=+val; if(!isFinite(v)) return '';
+  const band=oddBand(bind); if(!band) return '';
+  const [lo,hi,unit]=band;
+  if(v>=lo&&v<=hi) return '';
+  return `<span class="oddnote">${n(v)} ${esc(unit)} is outside the usual ${n(lo)}\u2013${n(hi)}. Kept as typed \u2014 change it if it was a slip.</span>`;
+}
 function lg(date){return logs[date]||{}}
 function ramp(k,W,t,deload){
   if(isBW(k)) return W==null?[]:W>0&&!deload?[{w:0,r:5,lbl:'BW'},{w:rnd(W*.5,plan.round[k]),r:2,lbl:'50%'}]:[{w:0,r:3,lbl:'BW'}];

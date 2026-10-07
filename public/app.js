@@ -1160,7 +1160,44 @@ window.addEventListener('offline',()=>setStatus(errText(null),true));
 document.getElementById('status').addEventListener('click',()=>{ if(signedOut) location.replace('/') });
 
 /* ---------------- rendering helpers ---------------- */
-function numIn(bind,val,ph,attrs){return `<input type="number" inputmode="decimal" step="any" id="in-${bind.replace(/\./g,'-')}" data-bind="${bind}" data-type="num" value="${val??''}" placeholder="${esc(ph??'')}" ${attrs||''}>`}
+function numIn(bind,val,ph,attrs){return `<input type="number" inputmode="decimal" step="any" id="in-${bind.replace(/\./g,'-')}" data-bind="${bind}" data-type="num" value="${val??''}" placeholder="${esc(ph??'')}" ${attrs||''}>`+oddNote(bind,val)}
+
+/* ---------------- does that number look right? ----------------
+Nothing stops a bodyweight of 2050 or a 4000 lb squat, and a single fat-fingered weigh-in
+now carries a long way: the 7-day average, the protein target, the weighted pull-up load
+and the burn estimate all read from it for a fortnight.
+
+This is a note, not a block. Ranges are deliberately wide enough that a genuinely strong
+or genuinely light person never sees one, and the value is kept exactly as typed either
+way. The note stays until the number is changed, which is the point: a typo should keep
+asking rather than be dismissed once and forgotten. */
+function oddBand(bind){
+  const kg=u()==='kg';
+  const W=(lo,hi)=>kg?[Math.round(lo/2.205),Math.round(hi/2.205),'kg']:[lo,hi,'lb'];
+  const L=(lo,hi)=>kg?[Math.round(lo*2.54),Math.round(hi*2.54),'cm']:[lo,hi,'in'];
+  const b=String(bind||'');
+  if(b.includes('.warmup.')) return null;            // ramp rows are too cramped for a note
+  if(b==='bodyweight'||b==='checkin.bw') return W(60,400);
+  if(b==='bar') return W(5,100);
+  if(b==='checkin.kcal') return [500,8000,'kcal'];
+  if(b==='checkin.sleepH') return [0,24,'h'];
+  if(b==='sleepTarget') return [3,14,'h'];
+  if(b==='proteinPerLb') return [0.2,2,'g'];
+  if(b==='pullups') return [0,100,'reps'];
+  if(b==='meas.neck') return L(8,25);
+  if(b==='meas.waist') return L(20,70);
+  if(b==='meas.hip') return L(25,80);
+  if(/^maxes\./.test(b)||/^test\.[a-z]+\.w$/.test(b)||/^lifts\.[a-z0-9]+\.used$/.test(b)) return W(0,1200);
+  return null;
+}
+function oddNote(bind,val){
+  if(val==null||val==='') return '';
+  const v=+val; if(!isFinite(v)) return '';
+  const band=oddBand(bind); if(!band) return '';
+  const [lo,hi,unit]=band;
+  if(v>=lo&&v<=hi) return '';
+  return `<span class="oddnote">${n(v)} ${esc(unit)} is outside the usual ${n(lo)}\u2013${n(hi)}. Kept as typed \u2014 change it if it was a slip.</span>`;
+}
 function lg(date){return logs[date]||{}}
 function ramp(k,W,t,deload){
   if(isBW(k)) return W==null?[]:W>0&&!deload?[{w:0,r:5,lbl:'BW'},{w:rnd(W*.5,plan.round[k]),r:2,lbl:'50%'}]:[{w:0,r:3,lbl:'BW'}];
@@ -1581,7 +1618,7 @@ function liftCard(wk,k,dp){
   const ex=+L.extra||0;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
   h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book calls 5\u201310 min normal at this load.</span>':''}</div>`;
-  h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
+  h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
   if(L.grinder&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(ex>0&&!sets[nSets-1]&&!viewing) h+=`<div><button class="btn sm ghost" data-act="rmset" data-lift="${k}">− Remove the last set</button></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
@@ -3816,7 +3853,7 @@ function vHistory(){
   return h;
 }
 
-function pIn(path,val,attrs){return `<input type="number" inputmode="decimal" step="any" id="p-${path.replace(/\./g,'-')}" data-pbind="${path}" data-type="num" value="${val??''}" ${attrs||''}>`}
+function pIn(path,val,attrs){return `<input type="number" inputmode="decimal" step="any" id="p-${path.replace(/\./g,'-')}" data-pbind="${path}" data-type="num" value="${val??''}" ${attrs||''}>`+oddNote(path,val)}
 function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
   <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
