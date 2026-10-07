@@ -436,7 +436,7 @@ statements src/api.js actually issues, over real rows. Narrow on purpose: it ans
 queries this code sends and throws on anything it does not recognise, so a new query
 cannot pass by being quietly ignored. */
 function fakeDB() {
-  const docs = [], feeds = [];
+  const docs = [], feeds = [], adminLog = [];
   const norm = (s) => s.replace(/\s+/g, " ").trim();
   const exec = (sql, a) => {
     const q = norm(sql);
@@ -481,18 +481,36 @@ function fakeDB() {
       feeds.length = 0; feeds.push(...keep);
       return [];
     }
+    if (/^SELECT user, COUNT\(\*\) AS docs,.*FROM docs GROUP BY user/.test(q)) {
+      const by = new Map();
+      for (const d of docs) {
+        const r = by.get(d.user) || { user: d.user, docs: 0, logs: 0, bytes: 0, last: 0 };
+        r.docs++; if (d.path.startsWith("logs/")) r.logs++;
+        r.bytes += d.data.length; r.last = Math.max(r.last, d.updated_at);
+        by.set(d.user, r);
+      }
+      return [...by.values()].sort((x, y) => y.last - x.last);
+    }
+    if (/^INSERT INTO admin_log/.test(q)) {
+      adminLog.push({ at: a[0], actor: a[1], action: a[2], subject: a[3], detail: a[4] });
+      return [];
+    }
+    if (/^SELECT at, actor, action, subject, detail FROM admin_log/.test(q))
+      return [...adminLog].sort((x, y) => y.at - x.at).slice(0, 100);
     throw new Error("fakeDB does not know this query: " + q);
   };
   const batches = [];
   return {
-    docs, feeds, batches,
+    docs, feeds, adminLog, batches,
     prepare(sql) {
-      return { bind: (...args) => ({
+      // A statement can be run with or without parameters, like the real binding.
+      const made = (args) => ({
         __sql: sql, __args: args,
         all: async () => ({ results: exec(sql, args) }),
         first: async () => exec(sql, args)[0] || null,
         run: async () => (exec(sql, args), {}),
-      }) };
+      });
+      return Object.assign(made([]), { bind: (...args) => made(args) });
     },
     async batch(stmts) { batches.push(stmts.map((s) => norm(s.__sql))); for (const s of stmts) exec(s.__sql, s.__args); return [] },
   };
@@ -779,4 +797,139 @@ test("the verification record is reported alongside the backups, not as one", as
   a.ok(!out.backups.some((b) => b.name.includes("_check")), "the record is not listed as one");
   a.equal(out.check.ok, true, "it comes back on its own");
   a.equal(out.check.name, out.backups[0].name);
+});
+
+/* ---------------- administration ---------------- */
+
+const adminEnv = () => dbEnv({ ADMIN_EMAILS: "lifter@example.com" });
+const asOther = async (k) => mint(k.a, { email: "someone.else@example.com" });
+
+test("the admin routes do not exist unless you are one", async () => {
+  const k = await setupKeys();
+  // Not an admin: every route is a 404, not a 403. A 403 would confirm it is there.
+  const plain = dbEnv();
+  for (const [r, m] of [["admin/users", "GET"], ["admin/log", "GET"], ["admin/users/x@y.com", "DELETE"]]) {
+    const res = await call2(plain, r, { method: m, body: m === "DELETE" ? "{}" : undefined }, await mint(k.a));
+    a.equal(res.status, 404, `${m} ${r} is invisible`);
+  }
+  // Being on the list is what grants it, and only for that address.
+  const env = adminEnv();
+  a.equal((await call2(env, "admin/users", {}, await mint(k.a))).status, 200, "the admin gets in");
+  a.equal((await call2(env, "admin/users", {}, await asOther(k))).status, 404, "nobody else does");
+  // And the signed-in identity decides it, not anything the page sends.
+  a.equal((await call2(env, "admin/users", { headers: { "x-admin": "1" } }, await asOther(k))).status, 404);
+});
+
+test("the people list is counts and dates, never anyone's training", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 }, "logs/2026-10-01": { date: "2026-10-01" } });
+  seedDocs(env, "someone.else@example.com", {
+    "plan/main": { bar: 20, secretNote: "my back hurts" },
+    "logs/2026-10-02": { date: "2026-10-02", bodyweight: 196 },
+    "logs/2026-10-03": { date: "2026-10-03" },
+  });
+
+  const res = await call2(env, "admin/users", {}, await mint(k.a));
+  const body = await res.json();
+  const them = body.users.find((u) => u.user === "someone.else@example.com");
+  a.equal(them.docs, 3);
+  a.equal(them.logs, 2, "logged days are counted");
+  a.ok(them.bytes > 0, "and sized");
+  a.ok(them.last, "with a last-activity date");
+
+  const raw = JSON.stringify(body);
+  a.ok(!raw.includes("my back hurts"), "no plan contents");
+  a.ok(!raw.includes("196"), "no bodyweight");
+  a.equal(body.users.find((u) => u.user === "lifter@example.com").admin, true, "admins are marked");
+  a.equal(body.me, "lifter@example.com");
+});
+
+test("clearing someone takes everything they have, and nothing of anyone else's", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const { backupNow, listBackups, readCheck } = await load();
+  const victim = "someone.else@example.com";
+
+  seedDocs(env, victim, { "plan/main": { bar: 20 }, "logs/2026-10-02": { date: "2026-10-02" } });
+  seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 }, "logs/2026-10-01": { date: "2026-10-01" } });
+  await backupNow(env, victim, { manual: true });
+  await call2(env, "calendar/on", { method: "POST" }, await asOther(k));
+  a.equal(env.DB.feeds.length, 1, "they have a calendar feed");
+  a.ok((await listBackups(env, victim)).length === 1, "and a backup");
+
+  const res = await call2(env, "admin/users/" + encodeURIComponent(victim),
+    { method: "DELETE", body: JSON.stringify({ confirm: victim }) }, await mint(k.a));
+  a.equal(res.status, 200);
+  const out = (await res.json()).removed;
+  a.equal(out.docs, 2);
+  a.equal(out.backups, 1);
+  a.equal(out.calendar, true);
+
+  a.equal(env.DB.docs.filter((d) => d.user === victim).length, 0, "no documents left");
+  a.equal((await listBackups(env, victim)).length, 0, "no backups left");
+  a.equal(await readCheck(env, victim), null, "and the backup check record went too");
+  a.equal(env.DB.feeds.length, 0, "the calendar feed is gone");
+
+  // Everyone else is untouched.
+  a.equal(env.DB.docs.filter((d) => d.user === "lifter@example.com").length, 2, "my data is still here");
+});
+
+test("a removal needs the address typed back, and cannot be aimed at yourself", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const victim = "someone.else@example.com";
+  seedDocs(env, victim, { "plan/main": { bar: 20 } });
+  seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 } });
+  const del = (who, body) => call2(env, "admin/users/" + encodeURIComponent(who), { method: "DELETE", body: JSON.stringify(body) }, mintSync);
+  let mintSync = await mint(k.a);
+
+  for (const body of [{}, { confirm: "" }, { confirm: "someone.else@example.co" }, { confirm: "lifter@example.com" }]) {
+    const res = await call2(env, "admin/users/" + encodeURIComponent(victim),
+      { method: "DELETE", body: JSON.stringify(body) }, await mint(k.a));
+    a.equal(res.status, 400, `confirm=${JSON.stringify(body.confirm)} is refused`);
+  }
+  a.equal(env.DB.docs.filter((d) => d.user === victim).length, 1, "and they still have their data");
+
+  // Your own account is not removable from here: that is a mistake with no undo.
+  const self = await call2(env, "admin/users/" + encodeURIComponent("lifter@example.com"),
+    { method: "DELETE", body: JSON.stringify({ confirm: "lifter@example.com" }) }, await mint(k.a));
+  a.equal(self.status, 400);
+  a.equal(env.DB.docs.filter((d) => d.user === "lifter@example.com").length, 1);
+
+  // A nonsense address is rejected before anything is touched.
+  a.equal((await call2(env, "admin/users/" + encodeURIComponent("not-an-address"),
+    { method: "DELETE", body: JSON.stringify({ confirm: "not-an-address" }) }, await mint(k.a))).status, 400);
+  a.ok(del);
+});
+
+test("exports and removals are written down, and the record is not editable from the app", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const victim = "someone.else@example.com";
+  seedDocs(env, victim, { "plan/main": { bar: 20 }, "logs/2026-10-02": { date: "2026-10-02" } });
+
+  const ex = await call2(env, "admin/users/" + encodeURIComponent(victim) + "/export", {}, await mint(k.a));
+  a.equal(ex.status, 200);
+  a.match(ex.headers.get("content-disposition"), /attachment; filename=/, "it downloads");
+  const file = await ex.json();
+  a.equal(file.user, victim);
+  a.deepEqual(Object.keys(file.logs), ["2026-10-02"], "the whole file, which is what handing it back means");
+
+  await call2(env, "admin/users/" + encodeURIComponent(victim),
+    { method: "DELETE", body: JSON.stringify({ confirm: victim }) }, await mint(k.a));
+
+  const log = (await (await call2(env, "admin/log", {}, await mint(k.a))).json()).log;
+  a.equal(log.length, 2, "both actions recorded");
+  a.deepEqual(log.map((e) => e.action).sort(), ["delete", "export"]);
+  a.ok(log.every((e) => e.actor === "lifter@example.com"), "with who did it");
+  a.ok(log.every((e) => e.subject === victim), "and to whom");
+
+  // There is no route that writes or clears the record.
+  for (const m of ["POST", "PUT", "DELETE"]) {
+    a.equal((await call2(env, "admin/log", { method: m, body: "{}" }, await mint(k.a))).status, 404, `${m} /admin/log`);
+  }
+});
+
+test("state tells the page whether it is an admin, and tells nobody else", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  a.equal((await (await call2(env, "state", {}, await mint(k.a))).json()).admin, true);
+  a.equal((await (await call2(env, "state", {}, await asOther(k))).json()).admin, undefined, "absent, not false");
+  a.equal((await (await call2(dbEnv(), "state", {}, await mint(k.a))).json()).admin, undefined, "nobody is an admin by default");
 });

@@ -10,6 +10,8 @@ let programs={}, viewing=null, stash=null;
 // Set when the stored data is newer than this copy of the app understands. Everything
 // becomes read-only rather than risk writing an old shape over a new one.
 let schemaAhead=false;
+// Whether the server says this address administers the app. Set from /api/state only.
+let amAdmin=false;
 let view='today', sel=todayStr(), planShow=26, planMode='list', calMonth=null;
 try{const pm=localStorage.getItem('ob.planmode'); if(pm==='cal'||pm==='list') planMode=pm}catch(e){}
 try{ const v=localStorage.getItem('ob.view'); if(v) view=v; }catch(e){}

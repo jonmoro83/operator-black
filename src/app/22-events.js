@@ -2,6 +2,7 @@
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
@@ -99,6 +100,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='reload'){ location.reload(); return }
   if(a==='errclear'){ crashClear(); return }
   if(a==='syncclear'){ clearConflicts(); return }
+  if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); return }
+  if(a==='adminlog'){ adminLoadLog(); return }
+  if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminclearoff'){ admin.confirm=null; admin.typed=''; render(); return }
+  if(a==='adminwipe'){ adminWipe(b.dataset.user); return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
     if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);

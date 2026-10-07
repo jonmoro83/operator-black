@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.59',date:'2026-10-07',title:'Administration',items:[
+    'Groundwork for other people using this. If your address is named as an administrator, Setup gains an Administration card: who is using the app, how much they have logged, when they were last active and whether their backups are verifying.',
+    'It can export someone\u2019s data whole, and remove an account entirely \u2014 their plan, every session, all their backups, their calendar feed and their alerts. That needs the address typed back to confirm, cannot be aimed at your own account, and is written to a record you cannot edit from the app.',
+    'It deliberately cannot read anyone\u2019s training log. Counts and dates are enough to run the thing; their sessions are theirs.',
+    'If nobody is named as an administrator, none of this exists.']},
   {v:'1.58',date:'2026-10-07',title:'JM press',items:[
     'Added to the triceps list, alongside the pushdown, skullcrusher, close-grip bench, overhead extension, dip and kickback.']},
   {v:'1.57',date:'2026-10-07',title:'Carries last',items:[

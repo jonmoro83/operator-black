@@ -16,6 +16,10 @@
 //   GET  /api/calendar            → { enabled, url, updatedAt } for your .ics feed
 //   POST /api/calendar/on|off|rotate → turn the feed on, off, or change its address
 //   PUT  /api/calendar/ics        → store the feed body (the app generates it)
+//   GET  /api/admin/users         → (admins) everyone, with counts and last activity
+//   GET  /api/admin/users/<email>/export → (admins) one person's full JSON
+//   DELETE /api/admin/users/<email> → (admins) remove a person entirely
+//   GET  /api/admin/log           → (admins) what administrators have done
 //   GET  /api/version             → fingerprint of the current page + deploy info
 //   GET  /api/push/key            → VAPID public key for pushManager.subscribe
 //   GET  /api/push/status         → your devices with alerts on, pending alarm time
@@ -48,8 +52,11 @@ export async function handleApi(request, env) {
   const route = new URL(request.url).pathname.replace(/^\/api\/?/, "");
 
   if (route === "state" && request.method === "GET") {
-    return json({ user, ...(await readAll(env, user)) }, 200, { "cache-control": "no-store" });
+    // `admin` is decided here, not in the page: the client only uses it to show a link.
+    return json({ user, admin: isAdmin(env, user) || undefined, ...(await readAll(env, user)) }, 200, { "cache-control": "no-store" });
   }
+
+  if (route === "admin" || route.startsWith("admin/")) return handleAdmin(request, env, user, route.replace(/^admin\/?/, ""));
 
   if (route === "export" && request.method === "GET") {
     const day = new Date().toISOString().slice(0, 10);
@@ -442,6 +449,125 @@ function json(data, status = 200, headers = {}) {
     status,
     headers: { "content-type": "application/json; charset=utf-8", ...headers },
   });
+}
+
+/* ---------------- administration ----------------
+Admins are an allowlist of addresses in the ADMIN_EMAILS secret, checked against the same
+verified Access token everyone else is checked against. No second login, no separate
+password: the identity is already proved, this only decides what it may do.
+
+What an admin can see is deliberately narrow. Counts, dates and whether a backup verified
+are enough to run the thing. Reading somebody's training log is not administration, so
+there is no route for it — the export exists for handing their data back, and it hands
+back the whole file rather than offering a window onto it. */
+function isAdmin(env, user) {
+  const list = (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return list.includes(String(user || "").toLowerCase());
+}
+
+const EMAIL = /^[^\s@,]{1,100}@[^\s@,]{1,100}$/;
+
+async function adminLog(env, actor, action, subject, detail) {
+  try {
+    await env.DB.prepare("INSERT INTO admin_log (at, actor, action, subject, detail) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(Date.now(), actor, action, subject, detail || "").run();
+  } catch {}
+}
+
+async function handleAdmin(request, env, user, op) {
+  if (!isAdmin(env, user)) return json({ error: "Not found." }, 404);   // not 403: do not advertise it
+
+  if (op === "users" && request.method === "GET") {
+    const { results } = await env.DB.prepare(
+      `SELECT user, COUNT(*) AS docs,
+              SUM(CASE WHEN path LIKE 'logs/%' THEN 1 ELSE 0 END) AS logs,
+              SUM(LENGTH(data)) AS bytes, MAX(updated_at) AS last
+         FROM docs GROUP BY user ORDER BY last DESC`
+    ).all();
+    const out = [];
+    for (const r of results) {
+      const check = await readCheck(env, r.user);
+      out.push({ user: r.user, docs: r.docs, logs: r.logs || 0, bytes: r.bytes || 0, last: r.last || null,
+        backups: (await listBackups(env, r.user)).length,
+        backupOk: check ? !!check.ok : null, backupAt: check ? check.at : null,
+        admin: isAdmin(env, r.user) || undefined });
+    }
+    return json({ users: out, me: user }, 200, { "cache-control": "no-store" });
+  }
+
+  if (op === "log" && request.method === "GET") {
+    try {
+      const { results } = await env.DB.prepare("SELECT at, actor, action, subject, detail FROM admin_log ORDER BY at DESC LIMIT 100").all();
+      return json({ log: results }, 200, { "cache-control": "no-store" });
+    } catch {
+      // Almost certainly the table, which lives in migration 0004.
+      return json({ log: [], error: "No record table. Run npm run db:migrate:remote." }, 200, { "cache-control": "no-store" });
+    }
+  }
+
+  const ex = op.match(/^users\/(.+)\/export$/);
+  if (ex && request.method === "GET") {
+    const who = decodeURIComponent(ex[1]).toLowerCase();
+    if (!EMAIL.test(who)) return json({ error: "Not a valid address." }, 400);
+    await adminLog(env, user, "export", who);
+    const day = new Date().toISOString().slice(0, 10);
+    return json({ exportedAt: new Date().toISOString(), user: who, ...(await readAll(env, who)) }, 200, {
+      "cache-control": "no-store",
+      "content-disposition": `attachment; filename="operator-black-${who.replace(/[^a-z0-9]+/g, "-")}-${day}.json"`,
+    });
+  }
+
+  const del = op.match(/^users\/(.+)$/);
+  if (del && request.method === "DELETE") {
+    const who = decodeURIComponent(del[1]).toLowerCase();
+    if (!EMAIL.test(who)) return json({ error: "Not a valid address." }, 400);
+    if (who === String(user).toLowerCase()) return json({ error: "You cannot remove your own data from here." }, 400);
+    // The caller has to name them again in the body. A DELETE that fires on one mistyped
+    // URL is not a thing this app should own.
+    let body = {};
+    try { body = JSON.parse(await request.text() || "{}") } catch {}
+    if (String(body.confirm || "").trim().toLowerCase() !== who) {
+      return json({ error: "Type the address to confirm." }, 400);
+    }
+    const removed = await wipeUser(env, who);
+    await adminLog(env, user, "delete", who, JSON.stringify(removed));
+    return json({ removed });
+  }
+
+  return json({ error: "Not found." }, 404);
+}
+
+/** Everything one person owns, in one place, so a half-deleted account is not possible. */
+async function wipeUser(env, who) {
+  const out = { docs: 0, backups: 0, calendar: false, alerts: false };
+
+  const before = await env.DB.prepare("SELECT COUNT(*) AS n FROM docs WHERE user = ?1").bind(who).first();
+  out.docs = (before && before.n) || 0;
+  await env.DB.prepare("DELETE FROM docs WHERE user = ?1").bind(who).run();
+
+  const names = (await listBackups(env, who)).map((b) => b.name);
+  for (const n of names) await deleteBackup(env, who, n);
+  out.backups = names.length;
+  // The verification record sits beside the backups and is not one of them.
+  try {
+    const key = (await backupPrefix(who)) + CHECK_KEY;
+    const bucket = r2(env);
+    if (bucket) await bucket.delete(key);
+    if (env.BACKUPS) await env.BACKUPS.delete(key);
+  } catch {}
+
+  try {
+    const r = await env.DB.prepare("DELETE FROM cal_feeds WHERE user = ?1").bind(who).run();
+    out.calendar = true;
+  } catch {}
+
+  try {
+    const stub = env.ALERTS.get(env.ALERTS.idFromName("user:" + who));
+    await stub.fetch(new Request("https://alerts/wipe", { method: "POST", body: "{}" }));
+    out.alerts = true;
+  } catch {}
+
+  return out;
 }
 
 /* ---------------- Cloudflare Access ---------------- */

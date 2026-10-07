@@ -375,6 +375,9 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
+  if(amAdmin) h+=`<div class="card"><div class="lift-h"><h2>Administration</h2><span class="chip blue">admin</span></div>
+  <p class="small muted" style="margin:0">Who is using this app, exporting someone\u2019s data, and removing an account. Only addresses in ADMIN_EMAILS see this.</p>
+  <div class="row"><button class="btn" data-act="view" data-view="admin">Open administration</button></div></div>`;
   h+=syncCard();
   h+=crashCard();
   h+=calFeedCard();

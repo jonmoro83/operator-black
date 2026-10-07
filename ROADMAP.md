@@ -121,6 +121,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**An administration view (2026-10-07)**
+- Groundwork for more than one person using this. `ADMIN_EMAILS` names administrators;
+  the check runs against the same verified Access token everyone else is checked against,
+  so there is no second login and no password to keep.
+- A non-admin gets **404 rather than 403** on every admin route: a 403 confirms the thing
+  exists. The page asks the server whether it is an admin and only uses the answer to show
+  a link; the server re-checks every route regardless.
+- Lists people with counts, bytes, last activity and backup health. **No route reads a
+  training log** — that is not administration. The export hands a file back whole.
+- Removal takes documents, every backup, the backup check record, the calendar feed and
+  the push Durable Object (new `wipe` op in `alerts.js`). A half-deleted account is worse
+  than either extreme. It needs the address typed back, refuses your own account, and is
+  recorded in `admin_log` (migration 0004) with every export.
+- Seven mutations — dropping the admin check, the confirmation, the self-delete guard,
+  the backup or calendar cleanup, the audit write, or telling everyone they are an admin
+  — all fail. 152 → 158 tests.
+- Needs two things this repo cannot do: the secret and the migration. Deploying without
+  them is inert rather than broken, since nobody is an administrator by default.
+- Still to come: the shared, admin-curated exercise catalogue.
+
 **JM press added to the triceps catalogue (2026-10-07)**
 
 **Carries moved to the end of OP3 (2026-10-07)**

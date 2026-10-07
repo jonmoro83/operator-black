@@ -61,6 +61,14 @@ export class RestAlerts extends DurableObject {
       return json({ cancelled: true });
     }
 
+    // Everything this object holds, for a user being removed. Called only by the admin
+    // route; there is no way to reach it as yourself, because there is no reason to.
+    if (op === "wipe") {
+      await this.ctx.storage.deleteAlarm();
+      await this.ctx.storage.deleteAll();
+      return json({ wiped: true });
+    }
+
     if (op === "test") {
       return json(await this.sendAll({ title: "Rest alerts are on", body: "This is how the end of a rest will look." }));
     }

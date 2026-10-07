@@ -96,6 +96,33 @@ The API rejects every request until those two values are set. Every request must
 also carry a valid Access token, so the app can't be read or written around the
 login screen.
 
+## Administration
+
+Addresses listed in the **ADMIN_EMAILS** secret get an Administration card in Setup.
+
+```
+npx wrangler secret put ADMIN_EMAILS      # comma-separated, e.g. you@example.com
+npm run db:migrate:remote                 # creates admin_log (migration 0004)
+```
+
+With the secret unset nobody is an administrator and the card never appears, which is
+the right default: the feature is inert until someone is named.
+
+It is not a second login. Identity still comes from the same verified Access token as
+everyone else's; the secret only decides what that identity may do. The server re-checks
+on every admin route, so hiding the card is a convenience and not the control — and a
+non-admin gets **404**, not 403, so the routes do not advertise themselves.
+
+What it can do: list everyone with counts, sizes, last activity and whether their newest
+backup verified; export one person's data whole; and remove an account entirely — their
+documents, every backup, the backup check record, their calendar feed and their push
+alerts. A removal needs the address typed back, cannot be aimed at your own account, and
+is written to `admin_log` along with every export.
+
+What it deliberately cannot do: read somebody's training log. Counts and dates run the
+service; the export exists for handing data back, and it hands back the whole file rather
+than offering a window onto it.
+
 ## Calendar feed
 
 The plan as a subscribable `.ics`: Setup → Calendar feed → Turn on the feed.

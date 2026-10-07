@@ -161,6 +161,7 @@ async function connect(){
   if(!loaded) setStatus('Loading…');
   try{
     const st=await api('GET','/state'); signedOut=false;
+    amAdmin=!!st.admin;
     if(st.user&&me&&st.user!==me) switchUser(st.user);
     if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
     loaded=true; applyState(st);

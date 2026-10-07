@@ -14,7 +14,7 @@ function renderMain(){
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
   if(wz&&!viewing){m.innerHTML=vWelcome();if(aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})}return}
-  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,guide:vGuide}[view]||vToday)();
+  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,guide:vGuide,admin:vAdmin}[view]||vToday)();
   if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
   showToast();
 }
