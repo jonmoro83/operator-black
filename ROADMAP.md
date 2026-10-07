@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-02.
+Update it as things ship. Last updated 2026-10-07.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -11,11 +11,19 @@ Setup → About this app → What's new.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **iPhone testing, still to confirm at the gym:** offline launch, the rest-timer beep
-  (ringer switch, backgrounding), whether the screen really stays awake during a rest,
-  and the interval timer on the bike. Confirmed so far: home-screen install, Access login
-  in the installed app, the update banner, rest alerts arriving on the lock screen, and
-  spoken cues through AirPods with the app open.
+- **iPhone testing, still to confirm at the gym:** offline launch, the beep on the rest
+  between working sets, whether the screen stays awake for a whole session, and the
+  interval timer on the bike. The first two were the 1.36 fix and the reasoning is sound,
+  but nothing has been observed on a phone since. Confirmed so far: home-screen install,
+  Access login in the installed app, the update banner, rest alerts arriving on the lock
+  screen, and spoken cues through AirPods with the app open.
+- **The Move tool will shuffle a Base Building week freely.** SE days are `'other'` to the
+  back-to-back adjacency rules, so nothing stops two circuits landing on consecutive days
+  — and Block I's week is built around that spacing. Either give `se` its own adjacency
+  class or refuse to rearrange a `bb` week.
+- **Restore has still never run against real data**, and it now matters more: a Base
+  Building block and the per-day SE lists are new shapes in the log documents. See
+  "Verify a backup by restoring it" under Ideas for the way to close it properly.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
   (deadlift + pulldown + OHP, plus pull-ups). Splitting them is an app choice for
   freshness, not a rule — TB1's test day works through the whole cluster in one session.
@@ -64,7 +72,7 @@ within each group, roughly in order of how useful they'd be.
 
 ### Technical
 
-- **Tests for the Worker.** All 62 tests are client-side: `src/api.js`, `src/webpush.js`,
+- **Tests for the Worker.** All 84 tests are client-side: `src/api.js`, `src/webpush.js`,
   the D1 writes and the Access JWT check have none. That is the half that holds the data
   and enforces that one person cannot read another's — a bug there loses a training
   history or leaks one, and nothing would catch it before deploy. Either Miniflare under
@@ -139,6 +147,90 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Change an SE day's exercises on the day (2026-10-07)**
+- The cluster is a Setup choice, which is right for a block and wrong for a Tuesday when
+  somebody else is on the bar. Every exercise on a strength-endurance day is a button now:
+  swap it, remove it or add one, for that day only (`logs[d].se.ex`).
+- Stored as the day's whole list rather than a diff, which is what keeps the ticks
+  slot-indexed: a swap keeps the circuits already done against that slot, a removal splices
+  the row out, and clearing it ("Back to Barbell") falls through to the cluster again.
+  `seDayList(date)` is the single read and `seEdited(date)` is what the card's banner reads.
+- The picker offers every cluster's movements plus `plan.se.custom`, deduped by name, and
+  takes free text, so a tool the app has never heard of needs no code.
+
+**Base Building as an insertable block (2026-10-07)**
+- TB2's Block I, offered from the Plan tab's Change menu on any future week: eight weeks of
+  endurance and strength endurance, then Operator resumes on the same maxes. `BB_WEEKS` is
+  the book's template day for day, and `weeks()` carries `bbLeft`/`bbVer` so the block runs
+  to completion and the next cycle week picks up after it.
+- SE circuits are a new session type: `SE_CLUSTERS` (the book's bodyweight, barbell,
+  kettlebell and dumbbell lists, plus your own), ticks per circuit, and a short rest between
+  exercises against two minutes between circuits (`SE_RESTS`, `plan.se.rest`).
+- Two things in it are ours, and the Guide says so: weeks 6–8's two strength days run on the
+  Operator wave percentages, because the book says to lift again without saying at what, and
+  the strength-first variant's late SE weeks ramp 3×30 / 3×40 / 3×50 (`BB_SF_SE`), because
+  the book only says to reverse the order and gives no numbers for those weeks.
+- Explicitly **not** the Ageless Athlete version of Base Building, by request.
+
+**Elevation as distance, and a word after lifting (2026-10-06)**
+- `flatEquiv(x)` turns gain into distance at `plan.elevPer` (1,000 ft, or 190 m, per mile),
+  and `hicValue(x)` is what "last" and "best" compare for trail runs, hikes and rucks — so a
+  hard climbing day stops reading worse than an easy flat one. The raw numbers stay on screen
+  beside the equivalent, and nothing feeds readiness or the deload prompt. Deliberate: a
+  comparison is worth having, an extra lever on the programming is not.
+- Status gained a climbing total: this week, the last four weeks, and the direction against
+  the four before that.
+- The post-lift check-in asks two more things: how it moved (`FEELS`) and whether anything
+  hurt (`PAINS`, and where, from `PAIN_AT`). A niggle is only ever reported back to you.
+  Sharp pain is the one input that outranks every other rule in `recommend()` — once holds
+  that lift's max at the end of the cycle, twice brings it down, and the review names the
+  joint. It sits above the grinder and RPE branches on purpose: an averaged score can be
+  argued with, a joint cannot.
+
+**Trail running, and elevation gain (2026-10-06)**
+- Trail run as its own activity rather than a flavour of Run: pace means nothing on uneven
+  ground, so the hard efforts go by breathing, and the advice leads on the descents being
+  what leaves you sore two days later. Elevation gain on trail runs and hikes, feet for
+  pounds and metres for kilos, in History beside the distance and in the sessions CSV.
+- Rucking got the same field the same afternoon (1.38), next to the pack weight, which is the
+  pairing that says what the session actually was.
+- Shipped as data only — nothing in the programming read it yet. Splitting it from 1.39 that
+  way was right: the field had real sessions in it before any number was derived from it.
+
+**One wake lock for the whole session (2026-10-06)**
+- Two reports, one cause. The rest between working sets often did not beep, and the screen
+  went dark mid-session: the lock was owned by the rest timer and released the instant a rest
+  hit zero, so the phone slept while you were lifting, and with the screen asleep iOS had
+  suspended the `AudioContext`, which is why the next rest was silent.
+- `wantScreen()` is the single answer to whether the screen should stay on (session mode, a
+  guided block, a live rest, a live interval, an unpaused generic timer) and `syncScreen()`
+  is called wherever any of those change. `holdScreen` re-checks `wakeLock.released` first,
+  and a `visibilitychange` handler re-takes the lock and resumes audio on return.
+- Lesson worth keeping: a released wake lock is indistinguishable from a held one unless you
+  read `.released`, so every re-request was being skipped as redundant. Any API the platform
+  can revoke under you needs a re-check on the way in, not a flag of your own.
+- The warm-up rest was labelled "Ramp rest", which reads like something off a bike test and
+  appeared on Operator days too, since every session has a warm-up. It says "Warm-up rest".
+
+**A timer for anything (2026-10-05)**
+- `src/app/10b-timer.js`: a countdown or a stopwatch from the ⏱ at the end of the tab row, on
+  any tab, with no session started and nothing logged. Presets, typed minutes, ±30s, pause
+  and resume.
+- Like the other two timers it runs off absolute times (`gt.end`, or `gt.start` plus
+  `gt.pausedMs`), so locking the phone or reloading the app does not make it drift, and it
+  stacks above the rest bar rather than replacing it, so a rest keeps counting underneath.
+  State is in `ob.gt`, and a run left going for more than 12 hours is dropped on load.
+- It only touches the push queue when nothing in a session owns it, so a scheduled rest alert
+  is never cancelled by a timer started beside it.
+
+**Longer rests between warm-up sets (2026-10-04)**
+- Reported as "30 seconds is too short"; it was actually 45, and the correction mattered less
+  than the point. `DEF.warmRest` is 90 s, per lift, editable from the warm-up block on the
+  lift card (`WARM_RESTS`: 30/45/60/90/120 s). The rest before the first working set is
+  unchanged — that is still the lift's own 2–5 min.
+- `warmRestSecs(k)` is the only reader, so the lift card, session mode's ramp rests and the
+  ±30s buttons mid-rest cannot disagree.
 
 **No-metric formats, properly (2026-10-02)**
 - Putting FOBBIT in the format list (right: it runs on any modality) left it offerable as
