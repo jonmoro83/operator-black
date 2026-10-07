@@ -2125,7 +2125,7 @@ test("accessories are slots filled by a choice, not a list of text", () => {
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   const mon = "2026-09-07";
 
-  a.deepEqual(x.accSlots("mon"), ["delts", "rdelt", "core", "biceps", "triceps"], "a day covers jobs");
+  a.deepEqual(x.accSlots("mon"), ["spress", "rdelt", "core", "biceps", "triceps"], "a day covers jobs");
   a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "carry", "biceps", "triceps"]);
   for (const d of ["mon", "wed", "fri"]) {
     a.ok(x.accSlots(d).includes("biceps") && x.accSlots(d).includes("triceps"), `arms on ${d}`);
@@ -2142,7 +2142,7 @@ test("accessories are slots filled by a choice, not a list of text", () => {
   x.plan.accSlots = { mon: ["hpull", "core"] }; x.bump();
   a.deepEqual(x.accSlots("mon"), ["hpull", "core"]);
   a.ok(!x.accSlots("mon").includes("delts"), "and an edited day is exactly what you set");
-  a.deepEqual(x.accSlots("wed"), ["hpull", "pullup", "biceps", "triceps"], "other days are untouched");
+  a.deepEqual(x.accSlots("wed"), ["hpull", "delts", "pullup", "biceps", "triceps"], "other days are untouched");
 });
 
 test("a swap on the day beats the block, and the block beats the default", () => {
@@ -2178,10 +2178,10 @@ test("accessory work is logged against the slot, with sets, weight and reps", ()
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   const mon = "2026-09-07";
 
-  a.equal(x.accDone(mon, "delts"), false);
-  x.setLog(mon, "acc.sets.delts", [{ w: 95, r: 10 }, { w: 95, r: 9 }]);
-  a.deepEqual(x.accSets(mon, "delts"), [{ w: 95, r: 10 }, { w: 95, r: 9 }]);
-  a.equal(x.accDone(mon, "delts"), true, "logging a set is the record that you did it");
+  a.equal(x.accDone(mon, "spress"), false);
+  x.setLog(mon, "acc.sets.spress", [{ w: 95, r: 10 }, { w: 95, r: 9 }]);
+  a.deepEqual(x.accSets(mon, "spress"), [{ w: 95, r: 10 }, { w: 95, r: 9 }]);
+  a.equal(x.accDone(mon, "spress"), true, "logging a set is the record that you did it");
 
   // Or just a tick, for work you do not want to count.
   x.setLog(mon, "acc.done.core", true);
@@ -2190,10 +2190,10 @@ test("accessory work is logged against the slot, with sets, weight and reps", ()
 
   // Changing the day's slot list does not re-point anything already logged. This is
   // the whole reason for the change: ticks used to be stored by position.
-  x.plan.accSlots = { mon: ["core", "biceps", "delts"] }; x.bump();
-  a.equal(x.accDone(mon, "delts"), true, "still the horizontal pull");
+  x.plan.accSlots = { mon: ["core", "biceps", "spress"] }; x.bump();
+  a.equal(x.accDone(mon, "spress"), true, "still the horizontal pull");
   a.equal(x.accDone(mon, "biceps"), false, "and biceps did not inherit a tick");
-  a.deepEqual(x.accSets(mon, "delts"), [{ w: 95, r: 10 }, { w: 95, r: 9 }], "with its sets intact");
+  a.deepEqual(x.accSets(mon, "spress"), [{ w: 95, r: 10 }, { w: 95, r: 9 }], "with its sets intact");
 });
 
 test("ticks stored by position are migrated to slots, and old programs still read", () => {
@@ -2201,21 +2201,21 @@ test("ticks stored by position are migrated to slots, and old programs still rea
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
   const mon = "2026-09-07";
   // The old shape: a boolean per position in that day's list.
-  x.seed({ [mon]: { date: mon, acc: [true, false, true, false] } });   // delts, rdelt, core, biceps
+  x.seed({ [mon]: { date: mon, acc: [true, false, true, false] } });   // spress, rdelt, core, biceps
   x.plan.schema = 1; x.bump();
 
-  a.equal(x.accDone(mon, "delts"), true, "readable even before migrating");
+  a.equal(x.accDone(mon, "spress"), true, "readable even before migrating");
   a.equal(x.accDone(mon, "rdelt"), false);
 
   a.equal(x.migrate(), true);
   a.equal(x.plan.schema, x.SCHEMA);
-  a.deepEqual(x.logs[mon].acc, { done: { delts: true, core: true } }, "pinned to what they meant");
-  a.equal(x.accDone(mon, "delts"), true);
+  a.deepEqual(x.logs[mon].acc, { done: { spress: true, core: true } }, "pinned to what they meant");
+  a.equal(x.accDone(mon, "spress"), true);
   a.equal(x.accDone(mon, "core"), true);
 
   // And now the list can move without dragging them along.
-  x.plan.accSlots = { mon: ["biceps", "delts"] }; x.bump();
-  a.equal(x.accDone(mon, "delts"), true);
+  x.plan.accSlots = { mon: ["biceps", "spress"] }; x.bump();
+  a.equal(x.accDone(mon, "spress"), true);
   a.equal(x.accDone(mon, "biceps"), false);
 });
 

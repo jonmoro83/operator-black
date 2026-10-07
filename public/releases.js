@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.56',date:'2026-10-07',title:'A shoulder press and a raise',items:[
+    'Shoulders were one job doing two things. There is now a Shoulder press on OP1 \u2014 dumbbell press, Arnold press, landmine, push press, machine, kettlebell or pike push-ups \u2014 and a Lateral raise on OP2.',
+    'That keeps the overhead pushing away from whichever day your main overhead press lands on, with the raises on the other day where they cost you nothing.',
+    'Anything you had already picked or logged for shoulders is treated as the lateral raise, which is what it was.']},
   {v:'1.55',date:'2026-10-07',title:'Shoulders off the press day',items:[
     'Shoulder work moves to OP1 and the row moves to OP2, so side delts are not being hammered on the same day as the overhead press and the row is there to balance it.',
     'Rear delts stay with the shoulders on OP1 rather than following the row \u2014 that slot is shoulder health, not back volume. If you would rather it moved, it is two taps in Setup.',

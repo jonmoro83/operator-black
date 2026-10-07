@@ -677,7 +677,10 @@ const ASLOT={
   core:  {name:'Core',             why:'Anti-rotation and anti-extension, not sit-ups.'},
   biceps:{name:'Biceps',           why:'Elbow health as much as size, with this much pulling.'},
   triceps:{name:'Triceps',         why:'Lockout strength that carries to the bench.'},
-  delts: {name:'Shoulders',        why:'Side delts, which pressing alone misses. Kept off the overhead press day.'},
+  spress:{name:'Shoulder press',   why:'A lighter overhead push than the main lift, on the day the main lift is not pressing overhead.'},
+  // Kept as `delts` rather than renamed: everything already logged and picked is keyed by
+  // it, and its catalogue was only ever lateral raises, so the id still means what it did.
+  delts: {name:'Lateral raise',    why:'Side delts, which pressing alone misses. Away from the overhead press day.'},
   pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
   sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
   pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
@@ -723,6 +726,15 @@ const ALIB={
   dip:     {slot:'triceps',name:'Dip',                      gear:'Bars'},
   kickback:{slot:'triceps',name:'Triceps kickback',         gear:'Dumbbells'},
 
+  dbohp:   {slot:'spress',name:'Dumbbell shoulder press',   gear:'Dumbbells'},
+  seatedohp:{slot:'spress',name:'Seated dumbbell press',    gear:'Dumbbells + bench'},
+  arnold:  {slot:'spress',name:'Arnold press',              gear:'Dumbbells'},
+  landmine:{slot:'spress',name:'Landmine press',            gear:'Landmine or a barbell in a corner'},
+  pushpress:{slot:'spress',name:'Push press',               gear:'Barbell'},
+  machohp: {slot:'spress',name:'Machine shoulder press',    gear:'Machine'},
+  kbpress: {slot:'spress',name:'Single-arm kettlebell press',gear:'Kettlebell'},
+  pike:    {slot:'spress',name:'Pike push-up',              gear:'Nothing'},
+
   latraise:{slot:'delts', name:'Dumbbell lateral raise',    gear:'Dumbbells'},
   cablelat:{slot:'delts', name:'Cable lateral raise',       gear:'Cable'},
   machlat: {slot:'delts', name:'Machine lateral raise',     gear:'Machine'},
@@ -761,9 +773,9 @@ const ALIB={
 // Shoulders sit on OP1, away from whichever day the overhead press lands on, and the
 // row moves to OP2 to balance it. Rear delts stay with the shoulders: that slot is
 // shoulder health, not back volume.
-const ACC_DAYS={ mon:['delts','rdelt','core','biceps','triceps'], wed:['hpull','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
+const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
-  delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
+  spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
 /* ---------------- reading the choice ---------------- */
 
@@ -2144,7 +2156,7 @@ function accSlotRow(date,slot){
   return h+`</div>`;
 }
 // Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
-function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart'].includes(id) }
+function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
 
 function lastHic(fmt,mod,before){
   let best=null,last=null;

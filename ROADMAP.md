@@ -121,6 +121,17 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Shoulders split into a press and a raise (2026-10-07)**
+- One slot doing "shoulders" was really two jobs. **Shoulder press** on OP1 (eight
+  options, dumbbell press by default) and **Lateral raise** on OP2.
+- The raise keeps the `delts` id rather than being renamed. Everything already logged and
+  picked is keyed by it, and that catalogue was only ever lateral raises, so the id still
+  means exactly what it did — a rename would have needed a migration to achieve nothing.
+- OP1: Shoulder press · Rear delt · Core · Biceps · Triceps.
+  OP2: Horizontal pull · Lateral raise · Pull-up progression · Biceps · Triceps.
+  OP3 unchanged. Five jobs a day on all three.
+- Pike push-ups join the bodyweight list so the weight box reads "bw" rather than lb.
+
 **Accessory days rearranged around the overhead press (2026-10-07)**
 - Shoulders move to **OP1**, away from whichever day the overhead press lands on when it
   is the Lift 3. The horizontal pull moves to **OP2** to balance that press.
