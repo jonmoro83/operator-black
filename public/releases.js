@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.47',date:'2026-10-07',title:'Backups keep the right things',items:[
+    'Your automatic Sunday backups and the ones you take by hand no longer compete for the same space. The last 26 Sundays are kept, about six months, plus the newest six you took yourself and the newest six taken before a restore.',
+    'Before this they all shared one pool of 26, so tapping Back up now a few times quietly deleted that many weeks of automatic history. That was the history worth keeping.',
+    'Nothing is deleted purely for being old. The most recent backup of each kind stays however long it has been there, so a few months away from training never leaves you with nothing to go back to.']},
   {v:'1.46',date:'2026-10-07',title:'Backups moved',items:[
     'Your weekly backups are stored somewhere better suited to them. Nothing changes in the app: Setup \u2192 Backups looks the same, has the same list and the same Back up now button.',
     'Every backup taken before today is still there and still restorable. Nothing was moved or rewritten \u2014 the app simply looks in both places.']},

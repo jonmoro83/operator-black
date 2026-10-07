@@ -72,12 +72,12 @@ within each group, roughly in order of how useful they'd be.
 
 ### Technical
 
-- **Tests for the Worker.** All 84 tests are client-side: `src/api.js`, `src/webpush.js`,
-  the D1 writes and the Access JWT check have none. That is the half that holds the data
-  and enforces that one person cannot read another's — a bug there loses a training
-  history or leaks one, and nothing would catch it before deploy. Either Miniflare under
-  `node --test`, or plain fetches against `wrangler dev` in CI. **The biggest gap in the
-  project.**
+- **Tests for the Worker — started, not finished.** `test/api.test.js` now covers the
+  backup half (retention, both stores, per-user scoping) with hand-written stand-ins for
+  the R2 and KV bindings, so no Miniflare and no `wrangler dev`. Still uncovered: the
+  Access JWT check, the document read/write routes, restore, push, and the three calendar
+  endpoints. The JWT check is the one that matters most — it is what stops one person
+  reading another's history.
 - **Make a crash visible.** `render()` writes one big `innerHTML`; one thrown error
   anywhere leaves a blank page with no clue, mid-session, in a gym. Wrap it in a
   try/catch that paints a recovery banner with the error and a Reload button, add a
@@ -141,6 +141,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Backup retention per kind, and the first Worker tests (2026-10-07)**
+- `KEEP = {auto:26, manual:6, safety:6}` replacing one shared pool of 26. A run of manual
+  backups used to delete weekly history one for one, silently, and the weekly history is
+  the part worth having.
+- Counting rather than ageing is deliberate: the newest of each kind survives however old
+  it is. An R2 lifecycle rule deleting by age would clear the lot during a long break,
+  exactly when there is nothing newer to fall back on.
+- `backupsToPrune()` is pure and exported, so the decision is testable without a runtime.
+- **First tests for `src/api.js`**, with hand-written stand-ins for the R2 and KV bindings
+  (paginating at 2 so the cursor loops are actually exercised). 9 tests: retention by
+  kind, never emptying a kind, R2 writes and reads, KV still listable and restorable,
+  R2 winning a duplicate name, delete clearing both stores, the no-R2 fallback, per-user
+  scoping, and the weekly roll-call.
+- Worth recording: mutation testing caught a hole in my own tests. Reverting `backupNow`
+  to the old shared-pool prune left all 8 of them passing, because they exercised
+  `backupsToPrune` in isolation and never checked that `backupNow` calls it. Added a
+  ninth that drives the whole path. A unit test of a helper proves nothing about the
+  caller.
 
 **Backups moved to R2 (2026-10-07)**
 - Bucket `operator-black-backups`, binding `R2BACKUPS`. KV capped a value at 25 MB and is

@@ -192,11 +192,35 @@ async function claimLegacy(env, user) {
 
 /* ---------------- backups (Workers KV) ---------------- */
 
-const KEEP_BACKUPS = 26;
+// Retention, per kind rather than one shared pool. The weekly run is the history worth
+// having, and before this it could be eaten by a busy afternoon: ten taps of Back up now
+// used to delete ten weeks of it, silently. Each kind now has its own budget.
+const KEEP = { auto: 26, manual: 6, safety: 6 };   // ~6 months of weeklies
 const BACKUP_NAME = /^\d{4}-\d{2}-\d{2}(-manual|-before-restore(-\d{6})?)?$/;
 
+export function backupKind(name) {
+  if (String(name).includes("-before-restore")) return "safety";
+  if (String(name).endsWith("-manual")) return "manual";
+  return "auto";
+}
+
+/**
+ * Which backups to delete, given the full list newest first. Counting per kind means the
+ * newest of each is always kept however old it is, so going quiet for a few months never
+ * leaves you with nothing -- which is the trap an age-based rule falls into.
+ */
+export function backupsToPrune(all) {
+  const seen = { auto: 0, manual: 0, safety: 0 };
+  const out = [];
+  for (const b of all) {
+    const k = backupKind(b.name);
+    if (++seen[k] > KEEP[k]) out.push(b.name);
+  }
+  return out;
+}
+
 // Backup keys carry a short hash of the email rather than the email itself.
-async function backupPrefix(user) {
+export async function backupPrefix(user) {
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(user)));
   return "backup:" + Array.from(h.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("") + ":";
 }
@@ -210,7 +234,7 @@ function r2(env) {
   return env.R2BACKUPS && typeof env.R2BACKUPS.put === "function" ? env.R2BACKUPS : null;
 }
 
-async function readBackup(env, user, name) {
+export async function readBackup(env, user, name) {
   const key = (await backupPrefix(user)) + name;
   const bucket = r2(env);
   if (bucket) {
@@ -220,7 +244,7 @@ async function readBackup(env, user, name) {
   return env.BACKUPS ? env.BACKUPS.get(key) : null;
 }
 
-async function deleteBackup(env, user, name) {
+export async function deleteBackup(env, user, name) {
   const key = (await backupPrefix(user)) + name;
   const bucket = r2(env);
   if (bucket) await bucket.delete(key);
@@ -247,7 +271,7 @@ export async function backupNow(env, user, { manual = true, suffix } = {}) {
     });
   }
   const all = await listBackups(env, user);
-  for (const old of all.slice(KEEP_BACKUPS)) await deleteBackup(env, user, old.name);
+  for (const gone of backupsToPrune(all)) await deleteBackup(env, user, gone);
   return { name, bytes: body.length, logs };
 }
 
@@ -295,7 +319,7 @@ export async function backupEveryone(env) {
 }
 
 // Both stores, newest first. A name in R2 wins over the same name in KV.
-async function listBackups(env, user) {
+export async function listBackups(env, user) {
   const prefix = await backupPrefix(user);
   const seen = new Map();
   const bucket = r2(env);

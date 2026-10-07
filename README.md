@@ -347,9 +347,15 @@ Restore from a file.
 ## Backups
 
 A cron trigger (Sundays 09:00 UTC) saves a full JSON copy of the plan and every log to
-the `operator-black-backups` **R2 bucket** and keeps the newest 26. Setup → Backups
+the `operator-black-backups` **R2 bucket**. Setup → Backups
 lists them with download links and has **Back up now**. D1 also keeps 30 days of
 point-in-time history: `npx wrangler d1 time-travel info operator-black`.
+
+Retention is per kind (`KEEP` in `src/api.js`): 26 automatic, 6 manual, 6 taken before a
+restore. One shared pool meant a run of manual backups silently deleted weekly history,
+which was the history worth keeping. Counting rather than ageing also means the newest
+of each kind survives however old it is, so a long break never leaves you with nothing
+— the trap an R2 lifecycle rule would fall into.
 
 Backups were in Workers KV until 2026-10-07. The KV namespace is still bound, and
 `listBackups` and `readBackup` check both stores, so everything taken before the move
