@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.44',date:'2026-10-07',title:'How to use the calendar feed',items:[
+    'The Guide has a Calendar feed section now, with the actual steps for both phones. iPhone is two taps. Android needs a computer, because Google Calendar won\u2019t add a subscription from the phone app, and then one easy-to-miss step: turn Sync on for the new calendar in the Google Calendar app or it never shows up on the phone.',
+    'It also covers what the feed does and doesn\u2019t carry, how often it updates and why Google is slow about it, and how to revoke the address if it ever gets out.',
+    'Fixed quietly in the last deploy: the feed used to take a few seconds to fill after you switched it on, so subscribing immediately could fail. It\u2019s ready as soon as the address appears.']},
   {v:'1.43',date:'2026-10-07',title:'The plan in your calendar',items:[
     'Setup \u2192 Calendar feed gives you a private web address for your plan. Subscribe to it and every session turns up in your phone\u2019s calendar as an all-day entry, with the lifts, the sets and reps, and the weight to put on the bar.',
     'On iPhone there\u2019s an Add to iPhone button that opens Calendar straight away. On Android, add the address in Google Calendar on a computer and it syncs down to the phone \u2014 Google refreshes on its own schedule, which can take a day.',
