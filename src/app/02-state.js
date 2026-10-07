@@ -1,5 +1,8 @@
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
+// Bumped whenever a log changes. Every other path that replaces `logs` wholesale already
+// bumps planV, so planV + logsV together are a complete version of the data a view reads.
+let logsV=0;
 // Archived programs (id → {id, name, startMonday, end, archivedAt, plan}). While one is
 // being viewed, `plan` is its frozen copy, `stash` holds the current plan, and every
 // write is refused.

@@ -87,10 +87,6 @@ within each group, roughly in order of how useful they'd be.
   poisons the 7-day average, the protein target, the weighted pull-up load and the TDEE
   estimate for a fortnight. Not a hard block — an inline "that looks wrong, keep it?"
   on anything outside a plausible band, and leave the decision with the person.
-- **Measure the cost of re-rendering on every keystroke.** Every `data-bind` input calls
-  `render()`, which rebuilds the whole view — on Status that is five SVG charts and a
-  heatmap. It feels fine on a laptop; it has not been measured on a phone in a gym with a
-  season of data. Measure first, then scope the re-render or debounce it if it is real.
 - **Verify a backup by restoring it.** Restore has never run against real data. A
   scheduled check that restores the newest backup into a scratch namespace and diffs it
   against live would turn "there are backups" into "the backups work".
@@ -137,6 +133,30 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Measured the render cost, and fixed the real one (2026-10-07)**
+- **The premise of the old roadmap item was wrong.** It said every `data-bind` input calls
+  `render()`. It does not: the `input` listener only writes state, and `render()` hangs off
+  `change`, which for text and number fields fires on blur. Typing has never re-rendered.
+  The cost is per *interaction* — a set tick, a checkbox, a day change — not per keystroke.
+- Measured against 353 day logs (a year), building the HTML in Node and applying it in
+  headless Chrome. **The DOM was never the problem**: parsing and laying out even Status's
+  58 kB and 971 nodes costs 3.4 ms. Building the string was 19–25 ms.
+- `vToday` spent **15.7 of its 19.1 ms inside `weekSummaryCard`**, which produces about a
+  kilobyte. `weekRecap` calls `prsOn` once for each of the week's seven days, `prCard` asks
+  an eighth time, and each call rebuilt `prList()` — a walk over every log, several times
+  over, per call. Roughly 64 full scans of a year of training to render one card.
+- Fixed by caching `prList()` against `planV + logsV`, the way `weeks()` and `maxFor()`
+  already are. `logsV` is new: every other path that replaces `logs` wholesale already
+  bumped `planV`, so only `setLog` and `applyState` needed it.
+- **Today: 19.1 ms → 2.7 ms to build, 5.0 ms including the DOM.** About 25 ms on a phone
+  five times slower, which is below the threshold where a tap feels delayed.
+- Status is now the slow one at 26 ms (about 130 ms on that phone), but the profile is
+  flat — no hotspot, just a lot of date parsing across a year of charts. It is a view you
+  open deliberately rather than one that re-renders under your thumb, so it is left alone.
+  Worth revisiting only if it is ever felt.
+- Tooling note for next time: `node --test` output through `| tail` buffers until the pipe
+  closes, which made a working script look hung for ten minutes. Redirect to a file.
 
 **The service worker's cache name is stamped by the build (2026-10-07)**
 - `VERSION` was typed by hand. Change an icon or the manifest, deploy, and every

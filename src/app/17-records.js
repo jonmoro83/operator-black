@@ -1,7 +1,15 @@
 /* ---------- personal records ---------- */
 // Lifetime bests across every program, computed from the log. Each record keeps the
 // date it was set and the value it beat, so a new one can be called out on the day.
+// Every record, across every log. It walks the whole history several times over, and
+// one Today render used to ask for it eight times: weekRecap checks each of the week's
+// seven days for a personal best, then prCard asks again. With a year of training that
+// was 16 of the 19 ms it took to build the view, for a card of about a kilobyte.
+// Cached against planV + logsV, the same way weeks() and maxFor() already are.
+let prCache={v:null,list:null};
 function prList(){
+  const ver=planV+':'+logsV;
+  if(prCache.v===ver) return prCache.list;
   const out=[], add=(key,label,unit,entries,fmt)=>{
     const xs=entries.filter(e=>e.v!=null&&!Number.isNaN(e.v)&&e.v>0).sort((a,b)=>a.d<b.d?-1:1);
     if(!xs.length) return;
@@ -30,6 +38,7 @@ function prList(){
     const [m,f]=key.split('|');
     add('hic:'+key,MOD[m].name+' · '+HIC[f].name,g[key][0].u,g[key]);
   }
+  prCache={v:ver,list:out};
   return out;
 }
 // Records set on this date (the day something became a best, with a previous value to beat).

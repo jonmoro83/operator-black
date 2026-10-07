@@ -84,7 +84,7 @@ function migrate(){
   for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
   return true;
 }
-function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
+function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 
@@ -102,10 +102,10 @@ function applyState(st){
   }
   for(const [id,d] of Object.entries(st.logs||{})){
     if(pending('logs/'+id)) continue;
-    if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true}
+    if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true;logsV++}
   }
   // entries removed on the server go away here too (unless this phone has unsent changes)
-  if(st.logs) for(const id of Object.keys(logs)) if(!(id in st.logs)&&!pending('logs/'+id)){delete logs[id];changed=true}
+  if(st.logs) for(const id of Object.keys(logs)) if(!(id in st.logs)&&!pending('logs/'+id)){delete logs[id];changed=true;logsV++}
   saveCache();
   if(!stash&&!pending('plan/main')&&migrate()) changed=true;
   if(changed) render();

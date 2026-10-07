@@ -1913,3 +1913,34 @@ test("the reminder is whatever you picked, and nonsense falls back to something 
   a.match(t, /DTSTART:20260907T060000/, "falls back to 06:00");
   a.ok(t.split("\r\n").every((l) => Buffer.byteLength(l, "utf8") <= 75), "and is still valid");
 });
+
+test("the records list is built once per change, not once per lookup", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.startMonday = "2026-08-03"; x.plan.bridge = false; x.bump();
+  // Two entries: prsOn only reports a record that beat an earlier one, so a lone
+  // result is a first, not a personal best.
+  const was = "2026-09-21", d = "2026-09-28";
+  x.seed({ [was]: { date: was, pullups: 10 }, [d]: { date: d, pullups: 12 } }); x.bump();
+
+  // Building it walks every log several times over. One Today render asks for it eight
+  // times -- weekRecap checks each of the week's seven days, then prCard asks again --
+  // so without this it was most of the cost of the view.
+  const first = x.prList();
+  a.equal(x.prList(), first, "the same list comes back, not a rebuilt one");
+  a.equal(first.find((r) => r.key === "pullups").value, 12);
+
+  // A log write has to invalidate it, or a new best would not show until a reload.
+  x.setLog(d, "pullups", 20);
+  const after = x.prList();
+  a.notEqual(after, first, "a log write rebuilds it");
+  a.equal(after.find((r) => r.key === "pullups").value, 20, "with the new best in it");
+  a.equal(x.prList(), after, "and then it is cached again");
+
+  // So does a plan change: records are formatted and rounded off plan settings.
+  x.plan.round.squat = 1; x.bump();
+  a.notEqual(x.prList(), after, "a plan change rebuilds it too");
+
+  // The thing that reads it still works.
+  a.deepEqual(x.prsOn(d).map((r) => r.key), ["pullups"], "and the day's PR is still found");
+  a.equal(x.prsOn(was).length, 0, "while the first result it beat is not itself a best");
+});
