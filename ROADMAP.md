@@ -148,16 +148,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   now, where before it was a silent cache miss.
 - `build.js` exports `build`, `shellFiles`, `shellVersion` and `stampServiceWorker` and
   only runs when invoked directly, so the build is testable rather than a script.
-- `test/build.test.js`, 7 tests: the name is stamped and matches, every precached file
+- `test/build.test.js`, 8 tests: the name is stamped and matches, every precached file
   exists, a changed icon / manifest / page moves it, a non-shell file does not, a
-  missing file or a worker with no `SHELL` or `VERSION` line is a build error, and
-  building twice changes nothing.
+  missing file or a worker with no `SHELL` or `VERSION` line is a build error, building
+  twice changes nothing, and an icon change alone moves the name through a full build.
+- Everything that writes runs in a throwaway copy of the repo. The first version called
+  `build()` on the real tree, and since `node --test` runs test *files* in parallel it
+  rewrote `public/app.js` underneath the other suites: `schedule.test.js` failed with
+  "could not replace the boot block" about one run in three. Verified with ten
+  consecutive clean runs rather than one.
 - Mutation testing caught the same shape of hole as last time, twice running. Asserting
   that `sw.js` is correct *now* proves nothing, because the last build made it correct;
   deleting the stamping step left every test passing. The fix is a test that breaks the
   file first and checks the build repairs it. Worth internalising: a test of current
   state is not a test of the thing that maintains it.
-- 113 → 120 tests.
+- 113 → 121 tests.
 
 **The Access JWT check is tested (2026-10-07)**
 - Tested with **real cryptography**, not a stubbed verifier. The suite generates RSA-2048
