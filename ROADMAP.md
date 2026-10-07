@@ -144,6 +144,22 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A schema version on the stored data (2026-10-07)**
+- `plan.schema` plus an ordered `MIGRATIONS` list in `01-constants.js`, run by `migrate()`
+  in `05-persistence.js` on load and after every sync. Costs one integer comparison when
+  there is nothing to do, and writes back only the documents a migration actually changed.
+- The half that matters is backwards, not forwards: data stamped **newer** than `SCHEMA`
+  sets `schemaAhead`, which makes `readOnly()` true, so an out-of-date copy stops writing
+  instead of flattening a shape it cannot read. A banner says so with a Reload button.
+  This only protects against clients from 1.34 on; older ones cannot know to check.
+- Migration 1 turns numeric-keyed objects back into arrays in logs and archived programs.
+  That shape is why `wuList`, `wuListFor` and two `Array.isArray` guards exist. The guards
+  stay for now (an old export can be restored at any time) but the stored data is clean.
+- Near-miss worth recording: the set range nearly shipped as `{s:[3,10]}`. An old client
+  doing `+v.s` on an array gets `NaN` and writes it back over every working weight. Two
+  scalars avoided it by luck, not design — this is the machinery that would have caught it.
+- 88 tests across `app`, `schedule` and `weights`.
+
 **Change an SE day's exercises on the day (2026-10-07)**
 - The cluster is a Setup choice, which is right for a block and wrong for a Tuesday when
   somebody else is on the bar. Every exercise on a strength-endurance day is a button now:
@@ -247,23 +263,6 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   title. No version bump, since nothing was added or removed.
 - The file header now says rewording a shipped entry is allowed (the facts are the history,
   not the prose) and what the voice should be, so this does not drift back.
-
-**A schema version on the stored data (2026-10-07)**
-- `plan.schema` plus an ordered `MIGRATIONS` list in `01-constants.js`, run by `migrate()`
-  in `05-persistence.js` on load and after every sync. Costs one integer comparison when
-  there is nothing to do, and writes back only the documents a migration actually changed.
-- The half that matters is backwards, not forwards: data stamped **newer** than `SCHEMA`
-  sets `schemaAhead`, which makes `readOnly()` true, so an out-of-date copy stops writing
-  instead of flattening a shape it cannot read. A banner says so with a Reload button.
-  This only protects against clients from 1.34 on; older ones cannot know to check.
-- Migration 1 turns numeric-keyed objects back into arrays in logs and archived programs.
-  That shape is why `wuList`, `wuListFor` and two `Array.isArray` guards exist. The guards
-  stay for now (an old export can be restored at any time) but the stored data is clean.
-- Near-miss worth recording: the set range nearly shipped as `{s:[3,10]}`. An old client
-  doing `+v.s` on an array gets `NaN` and writes it back over every working weight. Two
-  scalars avoided it by luck, not design — this is the machinery that would have caught it.
-- Test count is **84 → 88**, across three files (`app`, `schedule`, `weights`). Earlier
-  roadmap entries citing 73 or 75 were counting one file.
 
 **Add a set on the day, from the lift card (2026-10-02)**
 - 1.32 made the ceiling a Setup field, which still meant leaving the session to change it.
