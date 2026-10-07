@@ -1,5 +1,14 @@
 /* ---------------- views ---------------- */
+// A thrown error in any view used to leave a blank page. Now it leaves a banner you can
+// read, copy and reload from. See 06a-crash.js.
 function render(){
+  try{ renderMain() }
+  catch(err){
+    crashLog(err,'render');
+    try{ document.getElementById('main').innerHTML=crashHtml(err) }catch(e2){}
+  }
+}
+function renderMain(){
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');

@@ -76,6 +76,12 @@ document.getElementById('main').addEventListener('click',e=>{
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
   if(a==='reload'){ location.reload(); return }
+  if(a==='errclear'){ crashClear(); return }
+  if(a==='errcopy'){
+    const text=crashReport();
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{});
+    return}
   if(a==='calon'||a==='caloff'||a==='calrotate'){ calSet(a==='calon'?'on':a==='caloff'?'off':'rotate'); return }
   if(a==='calcopy'){
     const el=document.getElementById('cal-url'); if(!el) return;

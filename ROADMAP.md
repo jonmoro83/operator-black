@@ -77,11 +77,6 @@ within each group, roughly in order of how useful they'd be.
   bindings: no Miniflare, no `wrangler dev`, still a plain `node --test` run. Still
   uncovered: the document read/write routes, restore, push, and the three calendar
   endpoints. Restore is the next one worth doing, since it overwrites everything.
-- **Make a crash visible.** `render()` writes one big `innerHTML`; one thrown error
-  anywhere leaves a blank page with no clue, mid-session, in a gym. Wrap it in a
-  try/catch that paints a recovery banner with the error and a Reload button, add a
-  `window.onerror` handler that stores the last few, and show them in Setup. Cheap, and
-  it turns "the app broke" into something reportable.
 - **Sanity-check numeric input.** Nothing stops a bodyweight of 2050 or a 4000 lb squat,
   and the derived numbers now carry further than they used to: one fat-fingered weigh-in
   poisons the 7-day average, the protein target, the weighted pull-up load and the TDEE
@@ -133,6 +128,23 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**A crash says so instead of going blank (2026-10-07)**
+- `render()` splits into a thin `render()` that catches and `renderMain()` that does the
+  work. A thrown view now paints a banner with the message, a Reload and a Copy details,
+  rather than leaving whatever was on screen or nothing at all.
+- `window.onerror` and `unhandledrejection` are recorded too, so a failure that never
+  touches `render()` is still reportable.
+- The last 5 errors live in `localStorage` under `ob.errs` and surface as a **Problems**
+  card in Setup, with Copy all details and Clear. **Device-local, never synced**: a stack
+  trace can name a lift or a date and there is no reason for that to reach the server.
+  The card says so, because "we collected your errors" should never be a surprise.
+- Found while testing: a plan broken enough to kill Today also killed **Setup**, which is
+  where the Problems card lives — the recovery screen failed in the one case it exists
+  for. The wave table now tolerates a non-array `plan.wave`, and the crash banner carries
+  its own Copy details so no other screen is needed.
+- Mutation-checked: removing the catch, not recording, dropping the cap, or keeping the
+  oldest rather than the newest all fail the suite. 122 → 125 tests.
 
 **Measured the render cost, and fixed the real one (2026-10-07)**
 - **The premise of the old roadmap item was wrong.** It said every `data-bind` input calls

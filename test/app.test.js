@@ -1944,3 +1944,76 @@ test("the records list is built once per change, not once per lookup", () => {
   a.deepEqual(x.prsOn(d).map((r) => r.key), ["pullups"], "and the day's PR is still found");
   a.equal(x.prsOn(was).length, 0, "while the first result it beat is not itself a best");
 });
+
+test("a thrown view leaves a banner you can act on, not a blank screen", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  x.render();
+  const main = x.dom.made.main;
+  a.ok(main.innerHTML.length > 100, "a normal render fills the page");
+  a.equal(x.crashList().length, 0, "and records nothing");
+
+  // Break the view the way a real bug would: the wave is read on every lifting day.
+  x.plan.wave = null; x.bump();
+  a.doesNotThrow(() => x.render(), "render swallows it rather than dying halfway");
+
+  a.match(main.innerHTML, /Something went wrong/, "the page says so");
+  a.match(main.innerHTML, /data-act="reload"/, "with a way out");
+  a.match(main.innerHTML, /data-act="errcopy"/, "and a way to report it");
+  a.ok(!/<script/i.test(main.innerHTML), "and nothing unescaped");
+
+  const errs = x.crashList();
+  a.equal(errs.length, 1, "the error is kept");
+  a.equal(errs[0].where, "render");
+  a.ok(errs[0].msg.length > 0, `a message: ${errs[0].msg}`);
+  a.ok(errs[0].at.startsWith("20"), "stamped with when");
+
+  // It recovers: fix the cause and the next render is normal again.
+  x.plan.wave = x.DEF.wave.map((w) => ({ ...w })); x.bump();
+  x.render();
+  a.ok(!/Something went wrong/.test(main.innerHTML), "back to normal once the cause is gone");
+});
+
+test("the last few errors are kept, shown in Setup, and can be copied or cleared", () => {
+  const x = app({ now: "2026-10-07" });
+  a.equal(x.crashCard(), "", "no card when nothing has gone wrong");
+
+  for (let i = 0; i < x.CRASH_KEEP + 3; i++) x.crashLog(new Error("boom " + i), "test");
+  const list = x.crashList();
+  a.equal(list.length, x.CRASH_KEEP, "only the last few are kept");
+  a.match(list[0].msg, /boom 7$/, "newest first");
+
+  const card = x.crashCard();
+  a.match(card, /Problems/);
+  a.match(card, /boom 7/, "the newest is on it");
+  a.match(card, /never sent anywhere/, "and it says where they go");
+  a.match(card, /data-act="errclear"/);
+  a.match(x.vSetup(), /Problems/, "it is in Setup");
+
+  const report = x.crashReport();
+  a.match(report, /boom 7/);
+  a.match(report, /node/, "with the browser, so a report is actionable");
+
+  x.crashClear();
+  a.deepEqual(x.crashList(), []);
+  a.equal(x.crashCard(), "", "and the card goes away");
+});
+
+test("a crash in one view does not take the rest of the app with it", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.wave = null; x.bump();
+  x.render();
+  a.equal(x.crashList().length, 1);
+
+  // The banner is self-sufficient: Copy details works without reaching any other
+  // screen, which matters because a plan broken enough to kill Today could kill the
+  // screen you would go to for help.
+  a.match(x.dom.made.main.innerHTML, /data-act="errcopy"/);
+  a.match(x.crashReport(), /wave|null|undefined|read/i, "and the report has something to go on");
+
+  // Setup is the recovery screen, so it has to survive a plan this broken.
+  a.doesNotThrow(() => x.vSetup(), "Setup still renders");
+  a.match(x.vSetup(), /Problems/, "with the errors on it");
+  a.doesNotThrow(() => x.vGuide(), "and an unrelated view is unaffected");
+});

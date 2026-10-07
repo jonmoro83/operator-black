@@ -1221,8 +1221,83 @@ function hardSessions(){
   return c;
 }
 
+/* ---------------- when something breaks ----------------
+render() writes one big innerHTML. Before this, a single thrown error anywhere in a view
+left a blank page with no clue what happened — mid-session, in a gym, with a loaded bar.
+
+Three parts: render() catches and paints something you can act on, the last few errors
+are kept so the failure is reportable rather than "it just broke", and Setup shows them.
+
+Errors are kept on the device only. A stack trace can carry a lift name or a date, and
+there is no reason for that to reach the server. */
+
+const CRASH_KEEP = 5;
+
+function crashList(){ const v=LS.get('ob.errs'); return Array.isArray(v)?v:[] }
+function crashClear(){ LS.set('ob.errs',[]); render() }
+
+function crashLog(err,where){
+  try{
+    const e={
+      at:new Date().toISOString(),
+      where:where||'app',
+      view:typeof view==='string'?view:'',
+      msg:String((err&&err.message)||err||'Unknown error').slice(0,300),
+      // A few frames is enough to find it; the whole trace is noise on a phone screen.
+      stack:String((err&&err.stack)||'').split('\n').slice(1,5).map(s=>s.trim()).join('\n').slice(0,600),
+      v:typeof APP_VERSION==='string'?APP_VERSION:'',
+    };
+    const all=[e,...crashList()].slice(0,CRASH_KEEP);
+    LS.set('ob.errs',all);
+  }catch(e2){}
+  try{ if(typeof console!=='undefined'&&console.error) console.error('[operator-black]',where,err) }catch(e3){}
+}
+
+// What you see instead of a blank screen. Deliberately plain strings: whatever broke the
+// view might break any helper, so this uses nothing but escaping.
+function crashHtml(err){
+  const msg=esc(String((err&&err.message)||err||'Unknown error').slice(0,300));
+  return `<div class="banner alert"><div><b>Something went wrong drawing this screen.</b>
+    Your training is saved — this is the display, not your data. Reload, and if it keeps
+    happening send me the details below.<div class="mono small" style="margin-top:6px;word-break:break-word">${msg}</div></div>
+    <div class="row"><button class="btn sm primary" data-act="reload">Reload</button><button class="btn sm" data-act="errcopy">Copy details</button></div></div>`;
+}
+
+// Everything a report needs, as text you can paste into a message.
+function crashReport(){
+  const list=crashList();
+  if(!list.length) return 'No errors recorded.';
+  const head=`Operator + Black ${typeof APP_VERSION==='string'?APP_VERSION:''} · ${typeof navigator!=='undefined'?navigator.userAgent:''}`;
+  return head+'\n\n'+list.map(e=>`${e.at} · ${e.where} · view ${e.view||'?'} · v${e.v||'?'}\n${e.msg}\n${e.stack||''}`).join('\n\n---\n\n');
+}
+
+function crashCard(){
+  const list=crashList();
+  if(!list.length) return '';
+  return `<div class="card"><div class="lift-h"><h2>Problems</h2><span class="chip alert">${list.length}</span></div>
+  <p class="small muted" style="margin:0">Errors this app hit on this device. They are kept here only — never sent anywhere — and a stack trace can name a lift or a date, so read before you share. If one of these lines up with something going wrong, send it to me.</p>
+  <div class="stack">${list.map(e=>`<div class="banner"><div class="small"><b>${esc(fmtD(e.at.slice(0,10),true))} ${esc(e.at.slice(11,16))}</b> · ${esc(e.where)}${e.view?' · '+esc(e.view):''}${e.v?' · v'+esc(e.v):''}<div class="mono" style="word-break:break-word;margin-top:4px">${esc(e.msg)}</div></div></div>`).join('')}</div>
+  <div class="row"><button class="btn" data-act="errcopy">Copy all details</button><button class="btn ghost" data-act="errclear">Clear</button></div></div>`;
+}
+
+// Anything that escapes a handler, a timer or a promise lands here too, so a failure
+// that never touches render() is still reportable rather than silent.
+if(typeof window!=='undefined'&&window.addEventListener){
+  window.addEventListener('error',e=>{ crashLog(e.error||e.message,'window') });
+  window.addEventListener('unhandledrejection',e=>{ crashLog(e.reason,'promise') });
+}
+
 /* ---------------- views ---------------- */
+// A thrown error in any view used to leave a blank page. Now it leaves a banner you can
+// read, copy and reload from. See 06a-crash.js.
 function render(){
+  try{ renderMain() }
+  catch(err){
+    crashLog(err,'render');
+    try{ document.getElementById('main').innerHTML=crashHtml(err) }catch(e2){}
+  }
+}
+function renderMain(){
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');
@@ -3854,7 +3929,7 @@ function vSetup(){
   <div class="small muted">The formulas: Mifflin-St Jeor for the predicted burn, the US Navy circumference method for body fat. Both are estimates — once you have logged calories and weigh-ins for a few weeks, Status uses your own numbers instead.</div></div>
   <div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
   h+=`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
-  <p class="small muted" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${plan.wave.map((v,i)=>`<tr><td><b>${i+1}</b></td><td class="n">${pIn('wave.'+i+'.s',v.s)}</td><td class="n">${pIn('wave.'+i+'.sMax',v.sMax,'placeholder="'+v.s+'"')}</td><td class="n">${pIn('wave.'+i+'.r',v.r)}</td><td class="n">${pIn('wave.'+i+'.p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`).join('')}</tbody></table></div></div>`;
+  <p class="small muted" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${(Array.isArray(plan.wave)?plan.wave:[]).map((v,i)=>`<tr><td><b>${i+1}</b></td><td class="n">${pIn('wave.'+i+'.s',v.s)}</td><td class="n">${pIn('wave.'+i+'.sMax',v.sMax,'placeholder="'+v.s+'"')}</td><td class="n">${pIn('wave.'+i+'.r',v.r)}</td><td class="n">${pIn('wave.'+i+'.p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`).join('')}</tbody></table></div></div>`;
   {
     const byBook=(+plan.testEvery||0)===2&&(+plan.deloadEvery||0)===0;
     h+=`<div class="card"><h2>Cycles, deloads and retests</h2>
@@ -3870,6 +3945,7 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
+  h+=crashCard();
   h+=calFeedCard();
   h+=`<div class="card"><h2>Backups</h2><p class="small muted" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday. The last 26 of those are kept, so about six months, and your own backups are counted separately: the newest six you take by hand and the newest six taken before a restore. Taking a few by hand can’t push out the weekly history.</p>
   ${backups.err?`<div class="small muted">${esc(backups.err)}</div>`:!bk?'<div class="small muted">Loading backups…</div>':bk.length?`<div class="tbl-wrap"><table><thead><tr><th>Backup</th><th class="n">Sessions</th><th class="n">Size</th><th></th></tr></thead><tbody>${bk.slice(0,6).map(x=>`<tr><td>${esc(x.name.replace(/-(manual|before-restore(-\d{6})?)$/,''))}${x.name.endsWith('-manual')?' <span class="chip">manual</span>':''}${x.name.includes('-before-restore')?' <span class="chip">before restore</span>':''}</td><td class="n">${x.logs??'—'}</td><td class="n">${x.bytes?Math.max(1,Math.round(x.bytes/1024))+' KB':'—'}</td><td class="n" style="white-space:nowrap"><a class="btn sm ghost" href="/api/backups/${encodeURIComponent(x.name)}">Download</a><button class="btn sm ghost" data-act="restore" data-name="${esc(x.name)}" ${restoreState.busy?'disabled':''}>${restoreState.arm===x.name?'Tap again':'Restore'}</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="small muted">No backups yet. The first automatic one runs Sunday.</div>'}
@@ -4255,6 +4331,12 @@ document.getElementById('main').addEventListener('click',e=>{
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
   if(a==='reload'){ location.reload(); return }
+  if(a==='errclear'){ crashClear(); return }
+  if(a==='errcopy'){
+    const text=crashReport();
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{});
+    return}
   if(a==='calon'||a==='caloff'||a==='calrotate'){ calSet(a==='calon'?'on':a==='caloff'?'off':'rotate'); return }
   if(a==='calcopy'){
     const el=document.getElementById('cal-url'); if(!el) return;

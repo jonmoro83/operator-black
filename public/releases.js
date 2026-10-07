@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.50',date:'2026-10-07',title:'If it breaks, it tells you',items:[
+    'If the app ever hits a bug while drawing a screen, you now get a short explanation, a Reload button and a Copy details button \u2014 instead of a blank page halfway through a session, which is what used to happen.',
+    'The last five problems are listed in Setup under Problems, so if something goes wrong on Tuesday you can still send me the details on Wednesday. They are kept on your phone and never sent anywhere on their own.',
+    'Your training is never at risk from this. A drawing error does not touch what you have logged.']},
   {v:'1.49',date:'2026-10-07',title:'Today got quicker',items:[
     'With a year of training logged, the Today screen was taking about seven times longer to redraw than it needed to. Every tap of a set button rebuilt your entire personal-records list eight times over, scanning every session you have ever logged, to render one small card.',
     'It is worked out once now and reused until something actually changes. On a phone that is the difference between a tap feeling instant and feeling like it hesitated.',
