@@ -1371,16 +1371,35 @@ function seList(key){
   if(key==='mine'){const a=(plan.se||{}).custom;return Array.isArray(a)?a.filter(Boolean):[]}
   return (SE_CLUSTERS[key]||SE_CLUSTERS.bw).ex;
 }
+// What you're actually doing today. Starts as the cluster, and stays that way until you
+// change something — a bar that's taken, a bell you'd rather use — which is per day only.
+function seDayList(date){const a=(lg(date).se||{}).ex;return Array.isArray(a)&&a.length?a:seList(seCluster(date))}
+function seEdited(date){const a=(lg(date).se||{}).ex;return Array.isArray(a)&&a.length>0}
+// Everything the app knows about, for the swap list.
+function seVocab(){
+  const out=[];
+  for(const c of Object.values(SE_CLUSTERS)) for(const e of c.ex) if(!out.includes(e)) out.push(e);
+  for(const e of ((plan.se||{}).custom||[])) if(e&&!out.includes(e)) out.push(e);
+  return out;
+}
 function seRestSecs(){const v=+((plan.se||{}).rest);return SE_RESTS.includes(v)?v:60}
 function seDone(date){const d=(lg(date).se||{}).done;return Array.isArray(d)?d:[]}
+let seEdit=null;
+function seSwap(i,name,ex){
+  const pool=seVocab().filter(e=>!ex.includes(e));
+  return `<div class="seswap"><div class="small muted">Swap this one for today. The cluster and your other days stay as they are.</div>
+  <div class="seg">${pool.map(e=>`<button class="segb" data-act="seput" data-i="${i}" data-v="${esc(e)}">${esc(e)}</button>`).join('')||'<span class="small muted">Nothing else on the list.</span>'}</div>
+  <div class="row" style="align-items:flex-end"><label class="f" style="flex:1">Or type one<input type="text" id="se-ex-${i}" data-seex="${i}" value="${esc(name)}"></label><button class="btn sm ghost" data-act="serm" data-i="${i}">Remove</button><button class="btn sm" data-act="seedit" data-i="${i}">Done</button></div></div>`;
+}
 function seCard(dp){
-  const key=seCluster(sel), ex=seList(key), S=lg(sel).se||{}, done=seDone(sel), C=dp.circuits, R=dp.reps;
+  const key=seCluster(sel), ex=seDayList(sel), done=seDone(sel), C=dp.circuits, R=dp.reps, edited=seEdited(sel);
   const ticks=ex.reduce((a,_,i)=>a+((done[i]||[]).filter(Boolean).length),0), total=ex.length*C;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps</span></div>
   <div class="small muted">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
-  <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key}">${c.name}</button>`).join('')}</div></div>`;
+  <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key&&!edited?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key&&!edited}">${c.name}</button>`).join('')}</div>${edited?`<span class="chip blue">Changed for today</span><button class="btn sm ghost" data-act="sereset">Back to ${esc(SE_CLUSTERS[key].name)}</button>`:''}</div>`;
   if(!ex.length) return h+`<div class="banner warn"><div class="small">No exercises in your own cluster yet. Add five to eight in <b>Setup → Strength-endurance</b>, or pick one of the book's above.</div></div></div>`;
-  h+=`<div class="setbl">${ex.map((name,i)=>`<div class="serow"><span class="sename">${esc(name)}</span><div class="sets">${Array.from({length:C},(_,j)=>`<button class="setb sm${(done[i]||[])[j]?' on':''}" data-act="setick" data-i="${i}" data-j="${j}" aria-pressed="${!!(done[i]||[])[j]}">${R}<small>${j+1}</small></button>`).join('')}</div></div>`).join('')}</div>
+  h+=`<div class="setbl">${ex.map((name,i)=>`<div class="serow"><button class="sename" data-act="seedit" data-i="${i}" aria-expanded="${seEdit===i}">${esc(name)}<span class="swap">swap</span></button><div class="sets">${Array.from({length:C},(_,j)=>`<button class="setb sm${(done[i]||[])[j]?' on':''}" data-act="setick" data-i="${i}" data-j="${j}" aria-pressed="${!!(done[i]||[])[j]}">${R}<small>${j+1}</small></button>`).join('')}</div>${seEdit===i?seSwap(i,name,ex):''}</div>`).join('')}</div>
+  <div><button class="btn sm ghost" data-act="seadd">+ Add an exercise</button></div>
   <div class="row between"><span class="small muted">${ticks} of ${total} sets</span><span class="small muted">${esc(SE_CLUSTERS[key].note)}</span></div>
   <div class="restsel"><span>Rest between exercises</span><div class="seg">${SE_RESTS.map(v=>`<button class="segb${seRestSecs()===v?' on':''}" data-act="serest" data-v="${v}">${v?v+'s':'none'}</button>`).join('')}</div></div>
   ${key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
@@ -3872,6 +3891,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
   else if(t.dataset.trvday){ const d=t.dataset.trvday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.travel=Object.assign({},plan.travel||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
+  else if(t.dataset.seex!=null){ const i=+t.dataset.seex, ex=seDayList(sel).slice(); ex[i]=t.value; setLog(sel,'se.ex',ex); }
   else if(t.hasAttribute&&t.hasAttribute('data-seMine')){ const xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.se=Object.assign({},plan.se,{custom:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.mobday){ const d=t.dataset.mobday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.mob=Object.assign({},plan.mob||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.accday){ const d=t.dataset.accday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.acc=Object.assign({},plan.acc||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
@@ -4074,8 +4094,18 @@ document.getElementById('main').addEventListener('click',e=>{
     mutatePlan(p=>{const ins=Object.assign({},p.inserts),v=Object.assign({},p.bbVer);delete ins[mon];delete v[mon];p.inserts=ins;p.bbVer=v});
     return}
   if(a==='sedef'){const v=b.dataset.v;mutatePlan(p=>{p.se=Object.assign({},p.se,{cluster:v})});return}
-  if(a==='secl'){const v=b.dataset.v;if(seCluster(sel)===v)return;setLog(sel,'se.cluster',v);render();return}
+  if(a==='secl'){const v=b.dataset.v;if(seCluster(sel)===v&&!seEdited(sel))return;seEdit=null;setLog(sel,'se.cluster',v);setLog(sel,'se.ex',null);render();return}
   if(a==='serest'){const v=+b.dataset.v;if(seRestSecs()===v)return;mutatePlan(p=>{p.se=Object.assign({},p.se,{rest:v})});return}
+  if(a==='seedit'){const i=+b.dataset.i;seEdit=seEdit===i?null:i;render();return}
+  if(a==='seput'||a==='serm'||a==='seadd'){
+    const i=+b.dataset.i, ex=seDayList(sel).slice(), done=seDone(sel).map(r=>Array.isArray(r)?r.slice():[]);
+    if(a==='seput') ex[i]=b.dataset.v;
+    else if(a==='serm'){ ex.splice(i,1); done.splice(i,1); seEdit=null; }
+    else { ex.push('New exercise'); seEdit=ex.length-1; }
+    setLog(sel,'se.ex',ex); setLog(sel,'se.done',done);
+    if(a==='seput') seEdit=null;
+    render();return}
+  if(a==='sereset'){seEdit=null;setLog(sel,'se.ex',null);render();return}
   if(a==='setick'){
     const i=+b.dataset.i,j=+b.dataset.j,dp=dayPlan(sel),ex=seList(seCluster(sel));
     const done=seDone(sel).map(r=>Array.isArray(r)?r.slice():[]);

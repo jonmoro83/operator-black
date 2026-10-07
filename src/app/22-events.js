@@ -15,6 +15,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.cmax){ const [c,k]=t.dataset.cmax.split('.'); const v=val(t); plan.cycleMaxes[c]=plan.cycleMaxes[c]||{}; if(v==null) delete plan.cycleMaxes[c][k]; else plan.cycleMaxes[c][k]=v; if(!Object.keys(plan.cycleMaxes[c]).length) delete plan.cycleMaxes[c]; planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.calc){ calc5[t.dataset.calc]=val(t); }
   else if(t.dataset.trvday){ const d=t.dataset.trvday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.travel=Object.assign({},plan.travel||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
+  else if(t.dataset.seex!=null){ const i=+t.dataset.seex, ex=seDayList(sel).slice(); ex[i]=t.value; setLog(sel,'se.ex',ex); }
   else if(t.hasAttribute&&t.hasAttribute('data-seMine')){ const xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.se=Object.assign({},plan.se,{custom:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.mobday){ const d=t.dataset.mobday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.lastIndexOf(', ');return i>0?[x.slice(0,i),x.slice(i+2)]:[x,'']}); plan.mob=Object.assign({},plan.mob||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
   else if(t.dataset.accday){ const d=t.dataset.accday, xs=t.value.split('\n').map(x=>x.trim()).filter(Boolean); plan.acc=Object.assign({},plan.acc||{},{[d]:xs}); planV++; queueWrite('plan/main',()=>plan); }
@@ -217,8 +218,18 @@ document.getElementById('main').addEventListener('click',e=>{
     mutatePlan(p=>{const ins=Object.assign({},p.inserts),v=Object.assign({},p.bbVer);delete ins[mon];delete v[mon];p.inserts=ins;p.bbVer=v});
     return}
   if(a==='sedef'){const v=b.dataset.v;mutatePlan(p=>{p.se=Object.assign({},p.se,{cluster:v})});return}
-  if(a==='secl'){const v=b.dataset.v;if(seCluster(sel)===v)return;setLog(sel,'se.cluster',v);render();return}
+  if(a==='secl'){const v=b.dataset.v;if(seCluster(sel)===v&&!seEdited(sel))return;seEdit=null;setLog(sel,'se.cluster',v);setLog(sel,'se.ex',null);render();return}
   if(a==='serest'){const v=+b.dataset.v;if(seRestSecs()===v)return;mutatePlan(p=>{p.se=Object.assign({},p.se,{rest:v})});return}
+  if(a==='seedit'){const i=+b.dataset.i;seEdit=seEdit===i?null:i;render();return}
+  if(a==='seput'||a==='serm'||a==='seadd'){
+    const i=+b.dataset.i, ex=seDayList(sel).slice(), done=seDone(sel).map(r=>Array.isArray(r)?r.slice():[]);
+    if(a==='seput') ex[i]=b.dataset.v;
+    else if(a==='serm'){ ex.splice(i,1); done.splice(i,1); seEdit=null; }
+    else { ex.push('New exercise'); seEdit=ex.length-1; }
+    setLog(sel,'se.ex',ex); setLog(sel,'se.done',done);
+    if(a==='seput') seEdit=null;
+    render();return}
+  if(a==='sereset'){seEdit=null;setLog(sel,'se.ex',null);render();return}
   if(a==='setick'){
     const i=+b.dataset.i,j=+b.dataset.j,dp=dayPlan(sel),ex=seList(seCluster(sel));
     const done=seDone(sel).map(r=>Array.isArray(r)?r.slice():[]);

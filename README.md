@@ -260,7 +260,11 @@ lifting get `wk.rx` walked up the wave, so `rx()` works unchanged.
 
 Strength-endurance is its own session type (`t:'se'`). `SE_CLUSTERS` holds the book's four
 clusters plus the user's own (`plan.se.custom`); the cluster can be overridden per day in
-`logs[d].se.cluster`, and ticks live in `logs[d].se.done[exercise][circuit]`.
+`logs[d].se.cluster`, and ticks live in `logs[d].se.done[exercise][circuit]`. A day can
+also depart from its cluster entirely: `logs[d].se.ex` holds that session's own list, set
+by swapping, adding or removing on the card, and `seDayList(date)` falls back to the
+cluster until it exists. Ticks are indexed by slot, so a swap keeps them and a removal
+splices the matching row out.
 
 ## Timer
 

@@ -1673,3 +1673,29 @@ test("SE circuits take a cluster, per day or by default", () => {
   x.seed({ "2026-11-16": { date:"2026-11-16", se:{ cluster:"bar" } } });
   a.equal(x.seCluster("2026-11-16"), "bar", "the day overrides the default");
 });
+
+test("an SE day's exercise list can be changed just for that day", () => {
+  const x = loadApp();
+  const d = "2026-11-16";
+  x.plan.inserts[d] = "bb"; x.plan.se = { cluster:"bar", custom:[], rest:60 }; x.bump();
+
+  a.deepEqual(x.seDayList(d), x.seList("bar"));
+  a.equal(x.seEdited(d), false);
+
+  // the bar is taken: swap row 2 for a kettlebell movement
+  const ex = x.seDayList(d).slice();
+  ex[2] = "Swings";
+  x.seed({ [d]: { date:d, se:{ cluster:"bar", ex, done:[[true],[true],[true]] } } });
+  a.equal(x.seDayList(d)[2], "Swings");
+  a.equal(x.seEdited(d), true);
+  a.deepEqual(x.seList("bar"), x.seList("bar"), "the cluster itself is untouched");
+  a.equal(x.plan.se.cluster, "bar");
+
+  // another day in the same block is unaffected
+  a.deepEqual(x.seDayList(x.addDays(d, 3)), x.seList("bar"));
+
+  // the swap list offers movements from every cluster, minus what's already in today's
+  const vocab = x.seVocab();
+  a.ok(vocab.includes("Swings") && vocab.includes("Push-ups") && vocab.includes("Front squat"));
+  a.equal(new Set(vocab).size, vocab.length, "no duplicates");
+});

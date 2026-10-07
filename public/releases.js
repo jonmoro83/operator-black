@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.41',date:'2026-10-07',title:"Swap an exercise on the day",items:[
+    "Tap any exercise on a strength-endurance day and you can change it for that session. The bar is taken, so row becomes swings. Pick from everything the app knows, or type your own.",
+    "You can add and remove exercises the same way, so a day's circuit doesn't have to be the cluster you set up.",
+    "It only touches that day. Your default cluster and every other session stay exactly as they were, and \u201cBack to Barbell\u201d puts the day back if you change your mind."]},
   {v:'1.40',date:'2026-10-07',title:"Base Building",items:[
     "You can drop Tactical Barbell's Block I in as your next cycle. Plan tab, open Change on any future week, and pick Base Building. Eight weeks, straight from the book's template, and Operator picks up afterwards at the same maxes.",
     "Weeks 1 to 5 are endurance and strength-endurance with no barbell work at all. Weeks 6 to 8 taper the long sessions and bring back two strength days and the aerobic HIC sessions.",
