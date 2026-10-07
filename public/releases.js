@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.58',date:'2026-10-07',title:'JM press',items:[
+    'Added to the triceps list, alongside the pushdown, skullcrusher, close-grip bench, overhead extension, dip and kickback.']},
   {v:'1.57',date:'2026-10-07',title:'Carries last',items:[
     'On OP3 the carry now comes at the end of the accessories rather than in the middle, so a fried grip is not making the curls and rows that follow it worse.']},
   {v:'1.56',date:'2026-10-07',title:'A shoulder press and a raise',items:[

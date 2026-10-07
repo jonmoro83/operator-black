@@ -721,6 +721,7 @@ const ALIB={
 
   pushdown:{slot:'triceps',name:'Triceps pushdown',         gear:'Cable'},
   skull:   {slot:'triceps',name:'Skullcrusher',             gear:'EZ bar or dumbbells'},
+  jmpress: {slot:'triceps',name:'JM press',                 gear:'Barbell or EZ bar'},
   ohext:   {slot:'triceps',name:'Overhead triceps extension',gear:'Dumbbell, cable or band'},
   cgbench: {slot:'triceps',name:'Close-grip bench',         gear:'Barbell'},
   dip:     {slot:'triceps',name:'Dip',                      gear:'Bars'},

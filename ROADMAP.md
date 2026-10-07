@@ -121,6 +121,8 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**JM press added to the triceps catalogue (2026-10-07)**
+
 **Carries moved to the end of OP3 (2026-10-07)**
 - Grip work last, so a fried grip is not making the curls and the rows that follow worse.
   OP3: Single-leg · Posterior chain · Biceps · Triceps · Carry / grip.
