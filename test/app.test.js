@@ -2286,3 +2286,45 @@ test("picks made before the per-day change are spread across the days that use t
   x.migrate();
   a.equal(JSON.stringify(x.plan.accPick), before, "it is not spread a second time");
 });
+
+test("the Admin tab is in the markup but hidden until the server says you are one", () => {
+  const x = app({ now: "2026-10-07" });
+  const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
+  const nav = html.slice(html.indexOf('<nav id="nav"'), html.indexOf("</nav>"));
+
+  a.match(nav, /data-view="admin"[^>]*hidden/, "it ships hidden, not absent");
+  a.ok(!/data-act=/.test(nav), "the header navigates by view, never by action");
+  const tabs = [...nav.matchAll(/data-view="([a-z]+)"/g)].map((m) => m[1]);
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "guide", "admin"], "admin is last");
+
+  // Every tab the nav offers has a view behind it.
+  x.view = "admin"; x.amAdmin = true; x.loaded = true;
+  a.doesNotThrow(() => x.render());
+  a.match(x.dom.made.main.innerHTML, /People/, "the admin view renders for an admin");
+  a.equal(x.dom.made["nav-admin"].hidden, false, "and the tab is revealed");
+
+  // Not an admin: the tab goes back to hidden on the next render, it does not linger.
+  x.amAdmin = false; x.view = "today"; x.render();
+  a.equal(x.dom.made["nav-admin"].hidden, true, "and hidden again for anyone else");
+});
+
+test("a non-admin who lands on the admin view is put somewhere useful", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+
+  // Stored from a previous session, or a different account on the same phone.
+  x.view = "admin"; x.amAdmin = false; x.loaded = true;
+  x.render();
+  a.equal(x.view, "setup", "bounced rather than shown a screen that would only refuse");
+  a.ok(!/People/.test(x.dom.made.main.innerHTML));
+
+  // Before the server has answered, nothing is assumed either way: an admin reopening
+  // the app should not be thrown off their own tab by a slow network.
+  x.view = "admin"; x.amAdmin = false; x.loaded = false;
+  x.render();
+  a.equal(x.view, "admin", "left alone until we actually know");
+
+  // And Setup no longer carries a second way in, so there is one entry point.
+  x.amAdmin = true; x.loaded = true;
+  a.ok(!/Open administration/.test(x.vSetup()), "no duplicate entry point in Setup");
+});

@@ -121,6 +121,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Administration is its own tab (2026-10-07)**
+- Moved out of Setup into a seventh nav tab, shipped `hidden` in `index.html` and revealed
+  when `/api/state` reports `admin`. One entry point rather than two.
+- The flag is remembered in `localStorage` so the tab survives a cold or offline open, and
+  cleared by `switchUser`. It is a hint for the page only — every admin route checks
+  again, so a stale yes grants nothing.
+- A stored `view` of `admin` on a non-admin falls back to Setup, but only once the server
+  has answered: an admin reopening the app should not be thrown off their own tab by a
+  slow network.
+- The harness's `querySelector` returned null for everything, so any code that shows or
+  hides a nav tab was unreachable from a test — the "tab shown to everyone" mutation
+  passed. It now answers the one selector the app uses, and that mutation fails.
+
 **An administration view (2026-10-07)**
 - Groundwork for more than one person using this. `ADMIN_EMAILS` names administrators;
   the check runs against the same verified Access token everyone else is checked against,

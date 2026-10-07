@@ -135,6 +135,7 @@ function applyState(st){
 // Open instantly from the phone's copy, with any unsent changes laid on top.
 function loadLocal(){
   const c=LS.get('ob.cache');
+  amAdmin=LS.get('ob.admin')===true;
   if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; programs=c.programs||{}; }
   for(const [path,doc] of Object.entries(outbox)){
     if(path==='plan/main') plan=deepMerge(clone(DEF),doc);
@@ -152,7 +153,7 @@ function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.ke
 function switchUser(user){
   for(const w of Object.values(writers)) clearTimeout(w.timer);
   for(const k of Object.keys(writers)) delete writers[k];
-  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null);
+  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false;
   plan=clone(DEF); logs={}; programs={}; stash=null; viewing=null; planV++;
   rest=null; iv=null; showRest(); ivShow();
   me=user; LS.set('ob.user',user);
@@ -161,7 +162,9 @@ async function connect(){
   if(!loaded) setStatus('Loading…');
   try{
     const st=await api('GET','/state'); signedOut=false;
-    amAdmin=!!st.admin;
+    // Remembered so the tab does not vanish on a cold or offline open. It is a hint for
+    // the page only: every admin route checks again, so a stale yes grants nothing.
+    amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
     if(st.user&&me&&st.user!==me) switchUser(st.user);
     if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
     loaded=true; applyState(st);

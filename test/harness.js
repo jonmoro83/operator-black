@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const CONSTS = ["APP_VERSION", "RELEASES", "PLYO_UPPER", "PLIB", "VARS", "openPx", "MLIB", "ASLOT", "ALIB", "ACC_DAYS", "ACC_DEF", "PULLUP", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "IV", "DELOAD_OPTS", "SCHEMA", "MIGRATIONS", "CRASH_KEEP", "CONFLICT_KEEP", "WARM_RESTS", "GT_PRESETS", "L3K", "LK"];
-const STATE = ["plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "gt", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey", "schemaAhead", "outbox", "calFeed", "amAdmin", "admin"];
+const STATE = ["view", "plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "gt", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey", "schemaAhead", "outbox", "calFeed", "amAdmin", "admin"];
 
 function stubDom() {
   const made = {};
@@ -31,7 +31,10 @@ function stubDom() {
   global.navigator = { onLine: true, userAgent: "node", serviceWorker: undefined };
   global.document = {
     getElementById: (id) => made[id] || (made[id] = el(id)),
-    querySelector: () => null, querySelectorAll: () => [],
+    // Enough of a selector engine for the few places the app reaches into the header.
+    // Without this, code that shows or hides a nav tab is unreachable from a test.
+    querySelector: (sel) => (/data-view="admin"/.test(sel) ? (made["nav-admin"] || (made["nav-admin"] = el("nav-admin"))) : null),
+    querySelectorAll: () => [],
     createElement: () => el("new"), addEventListener() {},
     head: { appendChild() {} }, documentElement: el("html"),
     body: { classList: { add() {}, remove() {}, toggle() {} }, style: {}, appendChild() {} },

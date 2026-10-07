@@ -98,7 +98,8 @@ login screen.
 
 ## Administration
 
-Addresses listed in the **ADMIN_EMAILS** secret get an Administration card in Setup.
+Addresses listed in the **ADMIN_EMAILS** secret get an **Admin** tab in the header.
+It ships hidden for everyone and is revealed only when `/api/state` says so.
 
 ```
 npx wrangler secret put ADMIN_EMAILS      # comma-separated, e.g. you@example.com

@@ -1346,6 +1346,7 @@ function applyState(st){
 // Open instantly from the phone's copy, with any unsent changes laid on top.
 function loadLocal(){
   const c=LS.get('ob.cache');
+  amAdmin=LS.get('ob.admin')===true;
   if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; programs=c.programs||{}; }
   for(const [path,doc] of Object.entries(outbox)){
     if(path==='plan/main') plan=deepMerge(clone(DEF),doc);
@@ -1363,7 +1364,7 @@ function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.ke
 function switchUser(user){
   for(const w of Object.values(writers)) clearTimeout(w.timer);
   for(const k of Object.keys(writers)) delete writers[k];
-  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null);
+  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false;
   plan=clone(DEF); logs={}; programs={}; stash=null; viewing=null; planV++;
   rest=null; iv=null; showRest(); ivShow();
   me=user; LS.set('ob.user',user);
@@ -1372,7 +1373,9 @@ async function connect(){
   if(!loaded) setStatus('Loading…');
   try{
     const st=await api('GET','/state'); signedOut=false;
-    amAdmin=!!st.admin;
+    // Remembered so the tab does not vanish on a cold or offline open. It is a hint for
+    // the page only: every admin route checks again, so a stale yes grants nothing.
+    amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
     if(st.user&&me&&st.user!==me) switchUser(st.user);
     if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
     loaded=true; applyState(st);
@@ -1568,6 +1571,12 @@ function render(){
 }
 function renderMain(){
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
+  // The Admin tab exists in the markup for everyone and is shown to nobody until the
+  // server says otherwise. If a stored view points at it and this address is not an
+  // administrator, fall back rather than render a screen that will only refuse.
+  if(view==='admin'&&!amAdmin&&loaded) view='setup';
+  const ab=document.querySelector&&document.querySelector('#nav button[data-view="admin"]');
+  if(ab) ab.hidden=!amAdmin;
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
@@ -4297,9 +4306,6 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
-  if(amAdmin) h+=`<div class="card"><div class="lift-h"><h2>Administration</h2><span class="chip blue">admin</span></div>
-  <p class="small muted" style="margin:0">Who is using this app, exporting someone\u2019s data, and removing an account. Only addresses in ADMIN_EMAILS see this.</p>
-  <div class="row"><button class="btn" data-act="view" data-view="admin">Open administration</button></div></div>`;
   h+=syncCard();
   h+=crashCard();
   h+=calFeedCard();

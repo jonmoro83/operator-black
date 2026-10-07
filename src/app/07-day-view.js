@@ -10,6 +10,12 @@ function render(){
 }
 function renderMain(){
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
+  // The Admin tab exists in the markup for everyone and is shown to nobody until the
+  // server says otherwise. If a stored view points at it and this address is not an
+  // administrator, fall back rather than render a screen that will only refuse.
+  if(view==='admin'&&!amAdmin&&loaded) view='setup';
+  const ab=document.querySelector&&document.querySelector('#nav button[data-view="admin"]');
+  if(ab) ab.hidden=!amAdmin;
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
