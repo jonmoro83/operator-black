@@ -6,7 +6,9 @@
 // - /api is never cached here. The page keeps its own copy of your data and a queue
 //   of unsent changes in localStorage.
 
-const VERSION = "ob-v6";
+// Stamped by build.js from the contents of SHELL below. Do not edit by hand: it moves
+// when one of those files does, which is what drops the old cache after a deploy.
+const VERSION = "ob-db5e316f99";
 const SHELL = ["/", "/app.css", "/app.js", "/releases.js", "/icon-32.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 

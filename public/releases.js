@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.48',date:'2026-10-07',title:'Icons update when they change',items:[
+    'Housekeeping. The home-screen app keeps a copy of the icons, the app manifest and the page itself so it opens instantly offline, and that copy is thrown away and refetched whenever one of them actually changes. It used to depend on me remembering to bump a number by hand, which is the kind of thing that gets forgotten and leaves an old icon on your home screen looking like a failed update.']},
   {v:'1.47',date:'2026-10-07',title:'Backups keep the right things',items:[
     'Your automatic Sunday backups and the ones you take by hand no longer compete for the same space. The last 26 Sundays are kept, about six months, plus the newest six you took yourself and the newest six taken before a restore.',
     'Before this they all shared one pool of 26, so tapping Back up now a few times quietly deleted that many weeks of automatic history. That was the history worth keeping.',

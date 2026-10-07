@@ -87,9 +87,6 @@ within each group, roughly in order of how useful they'd be.
   poisons the 7-day average, the protein target, the weighted pull-up load and the TDEE
   estimate for a fortnight. Not a hard block — an inline "that looks wrong, keep it?"
   on anything outside a plausible band, and leave the decision with the person.
-- **Stamp the service worker's `VERSION` from the build.** It is bumped by hand when
-  icons or the manifest change, which is exactly the kind of step that gets forgotten and
-  leaves a stale icon that looks like a deploy failure.
 - **Measure the cost of re-rendering on every keystroke.** Every `data-bind` input calls
   `render()`, which rebuilds the whole view — on Status that is five SVG charts and a
   heatmap. It feels fine on a laptop; it has not been measured on a phone in a gym with a
@@ -140,6 +137,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The service worker's cache name is stamped by the build (2026-10-07)**
+- `VERSION` was typed by hand. Change an icon or the manifest, deploy, and every
+  installed app kept serving the old one out of a cache nothing invalidated — which
+  looks like a broken deploy rather than a missed step.
+- `build.js` now reads the worker's own `SHELL` array and hashes the files it names.
+  One source of truth: the list the worker caches is the list the version is computed
+  from, so the two cannot drift. A precached file that is not on disk is a build error
+  now, where before it was a silent cache miss.
+- `build.js` exports `build`, `shellFiles`, `shellVersion` and `stampServiceWorker` and
+  only runs when invoked directly, so the build is testable rather than a script.
+- `test/build.test.js`, 7 tests: the name is stamped and matches, every precached file
+  exists, a changed icon / manifest / page moves it, a non-shell file does not, a
+  missing file or a worker with no `SHELL` or `VERSION` line is a build error, and
+  building twice changes nothing.
+- Mutation testing caught the same shape of hole as last time, twice running. Asserting
+  that `sw.js` is correct *now* proves nothing, because the last build made it correct;
+  deleting the stamping step left every test passing. The fix is a test that breaks the
+  file first and checks the build repairs it. Worth internalising: a test of current
+  state is not a test of the thing that maintains it.
+- 113 → 120 tests.
 
 **The Access JWT check is tested (2026-10-07)**
 - Tested with **real cryptography**, not a stubbed verifier. The suite generates RSA-2048
