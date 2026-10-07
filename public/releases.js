@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.53',date:'2026-10-07',title:'Accessories, properly',items:[
+    'Accessories are no longer a list of text with a tick. Each lifting day covers a few jobs \u2014 a horizontal pull, some core, a carry \u2014 and you choose the exercise that does each one, from a catalogue of about sixty. Setup \u2192 Accessories.',
+    'The choice is per cycle, like your cluster lifts, because that is what it is. And if the barbell is taken, swap it on the day: that session uses what you picked and is logged as it, your block is untouched, and the card marks it \u201ctoday only\u201d.',
+    'Sets, weight and reps are logged like the main lifts now, so curls have a history. Or just tap Mark done if you would rather not count.',
+    'Missing a movement? Add it under Your own, with the job it does and the kit it needs. It then appears everywhere the built-in ones do.',
+    'Old ticks are brought across and pinned to the right job. They used to be stored by position, so editing a day\u2019s list quietly re-pointed every one of them \u2014 that cannot happen now.']},
   {v:'1.52',date:'2026-10-07',title:'Backups that check themselves',items:[
     'Every backup is now read straight back after it is saved and checked against what it should contain. Setup \u2192 Backups says when it was last checked, and warns you loudly if one ever fails. \u201cThere are backups\u201d and \u201cthe backups are good\u201d are different claims.',
     'If you ever use the app on two devices at once and both are offline, and both change the same day, the one that syncs last used to quietly win. It still wins, but the day is now listed in Setup under Changes that crossed, so you can check it rather than wonder.',

@@ -346,6 +346,9 @@ const DEF={
   // Calendar feed. mode 'allday' or 'timed'; time/weekend are HH:MM in your own local
   // time wherever you are; alarm is minutes before the start, null for none.
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
+  // Accessories: which slots each day fills, what fills them this block and later,
+  // and your own additions to the catalogue. See 01b-accessories.js.
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[],
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
@@ -420,7 +423,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=1;
+const SCHEMA=2;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -441,6 +444,19 @@ const MIGRATIONS=[
       if(L.se&&typeof L.se==='object'){ if('done' in L.se) L.se.done=asArray(L.se.done); if('ex' in L.se) L.se.ex=asArray(L.se.ex) } };
     for(const L of Object.values(d.logs||{})) fix(L);
     for(const p of Object.values(d.programs||{})) for(const L of Object.values((p&&p.logs)||{})) fix(L);
+  }},
+  {to:2,note:'Accessory ticks move from positions to slots',run(d){
+    // Ticks were stored by position, so editing a day's list re-pointed every old one.
+    // Pin them to the slot they meant at the moment of migration and the drift stops.
+    // Archived programs are left alone: their day layout is not this plan's, so the
+    // reader falls back to reading the old array in place rather than guessing here.
+    for(const [date,L] of Object.entries(d.logs||{})){
+      if(!Array.isArray(L.acc)) continue;
+      const dp=dayPlan(date), slots=dp&&dp.acc?accSlots(dp.acc):[];
+      const done={};
+      L.acc.forEach((v,i)=>{ if(v&&slots[i]) done[slots[i]]=true });
+      L.acc=Object.keys(done).length?{done}:{};
+    }
   }},
 ];
 
@@ -623,6 +639,159 @@ const MLIB_ALIAS={};
 })();
 function mlibId(name){const n=mnorm(name);return MLIB_ALIAS[n]||(MLIB[n]?n:null)}
 function mlibEntry(name){const id=mlibId(name);return id?MLIB[id]:null}
+
+/* ---------------- accessories ----------------
+Accessories used to be lines of text with a tick box, and the ticks were stored by
+position: edit the list in Setup and every old checkmark silently pointed at a different
+movement. This replaces that with slots.
+
+A **slot** is the job (Horizontal pull, Biceps, Carry). An **exercise** fills it. You pick
+the exercise per cycle, the way cluster lifts work, and you can swap one for a single
+session when the barbell is taken. Everything is logged against the slot, so nothing
+re-points when a list changes, and against the exercise, so a year from now the log still
+says which curl it was.
+
+The catalogue is here; your own additions live in `plan.accCustom` and sync with the rest
+of the plan. There is no separate admin screen: one person uses this app, and adding a
+name to a list is not worth a second login. */
+
+const ASLOT={
+  hpull: {name:'Horizontal pull',  why:'Balances the pressing. The one accessory worth never skipping.'},
+  rdelt: {name:'Rear delt / upper back', why:'Shoulder health under a lot of benching.'},
+  core:  {name:'Core',             why:'Anti-rotation and anti-extension, not sit-ups.'},
+  biceps:{name:'Biceps',           why:'Elbow health as much as size, with this much pulling.'},
+  triceps:{name:'Triceps',         why:'Lockout strength that carries to the bench.'},
+  delts: {name:'Shoulders',        why:'Side delts, which pressing alone misses.'},
+  pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
+  sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
+  pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
+  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply.'},
+};
+
+// gear: what you need, so the picker reads usefully when the rack is busy.
+const ALIB={
+  csrow:   {slot:'hpull', name:'Chest-supported row',       gear:'Bench + dumbbells, or a machine'},
+  bbrow:   {slot:'hpull', name:'Barbell bent-over row',     gear:'Barbell'},
+  dbrow:   {slot:'hpull', name:'Single-arm dumbbell row',   gear:'Dumbbell + bench'},
+  cablerow:{slot:'hpull', name:'Seated cable row',          gear:'Cable'},
+  invrow:  {slot:'hpull', name:'Inverted row',              gear:'Bar or rings'},
+  tbar:    {slot:'hpull', name:'T-bar row',                 gear:'T-bar or landmine'},
+  kbrow:   {slot:'hpull', name:'Kettlebell row',            gear:'Kettlebell'},
+
+  facepull:{slot:'rdelt', name:'Face pull',                 gear:'Cable or band'},
+  revfly:  {slot:'rdelt', name:'Reverse fly',               gear:'Dumbbells'},
+  pullapart:{slot:'rdelt',name:'Band pull-apart',           gear:'Band'},
+  prone_y: {slot:'rdelt', name:'Prone Y-raise',             gear:'Bench, light plates'},
+
+  pallof:  {slot:'core',  name:'Pallof press',              gear:'Cable or band'},
+  hangknee:{slot:'core',  name:'Hanging knee raise',        gear:'Bar'},
+  hangleg: {slot:'core',  name:'Hanging leg raise',         gear:'Bar'},
+  abwheel: {slot:'core',  name:'Ab wheel',                  gear:'Wheel'},
+  plank:   {slot:'core',  name:'Plank',                     gear:'Nothing'},
+  sideplank:{slot:'core', name:'Side plank',                gear:'Nothing'},
+  deadbug: {slot:'core',  name:'Dead bug',                  gear:'Nothing'},
+  cablecr: {slot:'core',  name:'Cable crunch',              gear:'Cable'},
+
+  bbcurl:  {slot:'biceps',name:'Barbell curl',              gear:'Barbell'},
+  ezcurl:  {slot:'biceps',name:'EZ-bar curl',               gear:'EZ bar'},
+  dbcurl:  {slot:'biceps',name:'Dumbbell curl',             gear:'Dumbbells'},
+  hammer:  {slot:'biceps',name:'Hammer curl',               gear:'Dumbbells'},
+  inccurl: {slot:'biceps',name:'Incline dumbbell curl',     gear:'Dumbbells + bench'},
+  cablecurl:{slot:'biceps',name:'Cable curl',               gear:'Cable'},
+  chinup:  {slot:'biceps',name:'Chin-up',                   gear:'Bar'},
+
+  pushdown:{slot:'triceps',name:'Triceps pushdown',         gear:'Cable'},
+  skull:   {slot:'triceps',name:'Skullcrusher',             gear:'EZ bar or dumbbells'},
+  ohext:   {slot:'triceps',name:'Overhead triceps extension',gear:'Dumbbell, cable or band'},
+  cgbench: {slot:'triceps',name:'Close-grip bench',         gear:'Barbell'},
+  dip:     {slot:'triceps',name:'Dip',                      gear:'Bars'},
+  kickback:{slot:'triceps',name:'Triceps kickback',         gear:'Dumbbells'},
+
+  latraise:{slot:'delts', name:'Dumbbell lateral raise',    gear:'Dumbbells'},
+  cablelat:{slot:'delts', name:'Cable lateral raise',       gear:'Cable'},
+  machlat: {slot:'delts', name:'Machine lateral raise',     gear:'Machine'},
+  uprow:   {slot:'delts', name:'Upright row',               gear:'Barbell or dumbbells'},
+  bandlat: {slot:'delts', name:'Band lateral raise',        gear:'Band'},
+
+  pu_prog: {slot:'pullup',name:'Pull-up progression',       gear:'Bar'},
+  pu_band: {slot:'pullup',name:'Band-assisted pull-up',     gear:'Bar + band'},
+  pu_neg:  {slot:'pullup',name:'Negative pull-up',          gear:'Bar'},
+  pu_wt:   {slot:'pullup',name:'Weighted pull-up',          gear:'Bar + belt'},
+
+  rfess:   {slot:'sleg',  name:'Rear-foot-elevated split squat', gear:'Dumbbells + bench'},
+  lunge:   {slot:'sleg',  name:'Walking lunge',             gear:'Dumbbells'},
+  revlunge:{slot:'sleg',  name:'Reverse lunge',             gear:'Dumbbells or barbell'},
+  stepup:  {slot:'sleg',  name:'Step-up',                   gear:'Box + dumbbells'},
+  slrdl:   {slot:'sleg',  name:'Single-leg Romanian deadlift', gear:'Dumbbell or kettlebell'},
+
+  rdl:     {slot:'pchain',name:'Romanian deadlift',         gear:'Barbell or dumbbells'},
+  backext: {slot:'pchain',name:'Back extension',            gear:'Bench or GHD'},
+  hamcurl: {slot:'pchain',name:'Hamstring curl',            gear:'Machine'},
+  goodmorn:{slot:'pchain',name:'Good morning',              gear:'Barbell'},
+  ghr:     {slot:'pchain',name:'Glute-ham raise',           gear:'GHD'},
+  nordic:  {slot:'pchain',name:'Nordic curl',               gear:'A partner or a strap'},
+  kbswing: {slot:'pchain',name:'Kettlebell swing',          gear:'Kettlebell'},
+
+  farmer:  {slot:'carry', name:'Farmer carry',              gear:'Dumbbells or handles'},
+  suitcase:{slot:'carry', name:'Suitcase carry',            gear:'One dumbbell'},
+  trapcarry:{slot:'carry',name:'Trap-bar carry',            gear:'Trap bar'},
+  deadhang:{slot:'carry', name:'Dead hang',                 gear:'Bar'},
+  pinch:   {slot:'carry', name:'Plate pinch',               gear:'Plates'},
+  sandbag: {slot:'carry', name:'Sandbag carry',             gear:'Sandbag'},
+};
+
+// Which slots each lifting day fills, and what fills them unless you say otherwise.
+// Same count per day as the lists these replaced; arms split across the two press days.
+const ACC_DAYS={ mon:['hpull','rdelt','core','biceps'], wed:['triceps','delts','pullup'], fri:['sleg','pchain','carry'] };
+const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
+  delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
+
+/* ---------------- reading the choice ---------------- */
+
+// Your own exercises, stored in the plan so they reach every device.
+function accCustom(){ const a=(plan.accCustom||[]); return Array.isArray(a)?a.filter(x=>x&&x.id&&x.name&&ASLOT[x.slot]):[] }
+function accAll(){ const out=Object.assign({},ALIB); for(const x of accCustom()) out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',mine:true}; return out }
+function accEx(id){ return accAll()[id]||null }
+function accName(id){ const e=accEx(id); return e?e.name:'' }
+function accFor(slot){ const all=accAll(); return Object.keys(all).filter(k=>all[k].slot===slot) }
+
+// The slots a day fills. Editable per day, falling back to the defaults above.
+function accSlots(day){
+  const a=(plan.accSlots||{})[day];
+  return Array.isArray(a)?a.filter(s=>ASLOT[s]):(ACC_DAYS[day]||[]);
+}
+
+// What fills a slot. Picked per cycle, like the cluster lifts: `accCycle[n]` is this
+// block's choice and `accPick` is what later blocks start on.
+function accPickFor(slot,cycle){
+  const c=cycle!=null?((plan.accCycle||{})[cycle]||{})[slot]:null;
+  if(c&&accEx(c)) return c;
+  const p=(plan.accPick||{})[slot];
+  if(p&&accEx(p)) return p;
+  return ACC_DEF[slot]||accFor(slot)[0]||null;
+}
+// What you are actually doing in that slot today: a one-session swap wins over the block.
+function accOn(date,slot){
+  const d=((lg(date).acc||{}).ex||{})[slot];
+  if(d&&accEx(d)) return d;
+  const wk=weekOf(date), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+  return accPickFor(slot,cyc);
+}
+function accSwapped(date,slot){ const d=((lg(date).acc||{}).ex||{})[slot]; return !!(d&&accEx(d)&&d!==accPickFor(slot,(weekOf(date)||{}).cycle)) }
+
+/* ---------------- what you logged ---------------- */
+
+function accSets(date,slot){ const A=lg(date).acc; if(Array.isArray(A)) return [];
+  const s=((A||{}).sets||{})[slot]; return Array.isArray(s)?s:[] }
+function accDone(date,slot){
+  const A=lg(date).acc;
+  // An archived program still holds the old by-position array. Read it where it sits
+  // rather than rewriting history we cannot map with confidence.
+  if(Array.isArray(A)){ const dp=dayPlan(date), sl=dp&&dp.acc?accSlots(dp.acc):[]; const i=sl.indexOf(slot); return i>=0&&!!A[i] }
+  if(((A||{}).done||{})[slot]) return true;
+  return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
+}
+function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
 
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
@@ -1920,9 +2089,38 @@ function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
   const v=wkRx(wk);
   if(wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
-  const L=lg(sel).acc||[];
-  return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>${/pull-up progression/i.test(a)?`<div class="small muted" style="margin:-2px 0 4px 28px">${esc(pullupState(sel).st.work)}</div>`:''}`).join('')}</div></div>`;
+  const day=dp.acc; if(!day) return '';
+  const slots=accSlots(day), done=accDoneCount(sel,day);
+  let h=`<div class="card"><div class="lift-h"><h3>Accessories</h3><span class="small muted">${done} of ${slots.length} done</span></div>
+  <p class="muted small" style="margin:0">Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.</p>`;
+  if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
+  for(const sl of slots) h+=accSlotRow(sel,sl);
+  return h+`</div>`;
 }
+
+// One slot: what it is for, what is filling it today, and what you did.
+function accSlotRow(date,slot){
+  const id=accOn(date,slot), e=accEx(id), sets=accSets(date,slot), swapped=accSwapped(date,slot);
+  const list=accFor(slot), all=accAll();
+  const isDone=accDone(date,slot), noSets=!sets.length;
+  let h=`<div class="acc-slot">
+  <div class="acc-head"><span class="acc-role">${esc((ASLOT[slot]||{}).name||slot)}</span>${swapped?'<span class="chip blue">today only</span>':''}${isDone?'<span class="chip light">done</span>':''}</div>`;
+  if(viewing){
+    h+=`<div><b>${esc(e?e.name:'\u2014')}</b></div>`;
+  } else {
+    h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
+  }
+  if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
+  for(let i=0;i<sets.length;i++){
+    const x=sets[i]||{};
+    h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}<span></span>${viewing?'<span></span>':`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
+  }
+  if(!viewing) h+=`<div class="row" style="gap:8px"><button class="btn sm ghost" data-act="accadd" data-slot="${esc(slot)}">+ Add set</button>${noSets?`<button class="btn sm${isDone?' primary':' ghost'}" data-act="accdone" data-slot="${esc(slot)}">${isDone?'\u2713 Done':'Mark done'}</button>`:''}</div>`;
+  return h+`</div>`;
+}
+// Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
+function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart'].includes(id) }
+
 function lastHic(fmt,mod,before){
   let best=null,last=null;
   for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
@@ -2686,8 +2884,11 @@ function lsRender(){
       <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const A=lg(ls.date).acc||[];
-    h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">2–3 movements, 2–3 sets, a couple of reps short of failure.</div><div class="stack">${accList(dp.acc).map((a,i)=>`<button class="btn${A[i]?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-i="${i}">${A[i]?'✓ ':''}${esc(a)}</button>`).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
+    const slots=accSlots(dp.acc);
+    h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">Two or three sets each, a couple of reps short of failure. Tap one to mark it done; the weights go on Today’s card.</div><div class="stack">${slots.map(sl=>{
+      const on=accDone(ls.date,sl), ns=accSets(ls.date,sl).length;
+      return `<button class="btn${on?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-slot="${esc(sl)}">${on?'✓ ':''}${esc((ASLOT[sl]||{}).name||sl)} · ${esc(accName(accOn(ls.date,sl)))}${ns?` <span class="small">(${ns} set${ns===1?'':'s'})</span>`:''}</button>`;
+    }).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
   } else if(st.test){
     const L=lg(ls.date), isRm5=dp.t==='rm5';
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
@@ -2724,7 +2925,7 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
-  if(a==='acc'){ const A=[...(lg(ls.date).acc||[])]; A[+b.dataset.i]=!A[+b.dataset.i]; setLog(ls.date,'acc',A); return lsRender() }
+  if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
@@ -3682,7 +3883,7 @@ async function exportCsv(which){
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -3715,6 +3916,49 @@ function syncCard(){
   <div class="stack">${list.map(c=>`<div class="banner"><div class="small"><b>${esc(label(c.path))}</b><div class="muted">noticed ${esc(fmtD(c.at.slice(0,10),true))} ${esc(c.at.slice(11,16))}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn ghost" data-act="syncclear">Dismiss</button></div>
   <div class="small muted">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
+}
+
+// Accessories in Setup: which jobs each day covers, what is doing each job this block
+// and next, and your own additions. The picks are per cycle on purpose \u2014 they are
+// programme choices, like the cluster lifts, not something to re-decide every session.
+let accNew={name:'',slot:'hpull',gear:''};
+function accSetupCard(){
+  const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+  const all=accAll(), days=[['mon','Monday'],['wed','Wednesday'],['fri','Friday']];
+  const used=[...new Set(days.flatMap(([d])=>accSlots(d)))];
+  let h=`<div class="card"><h2>Accessories</h2>
+  <p class="small muted" style="margin:0">Each lifting day covers a few jobs \u2014 a horizontal pull, some core, a carry \u2014 and you choose what does each one. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+
+  for(const [d,label] of days){
+    const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));
+    h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>
+    <div class="stack" style="gap:6px;margin-top:6px">${sl.length?sl.map(k=>`<div class="row between"><span class="small">${esc(ASLOT[k].name)}${(()=>{const nm=(all[accPickFor(k,cyc)]||{}).name||'\u2014';return nm===ASLOT[k].name?'':` <span class="muted">\u00b7 ${esc(nm)}</span>`})()}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>`).join(''):'<div class="small muted">Nothing on this day.</div>'}</div>
+    ${spare.length?`<label class="f" style="margin-top:6px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`:''}</div>`;
+  }
+
+  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">What does each job</div>
+  <p class="small muted" style="margin:2px 0 0">${cyc?`Cycle ${cyc} is what you are running now. Later cycles start on the second column, so a block can be different without rewriting anything.`:'Set what later cycles start on; a cycle picker appears once the programme is under way.'}</p>`;
+  for(const k of used){
+    const list=accFor(k), now=accPickFor(k,cyc), later=(plan.accPick||{})[k]||ACC_DEF[k];
+    h+=`<div style="margin-top:10px"><div class="small" style="font-weight:650">${esc(ASLOT[k].name)}</div>
+    <div class="small muted">${esc(ASLOT[k].why||'')}</div>
+    <div class="grid2" style="margin-top:4px">${cyc?`<label class="f">Cycle ${cyc} (now)<select data-act-accnow="${k}">${list.map(x=>`<option value="${x}"${x===now?' selected':''}>${esc(all[x].name)}</option>`).join('')}</select></label>`:''}
+    <label class="f">Later cycles<select data-pbind="accPick.${k}">${list.map(x=>`<option value="${x}"${x===later?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></label></div></div>`;
+  }
+  h+=`</div>`;
+
+  const mine=accCustom();
+  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Your own</div>
+  <p class="small muted" style="margin:2px 0 0">Anything the list is missing. It appears everywhere the built-in ones do, and syncs to your other devices.</p>
+  ${mine.length?`<div class="stack" style="gap:6px;margin-top:6px">${mine.map(x=>`<div class="row between"><span class="small">${esc(x.name)} <span class="muted">\u00b7 ${esc((ASLOT[x.slot]||{}).name||x.slot)}${x.gear?' \u00b7 '+esc(x.gear):''}</span></span><button class="btn sm ghost" data-act="accmineRm" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>`:''}
+  <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" data-accnew="name" value="${esc(accNew.name)}" placeholder="e.g. Spider curl"></label>
+  <label class="f">Job<select data-accnew="slot">${Object.entries(ASLOT).map(([k,v])=>`<option value="${k}"${k===accNew.slot?' selected':''}>${esc(v.name)}</option>`).join('')}</select></label>
+  <label class="f">Kit<input type="text" data-accnew="gear" value="${esc(accNew.gear)}" placeholder="e.g. EZ bar"></label></div>
+  <div class="row"><button class="btn" data-act="accmineAdd"${accNew.name.trim()?'':' disabled'}>Add it</button></div></div>`;
+
+  const legacy=Object.values(plan.acc||{}).some(a=>Array.isArray(a)&&a.length);
+  if(legacy) h+=`<div class="banner info"><div class="small">Your old typed-in accessory lists have been replaced by the jobs above. Nothing was lost \u2014 they are still in your plan, and what you ticked on past days still shows on those days.</div></div>`;
+  return h+`</div>`;
 }
 
 function archiveBanner(){
@@ -3962,7 +4206,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Mobility</h2><p class="small muted" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
-  h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
+  h+=accSetupCard();
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
@@ -4099,7 +4343,12 @@ function vGuide(){
   <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that grey area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
   <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
-  <div class="card guide"><h3>Accessories</h3><ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
+  <div class="card guide"><h3>Accessories</h3>
+  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session.</p>
+  <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
+  <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
+  <p><b>Missing a movement?</b> Setup → Accessories → Your own takes a name, the job it does and the kit it needs. It then appears everywhere the built-in ones do and follows you to your other devices.</p>
+  <ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
   <p><b>What we add.</b> An optional scheduled deload, off by default, because a light week every few cycles suits running this year-round outside a unit. Turn it on in Setup if you want it.</p>
@@ -4340,6 +4589,7 @@ function calTimeFields(){
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
@@ -4367,7 +4617,27 @@ document.addEventListener('input',e=>{
   window.addEventListener('scroll',hide,{passive:true});
 })();
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.dataset&&d.dataset.px){d.open?openPx.add(d.dataset.px):openPx.delete(d.dataset.px);return}if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
-document.addEventListener('change',e=>{ const t=e.target; if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
+document.addEventListener('change',e=>{ const t=e.target;
+  if(t.dataset&&t.dataset.actAccadd){
+    const d=t.dataset.actAccadd, k=t.value; if(!k||!ASLOT[k]) return;
+    mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:[...accSlots(d),k]})});
+    return;
+  }
+  if(t.dataset&&t.dataset.actAccnow){
+    const sl=t.dataset.actAccnow, wk=weekOf(todayStr());
+    const cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+    if(cyc==null){ setPlan('accPick.'+sl,t.value); render(); return }
+    mutatePlan(p=>{const c=Object.assign({},p.accCycle||{}); c[cyc]=Object.assign({},c[cyc]||{},{[sl]:t.value}); p.accCycle=c});
+    return;
+  }
+  if(t.dataset&&t.dataset.actAcc){
+    const sl=t.dataset.actAcc, v=t.value;
+    const wk=weekOf(sel), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+    // Only a real difference from the block's choice is worth storing as a swap.
+    setLog(sel,'acc.ex.'+sl, v===accPickFor(sl,cyc)?null:v);
+    render(); return;
+  }
+  if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.trvday||t.dataset.np) render(); });
 // Top-level navigation: the tabs and the account menu. Remembers the tab across loads.
@@ -4416,6 +4686,31 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='reload'){ location.reload(); return }
   if(a==='errclear'){ crashClear(); return }
   if(a==='syncclear'){ clearConflicts(); return }
+  if(a==='accadd'||a==='accrm'){
+    const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
+    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    setLog(sel,'acc.sets.'+sl,cur);
+    // Logging a set is itself the record that it happened; drop the manual tick.
+    if(cur.length) setLog(sel,'acc.done.'+sl,null);
+    render();return}
+  if(a==='accslotrm'){
+    const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);
+    mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:cur})});
+    return}
+  if(a==='accmineAdd'){
+    const name=(accNew.name||'').trim(); if(!name) return;
+    const id='mine-'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)+'-'+Math.random().toString(36).slice(2,6);
+    mutatePlan(p=>{p.accCustom=[...(Array.isArray(p.accCustom)?p.accCustom:[]),{id,slot:accNew.slot,name,gear:(accNew.gear||'').trim()}]});
+    accNew={name:'',slot:accNew.slot,gear:''}; render();
+    return}
+  if(a==='accmineRm'){
+    const id=b.dataset.id;
+    mutatePlan(p=>{p.accCustom=(Array.isArray(p.accCustom)?p.accCustom:[]).filter(x=>x&&x.id!==id)});
+    return}
+  if(a==='accdone'){
+    const sl=b.dataset.slot;
+    setLog(sel,'acc.done.'+sl,accDone(sel,sl)?null:true);
+    render();return}
   if(a==='errcopy'){
     const text=crashReport();
     const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };

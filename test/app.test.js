@@ -2119,3 +2119,117 @@ test("repeat clashes on one day stay one entry, and the list is capped", () => {
   for (let i = 0; i < x.CONFLICT_KEEP + 4; i++) x.noteConflict("logs/2026-01-" + String((i % 28) + 1).padStart(2, "0"));
   a.equal(x.conflicts().length, x.CONFLICT_KEEP, "and it does not grow forever");
 });
+
+test("accessories are slots filled by a choice, not a list of text", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+
+  a.deepEqual(x.accSlots("mon"), ["hpull", "rdelt", "core", "biceps"], "a day covers jobs");
+  a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "carry"]);
+  a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl", "with a sensible default in each");
+
+  // Every slot has something that can fill it, and nothing is tagged to a slot that
+  // does not exist.
+  for (const s of Object.keys(x.ASLOT)) a.ok(x.accFor(s).length > 0, `${s} has exercises`);
+  for (const [id, e] of Object.entries(x.ALIB)) a.ok(x.ASLOT[e.slot], `${id} points at a real slot`);
+  for (const [s, id] of Object.entries(x.ACC_DEF)) a.equal(x.ALIB[id].slot, s, `${s}'s default fills it`);
+
+  // The day's list is editable without touching anything logged.
+  x.plan.accSlots = { mon: ["hpull", "core"] }; x.bump();
+  a.deepEqual(x.accSlots("mon"), ["hpull", "core"]);
+  a.deepEqual(x.accSlots("wed"), ["triceps", "delts", "pullup"], "other days are untouched");
+});
+
+test("a swap on the day beats the block, and the block beats the default", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+  a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl");
+  a.equal(x.accSwapped(mon, "biceps"), false);
+
+  // This block runs EZ-bar curls.
+  x.plan.accCycle = { 1: { biceps: "ezcurl" } }; x.bump();
+  a.equal(x.accName(x.accOn(mon, "biceps")), "EZ-bar curl", "the cycle's pick wins over the default");
+  a.equal(x.accSwapped(mon, "biceps"), false, "which is not a swap");
+
+  // The barbell is taken today.
+  x.setLog(mon, "acc.ex.biceps", "dbcurl");
+  a.equal(x.accName(x.accOn(mon, "biceps")), "Dumbbell curl", "today's choice wins over the block");
+  a.equal(x.accSwapped(mon, "biceps"), true, "and is marked as a one-off");
+
+  // Tomorrow is back to the block's choice.
+  const nextMon = x.addDays(mon, 7);
+  a.equal(x.accName(x.accOn(nextMon, "biceps")), "EZ-bar curl", "the swap was for that session only");
+
+  // A later cycle can run something else again.
+  x.plan.accPick = { biceps: "hammer" }; x.bump();
+  const c2 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 2);
+  a.ok(c2, "there is a second cycle");
+  a.equal(x.accName(x.accOn(c2.monday, "biceps")), "Hammer curl", "later cycles start on their own pick");
+});
+
+test("accessory work is logged against the slot, with sets, weight and reps", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+
+  a.equal(x.accDone(mon, "hpull"), false);
+  x.setLog(mon, "acc.sets.hpull", [{ w: 95, r: 10 }, { w: 95, r: 9 }]);
+  a.deepEqual(x.accSets(mon, "hpull"), [{ w: 95, r: 10 }, { w: 95, r: 9 }]);
+  a.equal(x.accDone(mon, "hpull"), true, "logging a set is the record that you did it");
+
+  // Or just a tick, for work you do not want to count.
+  x.setLog(mon, "acc.done.core", true);
+  a.equal(x.accDone(mon, "core"), true);
+  a.equal(x.accDoneCount(mon, "mon"), 2);
+
+  // Changing the day's slot list does not re-point anything already logged. This is
+  // the whole reason for the change: ticks used to be stored by position.
+  x.plan.accSlots = { mon: ["core", "biceps", "hpull"] }; x.bump();
+  a.equal(x.accDone(mon, "hpull"), true, "still the horizontal pull");
+  a.equal(x.accDone(mon, "biceps"), false, "and biceps did not inherit a tick");
+  a.deepEqual(x.accSets(mon, "hpull"), [{ w: 95, r: 10 }, { w: 95, r: 9 }], "with its sets intact");
+});
+
+test("ticks stored by position are migrated to slots, and old programs still read", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  const mon = "2026-09-07";
+  // The old shape: a boolean per position in that day's list.
+  x.seed({ [mon]: { date: mon, acc: [true, false, true, false] } });
+  x.plan.schema = 1; x.bump();
+
+  a.equal(x.accDone(mon, "hpull"), true, "readable even before migrating");
+  a.equal(x.accDone(mon, "rdelt"), false);
+
+  a.equal(x.migrate(), true);
+  a.equal(x.plan.schema, x.SCHEMA);
+  a.deepEqual(x.logs[mon].acc, { done: { hpull: true, core: true } }, "pinned to what they meant");
+  a.equal(x.accDone(mon, "hpull"), true);
+  a.equal(x.accDone(mon, "core"), true);
+
+  // And now the list can move without dragging them along.
+  x.plan.accSlots = { mon: ["biceps", "hpull"] }; x.bump();
+  a.equal(x.accDone(mon, "hpull"), true);
+  a.equal(x.accDone(mon, "biceps"), false);
+});
+
+test("your own exercises join the catalogue everywhere the built-in ones are", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.accCustom = [{ id: "mine-spider", slot: "biceps", name: "Spider curl", gear: "EZ bar" }];
+  x.bump();
+
+  a.ok(x.accFor("biceps").includes("mine-spider"), "it is offered for its job");
+  a.equal(x.accName("mine-spider"), "Spider curl");
+  a.equal(x.accEx("mine-spider").mine, true, "and is marked as yours");
+
+  x.plan.accPick = { biceps: "mine-spider" }; x.bump();
+  a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Spider curl", "and can fill the slot");
+
+  // Rubbish in the list is ignored rather than breaking the picker.
+  x.plan.accCustom = [{ id: "x", slot: "nosuchslot", name: "Nope" }, { name: "No id" }, null]; x.bump();
+  a.deepEqual(x.accCustom(), [], "nothing malformed gets through");
+  a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Barbell curl", "and a pick that vanished falls back");
+});

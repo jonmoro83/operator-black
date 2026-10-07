@@ -2,6 +2,7 @@
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
@@ -29,7 +30,27 @@ document.addEventListener('input',e=>{
   window.addEventListener('scroll',hide,{passive:true});
 })();
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.matches)return;if(d.dataset&&d.dataset.px){d.open?openPx.add(d.dataset.px):openPx.delete(d.dataset.px);return}if(d.matches('details.wu')){d.open?openWarm.add(d.dataset.lift):openWarm.delete(d.dataset.lift)}else if(d.id&&d.id.startsWith('ci-')){const k=d.id.slice(3);d.open?openCI.add(k):openCI.delete(k)}},true);
-document.addEventListener('change',e=>{ const t=e.target; if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
+document.addEventListener('change',e=>{ const t=e.target;
+  if(t.dataset&&t.dataset.actAccadd){
+    const d=t.dataset.actAccadd, k=t.value; if(!k||!ASLOT[k]) return;
+    mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:[...accSlots(d),k]})});
+    return;
+  }
+  if(t.dataset&&t.dataset.actAccnow){
+    const sl=t.dataset.actAccnow, wk=weekOf(todayStr());
+    const cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+    if(cyc==null){ setPlan('accPick.'+sl,t.value); render(); return }
+    mutatePlan(p=>{const c=Object.assign({},p.accCycle||{}); c[cyc]=Object.assign({},c[cyc]||{},{[sl]:t.value}); p.accCycle=c});
+    return;
+  }
+  if(t.dataset&&t.dataset.actAcc){
+    const sl=t.dataset.actAcc, v=t.value;
+    const wk=weekOf(sel), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+    // Only a real difference from the block's choice is worth storing as a swap.
+    setLog(sel,'acc.ex.'+sl, v===accPickFor(sl,cyc)?null:v);
+    render(); return;
+  }
+  if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.trvday||t.dataset.np) render(); });
 // Top-level navigation: the tabs and the account menu. Remembers the tab across loads.
@@ -78,6 +99,31 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='reload'){ location.reload(); return }
   if(a==='errclear'){ crashClear(); return }
   if(a==='syncclear'){ clearConflicts(); return }
+  if(a==='accadd'||a==='accrm'){
+    const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
+    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    setLog(sel,'acc.sets.'+sl,cur);
+    // Logging a set is itself the record that it happened; drop the manual tick.
+    if(cur.length) setLog(sel,'acc.done.'+sl,null);
+    render();return}
+  if(a==='accslotrm'){
+    const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);
+    mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:cur})});
+    return}
+  if(a==='accmineAdd'){
+    const name=(accNew.name||'').trim(); if(!name) return;
+    const id='mine-'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)+'-'+Math.random().toString(36).slice(2,6);
+    mutatePlan(p=>{p.accCustom=[...(Array.isArray(p.accCustom)?p.accCustom:[]),{id,slot:accNew.slot,name,gear:(accNew.gear||'').trim()}]});
+    accNew={name:'',slot:accNew.slot,gear:''}; render();
+    return}
+  if(a==='accmineRm'){
+    const id=b.dataset.id;
+    mutatePlan(p=>{p.accCustom=(Array.isArray(p.accCustom)?p.accCustom:[]).filter(x=>x&&x.id!==id)});
+    return}
+  if(a==='accdone'){
+    const sl=b.dataset.slot;
+    setLog(sel,'acc.done.'+sl,accDone(sel,sl)?null:true);
+    render();return}
   if(a==='errcopy'){
     const text=crashReport();
     const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };

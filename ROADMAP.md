@@ -34,8 +34,6 @@ Known gaps and things to verify. Fix or close these before starting new features
   Bridge week already splits them; retest week doesn't yet.
 - **The current week can still re-plan.** Only fully past weeks are locked, so changing
   deload/retest spacing mid-week can change this week's type.
-- **Accessory ticks are stored by position.** Editing a day's list in Setup shifts
-  which movement older checkmarks line up with.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically.
 - **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02.** Settled:
@@ -122,6 +120,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Accessories become slots, exercises and sets (2026-10-07)**
+- Replaces lines of text with a tick. A **slot** is the job (Horizontal pull, Biceps,
+  Carry); an **exercise** fills it, picked **per cycle** like the cluster lifts; a
+  **one-session swap** covers a taken barbell. Sets, weight and reps are logged like the
+  main lifts, or just Mark done.
+- This retires the "accessory ticks are stored by position" open issue by making it
+  impossible rather than patching it: everything is keyed by slot. Migration 2 pins old
+  positional ticks to the slot they meant, and archived programs — whose day layout is
+  not this plan's — are read in place by position rather than guessed at.
+- `ALIB` holds ~60 exercises tagged with slot and kit; `plan.accCustom` takes your own,
+  validated on read so a malformed entry cannot break the picker. **No admin portal**:
+  one person uses this app, and a second auth surface plus a data deploy path to add a
+  curl variation is not a trade worth making. The same pattern already exists for lift
+  variants and SE circuits.
+- Five mutations — ignoring the day swap, ignoring the cycle pick, losing old
+  by-position logs, a migration that drops ticks, unvalidated custom entries — all fail.
+  145 → 150 tests.
 
 **Backups check themselves, and a crossed change says so (2026-10-07)**
 - Every backup is read straight back after it is written and compared with what was meant

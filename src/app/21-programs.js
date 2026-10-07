@@ -2,7 +2,7 @@
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -35,6 +35,49 @@ function syncCard(){
   <div class="stack">${list.map(c=>`<div class="banner"><div class="small"><b>${esc(label(c.path))}</b><div class="muted">noticed ${esc(fmtD(c.at.slice(0,10),true))} ${esc(c.at.slice(11,16))}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn ghost" data-act="syncclear">Dismiss</button></div>
   <div class="small muted">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
+}
+
+// Accessories in Setup: which jobs each day covers, what is doing each job this block
+// and next, and your own additions. The picks are per cycle on purpose \u2014 they are
+// programme choices, like the cluster lifts, not something to re-decide every session.
+let accNew={name:'',slot:'hpull',gear:''};
+function accSetupCard(){
+  const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
+  const all=accAll(), days=[['mon','Monday'],['wed','Wednesday'],['fri','Friday']];
+  const used=[...new Set(days.flatMap(([d])=>accSlots(d)))];
+  let h=`<div class="card"><h2>Accessories</h2>
+  <p class="small muted" style="margin:0">Each lifting day covers a few jobs \u2014 a horizontal pull, some core, a carry \u2014 and you choose what does each one. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+
+  for(const [d,label] of days){
+    const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));
+    h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>
+    <div class="stack" style="gap:6px;margin-top:6px">${sl.length?sl.map(k=>`<div class="row between"><span class="small">${esc(ASLOT[k].name)}${(()=>{const nm=(all[accPickFor(k,cyc)]||{}).name||'\u2014';return nm===ASLOT[k].name?'':` <span class="muted">\u00b7 ${esc(nm)}</span>`})()}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>`).join(''):'<div class="small muted">Nothing on this day.</div>'}</div>
+    ${spare.length?`<label class="f" style="margin-top:6px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`:''}</div>`;
+  }
+
+  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">What does each job</div>
+  <p class="small muted" style="margin:2px 0 0">${cyc?`Cycle ${cyc} is what you are running now. Later cycles start on the second column, so a block can be different without rewriting anything.`:'Set what later cycles start on; a cycle picker appears once the programme is under way.'}</p>`;
+  for(const k of used){
+    const list=accFor(k), now=accPickFor(k,cyc), later=(plan.accPick||{})[k]||ACC_DEF[k];
+    h+=`<div style="margin-top:10px"><div class="small" style="font-weight:650">${esc(ASLOT[k].name)}</div>
+    <div class="small muted">${esc(ASLOT[k].why||'')}</div>
+    <div class="grid2" style="margin-top:4px">${cyc?`<label class="f">Cycle ${cyc} (now)<select data-act-accnow="${k}">${list.map(x=>`<option value="${x}"${x===now?' selected':''}>${esc(all[x].name)}</option>`).join('')}</select></label>`:''}
+    <label class="f">Later cycles<select data-pbind="accPick.${k}">${list.map(x=>`<option value="${x}"${x===later?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></label></div></div>`;
+  }
+  h+=`</div>`;
+
+  const mine=accCustom();
+  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Your own</div>
+  <p class="small muted" style="margin:2px 0 0">Anything the list is missing. It appears everywhere the built-in ones do, and syncs to your other devices.</p>
+  ${mine.length?`<div class="stack" style="gap:6px;margin-top:6px">${mine.map(x=>`<div class="row between"><span class="small">${esc(x.name)} <span class="muted">\u00b7 ${esc((ASLOT[x.slot]||{}).name||x.slot)}${x.gear?' \u00b7 '+esc(x.gear):''}</span></span><button class="btn sm ghost" data-act="accmineRm" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>`:''}
+  <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" data-accnew="name" value="${esc(accNew.name)}" placeholder="e.g. Spider curl"></label>
+  <label class="f">Job<select data-accnew="slot">${Object.entries(ASLOT).map(([k,v])=>`<option value="${k}"${k===accNew.slot?' selected':''}>${esc(v.name)}</option>`).join('')}</select></label>
+  <label class="f">Kit<input type="text" data-accnew="gear" value="${esc(accNew.gear)}" placeholder="e.g. EZ bar"></label></div>
+  <div class="row"><button class="btn" data-act="accmineAdd"${accNew.name.trim()?'':' disabled'}>Add it</button></div></div>`;
+
+  const legacy=Object.values(plan.acc||{}).some(a=>Array.isArray(a)&&a.length);
+  if(legacy) h+=`<div class="banner info"><div class="small">Your old typed-in accessory lists have been replaced by the jobs above. Nothing was lost \u2014 they are still in your plan, and what you ticked on past days still shows on those days.</div></div>`;
+  return h+`</div>`;
 }
 
 function archiveBanner(){
@@ -282,7 +325,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Mobility</h2><p class="small muted" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   h+=`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
-  h+=`<div class="card"><h2>Accessories</h2><p class="small muted" style="margin:0">One movement per line. Skipped automatically on heavy weeks and deloads.</p><div class="grid3">${[['mon','Monday'],['wed','Wednesday'],['fri','Friday']].map(([d,l])=>`<label class="f">${l}<textarea id="acc-${d}" data-accday="${d}" rows="5">${esc((accs[d]||ACC[d]).join('\n'))}</textarea></label>`).join('')}</div></div>`;
+  h+=accSetupCard();
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
@@ -419,7 +462,12 @@ function vGuide(){
   <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that grey area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
   <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
-  <div class="card guide"><h3>Accessories</h3><ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
+  <div class="card guide"><h3>Accessories</h3>
+  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session.</p>
+  <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
+  <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
+  <p><b>Missing a movement?</b> Setup → Accessories → Your own takes a name, the job it does and the kit it needs. It then appears everywhere the built-in ones do and follows you to your other devices.</p>
+  <ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
   <p><b>What we add.</b> An optional scheduled deload, off by default, because a light week every few cycles suits running this year-round outside a unit. Turn it on in Setup if you want it.</p>

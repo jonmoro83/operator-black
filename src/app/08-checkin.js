@@ -255,9 +255,38 @@ function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
   const v=wkRx(wk);
   if(wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
-  const L=lg(sel).acc||[];
-  return `<div class="card"><h3>Accessories</h3><p class="muted small" style="margin:0">2–3 movements, 2–3 sets, a couple of reps short of failure. Nothing that leaves you sore for tomorrow's HIC.</p><div class="stack">${accList(dp.acc).map((a,i)=>`<label class="check"><input type="checkbox" id="acc-${i}" data-bind="acc.${i}" ${L[i]?'checked':''}> ${esc(a)}</label>${/pull-up progression/i.test(a)?`<div class="small muted" style="margin:-2px 0 4px 28px">${esc(pullupState(sel).st.work)}</div>`:''}`).join('')}</div></div>`;
+  const day=dp.acc; if(!day) return '';
+  const slots=accSlots(day), done=accDoneCount(sel,day);
+  let h=`<div class="card"><div class="lift-h"><h3>Accessories</h3><span class="small muted">${done} of ${slots.length} done</span></div>
+  <p class="muted small" style="margin:0">Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.</p>`;
+  if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
+  for(const sl of slots) h+=accSlotRow(sel,sl);
+  return h+`</div>`;
 }
+
+// One slot: what it is for, what is filling it today, and what you did.
+function accSlotRow(date,slot){
+  const id=accOn(date,slot), e=accEx(id), sets=accSets(date,slot), swapped=accSwapped(date,slot);
+  const list=accFor(slot), all=accAll();
+  const isDone=accDone(date,slot), noSets=!sets.length;
+  let h=`<div class="acc-slot">
+  <div class="acc-head"><span class="acc-role">${esc((ASLOT[slot]||{}).name||slot)}</span>${swapped?'<span class="chip blue">today only</span>':''}${isDone?'<span class="chip light">done</span>':''}</div>`;
+  if(viewing){
+    h+=`<div><b>${esc(e?e.name:'\u2014')}</b></div>`;
+  } else {
+    h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
+  }
+  if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
+  for(let i=0;i<sets.length;i++){
+    const x=sets[i]||{};
+    h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}<span></span>${viewing?'<span></span>':`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
+  }
+  if(!viewing) h+=`<div class="row" style="gap:8px"><button class="btn sm ghost" data-act="accadd" data-slot="${esc(slot)}">+ Add set</button>${noSets?`<button class="btn sm${isDone?' primary':' ghost'}" data-act="accdone" data-slot="${esc(slot)}">${isDone?'\u2713 Done':'Mark done'}</button>`:''}</div>`;
+  return h+`</div>`;
+}
+// Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
+function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart'].includes(id) }
+
 function lastHic(fmt,mod,before){
   let best=null,last=null;
   for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;

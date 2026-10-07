@@ -344,6 +344,9 @@ const DEF={
   // Calendar feed. mode 'allday' or 'timed'; time/weekend are HH:MM in your own local
   // time wherever you are; alarm is minutes before the start, null for none.
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
+  // Accessories: which slots each day fills, what fills them this block and later,
+  // and your own additions to the catalogue. See 01b-accessories.js.
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[],
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
@@ -418,7 +421,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=1;
+const SCHEMA=2;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -439,6 +442,19 @@ const MIGRATIONS=[
       if(L.se&&typeof L.se==='object'){ if('done' in L.se) L.se.done=asArray(L.se.done); if('ex' in L.se) L.se.ex=asArray(L.se.ex) } };
     for(const L of Object.values(d.logs||{})) fix(L);
     for(const p of Object.values(d.programs||{})) for(const L of Object.values((p&&p.logs)||{})) fix(L);
+  }},
+  {to:2,note:'Accessory ticks move from positions to slots',run(d){
+    // Ticks were stored by position, so editing a day's list re-pointed every old one.
+    // Pin them to the slot they meant at the moment of migration and the drift stops.
+    // Archived programs are left alone: their day layout is not this plan's, so the
+    // reader falls back to reading the old array in place rather than guessing here.
+    for(const [date,L] of Object.entries(d.logs||{})){
+      if(!Array.isArray(L.acc)) continue;
+      const dp=dayPlan(date), slots=dp&&dp.acc?accSlots(dp.acc):[];
+      const done={};
+      L.acc.forEach((v,i)=>{ if(v&&slots[i]) done[slots[i]]=true });
+      L.acc=Object.keys(done).length?{done}:{};
+    }
   }},
 ];
 

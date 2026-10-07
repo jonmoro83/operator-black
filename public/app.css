@@ -399,6 +399,11 @@ details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
 .setb.add{border-style:dashed;color:var(--muted);font-size:22px;font-weight:400}
 /* "that number looks wrong" under an input. Never blocks: the value is kept as typed. */
 .oddnote{flex:0 0 100%;font-weight:500;font-size:12px;line-height:1.35;color:var(--yellow);background:var(--yellow-bg);border-radius:6px;padding:5px 8px;margin-top:2px}
+/* One accessory slot: the job, what is filling it today, and the sets you did. */
+.acc-slot{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.acc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.acc-role{font-size:12.5px;font-weight:650;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.acc-slot select{width:100%}
 .setb.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .setb.on small{color:var(--accent-ink)}
 .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}

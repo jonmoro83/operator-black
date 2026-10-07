@@ -122,8 +122,11 @@ function lsRender(){
       <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const A=lg(ls.date).acc||[];
-    h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">2–3 movements, 2–3 sets, a couple of reps short of failure.</div><div class="stack">${accList(dp.acc).map((a,i)=>`<button class="btn${A[i]?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-i="${i}">${A[i]?'✓ ':''}${esc(a)}</button>`).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
+    const slots=accSlots(dp.acc);
+    h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">Two or three sets each, a couple of reps short of failure. Tap one to mark it done; the weights go on Today’s card.</div><div class="stack">${slots.map(sl=>{
+      const on=accDone(ls.date,sl), ns=accSets(ls.date,sl).length;
+      return `<button class="btn${on?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-slot="${esc(sl)}">${on?'✓ ':''}${esc((ASLOT[sl]||{}).name||sl)} · ${esc(accName(accOn(ls.date,sl)))}${ns?` <span class="small">(${ns} set${ns===1?'':'s'})</span>`:''}</button>`;
+    }).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
   } else if(st.test){
     const L=lg(ls.date), isRm5=dp.t==='rm5';
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
@@ -160,7 +163,7 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
-  if(a==='acc'){ const A=[...(lg(ls.date).acc||[])]; A[+b.dataset.i]=!A[+b.dataset.i]; setLog(ls.date,'acc',A); return lsRender() }
+  if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
