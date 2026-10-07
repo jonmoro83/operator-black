@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.55',date:'2026-10-07',title:'Shoulders off the press day',items:[
+    'Shoulder work moves to OP1 and the row moves to OP2, so side delts are not being hammered on the same day as the overhead press and the row is there to balance it.',
+    'Rear delts stay with the shoulders on OP1 rather than following the row \u2014 that slot is shoulder health, not back volume. If you would rather it moved, it is two taps in Setup.',
+    'OP1 is now shoulders, rear delt, core, biceps, triceps. OP2 is horizontal pull, pull-ups, biceps, triceps. OP3 is unchanged.',
+    'This changes the defaults. If you have already edited a day\u2019s jobs in Setup, that day keeps what you set.']},
   {v:'1.54',date:'2026-10-07',title:'Arms on every lifting day',items:[
     'Biceps and triceps are on all three Operator days now, rather than one each.',
     'Which turned up something: the exercise for a job used to be one choice everywhere, so arms three times a week meant the same curl three times a week. You now pick per day \u2014 barbell curl on Monday, hammer on Wednesday, incline on Friday, if that is what you want.',

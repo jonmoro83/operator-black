@@ -121,6 +121,16 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Accessory days rearranged around the overhead press (2026-10-07)**
+- Shoulders move to **OP1**, away from whichever day the overhead press lands on when it
+  is the Lift 3. The horizontal pull moves to **OP2** to balance that press.
+- Rear delts stay with the shoulders rather than following the row: that slot is shoulder
+  health under a lot of benching, not back volume. If it should move, it is two taps in
+  Setup now rather than a code change — which is the point of 1.53.
+- OP1: Shoulders · Rear delt · Core · Biceps · Triceps. OP2: Horizontal pull · Pull-up
+  progression · Biceps · Triceps. OP3 unchanged.
+- Defaults only. A day whose slots have been edited in Setup keeps what was set.
+
 **Arms on every Operator day, and picks keyed by day (2026-10-07)**
 - Biceps and triceps now appear on all three Operator days, not one each.
 - That exposed a flaw in 1.53: a slot's exercise was global, so a job appearing three

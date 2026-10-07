@@ -14,12 +14,12 @@ of the plan. There is no separate admin screen: one person uses this app, and ad
 name to a list is not worth a second login. */
 
 const ASLOT={
-  hpull: {name:'Horizontal pull',  why:'Balances the pressing. The one accessory worth never skipping.'},
+  hpull: {name:'Horizontal pull',  why:'Balances the pressing, and sits on the overhead day for that reason. The one accessory worth never skipping.'},
   rdelt: {name:'Rear delt / upper back', why:'Shoulder health under a lot of benching.'},
   core:  {name:'Core',             why:'Anti-rotation and anti-extension, not sit-ups.'},
   biceps:{name:'Biceps',           why:'Elbow health as much as size, with this much pulling.'},
   triceps:{name:'Triceps',         why:'Lockout strength that carries to the bench.'},
-  delts: {name:'Shoulders',        why:'Side delts, which pressing alone misses.'},
+  delts: {name:'Shoulders',        why:'Side delts, which pressing alone misses. Kept off the overhead press day.'},
   pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
   sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
   pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
@@ -100,7 +100,10 @@ const ALIB={
 
 // Which slots each lifting day fills, and what fills them unless you say otherwise.
 // Same count per day as the lists these replaced; arms split across the two press days.
-const ACC_DAYS={ mon:['hpull','rdelt','core','biceps','triceps'], wed:['delts','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
+// Shoulders sit on OP1, away from whichever day the overhead press lands on, and the
+// row moves to OP2 to balance it. Rear delts stay with the shoulders: that slot is
+// shoulder health, not back volume.
+const ACC_DAYS={ mon:['delts','rdelt','core','biceps','triceps'], wed:['hpull','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
