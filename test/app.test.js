@@ -2359,3 +2359,44 @@ test("the audit log shows what happened, and can be refreshed after it happens",
   x.admin = { me: "me@example.com", list: [], log: [], logErr: "No record table. Run npm run db:migrate:remote." };
   a.match(x.vAdmin(), /No record table/);
 });
+
+test("an input that survives a re-render has an id, or the caret jumps out of it", () => {
+  // render() replaces the whole of #main, and renderMain restores focus and the caret
+  // position by looking the element up by id. An input with no id is therefore unusable:
+  // every keystroke re-renders, the element is replaced, and focus goes nowhere. That is
+  // exactly what the admin confirmation box did.
+  const files = fs.readdirSync(path.join(__dirname, "..", "src", "app")).filter((f) => f.endsWith(".js"));
+  const src = files.map((f) => fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8")).join("\n");
+
+  // Attributes whose handler calls render(). Keep this list in step with 22-events.js.
+  const RERENDERS = ["data-bind", "data-pbind", "data-adminconfirm", "data-accnew", "data-cmax", "data-calc"];
+  const bad = [];
+  for (const tag of src.match(/<(?:input|select|textarea)\b[^>]*>/g) || []) {
+    if (!RERENDERS.some((d) => tag.includes(d + "=") || tag.includes(d + " ") || tag.includes(d + ">"))) continue;
+    if (!/\sid=/.test(tag)) bad.push(tag.replace(/\s+/g, " ").slice(0, 100));
+  }
+  a.deepEqual(bad, [], "these re-render on input but cannot be focused again afterwards");
+});
+
+test("typing in the admin confirmation keeps the caret, and only one box is ever open", () => {
+  const x = app({ now: "2026-10-07" });
+  x.view = "admin"; x.amAdmin = true; x.loaded = true;
+  x.admin = { me: "me@example.com", log: [], list: [{ user: "them@example.com", docs: 2, logs: 1, bytes: 10, last: Date.now(), backups: 0, backupOk: null }] };
+
+  // The removal confirmation.
+  x.admin.confirm = "them@example.com"; x.admin.typed = "them@";
+  const clear = x.vAdmin();
+  a.match(clear, /id="admin-confirm-clear"[^>]*data-adminconfirm/, "it can be found again after a re-render");
+  a.match(clear, /value="them@"/, "and keeps what has been typed so far");
+
+  // The restore confirmation, with its own id so the two never collide.
+  x.admin.confirm = null; x.admin.bkFor = "them@example.com";
+  x.admin.bk = [{ name: "2026-10-04", logs: 3, bytes: 2048 }];
+  x.admin.rsFor = "them@example.com|2026-10-04"; x.admin.typed = "them@ex";
+  const rs = x.vAdmin();
+  a.match(rs, /id="admin-confirm-restore"[^>]*data-adminconfirm/);
+  a.ok(!/admin-confirm-clear/.test(rs), "and the other one is not also on screen");
+
+  // Both ids are distinct wherever they appear, so focus restoration is unambiguous.
+  a.equal((rs.match(/id="admin-confirm-restore"/g) || []).length, 1);
+});

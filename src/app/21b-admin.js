@@ -88,7 +88,7 @@ function adminBackupList(who) {
       const ok = admin.typed.trim().toLowerCase() === who.toLowerCase();
       h += `<div class="banner alert"><div><b>This replaces everything ${esc(who)} has now</b> with the contents of ${esc(b.name)}.
       Their current data is saved as a \u201cbefore restore\u201d backup first, so it can be undone \u2014 but they will see their training change.
-      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(who)}" autocomplete="off"></label></div>
+      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" id="admin-confirm-restore" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(who)}" autocomplete="off"></label></div>
       <div class="row"><button class="btn sm" data-act="adminrsoff">Cancel</button><button class="btn sm primary" data-act="adminrsgo" data-user="${esc(who)}" data-name="${esc(b.name)}"${ok && admin.busy !== who ? '' : ' disabled'}>${admin.busy === who ? 'Restoring\u2026' : 'Restore this backup'}</button></div></div>`;
     }
   }
@@ -119,7 +119,7 @@ function vAdmin() {
       const ok = admin.typed.trim().toLowerCase() === u.user.toLowerCase();
       h += `<div class="banner alert" style="margin-top:8px"><div><b>This removes everything ${esc(u.user)} has.</b>
       Their plan, every logged session, all their backups, their calendar feed and their alerts. It cannot be undone from here, so export first if they might want it.
-      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(u.user)}" autocomplete="off"></label></div>
+      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" id="admin-confirm-clear" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(u.user)}" autocomplete="off"></label></div>
       <div class="row"><button class="btn sm" data-act="adminclearoff">Cancel</button><button class="btn sm primary" data-act="adminwipe" data-user="${esc(u.user)}"${ok && admin.busy !== u.user ? '' : ' disabled'}>${admin.busy === u.user ? 'Removing…' : 'Remove everything'}</button></div></div>`;
     }
     h += `</div>`;

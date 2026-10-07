@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.63',date:'2026-10-07',title:'Confirmation boxes you can actually type in',items:[
+    'Typing an address to confirm an admin restore or removal kicked you out of the box after every character. Fixed \u2014 the caret stays where it was.',
+    'Same cause, quieter symptom: in Setup \u2192 Accessories, the \u201cAdd it\u201d button for your own exercise never came alive while you typed a name. It does now.']},
   {v:'1.62',date:'2026-10-07',title:'Restore a backup for someone',items:[
     'An administrator can now list a person\u2019s backups and put one back for them, rather than talking them through doing it themselves.',
     'It works the same way restoring your own does: whatever they have at that moment is saved as a \u201cbefore restore\u201d copy first, so it can be undone from their own Backups screen. It needs their address typed back to confirm, and it is written to the audit log along with which backup it came from.']},

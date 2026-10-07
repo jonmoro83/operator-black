@@ -121,6 +121,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Typing in a confirmation box no longer throws the caret out (2026-10-07)**
+- Reported on the admin restore: every character needed a fresh tap on the field.
+  `render()` replaces the whole of `#main`, and `renderMain` restores focus and the caret
+  **by element id**. The confirmation input had no id, so every keystroke replaced the
+  element and focus went nowhere. Every `data-bind`/`data-pbind` input in the app has an
+  id; the two I added did not.
+- Found alongside it: `data-accnew` had no id **and** never re-rendered, so the "Add it"
+  button in Setup → Accessories stayed disabled however much you typed. Both fixed.
+- Also gave the plyo upper-body `<select>` an id — pre-existing, same class, milder.
+- New guard: a test scans `src/app/` for inputs carrying a render-triggering attribute and
+  fails if any lacks an id. Same shape as the bare-`.banner` CSS test: a rule the codebase
+  already followed everywhere except where I broke it.
+- Only one confirmation box can be open at a time now, so the two ids never collide.
+
 **An admin can restore a backup for someone (2026-10-07)**
 - `GET /api/admin/users/<email>/backups` and `POST .../restore`. The restore goes through
   the same `restoreFrom` a person uses on themselves, so it takes a **before-restore copy

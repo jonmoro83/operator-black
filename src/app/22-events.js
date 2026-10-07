@@ -3,7 +3,9 @@ function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
-  if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; return; }
+  // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
+  // and the caret survive it.
+  if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
@@ -102,11 +104,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='syncclear'){ clearConflicts(); return }
   if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); adminLoadLog(true); return }
   if(a==='adminlog'){ adminLoadLog(true); return }
-  if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.rsFor=null; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminclearoff'){ admin.confirm=null; admin.typed=''; render(); return }
   if(a==='adminwipe'){ adminWipe(b.dataset.user); return }
   if(a==='adminbk'){ if(admin.bkFor===b.dataset.user){admin.bkFor=null;admin.bk=null;render()} else adminBackups(b.dataset.user); return }
-  if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.confirm=null; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminrsoff'){ admin.rsFor=null; admin.typed=''; render(); return }
   if(a==='adminrsgo'){ adminRestore(b.dataset.user,b.dataset.name); return }
   if(a==='accadd'||a==='accrm'){

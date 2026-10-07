@@ -2263,7 +2263,7 @@ function plyoUpperCard(wk,cut,pullback){
   h+=`<div class="stack" style="gap:10px">`;
   plyoUpperEx(ph).forEach((e,i)=>{
     const n0=cut?Math.ceil(e.s/2):e.s, sets=(L[i])||[];
-    h+=`<div class="pex"><label class="f up-pick"><span class="small muted">${esc(e.slot)}</span><select data-pbind="plyoUp.${upKey(ph,i)}">${e.opts.map(o=>`<option value="${o.id}"${o.id===e.id?' selected':''}>${esc(o.label)} · ${esc(o.gear)}</option>`).join('')}</select></label>
+    h+=`<div class="pex"><label class="f up-pick"><span class="small muted">${esc(e.slot)}</span><select id="plyoup-${upKey(ph,i)}" data-pbind="plyoUp.${upKey(ph,i)}">${e.opts.map(o=>`<option value="${o.id}"${o.id===e.id?' selected':''}>${esc(o.label)} · ${esc(o.gear)}</option>`).join('')}</select></label>
     <details class="px" data-px="up${i}"${openPx.has('up'+i)?' open':''}><summary><span>${esc(e.label)}</span><span class="mono small">${n0} × ${esc(e.r)} · ${e.rest} s</span></summary>${plyoEntry(e.id)}</details>
     <div class="sets">${Array.from({length:n0},(_,j)=>`<button class="setb sm${sets[j]?' on':''}" data-act="upset" data-i="${i}" data-j="${j}" aria-pressed="${!!sets[j]}">${esc(String(e.r).split(' ')[0])}<small>Set ${j+1}</small></button>`).join('')}</div></div>`;
   });
@@ -3998,9 +3998,9 @@ function accSetupCard(){
   h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Your own</div>
   <p class="small muted" style="margin:2px 0 0">Anything the list is missing. It appears everywhere the built-in ones do, and syncs to your other devices.</p>
   ${mine.length?`<div class="stack" style="gap:6px;margin-top:6px">${mine.map(x=>`<div class="row between"><span class="small">${esc(x.name)} <span class="muted">\u00b7 ${esc((ASLOT[x.slot]||{}).name||x.slot)}${x.gear?' \u00b7 '+esc(x.gear):''}</span></span><button class="btn sm ghost" data-act="accmineRm" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>`:''}
-  <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" data-accnew="name" value="${esc(accNew.name)}" placeholder="e.g. Spider curl"></label>
-  <label class="f">Job<select data-accnew="slot">${Object.entries(ASLOT).map(([k,v])=>`<option value="${k}"${k===accNew.slot?' selected':''}>${esc(v.name)}</option>`).join('')}</select></label>
-  <label class="f">Kit<input type="text" data-accnew="gear" value="${esc(accNew.gear)}" placeholder="e.g. EZ bar"></label></div>
+  <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" id="accnew-name" data-accnew="name" value="${esc(accNew.name)}" placeholder="e.g. Spider curl"></label>
+  <label class="f">Job<select id="accnew-slot" data-accnew="slot">${Object.entries(ASLOT).map(([k,v])=>`<option value="${k}"${k===accNew.slot?' selected':''}>${esc(v.name)}</option>`).join('')}</select></label>
+  <label class="f">Kit<input type="text" id="accnew-gear" data-accnew="gear" value="${esc(accNew.gear)}" placeholder="e.g. EZ bar"></label></div>
   <div class="row"><button class="btn" data-act="accmineAdd"${accNew.name.trim()?'':' disabled'}>Add it</button></div></div>`;
 
   const legacy=Object.values(plan.acc||{}).some(a=>Array.isArray(a)&&a.length);
@@ -4722,7 +4722,7 @@ function adminBackupList(who) {
       const ok = admin.typed.trim().toLowerCase() === who.toLowerCase();
       h += `<div class="banner alert"><div><b>This replaces everything ${esc(who)} has now</b> with the contents of ${esc(b.name)}.
       Their current data is saved as a \u201cbefore restore\u201d backup first, so it can be undone \u2014 but they will see their training change.
-      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(who)}" autocomplete="off"></label></div>
+      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" id="admin-confirm-restore" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(who)}" autocomplete="off"></label></div>
       <div class="row"><button class="btn sm" data-act="adminrsoff">Cancel</button><button class="btn sm primary" data-act="adminrsgo" data-user="${esc(who)}" data-name="${esc(b.name)}"${ok && admin.busy !== who ? '' : ' disabled'}>${admin.busy === who ? 'Restoring\u2026' : 'Restore this backup'}</button></div></div>`;
     }
   }
@@ -4753,7 +4753,7 @@ function vAdmin() {
       const ok = admin.typed.trim().toLowerCase() === u.user.toLowerCase();
       h += `<div class="banner alert" style="margin-top:8px"><div><b>This removes everything ${esc(u.user)} has.</b>
       Their plan, every logged session, all their backups, their calendar feed and their alerts. It cannot be undone from here, so export first if they might want it.
-      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(u.user)}" autocomplete="off"></label></div>
+      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" id="admin-confirm-clear" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(u.user)}" autocomplete="off"></label></div>
       <div class="row"><button class="btn sm" data-act="adminclearoff">Cancel</button><button class="btn sm primary" data-act="adminwipe" data-user="${esc(u.user)}"${ok && admin.busy !== u.user ? '' : ' disabled'}>${admin.busy === u.user ? 'Removing…' : 'Remove everything'}</button></div></div>`;
     }
     h += `</div>`;
@@ -4780,7 +4780,9 @@ function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
-  if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; return; }
+  // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
+  // and the caret survive it.
+  if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
@@ -4879,11 +4881,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='syncclear'){ clearConflicts(); return }
   if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); adminLoadLog(true); return }
   if(a==='adminlog'){ adminLoadLog(true); return }
-  if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.rsFor=null; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminclearoff'){ admin.confirm=null; admin.typed=''; render(); return }
   if(a==='adminwipe'){ adminWipe(b.dataset.user); return }
   if(a==='adminbk'){ if(admin.bkFor===b.dataset.user){admin.bkFor=null;admin.bk=null;render()} else adminBackups(b.dataset.user); return }
-  if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.confirm=null; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminrsoff'){ admin.rsFor=null; admin.typed=''; render(); return }
   if(a==='adminrsgo'){ adminRestore(b.dataset.user,b.dataset.name); return }
   if(a==='accadd'||a==='accrm'){
