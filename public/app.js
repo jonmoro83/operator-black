@@ -4048,11 +4048,14 @@ async function calSet(op){
   try{ const r=await fetch('/api/calendar/'+op,{method:'POST'});
     if(r.ok){ calFeed=await r.json(); LS.set('ob.ics',null) } }
   catch(e){ setStatus('Could not reach the server',true) }
-  calBusy=false; render(); calPush();
+  calBusy=false; render();
+  // No debounce here: the card shows the address the moment it exists, so the body has to
+  // be there before someone can paste it into a calendar app.
+  calPush(true);
 }
 // Upload the feed only when it has actually changed. The plan moves a few times a cycle
 // and the window shifts once a day, so this is normally a no-op.
-function calPush(){
+function calPush(now){
   if(!calFeed||!calFeed.enabled||viewing||schemaAhead) return;
   clearTimeout(calTimer);
   calTimer=setTimeout(async()=>{
@@ -4063,7 +4066,7 @@ function calPush(){
     if(LS.get('ob.ics')===key) return;
     try{ const r=await fetch('/api/calendar/ics',{method:'PUT',headers:{'content-type':'text/calendar'},body:text});
       if(r.ok) LS.set('ob.ics',key) }catch(e){}
-  },4000);
+  },now?0:4000);
 }
 
 function icsKey(t){return t.replace(/^DTSTAMP:.*$/gm,'')}
