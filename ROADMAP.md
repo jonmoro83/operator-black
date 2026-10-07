@@ -21,9 +21,13 @@ Known gaps and things to verify. Fix or close these before starting new features
   back-to-back adjacency rules, so nothing stops two circuits landing on consecutive days
   — and Block I's week is built around that spacing. Either give `se` its own adjacency
   class or refuse to rearrange a `bb` week.
-- **Restore has still never run against real data**, and it now matters more: a Base
-  Building block and the per-day SE lists are new shapes in the log documents. See
-  "Verify a backup by restoring it" under Ideas for the way to close it properly.
+- **Restore has still never run against real data.** Narrower than it was: restore is
+  covered by tests against a D1 stand-in, and every backup is now read back and verified
+  as it is written, so a corrupt or truncated file would be caught. What is still untested
+  is one real restore of a real backup on this account — and a Base Building block and
+  the per-day SE lists are new shapes in the log documents since the last one. The honest
+  way to close it is to take a manual backup, restore it, and check nothing moved; the
+  safety backup makes that reversible.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
   (deadlift + pulldown + OHP, plus pull-ups). Splitting them is an app choice for
   freshness, not a rule — TB1's test day works through the whole cluster in one session.
