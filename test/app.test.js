@@ -1699,3 +1699,77 @@ test("an SE day's exercise list can be changed just for that day", () => {
   a.ok(vocab.includes("Swings") && vocab.includes("Push-ups") && vocab.includes("Front squat"));
   a.equal(new Set(vocab).size, vocab.length, "no duplicates");
 });
+
+test("stored data carries a schema version, and old shapes are migrated once", () => {
+  const x = app({ now: "2026-10-19" });
+
+  // A log written the old way: numeric-keyed objects where arrays belong.
+  const d = "2026-10-19";
+  x.logs[d] = { date: d, warmup: { 0: true, 1: false }, lifts: { squat: { sets: { 0: true, 1: true }, warmup: { 0: { w: 95, r: 5 } } } } };
+  x.programs.old = { id: "old", logs: { "2026-01-05": { date: "2026-01-05", mobility: { 0: true } } } };
+  x.plan.schema = 0;
+  x.outbox = {}; x.bump();
+
+  a.equal(x.migrate(), true, "there was something to do");
+  a.equal(x.plan.schema, x.SCHEMA, "and the plan is stamped with the current version");
+
+  const L = x.logs[d];
+  a.ok(Array.isArray(L.warmup), "top-level warm-up flags");
+  a.deepEqual(L.warmup, [true, false], "in order, values intact");
+  a.ok(Array.isArray(L.lifts.squat.sets), "set ticks");
+  a.ok(Array.isArray(L.lifts.squat.warmup), "per-lift warm-up rows");
+  a.deepEqual(L.lifts.squat.warmup, [{ w: 95, r: 5 }], "with the row untouched");
+  a.ok(Array.isArray(x.programs.old.logs["2026-01-05"].mobility), "archived programs too");
+
+  // Only what changed is sent, and the plan always is (it carries the new stamp).
+  a.ok("plan/main" in x.outbox, "the plan is saved");
+  a.ok("logs/" + d in x.outbox, "the log it rewrote is saved");
+
+  // Running again is a no-op: no second pass, nothing re-sent.
+  x.outbox = {};
+  a.equal(x.migrate(), false, "nothing left to do");
+  a.deepEqual(Object.keys(x.outbox), [], "and nothing is written");
+  a.equal(x.schemaAhead, false);
+});
+
+test("a log already in the right shape is not rewritten by a migration", () => {
+  const x = app({ now: "2026-10-19" });
+  const d = "2026-10-19";
+  x.logs[d] = { date: d, lifts: { squat: { sets: [true, true, true] } } };
+  x.plan.schema = 0; x.outbox = {}; x.bump();
+  x.migrate();
+  a.ok(!("logs/" + d in x.outbox), "untouched documents stay untouched");
+  a.deepEqual(x.logs[d].lifts.squat.sets, [true, true, true], "and keep their value");
+});
+
+test("data from a newer app makes this one read-only instead of overwriting it", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.schema = x.SCHEMA + 1; x.bump();
+
+  a.equal(x.migrate(), false, "there is no forward migration to run");
+  a.equal(x.schemaAhead, true, "it knows it is behind");
+
+  // Everything that writes now refuses.
+  a.equal(x.readOnly(), true);
+  x.outbox = {};
+  x.setLog("2026-10-19", "lifts.squat.sets", [true]);
+  x.setPlan("bodyweight", 999);
+  a.deepEqual(Object.keys(x.outbox), [], "nothing was queued");
+  a.notEqual(x.plan.bodyweight, 999, "and the plan in memory is unchanged");
+
+  // And it says why, rather than looking broken.
+  const b = x.archiveBanner();
+  a.match(b, /out of date/i);
+  a.match(b, /data-act="reload"/, "with a way out");
+});
+
+test("every migration is numbered in order and matches SCHEMA", () => {
+  const x = app({});
+  const tos = x.MIGRATIONS.map((m) => m.to);
+  a.deepEqual(tos, tos.slice().sort((p, q) => p - q), "in ascending order");
+  a.equal(new Set(tos).size, tos.length, "no number used twice");
+  a.equal(tos[tos.length - 1], x.SCHEMA, "the last one brings data to SCHEMA");
+  a.equal(tos[0], 1, "and they start at 1, since 0 means unversioned");
+  for (const m of x.MIGRATIONS) a.ok(m.note && typeof m.run === "function", `migration ${m.to} is complete`);
+  a.equal(x.DEF.schema, 0, "a brand new plan starts unversioned and migrates like any other");
+});

@@ -59,7 +59,28 @@ async function flush(path){
 }
 function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))||Object.keys(outbox).some(p=>p!==path)}
 function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut);if(typeof acctPaint==='function')acctPaint()}
-function readOnly(){ if(viewing){ setStatus('Archived program · read-only',true); render(); return true } return false }
+function readOnly(){
+  if(schemaAhead){ setStatus('App out of date · read-only',true); render(); return true }
+  if(viewing){ setStatus('Archived program · read-only',true); render(); return true }
+  return false;
+}
+// Bring stored data up to SCHEMA, then save whatever actually changed. Runs on every load
+// and after every sync, and costs one integer comparison when there is nothing to do.
+function migrate(){
+  const at=+(plan.schema||0);
+  if(at===SCHEMA) return false;
+  if(at>SCHEMA){ schemaAhead=true; return false }   // the backwards half: stop writing
+  schemaAhead=false;
+  const d={logs,programs}, before={};
+  for(const [id,L] of Object.entries(logs)) before['logs/'+id]=JSON.stringify(L);
+  for(const [id,P] of Object.entries(programs)) before['programs/'+id]=JSON.stringify(P);
+  for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d);
+  plan.schema=SCHEMA; planV++;
+  queueWrite('plan/main',()=>plan);
+  for(const [id,L] of Object.entries(logs)) if(JSON.stringify(L)!==before['logs/'+id]) queueWrite('logs/'+id,()=>logs[id]);
+  for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
+  return true;
+}
 function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
@@ -83,6 +104,7 @@ function applyState(st){
   // entries removed on the server go away here too (unless this phone has unsent changes)
   if(st.logs) for(const id of Object.keys(logs)) if(!(id in st.logs)&&!pending('logs/'+id)){delete logs[id];changed=true}
   saveCache();
+  if(!stash&&!pending('plan/main')&&migrate()) changed=true;
   if(changed) render();
 }
 // Open instantly from the phone's copy, with any unsent changes laid on top.
@@ -96,7 +118,7 @@ function loadLocal(){
     writers[path]={get:()=>docFor(path),dirty:true};
   }
   planV++;
-  if(c||Object.keys(outbox).length) loaded=true;
+  if(c||Object.keys(outbox).length){ loaded=true; migrate() }
   return !!c;
 }
 function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>docFor(p)});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}

@@ -341,6 +341,7 @@ const DEF={
   acc:null,
   basis:'1rm', tmPct:90,
   round:{squat:5,bench:5,pull:5,ohp:5,wpu:2.5,dead:5},
+  schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
@@ -400,3 +401,41 @@ const SE_CLUSTERS={
   mine:{name:'Mine',ex:[],note:'Your own five to eight, covering the whole body.'}
 };
 const SE_RESTS=[0,30,45,60,90,120];
+
+/* ---------------- stored-data schema ----------------
+Writes replace a whole document, and `deepMerge(clone(DEF), stored)` fills anything
+missing from the defaults, so a field that quietly disappears looks exactly like one that
+was never set. That is fine while every change is additive. It is not fine the first time
+a field changes shape or meaning, and this is the machinery for that day.
+
+Two halves, and the second is the one that actually protects the data:
+  forwards  - old data meets a new app: run the migrations it has not had yet, once.
+  backwards - new data meets an OLD app: that app sees a schema it does not know and
+              stops writing instead of flattening what it cannot understand.
+
+Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
+renumber or edit a shipped migration - someone's phone may be about to run it. */
+const SCHEMA=1;
+// Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
+// data written before it did (and anything restored from an old export) can hold
+// {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
+const ARRAY_FIELDS=['warmup','mobility','acc'];
+function asArray(v){
+  if(Array.isArray(v)||!v||typeof v!=='object') return v;
+  const out=[]; for(const k of Object.keys(v)){ if(!/^\d+$/.test(k)) return v; out[+k]=v[k] }
+  for(let i=0;i<out.length;i++) if(out[i]===undefined) out[i]=null;
+  return out;
+}
+const MIGRATIONS=[
+  {to:1,note:'Numeric-keyed objects in logs become arrays',run(d){
+    const fix=L=>{ if(!L||typeof L!=='object') return;
+      for(const f of ARRAY_FIELDS) if(f in L) L[f]=asArray(L[f]);
+      for(const x of Object.values(L.lifts||{})){ if(!x||typeof x!=='object') continue;
+        if('warmup' in x) x.warmup=asArray(x.warmup);
+        if('sets' in x) x.sets=asArray(x.sets) }
+      if(L.se&&typeof L.se==='object'){ if('done' in L.se) L.se.done=asArray(L.se.done); if('ex' in L.se) L.se.ex=asArray(L.se.ex) } };
+    for(const L of Object.values(d.logs||{})) fix(L);
+    for(const p of Object.values(d.programs||{})) for(const L of Object.values((p&&p.logs)||{})) fix(L);
+  }},
+];
+

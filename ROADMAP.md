@@ -88,10 +88,6 @@ within each group, roughly in order of how useful they'd be.
   poisons the 7-day average, the protein target, the weighted pull-up load and the TDEE
   estimate for a fortnight. Not a hard block — an inline "that looks wrong, keep it?"
   on anything outside a plausible band, and leave the decision with the person.
-- **A schema version on the plan, and a migration pass on load.** Log documents gained
-  `meas`, `var`, `kcal` and `sq` in a single day. An old cached client writing an old
-  shape next to a new one is possible, and nothing would notice. `plan.schema` plus a
-  small ordered list of migrations run once at load would make the next addition safe.
 - **Stamp the service worker's `VERSION` from the build.** It is bumped by hand when
   icons or the manifest change, which is exactly the kind of step that gets forgotten and
   leaves a stale icon that looks like a deploy failure.
@@ -251,6 +247,23 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   title. No version bump, since nothing was added or removed.
 - The file header now says rewording a shipped entry is allowed (the facts are the history,
   not the prose) and what the voice should be, so this does not drift back.
+
+**A schema version on the stored data (2026-10-07)**
+- `plan.schema` plus an ordered `MIGRATIONS` list in `01-constants.js`, run by `migrate()`
+  in `05-persistence.js` on load and after every sync. Costs one integer comparison when
+  there is nothing to do, and writes back only the documents a migration actually changed.
+- The half that matters is backwards, not forwards: data stamped **newer** than `SCHEMA`
+  sets `schemaAhead`, which makes `readOnly()` true, so an out-of-date copy stops writing
+  instead of flattening a shape it cannot read. A banner says so with a Reload button.
+  This only protects against clients from 1.34 on; older ones cannot know to check.
+- Migration 1 turns numeric-keyed objects back into arrays in logs and archived programs.
+  That shape is why `wuList`, `wuListFor` and two `Array.isArray` guards exist. The guards
+  stay for now (an old export can be restored at any time) but the stored data is clean.
+- Near-miss worth recording: the set range nearly shipped as `{s:[3,10]}`. An old client
+  doing `+v.s` on an array gets `NaN` and writes it back over every working weight. Two
+  scalars avoided it by luck, not design — this is the machinery that would have caught it.
+- Test count is **84 → 88**, across three files (`app`, `schedule`, `weights`). Earlier
+  roadmap entries citing 73 or 75 were counting one file.
 
 **Add a set on the day, from the lift card (2026-10-02)**
 - 1.32 made the ceiling a Setup field, which still meant leaving the session to change it.

@@ -27,6 +27,7 @@ function exitArchive(){
   render(); window.scrollTo(0,0);
 }
 function archiveBanner(){
+  if(schemaAhead) return `<div class="banner alert"><div><b>This copy of the app is out of date.</b> Your training data was last saved by a newer version, and writing to it from here could undo something. Nothing will be saved until you reload. If reloading does not help, close the app and open it again.</div><div><button class="btn sm primary" data-act="reload">Reload</button></div></div>`;
   if(!viewing) return '';
   return `<div class="banner info"><div><b>Viewing ${esc(viewing.name)}</b> · ${fmtD(viewing.startMonday)} – ${fmtD(viewing.end)} · archived, read-only</div><div><button class="btn sm primary" data-act="progexit">Back to current program</button></div></div>`;
 }

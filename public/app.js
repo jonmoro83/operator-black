@@ -343,6 +343,7 @@ const DEF={
   acc:null,
   basis:'1rm', tmPct:90,
   round:{squat:5,bench:5,pull:5,ohp:5,wpu:2.5,dead:5},
+  schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
@@ -402,6 +403,43 @@ const SE_CLUSTERS={
   mine:{name:'Mine',ex:[],note:'Your own five to eight, covering the whole body.'}
 };
 const SE_RESTS=[0,30,45,60,90,120];
+
+/* ---------------- stored-data schema ----------------
+Writes replace a whole document, and `deepMerge(clone(DEF), stored)` fills anything
+missing from the defaults, so a field that quietly disappears looks exactly like one that
+was never set. That is fine while every change is additive. It is not fine the first time
+a field changes shape or meaning, and this is the machinery for that day.
+
+Two halves, and the second is the one that actually protects the data:
+  forwards  - old data meets a new app: run the migrations it has not had yet, once.
+  backwards - new data meets an OLD app: that app sees a schema it does not know and
+              stops writing instead of flattening what it cannot understand.
+
+Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
+renumber or edit a shipped migration - someone's phone may be about to run it. */
+const SCHEMA=1;
+// Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
+// data written before it did (and anything restored from an old export) can hold
+// {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
+const ARRAY_FIELDS=['warmup','mobility','acc'];
+function asArray(v){
+  if(Array.isArray(v)||!v||typeof v!=='object') return v;
+  const out=[]; for(const k of Object.keys(v)){ if(!/^\d+$/.test(k)) return v; out[+k]=v[k] }
+  for(let i=0;i<out.length;i++) if(out[i]===undefined) out[i]=null;
+  return out;
+}
+const MIGRATIONS=[
+  {to:1,note:'Numeric-keyed objects in logs become arrays',run(d){
+    const fix=L=>{ if(!L||typeof L!=='object') return;
+      for(const f of ARRAY_FIELDS) if(f in L) L[f]=asArray(L[f]);
+      for(const x of Object.values(L.lifts||{})){ if(!x||typeof x!=='object') continue;
+        if('warmup' in x) x.warmup=asArray(x.warmup);
+        if('sets' in x) x.sets=asArray(x.sets) }
+      if(L.se&&typeof L.se==='object'){ if('done' in L.se) L.se.done=asArray(L.se.done); if('ex' in L.se) L.se.ex=asArray(L.se.ex) } };
+    for(const L of Object.values(d.logs||{})) fix(L);
+    for(const p of Object.values(d.programs||{})) for(const L of Object.values((p&&p.logs)||{})) fix(L);
+  }},
+];
 
 /* ---------------- warm-up and mobility library ---------------- */
 // The same treatment the plyometric drills get: what it is for, how to set it up, what
@@ -589,6 +627,9 @@ let plan=clone(DEF), logs={}, planV=0;
 // being viewed, `plan` is its frozen copy, `stash` holds the current plan, and every
 // write is refused.
 let programs={}, viewing=null, stash=null;
+// Set when the stored data is newer than this copy of the app understands. Everything
+// becomes read-only rather than risk writing an old shape over a new one.
+let schemaAhead=false;
 let view='today', sel=todayStr(), planShow=26, planMode='list', calMonth=null;
 try{const pm=localStorage.getItem('ob.planmode'); if(pm==='cal'||pm==='list') planMode=pm}catch(e){}
 try{ const v=localStorage.getItem('ob.view'); if(v) view=v; }catch(e){}
@@ -1014,7 +1055,28 @@ async function flush(path){
 }
 function anyPendingExcept(path){return Object.keys(writers).some(p=>p!==path&&pending(p))||Object.keys(outbox).some(p=>p!==path)}
 function setStatus(t,err){const el=document.getElementById('status');el.textContent=t;el.className=err?'err':'';el.classList.toggle('link',signedOut);if(typeof acctPaint==='function')acctPaint()}
-function readOnly(){ if(viewing){ setStatus('Archived program · read-only',true); render(); return true } return false }
+function readOnly(){
+  if(schemaAhead){ setStatus('App out of date · read-only',true); render(); return true }
+  if(viewing){ setStatus('Archived program · read-only',true); render(); return true }
+  return false;
+}
+// Bring stored data up to SCHEMA, then save whatever actually changed. Runs on every load
+// and after every sync, and costs one integer comparison when there is nothing to do.
+function migrate(){
+  const at=+(plan.schema||0);
+  if(at===SCHEMA) return false;
+  if(at>SCHEMA){ schemaAhead=true; return false }   // the backwards half: stop writing
+  schemaAhead=false;
+  const d={logs,programs}, before={};
+  for(const [id,L] of Object.entries(logs)) before['logs/'+id]=JSON.stringify(L);
+  for(const [id,P] of Object.entries(programs)) before['programs/'+id]=JSON.stringify(P);
+  for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d);
+  plan.schema=SCHEMA; planV++;
+  queueWrite('plan/main',()=>plan);
+  for(const [id,L] of Object.entries(logs)) if(JSON.stringify(L)!==before['logs/'+id]) queueWrite('logs/'+id,()=>logs[id]);
+  for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
+  return true;
+}
 function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
@@ -1038,6 +1100,7 @@ function applyState(st){
   // entries removed on the server go away here too (unless this phone has unsent changes)
   if(st.logs) for(const id of Object.keys(logs)) if(!(id in st.logs)&&!pending('logs/'+id)){delete logs[id];changed=true}
   saveCache();
+  if(!stash&&!pending('plan/main')&&migrate()) changed=true;
   if(changed) render();
 }
 // Open instantly from the phone's copy, with any unsent changes laid on top.
@@ -1051,7 +1114,7 @@ function loadLocal(){
     writers[path]={get:()=>docFor(path),dirty:true};
   }
   planV++;
-  if(c||Object.keys(outbox).length) loaded=true;
+  if(c||Object.keys(outbox).length){ loaded=true; migrate() }
   return !!c;
 }
 function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>docFor(p)});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}
@@ -3492,6 +3555,7 @@ function exitArchive(){
   render(); window.scrollTo(0,0);
 }
 function archiveBanner(){
+  if(schemaAhead) return `<div class="banner alert"><div><b>This copy of the app is out of date.</b> Your training data was last saved by a newer version, and writing to it from here could undo something. Nothing will be saved until you reload. If reloading does not help, close the app and open it again.</div><div><button class="btn sm primary" data-act="reload">Reload</button></div></div>`;
   if(!viewing) return '';
   return `<div class="banner info"><div><b>Viewing ${esc(viewing.name)}</b> · ${fmtD(viewing.startMonday)} – ${fmtD(viewing.end)} · archived, read-only</div><div><button class="btn sm primary" data-act="progexit">Back to current program</button></div></div>`;
 }
@@ -3951,6 +4015,7 @@ document.getElementById('main').addEventListener('click',e=>{
     const k=b.dataset.lift, snap=snapLog(sel);
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
+  if(a==='reload'){ location.reload(); return }
   if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
   if(a==='rvapply'||a==='rvdismiss'){
     const c=+b.dataset.c;

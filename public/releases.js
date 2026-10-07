@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.34',date:'2026-10-07',title:'A version stamp on your data',items:[
+    'Housekeeping you shouldn\u2019t ever notice. Your saved data now carries a version number, and the app knows how to bring older data up to date when it loads it.',
+    'The useful half: if a phone or tablet is running an out-of-date copy of the app and your data has moved on since, it now stops and tells you instead of saving over something it doesn\u2019t understand. Reload and it\u2019s fine. Before this, an old device could quietly undo a setting and nothing would flag it.',
+    'Some old warm-up and set logs were stored in a shape the app has to work around. They\u2019ve been tidied up as part of this.']},
   {v:'1.41',date:'2026-10-07',title:"Swap an exercise on the day",items:[
     "Tap any exercise on a strength-endurance day and you can change it for that session. The bar is taken, so row becomes swings. Pick from everything the app knows, or type your own.",
     "You can add and remove exercises the same way, so a day's circuit doesn't have to be the cluster you set up.",
