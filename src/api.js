@@ -115,7 +115,7 @@ export async function handleApi(request, env) {
   if (route.startsWith("backups/") && route.endsWith("/restore") && request.method === "POST") {
     const name = route.slice(8, -8);
     if (!BACKUP_NAME.test(name)) return json({ error: "Unknown backup." }, 404);
-    const body = await env.BACKUPS.get((await backupPrefix(user)) + name);
+    const body = await readBackup(env, user, name);
     if (!body) return json({ error: "Backup not found." }, 404);
     return restoreFrom(env, user, JSON.parse(body));
   }
@@ -133,7 +133,7 @@ export async function handleApi(request, env) {
   if (route.startsWith("backups/") && request.method === "GET") {
     const name = route.slice(8);
     if (!BACKUP_NAME.test(name)) return json({ error: "Unknown backup." }, 404);
-    const body = await env.BACKUPS.get((await backupPrefix(user)) + name);
+    const body = await readBackup(env, user, name);
     if (!body) return json({ error: "Backup not found." }, 404);
     return new Response(body, {
       headers: {
@@ -201,18 +201,54 @@ async function backupPrefix(user) {
   return "backup:" + Array.from(h.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("") + ":";
 }
 
+// Backups live in R2. They were in KV, which caps a value at 25 MB and is priced for
+// small hot reads rather than whole-history JSON; R2 also makes them browsable in the
+// dashboard. KV stays wired up as a read path so everything taken before the move is
+// still listable, downloadable and restorable -- nothing was copied across, and nothing
+// needs to be. If the R2 binding is missing, writes fall back to KV rather than failing.
+function r2(env) {
+  return env.R2BACKUPS && typeof env.R2BACKUPS.put === "function" ? env.R2BACKUPS : null;
+}
+
+async function readBackup(env, user, name) {
+  const key = (await backupPrefix(user)) + name;
+  const bucket = r2(env);
+  if (bucket) {
+    const obj = await bucket.get(key);
+    if (obj) return obj.text();
+  }
+  return env.BACKUPS ? env.BACKUPS.get(key) : null;
+}
+
+async function deleteBackup(env, user, name) {
+  const key = (await backupPrefix(user)) + name;
+  const bucket = r2(env);
+  if (bucket) await bucket.delete(key);
+  if (env.BACKUPS) await env.BACKUPS.delete(key);
+}
+
 export async function backupNow(env, user, { manual = true, suffix } = {}) {
   const day = new Date().toISOString().slice(0, 10);
   const name = suffix ? `${day}-${suffix}` : manual ? `${day}-manual` : day;
   const data = { backedUpAt: new Date().toISOString(), user, ...(await readAll(env, user)) };
   const body = JSON.stringify(data);
   const prefix = await backupPrefix(user);
-  await env.BACKUPS.put(prefix + name, body, {
-    metadata: { bytes: body.length, logs: Object.keys(data.logs).length, at: data.backedUpAt },
-  });
+  const logs = Object.keys(data.logs).length;
+  const bucket = r2(env);
+  if (bucket) {
+    await bucket.put(prefix + name, body, {
+      httpMetadata: { contentType: "application/json; charset=utf-8" },
+      // R2 custom metadata is strings only; size and upload time come from the object.
+      customMetadata: { logs: String(logs), at: data.backedUpAt },
+    });
+  } else {
+    await env.BACKUPS.put(prefix + name, body, {
+      metadata: { bytes: body.length, logs, at: data.backedUpAt },
+    });
+  }
   const all = await listBackups(env, user);
-  for (const old of all.slice(KEEP_BACKUPS)) await env.BACKUPS.delete(prefix + old.name);
-  return { name, bytes: body.length, logs: Object.keys(data.logs).length };
+  for (const old of all.slice(KEEP_BACKUPS)) await deleteBackup(env, user, old.name);
+  return { name, bytes: body.length, logs };
 }
 
 /**
@@ -258,16 +294,35 @@ export async function backupEveryone(env) {
   for (const r of results) await backupNow(env, r.user, { manual: false });
 }
 
+// Both stores, newest first. A name in R2 wins over the same name in KV.
 async function listBackups(env, user) {
-  const prefix = await backupPrefix(user),
-    out = [];
-  let cursor;
-  do {
-    const page = await env.BACKUPS.list({ prefix, cursor });
-    for (const k of page.keys) out.push({ name: k.name.slice(prefix.length), ...(k.metadata || {}) });
-    cursor = page.list_complete ? null : page.cursor;
-  } while (cursor);
-  return out.sort((a, b) => ((b.at || b.name) > (a.at || a.name) ? 1 : -1));
+  const prefix = await backupPrefix(user);
+  const seen = new Map();
+  const bucket = r2(env);
+  if (bucket) {
+    let cursor;
+    do {
+      const page = await bucket.list({ prefix, cursor, include: ["customMetadata"] });
+      for (const o of page.objects) {
+        const m = o.customMetadata || {};
+        const name = o.key.slice(prefix.length);
+        seen.set(name, { name, bytes: o.size, logs: m.logs ? +m.logs : undefined, at: m.at || o.uploaded.toISOString() });
+      }
+      cursor = page.truncated ? page.cursor : null;
+    } while (cursor);
+  }
+  if (env.BACKUPS) {
+    let cursor;
+    do {
+      const page = await env.BACKUPS.list({ prefix, cursor });
+      for (const k of page.keys) {
+        const name = k.name.slice(prefix.length);
+        if (!seen.has(name)) seen.set(name, { name, ...(k.metadata || {}) });
+      }
+      cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+  }
+  return [...seen.values()].sort((a, b) => ((b.at || b.name) > (a.at || a.name) ? 1 : -1));
 }
 
 async function readAll(env, user) {

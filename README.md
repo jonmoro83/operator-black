@@ -152,7 +152,7 @@ to `sel`, so pass the date anywhere a date is in scope.
 
 **Each person's data is their own.** The API takes the user from the verified Access
 JWT (email) and scopes every read and write to it: plan, logs, archived programs,
-backups (KV keys use a hash of the email) and rest alerts (one Durable Object per
+backups (the object key uses a hash of the email) and rest alerts (one Durable Object per
 person). To add someone, add their email to the Access policy; their first visit
 starts at their own bridge week. Rows from before per-user data were parked under
 `__legacy__` and are claimed by the first sign-in from an address in the
@@ -347,6 +347,16 @@ Restore from a file.
 ## Backups
 
 A cron trigger (Sundays 09:00 UTC) saves a full JSON copy of the plan and every log to
-the `operator-black-backups` Workers KV namespace and keeps the newest 26. Setup →
-Backups lists them with download links and has **Back up now**. D1 also keeps 30 days
-of point-in-time history: `npx wrangler d1 time-travel info operator-black`.
+the `operator-black-backups` **R2 bucket** and keeps the newest 26. Setup → Backups
+lists them with download links and has **Back up now**. D1 also keeps 30 days of
+point-in-time history: `npx wrangler d1 time-travel info operator-black`.
+
+Backups were in Workers KV until 2026-10-07. The KV namespace is still bound, and
+`listBackups` and `readBackup` check both stores, so everything taken before the move
+is still listed, downloadable and restorable. Nothing was copied across and nothing
+needs to be — the old entries age out of the 26-week window on their own, and the KV
+binding can be dropped after that. Keys in both stores are prefixed with a hash of the
+email, not the email.
+
+Object keys are not guessable, but an R2 bucket is private by default and this one has
+no public access or custom domain: the only way in is the signed-in API.

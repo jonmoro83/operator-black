@@ -111,7 +111,6 @@ within each group, roughly in order of how useful they'd be.
 - **Per-set effort:** RPE or "fast/slow" per working set, feeding the cycle review.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
-- **Move backups to R2** if it gets enabled on the account (browsable in the dashboard).
 
 ## Parked
 
@@ -142,6 +141,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Backups moved to R2 (2026-10-07)**
+- Bucket `operator-black-backups`, binding `R2BACKUPS`. KV capped a value at 25 MB and is
+  priced for small hot reads rather than whole-history JSON; R2 is also browsable in the
+  dashboard, which was the point of the idea.
+- **No data was migrated, by design.** `listBackups` merges both stores and `readBackup`
+  tries R2 then KV, so every backup taken before today is still listed, downloadable and
+  restorable. They age out of the 26-week window on their own and the KV binding can be
+  dropped then. A name in R2 wins over the same name in KV.
+- Writes fall back to KV if the binding is absent, so a deploy without the bucket
+  degrades instead of failing.
+- Pruning now deletes from both stores, so the 26 kept are 26 in total rather than 26 each.
+- Untested, like all of `api.js`. This is backup code, which is the worst place in the
+  project to have no tests, and it moves the Worker-tests item up the list.
 
 **Calendar feed: training time and reminders (2026-10-07)**
 - `plan.cal` = `{mode,time,weekend,alarm}`, so the setting syncs across devices and a

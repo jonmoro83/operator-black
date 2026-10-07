@@ -23,7 +23,14 @@ database_name = "operator-black"
 database_id = "3dd5211d-2fd9-43ea-ae95-cc4c4bc7e28f"
 migrations_dir = "migrations"
 
-# Weekly backups: a full JSON copy of plan + logs, kept for 26 weeks.
+# Weekly backups: a full JSON copy of plan + logs, kept for 26 weeks. Written to R2;
+# the KV namespace stays bound read-only so backups taken before the move are still
+# listable and restorable. Nothing was copied across, and it can be dropped once the
+# oldest KV backup has aged out of the 26-week window.
+[[r2_buckets]]
+binding = "R2BACKUPS"
+bucket_name = "operator-black-backups"
+
 [[kv_namespaces]]
 binding = "BACKUPS"
 id = "999b995f858d491698b2218e3c18e29d"

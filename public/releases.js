@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.46',date:'2026-10-07',title:'Backups moved',items:[
+    'Your weekly backups are stored somewhere better suited to them. Nothing changes in the app: Setup \u2192 Backups looks the same, has the same list and the same Back up now button.',
+    'Every backup taken before today is still there and still restorable. Nothing was moved or rewritten \u2014 the app simply looks in both places.']},
   {v:'1.45',date:'2026-10-07',title:'Training time and reminders',items:[
     'The calendar feed can book sessions at the time you actually train instead of leaving them as all-day entries. Setup \u2192 Calendar feed \u2192 In the calendar \u2192 At a set time, then give it your usual time. Weekends can have their own.',
     'Each session takes as long as it really takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the interval timer says that format runs to, so a 23-minute MAP session books 23 minutes rather than a round hour.',
