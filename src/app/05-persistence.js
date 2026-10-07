@@ -77,7 +77,7 @@ function migrate(){
   const d={logs,programs}, before={};
   for(const [id,L] of Object.entries(logs)) before['logs/'+id]=JSON.stringify(L);
   for(const [id,P] of Object.entries(programs)) before['programs/'+id]=JSON.stringify(P);
-  for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d);
+  for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d,plan);
   plan.schema=SCHEMA; planV++;
   queueWrite('plan/main',()=>plan);
   for(const [id,L] of Object.entries(logs)) if(JSON.stringify(L)!==before['logs/'+id]) queueWrite('logs/'+id,()=>logs[id]);

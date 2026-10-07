@@ -421,7 +421,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=2;
+const SCHEMA=3;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -455,6 +455,22 @@ const MIGRATIONS=[
       L.acc.forEach((v,i)=>{ if(v&&slots[i]) done[slots[i]]=true });
       L.acc=Object.keys(done).length?{done}:{};
     }
+  }},
+  {to:3,note:'Accessory picks are keyed by day as well as slot',run(d,p){
+    // 1.53 picked one exercise per job. The same job now appears on more than one day,
+    // so a pick that was {biceps:'ezcurl'} becomes that choice on every day that has it.
+    const spread=o=>{
+      if(!o||typeof o!=='object'||Array.isArray(o)) return null;
+      if(Object.keys(o).some(k=>ACC_DAYS[k])) return o;         // already per day
+      const out={};
+      for(const day of Object.keys(ACC_DAYS)){
+        for(const [slot,id] of Object.entries(o)) if(accSlots(day).includes(slot)) (out[day]||(out[day]={}))[slot]=id;
+      }
+      return out;
+    };
+    const pk=spread(p.accPick); if(pk) p.accPick=pk;
+    const cy=p.accCycle;
+    if(cy&&typeof cy==='object') for(const [c,v] of Object.entries(cy)){ const n=spread(v); if(n) cy[c]=n }
   }},
 ];
 

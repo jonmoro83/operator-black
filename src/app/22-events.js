@@ -36,18 +36,18 @@ document.addEventListener('change',e=>{ const t=e.target;
     mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:[...accSlots(d),k]})});
     return;
   }
-  if(t.dataset&&t.dataset.actAccnow){
-    const sl=t.dataset.actAccnow, wk=weekOf(todayStr());
-    const cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-    if(cyc==null){ setPlan('accPick.'+sl,t.value); render(); return }
-    mutatePlan(p=>{const c=Object.assign({},p.accCycle||{}); c[cyc]=Object.assign({},c[cyc]||{},{[sl]:t.value}); p.accCycle=c});
+  if(t.dataset&&t.dataset.actAccpick){
+    const [day,sl]=t.dataset.actAccpick.split(':'), cyc=accCycleOf(todayStr());
+    if(accLater||cyc==null){ setPlan('accPick.'+day+'.'+sl,t.value); render(); return }
+    mutatePlan(p=>{const c=Object.assign({},p.accCycle||{});
+      c[cyc]=Object.assign({},c[cyc]||{},{[day]:Object.assign({},(c[cyc]||{})[day]||{},{[sl]:t.value})});
+      p.accCycle=c});
     return;
   }
   if(t.dataset&&t.dataset.actAcc){
     const sl=t.dataset.actAcc, v=t.value;
-    const wk=weekOf(sel), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
     // Only a real difference from the block's choice is worth storing as a swap.
-    setLog(sel,'acc.ex.'+sl, v===accPickFor(sl,cyc)?null:v);
+    setLog(sel,'acc.ex.'+sl, v===accPickFor(accDayOf(sel),sl,accCycleOf(sel))?null:v);
     render(); return;
   }
   if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
@@ -106,6 +106,7 @@ document.getElementById('main').addEventListener('click',e=>{
     // Logging a set is itself the record that it happened; drop the manual tick.
     if(cur.length) setLog(sel,'acc.done.'+sl,null);
     render();return}
+  if(a==='acclater'){ accLater=b.dataset.v==='1'; render(); return }
   if(a==='accslotrm'){
     const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);
     mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:cur})});

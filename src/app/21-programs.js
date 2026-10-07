@@ -40,31 +40,28 @@ function syncCard(){
 // Accessories in Setup: which jobs each day covers, what is doing each job this block
 // and next, and your own additions. The picks are per cycle on purpose \u2014 they are
 // programme choices, like the cluster lifts, not something to re-decide every session.
-let accNew={name:'',slot:'hpull',gear:''};
+let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
 function accSetupCard(){
-  const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-  const all=accAll(), days=[['mon','Monday'],['wed','Wednesday'],['fri','Friday']];
-  const used=[...new Set(days.flatMap(([d])=>accSlots(d)))];
+  const cyc=accCycleOf(todayStr()), all=accAll();
+  const days=[['mon','Operator 1 \u00b7 Monday'],['wed','Operator 2 \u00b7 Wednesday'],['fri','Operator 3 \u00b7 Friday']];
+  const later=accLater||cyc==null;              // with no cycle running there is only "later"
   let h=`<div class="card"><h2>Accessories</h2>
-  <p class="small muted" style="margin:0">Each lifting day covers a few jobs \u2014 a horizontal pull, some core, a carry \u2014 and you choose what does each one. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+  <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+  if(cyc!=null) h+=`<div class="restsel"><span>Editing</span><div class="seg"><button class="segb${later?'':' on'}" data-act="acclater" data-v="0" aria-pressed="${!later}">Cycle ${cyc} (now)</button><button class="segb${later?' on':''}" data-act="acclater" data-v="1" aria-pressed="${later}">Later cycles</button></div></div>
+  <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>`;
 
   for(const [d,label] of days){
     const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));
-    h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>
-    <div class="stack" style="gap:6px;margin-top:6px">${sl.length?sl.map(k=>`<div class="row between"><span class="small">${esc(ASLOT[k].name)}${(()=>{const nm=(all[accPickFor(k,cyc)]||{}).name||'\u2014';return nm===ASLOT[k].name?'':` <span class="muted">\u00b7 ${esc(nm)}</span>`})()}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>`).join(''):'<div class="small muted">Nothing on this day.</div>'}</div>
-    ${spare.length?`<label class="f" style="margin-top:6px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`:''}</div>`;
+    h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>`;
+    if(!sl.length) h+=`<div class="small muted" style="margin-top:4px">Nothing on this day.</div>`;
+    for(const k of sl){
+      const pick=accPickFor(d,k,later?null:cyc), list=accFor(k);
+      h+=`<div style="margin-top:8px"><div class="row between" style="gap:8px"><span class="acc-role">${esc(ASLOT[k].name)}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>
+      <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></div>`;
+    }
+    if(spare.length) h+=`<label class="f" style="margin-top:8px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`;
+    h+=`</div>`;
   }
-
-  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">What does each job</div>
-  <p class="small muted" style="margin:2px 0 0">${cyc?`Cycle ${cyc} is what you are running now. Later cycles start on the second column, so a block can be different without rewriting anything.`:'Set what later cycles start on; a cycle picker appears once the programme is under way.'}</p>`;
-  for(const k of used){
-    const list=accFor(k), now=accPickFor(k,cyc), later=(plan.accPick||{})[k]||ACC_DEF[k];
-    h+=`<div style="margin-top:10px"><div class="small" style="font-weight:650">${esc(ASLOT[k].name)}</div>
-    <div class="small muted">${esc(ASLOT[k].why||'')}</div>
-    <div class="grid2" style="margin-top:4px">${cyc?`<label class="f">Cycle ${cyc} (now)<select data-act-accnow="${k}">${list.map(x=>`<option value="${x}"${x===now?' selected':''}>${esc(all[x].name)}</option>`).join('')}</select></label>`:''}
-    <label class="f">Later cycles<select data-pbind="accPick.${k}">${list.map(x=>`<option value="${x}"${x===later?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></label></div></div>`;
-  }
-  h+=`</div>`;
 
   const mine=accCustom();
   h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Your own</div>
@@ -463,11 +460,11 @@ function vGuide(){
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
   <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
   <div class="card guide"><h3>Accessories</h3>
-  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session.</p>
+  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
   <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
   <p><b>Missing a movement?</b> Setup → Accessories → Your own takes a name, the job it does and the kit it needs. It then appears everywhere the built-in ones do and follows you to your other devices.</p>
-  <ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
+  <ul class="tight"><li>After the main lifts, never before. Two or three sets of each job, a couple of reps short of failure.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
   <p><b>What we add.</b> An optional scheduled deload, off by default, because a light week every few cycles suits running this year-round outside a unit. Turn it on in Setup if you want it.</p>

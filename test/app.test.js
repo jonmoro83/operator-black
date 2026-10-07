@@ -2125,8 +2125,11 @@ test("accessories are slots filled by a choice, not a list of text", () => {
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   const mon = "2026-09-07";
 
-  a.deepEqual(x.accSlots("mon"), ["hpull", "rdelt", "core", "biceps"], "a day covers jobs");
-  a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "carry"]);
+  a.deepEqual(x.accSlots("mon"), ["hpull", "rdelt", "core", "biceps", "triceps"], "a day covers jobs");
+  a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "carry", "biceps", "triceps"]);
+  for (const d of ["mon", "wed", "fri"]) {
+    a.ok(x.accSlots(d).includes("biceps") && x.accSlots(d).includes("triceps"), `arms on ${d}`);
+  }
   a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl", "with a sensible default in each");
 
   // Every slot has something that can fill it, and nothing is tagged to a slot that
@@ -2138,7 +2141,7 @@ test("accessories are slots filled by a choice, not a list of text", () => {
   // The day's list is editable without touching anything logged.
   x.plan.accSlots = { mon: ["hpull", "core"] }; x.bump();
   a.deepEqual(x.accSlots("mon"), ["hpull", "core"]);
-  a.deepEqual(x.accSlots("wed"), ["triceps", "delts", "pullup"], "other days are untouched");
+  a.deepEqual(x.accSlots("wed"), ["delts", "pullup", "biceps", "triceps"], "other days are untouched");
 });
 
 test("a swap on the day beats the block, and the block beats the default", () => {
@@ -2148,8 +2151,8 @@ test("a swap on the day beats the block, and the block beats the default", () =>
   a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl");
   a.equal(x.accSwapped(mon, "biceps"), false);
 
-  // This block runs EZ-bar curls.
-  x.plan.accCycle = { 1: { biceps: "ezcurl" } }; x.bump();
+  // This block runs EZ-bar curls on Monday.
+  x.plan.accCycle = { 1: { mon: { biceps: "ezcurl" } } }; x.bump();
   a.equal(x.accName(x.accOn(mon, "biceps")), "EZ-bar curl", "the cycle's pick wins over the default");
   a.equal(x.accSwapped(mon, "biceps"), false, "which is not a swap");
 
@@ -2163,7 +2166,7 @@ test("a swap on the day beats the block, and the block beats the default", () =>
   a.equal(x.accName(x.accOn(nextMon, "biceps")), "EZ-bar curl", "the swap was for that session only");
 
   // A later cycle can run something else again.
-  x.plan.accPick = { biceps: "hammer" }; x.bump();
+  x.plan.accPick = { mon: { biceps: "hammer" } }; x.bump();
   const c2 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 2);
   a.ok(c2, "there is a second cycle");
   a.equal(x.accName(x.accOn(c2.monday, "biceps")), "Hammer curl", "later cycles start on their own pick");
@@ -2225,11 +2228,60 @@ test("your own exercises join the catalogue everywhere the built-in ones are", (
   a.equal(x.accName("mine-spider"), "Spider curl");
   a.equal(x.accEx("mine-spider").mine, true, "and is marked as yours");
 
-  x.plan.accPick = { biceps: "mine-spider" }; x.bump();
+  x.plan.accPick = { mon: { biceps: "mine-spider" } }; x.bump();
   a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Spider curl", "and can fill the slot");
 
   // Rubbish in the list is ignored rather than breaking the picker.
   x.plan.accCustom = [{ id: "x", slot: "nosuchslot", name: "Nope" }, { name: "No id" }, null]; x.bump();
   a.deepEqual(x.accCustom(), [], "nothing malformed gets through");
   a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Barbell curl", "and a pick that vanished falls back");
+});
+
+test("the same job on two days can run different movements", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07", wed = "2026-09-09", fri = "2026-09-11";
+  a.equal(x.dayPlan(mon).acc, "mon");
+  a.equal(x.dayPlan(wed).acc, "wed");
+  a.equal(x.dayPlan(fri).acc, "fri");
+
+  // Arms are on all three Operator days, which is the whole reason the pick is keyed
+  // by day: one curl three times a week is a choice, not a default.
+  x.plan.accPick = { mon: { biceps: "bbcurl" }, wed: { biceps: "hammer" }, fri: { biceps: "inccurl" } };
+  x.bump();
+  a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl");
+  a.equal(x.accName(x.accOn(wed, "biceps")), "Hammer curl");
+  a.equal(x.accName(x.accOn(fri, "biceps")), "Incline dumbbell curl");
+
+  // A swap is still only for its own session, and only where it differs.
+  x.setLog(wed, "acc.ex.biceps", "hammer");
+  a.equal(x.accSwapped(wed, "biceps"), false, "picking what was already set is not a swap");
+  x.setLog(wed, "acc.ex.biceps", "dbcurl");
+  a.equal(x.accSwapped(wed, "biceps"), true);
+  a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl", "Monday is unaffected");
+});
+
+test("picks made before the per-day change are spread across the days that use them", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  // The 1.53 shape: one exercise per job, with no notion of which day.
+  x.plan.accPick = { biceps: "ezcurl", carry: "suitcase" };
+  x.plan.accCycle = { 1: { triceps: "dip" } };
+  x.plan.schema = 2; x.bump();
+
+  a.equal(x.migrate(), true);
+  a.equal(x.plan.schema, x.SCHEMA);
+
+  // Biceps is on all three days, so the choice follows to all three.
+  for (const d of ["mon", "wed", "fri"]) a.equal(x.plan.accPick[d].biceps, "ezcurl", `kept on ${d}`);
+  // Carry is only on Friday, so it lands there and nowhere else.
+  a.equal(x.plan.accPick.fri.carry, "suitcase");
+  a.ok(!x.plan.accPick.mon.carry, "and not on a day that has no carry");
+  a.equal(x.plan.accCycle[1].mon.triceps, "dip", "the cycle's picks move the same way");
+
+  // Running it again leaves the already-converted shape alone.
+  const before = JSON.stringify(x.plan.accPick);
+  x.plan.schema = 2; x.bump();
+  x.migrate();
+  a.equal(JSON.stringify(x.plan.accPick), before, "it is not spread a second time");
 });

@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.54',date:'2026-10-07',title:'Arms on every lifting day',items:[
+    'Biceps and triceps are on all three Operator days now, rather than one each.',
+    'Which turned up something: the exercise for a job used to be one choice everywhere, so arms three times a week meant the same curl three times a week. You now pick per day \u2014 barbell curl on Monday, hammer on Wednesday, incline on Friday, if that is what you want.',
+    'Setup is tidier as a result. One switch at the top chooses whether you are setting up this cycle or later ones, and each day lists its jobs with the picker right there.',
+    'Anything you had already chosen has been carried across to every day that uses it.']},
   {v:'1.53',date:'2026-10-07',title:'Accessories, properly',items:[
     'Accessories are no longer a list of text with a tick. Each lifting day covers a few jobs \u2014 a horizontal pull, some core, a carry \u2014 and you choose the exercise that does each one, from a catalogue of about sixty. Setup \u2192 Accessories.',
     'The choice is per cycle, like your cluster lifts, because that is what it is. And if the barbell is taken, swap it on the day: that session uses what you picked and is logged as it, your block is untouched, and the card marks it \u201ctoday only\u201d.',

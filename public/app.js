@@ -423,7 +423,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=2;
+const SCHEMA=3;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -457,6 +457,22 @@ const MIGRATIONS=[
       L.acc.forEach((v,i)=>{ if(v&&slots[i]) done[slots[i]]=true });
       L.acc=Object.keys(done).length?{done}:{};
     }
+  }},
+  {to:3,note:'Accessory picks are keyed by day as well as slot',run(d,p){
+    // 1.53 picked one exercise per job. The same job now appears on more than one day,
+    // so a pick that was {biceps:'ezcurl'} becomes that choice on every day that has it.
+    const spread=o=>{
+      if(!o||typeof o!=='object'||Array.isArray(o)) return null;
+      if(Object.keys(o).some(k=>ACC_DAYS[k])) return o;         // already per day
+      const out={};
+      for(const day of Object.keys(ACC_DAYS)){
+        for(const [slot,id] of Object.entries(o)) if(accSlots(day).includes(slot)) (out[day]||(out[day]={}))[slot]=id;
+      }
+      return out;
+    };
+    const pk=spread(p.accPick); if(pk) p.accPick=pk;
+    const cy=p.accCycle;
+    if(cy&&typeof cy==='object') for(const [c,v] of Object.entries(cy)){ const n=spread(v); if(n) cy[c]=n }
   }},
 ];
 
@@ -742,7 +758,7 @@ const ALIB={
 
 // Which slots each lifting day fills, and what fills them unless you say otherwise.
 // Same count per day as the lists these replaced; arms split across the two press days.
-const ACC_DAYS={ mon:['hpull','rdelt','core','biceps'], wed:['triceps','delts','pullup'], fri:['sleg','pchain','carry'] };
+const ACC_DAYS={ mon:['hpull','rdelt','core','biceps','triceps'], wed:['delts','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
@@ -761,23 +777,29 @@ function accSlots(day){
   return Array.isArray(a)?a.filter(s=>ASLOT[s]):(ACC_DAYS[day]||[]);
 }
 
-// What fills a slot. Picked per cycle, like the cluster lifts: `accCycle[n]` is this
-// block's choice and `accPick` is what later blocks start on.
-function accPickFor(slot,cycle){
-  const c=cycle!=null?((plan.accCycle||{})[cycle]||{})[slot]:null;
+// What fills a slot, on a given day. Keyed by day as well as slot, because the same job
+// turns up on more than one Operator day and there is no reason the same curl has to do
+// it every time. Picked per cycle, like the cluster lifts: `accCycle[n]` is this block's
+// choice and `accPick` is what later blocks start on.
+function accPickFor(day,slot,cycle){
+  const c=cycle!=null?(((plan.accCycle||{})[cycle]||{})[day]||{})[slot]:null;
   if(c&&accEx(c)) return c;
-  const p=(plan.accPick||{})[slot];
+  const p=((plan.accPick||{})[day]||{})[slot];
   if(p&&accEx(p)) return p;
   return ACC_DEF[slot]||accFor(slot)[0]||null;
 }
+function accCycleOf(date){ const wk=weekOf(date); return wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null }
+function accDayOf(date){ const dp=dayPlan(date); return dp&&dp.acc||null }
 // What you are actually doing in that slot today: a one-session swap wins over the block.
 function accOn(date,slot){
   const d=((lg(date).acc||{}).ex||{})[slot];
   if(d&&accEx(d)) return d;
-  const wk=weekOf(date), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-  return accPickFor(slot,cyc);
+  return accPickFor(accDayOf(date),slot,accCycleOf(date));
 }
-function accSwapped(date,slot){ const d=((lg(date).acc||{}).ex||{})[slot]; return !!(d&&accEx(d)&&d!==accPickFor(slot,(weekOf(date)||{}).cycle)) }
+function accSwapped(date,slot){
+  const d=((lg(date).acc||{}).ex||{})[slot];
+  return !!(d&&accEx(d)&&d!==accPickFor(accDayOf(date),slot,accCycleOf(date)));
+}
 
 /* ---------------- what you logged ---------------- */
 
@@ -1248,7 +1270,7 @@ function migrate(){
   const d={logs,programs}, before={};
   for(const [id,L] of Object.entries(logs)) before['logs/'+id]=JSON.stringify(L);
   for(const [id,P] of Object.entries(programs)) before['programs/'+id]=JSON.stringify(P);
-  for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d);
+  for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d,plan);
   plan.schema=SCHEMA; planV++;
   queueWrite('plan/main',()=>plan);
   for(const [id,L] of Object.entries(logs)) if(JSON.stringify(L)!==before['logs/'+id]) queueWrite('logs/'+id,()=>logs[id]);
@@ -3921,31 +3943,28 @@ function syncCard(){
 // Accessories in Setup: which jobs each day covers, what is doing each job this block
 // and next, and your own additions. The picks are per cycle on purpose \u2014 they are
 // programme choices, like the cluster lifts, not something to re-decide every session.
-let accNew={name:'',slot:'hpull',gear:''};
+let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
 function accSetupCard(){
-  const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-  const all=accAll(), days=[['mon','Monday'],['wed','Wednesday'],['fri','Friday']];
-  const used=[...new Set(days.flatMap(([d])=>accSlots(d)))];
+  const cyc=accCycleOf(todayStr()), all=accAll();
+  const days=[['mon','Operator 1 \u00b7 Monday'],['wed','Operator 2 \u00b7 Wednesday'],['fri','Operator 3 \u00b7 Friday']];
+  const later=accLater||cyc==null;              // with no cycle running there is only "later"
   let h=`<div class="card"><h2>Accessories</h2>
-  <p class="small muted" style="margin:0">Each lifting day covers a few jobs \u2014 a horizontal pull, some core, a carry \u2014 and you choose what does each one. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+  <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+  if(cyc!=null) h+=`<div class="restsel"><span>Editing</span><div class="seg"><button class="segb${later?'':' on'}" data-act="acclater" data-v="0" aria-pressed="${!later}">Cycle ${cyc} (now)</button><button class="segb${later?' on':''}" data-act="acclater" data-v="1" aria-pressed="${later}">Later cycles</button></div></div>
+  <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>`;
 
   for(const [d,label] of days){
     const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));
-    h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>
-    <div class="stack" style="gap:6px;margin-top:6px">${sl.length?sl.map(k=>`<div class="row between"><span class="small">${esc(ASLOT[k].name)}${(()=>{const nm=(all[accPickFor(k,cyc)]||{}).name||'\u2014';return nm===ASLOT[k].name?'':` <span class="muted">\u00b7 ${esc(nm)}</span>`})()}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>`).join(''):'<div class="small muted">Nothing on this day.</div>'}</div>
-    ${spare.length?`<label class="f" style="margin-top:6px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`:''}</div>`;
+    h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>`;
+    if(!sl.length) h+=`<div class="small muted" style="margin-top:4px">Nothing on this day.</div>`;
+    for(const k of sl){
+      const pick=accPickFor(d,k,later?null:cyc), list=accFor(k);
+      h+=`<div style="margin-top:8px"><div class="row between" style="gap:8px"><span class="acc-role">${esc(ASLOT[k].name)}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>
+      <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></div>`;
+    }
+    if(spare.length) h+=`<label class="f" style="margin-top:8px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`;
+    h+=`</div>`;
   }
-
-  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">What does each job</div>
-  <p class="small muted" style="margin:2px 0 0">${cyc?`Cycle ${cyc} is what you are running now. Later cycles start on the second column, so a block can be different without rewriting anything.`:'Set what later cycles start on; a cycle picker appears once the programme is under way.'}</p>`;
-  for(const k of used){
-    const list=accFor(k), now=accPickFor(k,cyc), later=(plan.accPick||{})[k]||ACC_DEF[k];
-    h+=`<div style="margin-top:10px"><div class="small" style="font-weight:650">${esc(ASLOT[k].name)}</div>
-    <div class="small muted">${esc(ASLOT[k].why||'')}</div>
-    <div class="grid2" style="margin-top:4px">${cyc?`<label class="f">Cycle ${cyc} (now)<select data-act-accnow="${k}">${list.map(x=>`<option value="${x}"${x===now?' selected':''}>${esc(all[x].name)}</option>`).join('')}</select></label>`:''}
-    <label class="f">Later cycles<select data-pbind="accPick.${k}">${list.map(x=>`<option value="${x}"${x===later?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></label></div></div>`;
-  }
-  h+=`</div>`;
 
   const mine=accCustom();
   h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Your own</div>
@@ -4344,11 +4363,11 @@ function vGuide(){
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
   <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
   <div class="card guide"><h3>Accessories</h3>
-  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session.</p>
+  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
   <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
   <p><b>Missing a movement?</b> Setup → Accessories → Your own takes a name, the job it does and the kit it needs. It then appears everywhere the built-in ones do and follows you to your other devices.</p>
-  <ul class="tight"><li>After the main lifts, never before. 2–3 movements, 2–3 sets.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
+  <ul class="tight"><li>After the main lifts, never before. Two or three sets of each job, a couple of reps short of failure.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
   <p><b>What we add.</b> An optional scheduled deload, off by default, because a light week every few cycles suits running this year-round outside a unit. Turn it on in Setup if you want it.</p>
@@ -4623,18 +4642,18 @@ document.addEventListener('change',e=>{ const t=e.target;
     mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:[...accSlots(d),k]})});
     return;
   }
-  if(t.dataset&&t.dataset.actAccnow){
-    const sl=t.dataset.actAccnow, wk=weekOf(todayStr());
-    const cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-    if(cyc==null){ setPlan('accPick.'+sl,t.value); render(); return }
-    mutatePlan(p=>{const c=Object.assign({},p.accCycle||{}); c[cyc]=Object.assign({},c[cyc]||{},{[sl]:t.value}); p.accCycle=c});
+  if(t.dataset&&t.dataset.actAccpick){
+    const [day,sl]=t.dataset.actAccpick.split(':'), cyc=accCycleOf(todayStr());
+    if(accLater||cyc==null){ setPlan('accPick.'+day+'.'+sl,t.value); render(); return }
+    mutatePlan(p=>{const c=Object.assign({},p.accCycle||{});
+      c[cyc]=Object.assign({},c[cyc]||{},{[day]:Object.assign({},(c[cyc]||{})[day]||{},{[sl]:t.value})});
+      p.accCycle=c});
     return;
   }
   if(t.dataset&&t.dataset.actAcc){
     const sl=t.dataset.actAcc, v=t.value;
-    const wk=weekOf(sel), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
     // Only a real difference from the block's choice is worth storing as a swap.
-    setLog(sel,'acc.ex.'+sl, v===accPickFor(sl,cyc)?null:v);
+    setLog(sel,'acc.ex.'+sl, v===accPickFor(accDayOf(sel),sl,accCycleOf(sel))?null:v);
     render(); return;
   }
   if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
@@ -4693,6 +4712,7 @@ document.getElementById('main').addEventListener('click',e=>{
     // Logging a set is itself the record that it happened; drop the manual tick.
     if(cur.length) setLog(sel,'acc.done.'+sl,null);
     render();return}
+  if(a==='acclater'){ accLater=b.dataset.v==='1'; render(); return }
   if(a==='accslotrm'){
     const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);
     mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:cur})});

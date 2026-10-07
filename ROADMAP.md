@@ -121,6 +121,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Arms on every Operator day, and picks keyed by day (2026-10-07)**
+- Biceps and triceps now appear on all three Operator days, not one each.
+- That exposed a flaw in 1.53: a slot's exercise was global, so a job appearing three
+  times a week meant the same curl three times a week. `accPickFor` is now keyed by
+  **day and slot**, so Monday can be barbell curls and Friday incline.
+- Setup is simpler for it. One segmented control picks whether you are editing this cycle
+  or later ones, and each day lists its jobs with the picker inline — instead of two
+  columns of selects in a separate section.
+- Migration 3 spreads a 1.53 flat pick to every day that has that job, and leaves an
+  already-converted shape alone, so running it twice is safe.
+- Four mutations — a pick that ignores the day, a migration that spreads twice or onto
+  days without the job, and arms back on one day each — all fail. 150 → 152 tests.
+
 **Accessories become slots, exercises and sets (2026-10-07)**
 - Replaces lines of text with a tick. A **slot** is the job (Horizontal pull, Biceps,
   Carry); an **exercise** fills it, picked **per cycle** like the cluster lifts; a

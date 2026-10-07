@@ -100,7 +100,7 @@ const ALIB={
 
 // Which slots each lifting day fills, and what fills them unless you say otherwise.
 // Same count per day as the lists these replaced; arms split across the two press days.
-const ACC_DAYS={ mon:['hpull','rdelt','core','biceps'], wed:['triceps','delts','pullup'], fri:['sleg','pchain','carry'] };
+const ACC_DAYS={ mon:['hpull','rdelt','core','biceps','triceps'], wed:['delts','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
@@ -119,23 +119,29 @@ function accSlots(day){
   return Array.isArray(a)?a.filter(s=>ASLOT[s]):(ACC_DAYS[day]||[]);
 }
 
-// What fills a slot. Picked per cycle, like the cluster lifts: `accCycle[n]` is this
-// block's choice and `accPick` is what later blocks start on.
-function accPickFor(slot,cycle){
-  const c=cycle!=null?((plan.accCycle||{})[cycle]||{})[slot]:null;
+// What fills a slot, on a given day. Keyed by day as well as slot, because the same job
+// turns up on more than one Operator day and there is no reason the same curl has to do
+// it every time. Picked per cycle, like the cluster lifts: `accCycle[n]` is this block's
+// choice and `accPick` is what later blocks start on.
+function accPickFor(day,slot,cycle){
+  const c=cycle!=null?(((plan.accCycle||{})[cycle]||{})[day]||{})[slot]:null;
   if(c&&accEx(c)) return c;
-  const p=(plan.accPick||{})[slot];
+  const p=((plan.accPick||{})[day]||{})[slot];
   if(p&&accEx(p)) return p;
   return ACC_DEF[slot]||accFor(slot)[0]||null;
 }
+function accCycleOf(date){ const wk=weekOf(date); return wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null }
+function accDayOf(date){ const dp=dayPlan(date); return dp&&dp.acc||null }
 // What you are actually doing in that slot today: a one-session swap wins over the block.
 function accOn(date,slot){
   const d=((lg(date).acc||{}).ex||{})[slot];
   if(d&&accEx(d)) return d;
-  const wk=weekOf(date), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-  return accPickFor(slot,cyc);
+  return accPickFor(accDayOf(date),slot,accCycleOf(date));
 }
-function accSwapped(date,slot){ const d=((lg(date).acc||{}).ex||{})[slot]; return !!(d&&accEx(d)&&d!==accPickFor(slot,(weekOf(date)||{}).cycle)) }
+function accSwapped(date,slot){
+  const d=((lg(date).acc||{}).ex||{})[slot];
+  return !!(d&&accEx(d)&&d!==accPickFor(accDayOf(date),slot,accCycleOf(date)));
+}
 
 /* ---------------- what you logged ---------------- */
 
