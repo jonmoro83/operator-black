@@ -21,13 +21,6 @@ Known gaps and things to verify. Fix or close these before starting new features
   back-to-back adjacency rules, so nothing stops two circuits landing on consecutive days
   — and Block I's week is built around that spacing. Either give `se` its own adjacency
   class or refuse to rearrange a `bb` week.
-- **Restore has still never run against real data.** Narrower than it was: restore is
-  covered by tests against a D1 stand-in, and every backup is now read back and verified
-  as it is written, so a corrupt or truncated file would be caught. What is still untested
-  is one real restore of a real backup on this account — and a Base Building block and
-  the per-day SE lists are new shapes in the log documents since the last one. The honest
-  way to close it is to take a manual backup, restore it, and check nothing moved; the
-  safety backup makes that reversible.
 - **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
   (deadlift + pulldown + OHP, plus pull-ups). Splitting them is an app choice for
   freshness, not a rule — TB1's test day works through the whole cluster in one session.
@@ -120,6 +113,17 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Restore has now run against real data (2026-10-07)**
+- Closed the oldest open issue. A real backup was restored into a real account through
+  the admin panel at 20:25 UTC: read, safety copy taken first, written in one batch,
+  audited with the source backup and where the previous data went.
+- It rolled a logged day off the account, correctly — the backup predated it — and that
+  day is inside the `before-restore` copy, which is the undo working as designed rather
+  than a loss.
+- What this proves that the tests could not: the real R2 round trip, a real D1 batch, and
+  the current log shapes (Base Building, per-day SE lists, slot-keyed accessories) all
+  surviving a restore.
 
 **Typing in a confirmation box no longer throws the caret out (2026-10-07)**
 - Reported on the admin restore: every character needed a fresh tap on the field.
