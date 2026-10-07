@@ -265,3 +265,163 @@ test("taking a backup prunes by kind for real, not just in the helper", async ()
   a.equal(kept((n) => n.startsWith("week-")), 26, "every weekly survived the burst");
   a.equal(kept((n) => n.endsWith("-manual")), 6, "and the manual ones were capped at six");
 });
+
+/* ---------------- the Access JWT check ----------------
+This is what stops one person reading another's training history, so it is tested with
+real cryptography rather than a stand-in for it: Node has the same WebCrypto the Worker
+runs on, so the suite generates an RSA keypair, serves it as a JWKS from a stubbed
+fetch, and mints genuine RS256 tokens. Nothing about the verification is faked, which
+means a forged or tampered token has to actually fail the real signature check. */
+
+const TEAM = "test-team.cloudflareaccess.com";
+const AUD = "a".repeat(64);
+const te = new TextEncoder();
+const b64u = (b) => Buffer.from(b).toString("base64url");
+
+async function keypair(kid) {
+  const kp = await crypto.subtle.generateKey(
+    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true, ["sign", "verify"]
+  );
+  const jwk = await crypto.subtle.exportKey("jwk", kp.publicKey);
+  return { kid, priv: kp.privateKey, jwk: { ...jwk, kid, alg: "RS256" } };
+}
+
+let KEYS, served, fetches = 0;
+async function setupKeys() {
+  if (KEYS) return KEYS;
+  KEYS = { a: await keypair("key-a"), b: await keypair("key-b"), c: await keypair("key-c") };
+  served = [KEYS.a.jwk, KEYS.b.jwk];
+  global.fetch = async (url) => {
+    fetches++;
+    a.equal(url, `https://${TEAM}/cdn-cgi/access/certs`, "keys come from the team domain");
+    return { ok: true, json: async () => ({ keys: served }) };
+  };
+  return KEYS;
+}
+
+async function mint(key, claims = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const body = { aud: [AUD], iss: `https://${TEAM}`, exp: now + 3600, iat: now, email: "lifter@example.com", ...claims };
+  const h = b64u(te.encode(JSON.stringify({ alg: "RS256", typ: "JWT", kid: key.kid })));
+  const p = b64u(te.encode(JSON.stringify(body)));
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key.priv, te.encode(`${h}.${p}`));
+  return `${h}.${p}.${b64u(sig)}`;
+}
+
+function authEnv(extra = {}) {
+  return Object.assign(fakeEnv({ docs: [{ path: "plan/main", data: '{"bar":45}' }] }), { ACCESS_TEAM_DOMAIN: TEAM, ACCESS_AUD: AUD }, extra);
+}
+async function call(env, token, path = "state") {
+  const { handleApi } = await load();
+  const headers = token ? { "cf-access-jwt-assertion": token } : {};
+  return handleApi(new Request(`https://operatorblack.com/api/${path}`, { headers }), env);
+}
+
+test("a properly signed token gets in, as whoever the token says", async () => {
+  const k = await setupKeys();
+  const res = await call(authEnv(), await mint(k.a));
+  a.equal(res.status, 200);
+  const body = await res.json();
+  a.equal(body.user, "lifter@example.com", "the identity comes from the signed token");
+  a.deepEqual(body.plan, { bar: 45 });
+});
+
+test("a tampered token is refused, which is the whole point of the check", async () => {
+  const k = await setupKeys();
+  const good = await mint(k.a, { email: "lifter@example.com" });
+  const [h, p, sig] = good.split(".");
+
+  // Rewrite the claims to someone else and keep the signature. This is the attack.
+  const claims = JSON.parse(Buffer.from(p, "base64url").toString());
+  claims.email = "victim@example.com";
+  const forged = `${h}.${b64u(te.encode(JSON.stringify(claims)))}.${sig}`;
+
+  const res = await call(authEnv(), forged);
+  a.equal(res.status, 403, "no amount of valid-looking JSON gets you someone else's data");
+  a.match((await res.json()).error, /Invalid sign-in token/);
+});
+
+test("a token signed by a key the team does not publish is refused", async () => {
+  await setupKeys();
+  const stranger = await keypair("key-a");   // same kid, different key entirely
+  const res = await call(authEnv(), await mint(stranger));
+  a.equal(res.status, 403, "the kid is a hint, not an authorisation");
+});
+
+test("a token from another Access application is refused", async () => {
+  const k = await setupKeys();
+  // Same Cloudflare team, different app: correctly signed, wrong audience.
+  const res = await call(authEnv(), await mint(k.a, { aud: ["b".repeat(64)] }));
+  a.equal(res.status, 403, "the aud claim is what scopes a token to this site");
+
+  // aud can be a bare string rather than an array, and still has to match.
+  a.equal((await call(authEnv(), await mint(k.a, { aud: AUD }))).status, 200);
+  a.equal((await call(authEnv(), await mint(k.a, { aud: "nope" }))).status, 403);
+});
+
+test("the wrong issuer, an expired token, and a missing one are all refused", async () => {
+  const k = await setupKeys();
+  a.equal((await call(authEnv(), await mint(k.a, { iss: "https://attacker.cloudflareaccess.com" }))).status, 403, "issuer");
+
+  const then = Math.floor(Date.now() / 1000) - 60;
+  a.equal((await call(authEnv(), await mint(k.a, { exp: then }))).status, 403, "expired an hour ago");
+  a.equal((await call(authEnv(), await mint(k.a, { exp: undefined }))).status, 403, "no expiry at all");
+
+  const none = await call(authEnv(), null);
+  a.equal(none.status, 401, "no token is a sign-in prompt, not a rejection");
+
+  a.equal((await call(authEnv(), "not.a.jwt")).status, 403, "nor is garbage");
+  a.equal((await call(authEnv(), "onlyonepart")).status, 403);
+});
+
+test("rotated signing keys are picked up without waiting for the cache to expire", async () => {
+  const k = await setupKeys();
+  await call(authEnv(), await mint(k.a));       // make sure something is cached
+  // key-c has never been published. A token signed with it must force a refetch rather
+  // than be rejected out of a stale cache, because that is what a rotation looks like.
+  served = [KEYS.a.jwk];
+  let before = fetches;
+  const miss = await call(authEnv(), await mint(k.c));
+  a.equal(miss.status, 403, "still unknown after the refetch, so still refused");
+  a.ok(fetches > before, "but it did go and look");
+
+  // Now Cloudflare publishes it. The cached set is stale and has to be replaced.
+  served = [KEYS.a.jwk, KEYS.c.jwk];
+  before = fetches;
+  const res = await call(authEnv(), await mint(k.c, { email: "lifter@example.com" }));
+  a.equal(res.status, 200, "a token signed with the new key works without waiting an hour");
+  a.ok(fetches > before, "because an unknown kid busts the cache");
+
+  served = [KEYS.a.jwk, KEYS.b.jwk, KEYS.c.jwk];   // restore for the tests after this one
+});
+
+test("ALLOWED_EMAILS is a second lock, applied after the signature", async () => {
+  const k = await setupKeys();
+  const env = authEnv({ ALLOWED_EMAILS: "someone@example.com, lifter@example.com" });
+  a.equal((await call(env, await mint(k.a))).status, 200, "on the list");
+
+  const off = authEnv({ ALLOWED_EMAILS: "someone@example.com" });
+  const res = await call(off, await mint(k.a));
+  a.equal(res.status, 403, "a valid Access login is still not automatically allowed");
+  a.match((await res.json()).error, /not allowed/);
+});
+
+test("an address is matched however it was typed, and a token without one is refused", async () => {
+  const k = await setupKeys();
+  const env = authEnv({ ALLOWED_EMAILS: "Lifter@Example.COM" });
+  const res = await call(env, await mint(k.a, { email: "LIFTER@example.com" }));
+  a.equal(res.status, 200, "case never decides who you are");
+  a.equal((await res.json()).user, "lifter@example.com", "and it is stored one way");
+
+  a.equal((await call(authEnv(), await mint(k.a, { email: "" }))).status, 403, "no email, no identity");
+});
+
+test("with Access unconfigured the API refuses everything rather than letting it through", async () => {
+  const k = await setupKeys();
+  const token = await mint(k.a);
+  for (const env of [authEnv({ ACCESS_AUD: "" }), authEnv({ ACCESS_TEAM_DOMAIN: "" })]) {
+    const res = await call(env, token);
+    a.equal(res.status, 503, "a missing setting closes the door, it does not open it");
+  }
+});

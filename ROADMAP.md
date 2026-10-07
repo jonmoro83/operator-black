@@ -72,12 +72,11 @@ within each group, roughly in order of how useful they'd be.
 
 ### Technical
 
-- **Tests for the Worker — started, not finished.** `test/api.test.js` now covers the
-  backup half (retention, both stores, per-user scoping) with hand-written stand-ins for
-  the R2 and KV bindings, so no Miniflare and no `wrangler dev`. Still uncovered: the
-  Access JWT check, the document read/write routes, restore, push, and the three calendar
-  endpoints. The JWT check is the one that matters most — it is what stops one person
-  reading another's history.
+- **Tests for the Worker — the two halves that matter are done.** `test/api.test.js`
+  covers backups and the Access JWT check, with hand-written stand-ins for the R2 and KV
+  bindings: no Miniflare, no `wrangler dev`, still a plain `node --test` run. Still
+  uncovered: the document read/write routes, restore, push, and the three calendar
+  endpoints. Restore is the next one worth doing, since it overwrites everything.
 - **Make a crash visible.** `render()` writes one big `innerHTML`; one thrown error
   anywhere leaves a blank page with no clue, mid-session, in a gym. Wrap it in a
   try/catch that paints a recovery banner with the error and a Reload button, add a
@@ -141,6 +140,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The Access JWT check is tested (2026-10-07)**
+- Tested with **real cryptography**, not a stubbed verifier. The suite generates RSA-2048
+  keypairs with `crypto.subtle`, serves them as a JWKS from a stubbed `fetch`, and mints
+  genuine RS256 tokens. Nothing about the verification is faked, so a forged token has to
+  actually fail the real signature check rather than a mock of it.
+- Nine cases: a valid token identifies by its signed claims; a tampered payload with the
+  original signature is refused; a token signed by an unpublished key is refused; a token
+  from another Access application on the same team is refused (`aud`, as both a string
+  and an array); wrong issuer, expired, no expiry, absent and malformed tokens; key
+  rotation forcing a refetch rather than failing out of a stale cache; `ALLOWED_EMAILS`
+  as a second lock applied after the signature; case-insensitive addresses; and a missing
+  `ACCESS_AUD` or team domain closing the door rather than opening it.
+- Mutation-checked. Removing the signature, audience, issuer or expiry check, bypassing
+  `ALLOWED_EMAILS`, or dropping the lowercasing all fail the suite.
+- One mutation does **not** fail, and it should not: replacing `if (!jwk) throw` with a
+  fall back to `keys[0]`. A token signed with an unpublished key then fails the signature
+  check instead of the `kid` lookup, so the outcome is identical. An equivalent mutant,
+  not a hole — and a reminder that the signature is the gate and the `kid` is a hint.
+- 104 → 113 tests.
 
 **Backup retention per kind, and the first Worker tests (2026-10-07)**
 - `KEEP = {auto:26, manual:6, safety:6}` replacing one shared pool of 26. A run of manual
