@@ -121,6 +121,18 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Audit log: renamed, and actually refreshing (2026-10-07)**
+- Reported as "exports are not showing up". They were: both rows were in `admin_log`. The
+  panel loaded once behind a **Show** button and then cached forever, the screen's Refresh
+  only reloaded the people list, and an export is a browser download the app never sees
+  — so it was a stale snapshot taken before the exports happened.
+- It loads on its own now, has its own Refresh, and the screen's Refresh reloads both.
+- "What administrators have done" → **Audit log**. Inside a tab already called Admin,
+  "Admin audit log" would say admin twice.
+- A removal's stored JSON is rendered in words — "2 documents, 0 backups, calendar feed,
+  alerts" — rather than sitting unused in the column.
+- Times are local now, not UTC.
+
 **Administration is its own tab (2026-10-07)**
 - Moved out of Setup into a seventh nav tab, shipped `hidden` in `index.html` and revealed
   when `/api/state` reports `admin`. One entry point rather than two.

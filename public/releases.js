@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.61',date:'2026-10-07',title:'The audit log keeps up',items:[
+    'Exports were being recorded but the panel was showing a snapshot from before you did them. It loads by itself now, has its own Refresh, and the screen\u2019s Refresh reloads it too.',
+    'Renamed from \u201cWhat administrators have done\u201d to Audit log, and a removal now says what it actually took \u2014 documents, backups, calendar feed, alerts \u2014 with the time in your own timezone rather than UTC.']},
   {v:'1.60',date:'2026-10-07',title:'Admin is a tab',items:[
     'Administration has moved out of Setup into its own tab, next to Guide. It only appears if your address is named as an administrator, and it stays put when you open the app offline.']},
   {v:'1.59',date:'2026-10-07',title:'Administration',items:[

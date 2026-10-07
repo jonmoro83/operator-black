@@ -118,7 +118,7 @@ What it can do: list everyone with counts, sizes, last activity and whether thei
 backup verified; export one person's data whole; and remove an account entirely — their
 documents, every backup, the backup check record, their calendar feed and their push
 alerts. A removal needs the address typed back, cannot be aimed at your own account, and
-is written to `admin_log` along with every export.
+is written to the **audit log** (`admin_log`) along with every export.
 
 What it deliberately cannot do: read somebody's training log. Counts and dates run the
 service; the export exists for handing data back, and it hands back the whole file rather

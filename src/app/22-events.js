@@ -100,8 +100,8 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='reload'){ location.reload(); return }
   if(a==='errclear'){ crashClear(); return }
   if(a==='syncclear'){ clearConflicts(); return }
-  if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); return }
-  if(a==='adminlog'){ adminLoadLog(); return }
+  if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); adminLoadLog(true); return }
+  if(a==='adminlog'){ adminLoadLog(true); return }
   if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminclearoff'){ admin.confirm=null; admin.typed=''; render(); return }
   if(a==='adminwipe'){ adminWipe(b.dataset.user); return }

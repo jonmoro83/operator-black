@@ -2328,3 +2328,34 @@ test("a non-admin who lands on the admin view is put somewhere useful", () => {
   x.amAdmin = true; x.loaded = true;
   a.ok(!/Open administration/.test(x.vSetup()), "no duplicate entry point in Setup");
 });
+
+test("the audit log shows what happened, and can be refreshed after it happens", () => {
+  const x = app({ now: "2026-10-07" });
+  x.view = "admin"; x.amAdmin = true; x.loaded = true;
+  x.admin = { me: "me@example.com", list: [], log: [
+    { at: Date.parse("2026-10-07T20:04:59Z"), actor: "me@example.com", action: "export", subject: "them@example.com", detail: "" },
+    { at: Date.parse("2026-10-07T20:10:00Z"), actor: "me@example.com", action: "delete", subject: "gone@example.com",
+      detail: JSON.stringify({ docs: 11, backups: 3, calendar: true, alerts: true }) },
+  ] };
+
+  const h = x.vAdmin();
+  a.match(h, /<h2>Audit log<\/h2>/, "named for what it is");
+  a.ok(!/What administrators have done/.test(h));
+
+  a.match(h, /Exported<\/b> them@example\.com/, "an export reads as an export");
+  a.match(h, /Removed<\/b> gone@example\.com/, "and a removal as a removal");
+  a.match(h, /11 documents, 3 backups, calendar feed, alerts/, "with what a removal actually took");
+  a.match(h, /by me@example\.com/, "and who did it");
+
+  // The old version loaded once and had no way back; an export is a plain download the
+  // app never sees, so a refresh has to be reachable at all times.
+  a.match(h, /data-act="adminlog"[^>]*>Refresh/, "refreshable");
+
+  // Nothing logged yet says so, rather than looking broken.
+  x.admin = { me: "me@example.com", list: [], log: [] };
+  a.match(x.vAdmin(), /Nothing yet/);
+
+  // A server that cannot reach the table says so.
+  x.admin = { me: "me@example.com", list: [], log: [], logErr: "No record table. Run npm run db:migrate:remote." };
+  a.match(x.vAdmin(), /No record table/);
+});

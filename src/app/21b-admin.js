@@ -17,10 +17,25 @@ async function adminLoad(force) {
   catch (e) { admin.err = e && e.status === 404 ? 'This account is not an administrator.' : 'Could not load the list.'; }
   admin.loading = false; if (view === 'admin') render();
 }
-async function adminLoadLog() {
-  try { const r = await api('GET', '/admin/log'); admin.log = r.log || []; }
-  catch (e) { admin.log = []; }
-  if (view === 'admin') render();
+async function adminLoadLog(force) {
+  if (admin.logLoading || (admin.log && !force)) return;
+  admin.logLoading = true;
+  try { const r = await api('GET', '/admin/log'); admin.log = r.log || []; admin.logErr = r.error || null; }
+  catch (e) { admin.log = []; admin.logErr = 'Could not load the record.'; }
+  admin.logLoading = false; if (view === 'admin') render();
+}
+
+// A removal stores what it took as JSON; show it as something readable.
+function adminDetail(raw) {
+  try {
+    const d = JSON.parse(raw);
+    const bits = [];
+    if (d.docs != null) bits.push(d.docs + ' document' + (d.docs === 1 ? '' : 's'));
+    if (d.backups != null) bits.push(d.backups + ' backup' + (d.backups === 1 ? '' : 's'));
+    if (d.calendar) bits.push('calendar feed');
+    if (d.alerts) bits.push('alerts');
+    return bits.join(', ');
+  } catch { return String(raw).slice(0, 80) }
 }
 async function adminWipe(who) {
   admin.busy = who;
@@ -30,7 +45,7 @@ async function adminWipe(who) {
     admin.confirm = null; admin.typed = '';
     admin.msg = `Removed ${who}: ${r.removed.docs} documents, ${r.removed.backups} backups.`;
     admin.list = null; admin.log = null;
-    await adminLoad(true); await adminLoadLog();
+    await adminLoad(true); await adminLoadLog(true);
   } catch (e) {
     admin.err = e && e.status === 400 ? 'That did not match. Nothing was removed.' : 'Could not remove that account.';
   }
@@ -66,10 +81,17 @@ function vAdmin() {
   }
   h += `</div>`;
 
-  h += `<div class="card"><div class="lift-h"><h2>What administrators have done</h2>${admin.log ? '' : '<button class="btn sm ghost" data-act="adminlog">Show</button>'}</div>
-  <p class="small muted" style="margin:0">Exports and removals, newest first. Written by the server and not editable from the app.</p>`;
-  if (admin.log) h += admin.log.length
-    ? `<div class="stack" style="gap:6px">${admin.log.map(e => `<div class="small"><span class="mono">${esc(new Date(e.at).toISOString().slice(0, 16).replace('T', ' '))}</span> · <b>${esc(e.action)}</b> · ${esc(e.subject)}<div class="muted">by ${esc(e.actor)}</div></div>`).join('')}</div>`
-    : `<div class="small muted">Nothing yet.</div>`;
+  h += `<div class="card"><div class="lift-h"><h2>Audit log</h2><button class="btn sm ghost" data-act="adminlog">Refresh</button></div>
+  <p class="small muted" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
+  if (admin.logErr) h += `<div class="banner warn"><div>${esc(admin.logErr)}</div></div>`;
+  if (!admin.log) { h += `<div class="small muted">${admin.logLoading ? 'Loading\u2026' : ''}</div>`; adminLoadLog(); }
+  else if (!admin.log.length) h += `<div class="small muted">Nothing yet.</div>`;
+  else h += `<div class="stack" style="gap:8px">${admin.log.map(e => {
+    const d = new Date(e.at);
+    const when = `${fmtD(d.toISOString().slice(0, 10), true)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `<div class="small" style="border-top:1px solid var(--line);padding-top:6px">
+      <b>${e.action === 'delete' ? 'Removed' : 'Exported'}</b> ${esc(e.subject)}
+      <div class="muted">${esc(when)} \u00b7 by ${esc(e.actor)}${e.detail ? ' \u00b7 ' + esc(adminDetail(e.detail)) : ''}</div></div>`;
+  }).join('')}</div>`;
   return h + `</div>`;
 }
