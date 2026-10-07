@@ -105,6 +105,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminclearoff'){ admin.confirm=null; admin.typed=''; render(); return }
   if(a==='adminwipe'){ adminWipe(b.dataset.user); return }
+  if(a==='adminbk'){ if(admin.bkFor===b.dataset.user){admin.bkFor=null;admin.bk=null;render()} else adminBackups(b.dataset.user); return }
+  if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminrsoff'){ admin.rsFor=null; admin.typed=''; render(); return }
+  if(a==='adminrsgo'){ adminRestore(b.dataset.user,b.dataset.name); return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
     if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);

@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.62',date:'2026-10-07',title:'Restore a backup for someone',items:[
+    'An administrator can now list a person\u2019s backups and put one back for them, rather than talking them through doing it themselves.',
+    'It works the same way restoring your own does: whatever they have at that moment is saved as a \u201cbefore restore\u201d copy first, so it can be undone from their own Backups screen. It needs their address typed back to confirm, and it is written to the audit log along with which backup it came from.']},
   {v:'1.61',date:'2026-10-07',title:'The audit log keeps up',items:[
     'Exports were being recorded but the panel was showing a snapshot from before you did them. It loads by itself now, has its own Refresh, and the screen\u2019s Refresh reloads it too.',
     'Renamed from \u201cWhat administrators have done\u201d to Audit log, and a removal now says what it actually took \u2014 documents, backups, calendar feed, alerts \u2014 with the time in your own timezone rather than UTC.']},

@@ -19,7 +19,9 @@
 //   GET  /api/admin/users         → (admins) everyone, with counts and last activity
 //   GET  /api/admin/users/<email>/export → (admins) one person's full JSON
 //   DELETE /api/admin/users/<email> → (admins) remove a person entirely
-//   GET  /api/admin/log           → (admins) what administrators have done
+//   GET  /api/admin/users/<email>/backups → (admins) their backups, newest first
+//   POST /api/admin/users/<email>/restore  → (admins) put one of them back
+//   GET  /api/admin/log           → (admins) the audit log
 //   GET  /api/version             → fingerprint of the current page + deploy info
 //   GET  /api/push/key            → VAPID public key for pushManager.subscribe
 //   GET  /api/push/status         → your devices with alerts on, pending alarm time
@@ -515,6 +517,39 @@ async function handleAdmin(request, env, user, op) {
       "cache-control": "no-store",
       "content-disposition": `attachment; filename="operator-black-${who.replace(/[^a-z0-9]+/g, "-")}-${day}.json"`,
     });
+  }
+
+  const bk = op.match(/^users\/(.+)\/backups$/);
+  if (bk && request.method === "GET") {
+    const who = decodeURIComponent(bk[1]).toLowerCase();
+    if (!EMAIL.test(who)) return json({ error: "Not a valid address." }, 400);
+    return json({ backups: await listBackups(env, who), check: await readCheck(env, who) }, 200, { "cache-control": "no-store" });
+  }
+
+  const rs = op.match(/^users\/(.+)\/restore$/);
+  if (rs && request.method === "POST") {
+    const who = decodeURIComponent(rs[1]).toLowerCase();
+    if (!EMAIL.test(who)) return json({ error: "Not a valid address." }, 400);
+    let body = {};
+    try { body = JSON.parse(await request.text() || "{}") } catch {}
+    // Same bar as a removal: this replaces everything they have right now.
+    if (String(body.confirm || "").trim().toLowerCase() !== who) {
+      return json({ error: "Type the address to confirm." }, 400);
+    }
+    const name = String(body.name || "");
+    if (!BACKUP_NAME.test(name)) return json({ error: "Unknown backup." }, 404);
+    const raw = await readBackup(env, who, name);
+    if (!raw) return json({ error: "Backup not found." }, 404);
+    let data;
+    try { data = JSON.parse(raw) } catch { return json({ error: "That backup will not parse." }, 422); }
+    // restoreFrom takes a safety copy of what it is about to replace, so this is undoable
+    // from their own Backups screen as well as from here.
+    const res = await restoreFrom(env, who, data);
+    if (res.status === 200) {
+      const out = await res.clone().json();
+      await adminLog(env, user, "restore", who, JSON.stringify({ from: name, safety: out.safetyBackup, ...out.restored }));
+    }
+    return res;
   }
 
   const del = op.match(/^users\/(.+)$/);

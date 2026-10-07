@@ -121,6 +121,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**An admin can restore a backup for someone (2026-10-07)**
+- `GET /api/admin/users/<email>/backups` and `POST .../restore`. The restore goes through
+  the same `restoreFrom` a person uses on themselves, so it takes a **before-restore copy
+  of what it is about to replace** and writes in one batch.
+- Same bar as a removal: the address typed back, because this replaces everything they
+  have right now. Covered: no confirmation, wrong address, no backup named, a backup that
+  is not there, a path, and the verification record — which parses as JSON and would
+  otherwise reach the restore before being turned away. All refused without touching a row.
+- Audited with which backup it came from and where their previous data went.
+- Two test-harness notes. The fake D1's `exec` closes over its own arrays, so reassigning
+  `env.DB.docs` silently detaches the test from the database — a `clearUser` helper now
+  does it in place. And a near-equivalent mutation (dropping the name check) only failed
+  once the `_check` case existed to distinguish it.
+
 **Audit log: renamed, and actually refreshing (2026-10-07)**
 - Reported as "exports are not showing up". They were: both rows were in `admin_log`. The
   panel loaded once behind a **Show** button and then cached forever, the screen's Refresh

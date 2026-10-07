@@ -4671,6 +4671,26 @@ function adminDetail(raw) {
     return bits.join(', ');
   } catch { return String(raw).slice(0, 80) }
 }
+async function adminBackups(who) {
+  admin.bkFor = who; admin.bk = null; admin.bkErr = null; render();
+  try { const r = await api('GET', '/admin/users/' + encodeURIComponent(who) + '/backups'); admin.bk = r.backups || []; }
+  catch (e) { admin.bk = []; admin.bkErr = 'Could not load their backups.'; }
+  render();
+}
+async function adminRestore(who, name) {
+  admin.busy = who; render();
+  try {
+    const r = await api('POST', '/admin/users/' + encodeURIComponent(who) + '/restore', { name, confirm: who });
+    admin.msg = `Restored ${who} from ${name}: ${r.restored.logs} logged day${r.restored.logs === 1 ? '' : 's'}. Their previous data was saved as ${r.safetyBackup}.`;
+    admin.rsFor = null; admin.typed = ''; admin.bkFor = null; admin.bk = null;
+    admin.list = null; admin.log = null;
+    await adminLoad(true); await adminLoadLog(true);
+  } catch (e) {
+    admin.err = e && e.status === 400 ? 'That did not match. Nothing was restored.' : 'Could not restore that backup.';
+  }
+  admin.busy = null; render();
+}
+
 async function adminWipe(who) {
   admin.busy = who;
   render();
@@ -4684,6 +4704,29 @@ async function adminWipe(who) {
     admin.err = e && e.status === 400 ? 'That did not match. Nothing was removed.' : 'Could not remove that account.';
   }
   admin.busy = null; render();
+}
+
+// Their backups, newest first, with the one thing worth doing to them. Restoring
+// replaces everything they have right now, so it asks in the same way a removal does.
+function adminBackupList(who) {
+  if (admin.bkErr) return `<div class="banner warn"><div>${esc(admin.bkErr)}</div></div>`;
+  if (!admin.bk) return `<div class="small muted" style="margin-top:6px">Loading their backups\u2026</div>`;
+  if (!admin.bk.length) return `<div class="small muted" style="margin-top:6px">They have no backups.</div>`;
+  let h = `<div class="stack" style="gap:6px;margin-top:8px">`;
+  for (const b of admin.bk.slice(0, 10)) {
+    const kind = b.name.endsWith('-manual') ? 'taken by hand' : b.name.includes('before-restore') ? 'before a restore' : 'weekly';
+    h += `<div class="row between" style="gap:8px"><span class="small"><b class="mono">${esc(b.name.replace(/-(manual|before-restore(-\d{6})?)$/, ''))}</b>
+      <span class="muted">${esc(kind)}${b.logs != null ? ' \u00b7 ' + b.logs + ' day' + (b.logs === 1 ? '' : 's') : ''}${b.bytes ? ' \u00b7 ' + Math.round(b.bytes / 1024) + ' kB' : ''}</span></span>
+      <button class="btn sm ghost" data-act="adminrs" data-user="${esc(who)}" data-name="${esc(b.name)}">Restore\u2026</button></div>`;
+    if (admin.rsFor === who + '|' + b.name) {
+      const ok = admin.typed.trim().toLowerCase() === who.toLowerCase();
+      h += `<div class="banner alert"><div><b>This replaces everything ${esc(who)} has now</b> with the contents of ${esc(b.name)}.
+      Their current data is saved as a \u201cbefore restore\u201d backup first, so it can be undone \u2014 but they will see their training change.
+      <label class="f" style="margin-top:8px">Type their address to confirm<input type="text" data-adminconfirm value="${esc(admin.typed)}" placeholder="${esc(who)}" autocomplete="off"></label></div>
+      <div class="row"><button class="btn sm" data-act="adminrsoff">Cancel</button><button class="btn sm primary" data-act="adminrsgo" data-user="${esc(who)}" data-name="${esc(b.name)}"${ok && admin.busy !== who ? '' : ' disabled'}>${admin.busy === who ? 'Restoring\u2026' : 'Restore this backup'}</button></div></div>`;
+    }
+  }
+  return h + `</div>`;
 }
 
 function vAdmin() {
@@ -4701,8 +4744,10 @@ function vAdmin() {
     <div class="small muted">${u.logs} logged day${u.logs === 1 ? '' : 's'} · ${u.docs} document${u.docs === 1 ? '' : 's'} · ${Math.round((u.bytes || 0) / 1024)} kB · last activity ${esc(when)}</div>
     <div class="small ${u.backupOk === false ? 'warn-t' : 'muted'}">${u.backups} backup${u.backups === 1 ? '' : 's'}${u.backupOk === true ? ' · last one verified' : u.backupOk === false ? ' · the last one did NOT verify' : ' · never checked'}</div>
     <div class="row" style="gap:8px;margin-top:6px"><a class="btn sm" href="/api/admin/users/${encodeURIComponent(u.user)}/export">Export their data</a>
+    <button class="btn sm" data-act="adminbk" data-user="${esc(u.user)}">${admin.bkFor === u.user ? 'Hide backups' : 'Backups\u2026'}</button>
     ${mine ? '<span class="small muted">You cannot clear your own account from here.</span>'
       : `<button class="btn sm ghost" data-act="adminclear" data-user="${esc(u.user)}">Clear their data…</button>`}</div>`;
+    if (admin.bkFor === u.user) h += adminBackupList(u.user);
 
     if (admin.confirm === u.user) {
       const ok = admin.typed.trim().toLowerCase() === u.user.toLowerCase();
@@ -4837,6 +4882,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='adminclear'){ admin.confirm=b.dataset.user; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminclearoff'){ admin.confirm=null; admin.typed=''; render(); return }
   if(a==='adminwipe'){ adminWipe(b.dataset.user); return }
+  if(a==='adminbk'){ if(admin.bkFor===b.dataset.user){admin.bkFor=null;admin.bk=null;render()} else adminBackups(b.dataset.user); return }
+  if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
+  if(a==='adminrsoff'){ admin.rsFor=null; admin.typed=''; render(); return }
+  if(a==='adminrsgo'){ adminRestore(b.dataset.user,b.dataset.name); return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
     if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);

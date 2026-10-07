@@ -527,6 +527,9 @@ async function call2(env, route, init, token) {
   return handleApi(new Request("https://operatorblack.com/api/" + route, Object.assign({}, init, { headers })), env);
 }
 const nBackups = (store) => [...store.m.keys()].filter((k) => !k.endsWith("_check")).length;
+// The fake's exec() closes over its own arrays, so reassigning env.DB.docs silently
+// detaches the test from the database. Mutate in place.
+const clearUser = (env, user) => { const keep = env.DB.docs.filter((d) => d.user !== user); env.DB.docs.length = 0; env.DB.docs.push(...keep) };
 const seedDocs = (env, user, obj) => { for (const [p, v] of Object.entries(obj)) env.DB.docs.push({ user, path: p, data: JSON.stringify(v), updated_at: 1 }) };
 
 /* ---------------- restore ---------------- */
@@ -970,4 +973,87 @@ test("an administrator is an ordinary user too, with the sharp edges guarded", a
   // Deleting my ordinary data is still possible the ordinary way, through restore.
   a.equal((await call2(env, "restore", { method: "POST", body: JSON.stringify({ logs: {} }) }, await mint(k.a))).status, 200,
     "being an admin does not lock me out of my own account's normal routes");
+});
+
+test("an admin can put a person's backup back, with their current data saved first", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const { backupNow, listBackups, readBackup } = await load();
+  const who = "someone.else@example.com";
+
+  // They have a week of training, and a backup of it.
+  seedDocs(env, who, { "plan/main": { bar: 45, maxes: { squat: 255 } }, "logs/2026-10-01": { date: "2026-10-01" }, "logs/2026-10-02": { date: "2026-10-02" } });
+  const good = await backupNow(env, who, { manual: true });
+  a.equal(good.verified, true);
+
+  // Then they wreck it.
+  clearUser(env, who);
+  seedDocs(env, who, { "plan/main": { bar: 45, maxes: {} } });
+  a.equal(env.DB.docs.filter((d) => d.user === who).length, 1, "a day later, almost nothing left");
+
+  const list = await (await call2(env, "admin/users/" + encodeURIComponent(who) + "/backups", {}, await mint(k.a))).json();
+  a.equal(list.backups.length, 1, "their backups are listed");
+  a.equal(list.backups[0].name, good.name);
+
+  const res = await call2(env, "admin/users/" + encodeURIComponent(who) + "/restore",
+    { method: "POST", body: JSON.stringify({ name: good.name, confirm: who }) }, await mint(k.a));
+  a.equal(res.status, 200);
+  const out = await res.json();
+  a.equal(out.restored.logs, 2, "both days are back");
+  a.match(out.safetyBackup, /before-restore/, "and what they had a moment ago was kept");
+
+  const back = env.DB.docs.filter((d) => d.user === who);
+  a.deepEqual(back.map((d) => d.path).sort(), ["logs/2026-10-01", "logs/2026-10-02", "plan/main"]);
+  a.deepEqual(JSON.parse(back.find((d) => d.path === "plan/main").data).maxes, { squat: 255 }, "with their maxes");
+
+  // The safety copy really holds the broken state, so this is undoable.
+  const safety = JSON.parse(await readBackup(env, who, out.safetyBackup));
+  a.deepEqual(safety.plan.maxes, {}, "the before-restore copy is what they had, not what they got");
+  a.ok((await listBackups(env, who)).length >= 2);
+});
+
+test("restoring for someone needs the same bar as removing them", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const { backupNow } = await load();
+  const who = "someone.else@example.com";
+  seedDocs(env, who, { "plan/main": { bar: 45 }, "logs/2026-10-01": { date: "2026-10-01" } });
+  const good = await backupNow(env, who, { manual: true });
+  const before = JSON.stringify(env.DB.docs.filter((d) => d.user === who));
+
+  const post = (body, token) => call2(env, "admin/users/" + encodeURIComponent(who) + "/restore",
+    { method: "POST", body: JSON.stringify(body) }, token);
+
+  a.equal((await post({ name: good.name }, await mint(k.a))).status, 400, "no confirmation");
+  a.equal((await post({ name: good.name, confirm: "wrong@example.com" }, await mint(k.a))).status, 400, "the wrong address");
+  a.equal((await post({ confirm: who }, await mint(k.a))).status, 404, "no backup named");
+  a.equal((await post({ name: "2099-01-01", confirm: who }, await mint(k.a))).status, 404, "a backup that is not there");
+  a.equal((await post({ name: "../../etc/passwd", confirm: who }, await mint(k.a))).status, 404, "nor a path");
+  // The verification record sits beside the backups under a name no backup can have.
+  // It must not be reachable as one: it parses as JSON and would otherwise get as far
+  // as the restore itself before being turned away.
+  a.equal((await post({ name: "_check", confirm: who }, await mint(k.a))).status, 404, "the check record is not a backup");
+
+  // And not at all unless you are an admin.
+  a.equal((await call2(dbEnv(), "admin/users/x@y.com/restore", { method: "POST", body: "{}" }, await mint(k.a))).status, 404);
+
+  a.equal(JSON.stringify(env.DB.docs.filter((d) => d.user === who)), before, "none of that touched their data");
+});
+
+test("a restore done for someone is written to the audit log", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const { backupNow } = await load();
+  const who = "someone.else@example.com";
+  seedDocs(env, who, { "plan/main": { bar: 45 }, "logs/2026-10-01": { date: "2026-10-01" } });
+  const good = await backupNow(env, who, { manual: true });
+
+  await call2(env, "admin/users/" + encodeURIComponent(who) + "/restore",
+    { method: "POST", body: JSON.stringify({ name: good.name, confirm: who }) }, await mint(k.a));
+
+  const log = (await (await call2(env, "admin/log", {}, await mint(k.a))).json()).log;
+  const entry = log.find((e) => e.action === "restore");
+  a.ok(entry, "it is recorded");
+  a.equal(entry.subject, who);
+  a.equal(entry.actor, "lifter@example.com");
+  const d = JSON.parse(entry.detail);
+  a.equal(d.from, good.name, "which backup it came from");
+  a.match(d.safety, /before-restore/, "and where their previous data went");
 });

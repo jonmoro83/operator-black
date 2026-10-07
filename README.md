@@ -115,7 +115,9 @@ on every admin route, so hiding the card is a convenience and not the control �
 non-admin gets **404**, not 403, so the routes do not advertise themselves.
 
 What it can do: list everyone with counts, sizes, last activity and whether their newest
-backup verified; export one person's data whole; and remove an account entirely — their
+backup verified; export one person's data whole; **restore one of their backups** (their
+current data is kept as a `before-restore` copy first, so it is undoable from their own
+Backups screen); and remove an account entirely — their
 documents, every backup, the backup check record, their calendar feed and their push
 alerts. A removal needs the address typed back, cannot be aimed at your own account, and
 is written to the **audit log** (`admin_log`) along with every export.
