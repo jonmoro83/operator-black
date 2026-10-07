@@ -13,6 +13,9 @@
 //   POST /api/backups             → take a backup now
 //   POST /api/backups/<name>/restore → restore one of your backups (safety backup first)
 //   POST /api/restore             → restore from an uploaded backup/export file
+//   GET  /api/calendar            → { enabled, url, updatedAt } for your .ics feed
+//   POST /api/calendar/on|off|rotate → turn the feed on, off, or change its address
+//   PUT  /api/calendar/ics        → store the feed body (the app generates it)
 //   GET  /api/version             → fingerprint of the current page + deploy info
 //   GET  /api/push/key            → VAPID public key for pushManager.subscribe
 //   GET  /api/push/status         → your devices with alerts on, pending alarm time
@@ -55,6 +58,42 @@ export async function handleApi(request, env) {
     const meta = env.CF_VERSION_METADATA || {};
     return json({ page: etag, deployedAt: meta.timestamp || null, tag: meta.tag || null }, 200, { "cache-control": "no-store" });
   }
+  if (route === "calendar" || route.startsWith("calendar/")) {
+    const op = route === "calendar" ? "" : route.slice(9);
+    const row = await env.DB.prepare("SELECT token, updated_at FROM cal_feeds WHERE user = ?1").bind(user).first();
+
+    if (op === "" && request.method === "GET") return json(feedInfo(request, row), 200, { "cache-control": "no-store" });
+
+    if ((op === "on" || op === "rotate") && request.method === "POST") {
+      if (op === "on" && row) return json(feedInfo(request, row));
+      const token = crypto.randomUUID().replace(/-/g, "");
+      // One feed per person. Rotating replaces the address and drops the old body, so a
+      // link already handed out stops resolving rather than going stale.
+      await env.DB.prepare(
+        `INSERT INTO cal_feeds (token, user, ics, updated_at) VALUES (?1, ?2, '', ?3)
+         ON CONFLICT(user) DO UPDATE SET token = excluded.token, ics = '', updated_at = excluded.updated_at`
+      ).bind(token, user, Date.now()).run();
+      return json(feedInfo(request, { token, updated_at: null }));
+    }
+
+    if (op === "off" && request.method === "POST") {
+      await env.DB.prepare("DELETE FROM cal_feeds WHERE user = ?1").bind(user).run();
+      return json({ enabled: false });
+    }
+
+    if (op === "ics" && request.method === "PUT") {
+      if (!row) return json({ error: "The calendar feed is off." }, 409);
+      const text = await request.text();
+      if (text.length > MAX_BYTES) return json({ error: "Calendar too large." }, 413);
+      if (!text.startsWith("BEGIN:VCALENDAR")) return json({ error: "That is not a calendar." }, 400);
+      await env.DB.prepare("UPDATE cal_feeds SET ics = ?1, updated_at = ?2 WHERE user = ?3")
+        .bind(text, Date.now(), user).run();
+      return json({ ok: true });
+    }
+
+    return json({ error: "Not found." }, 404);
+  }
+
   if (route === "push/key" && request.method === "GET") {
     return json({ key: vapidPublicKey(env) });
   }
@@ -240,6 +279,29 @@ async function readAll(env, user) {
     else if (row.path.startsWith("programs/")) out.programs[row.path.slice(9)] = JSON.parse(row.data);
   }
   return out;
+}
+
+function feedInfo(request, row) {
+  if (!row) return { enabled: false };
+  const origin = new URL(request.url).origin;
+  return { enabled: true, url: `${origin}/cal/${row.token}.ics`, updatedAt: row.updated_at || null };
+}
+
+// Served without an Access JWT: a calendar app cannot sign in, so the unguessable token in
+// the path is the whole of the authentication. Nothing else lives under /cal/.
+export async function calendarFeed(token, env) {
+  if (!/^[0-9a-f]{32}$/.test(token)) return new Response("Not found", { status: 404 });
+  const row = await env.DB.prepare("SELECT ics FROM cal_feeds WHERE token = ?1").bind(token).first();
+  if (!row || !row.ics) return new Response("Not found", { status: 404 });
+  return new Response(row.ics, {
+    headers: {
+      "content-type": "text/calendar; charset=utf-8",
+      "content-disposition": 'inline; filename="operator-black.ics"',
+      // Calendar clients poll on their own schedule; this just keeps them off the database.
+      "cache-control": "public, max-age=1800",
+      "x-robots-tag": "noindex",
+    },
+  });
 }
 
 function json(data, status = 200, headers = {}) {

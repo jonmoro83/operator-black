@@ -76,6 +76,13 @@ document.getElementById('main').addEventListener('click',e=>{
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
   if(a==='reload'){ location.reload(); return }
+  if(a==='calon'||a==='caloff'||a==='calrotate'){ calSet(a==='calon'?'on':a==='caloff'?'off':'rotate'); return }
+  if(a==='calcopy'){
+    const el=document.getElementById('cal-url'); if(!el) return;
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy address'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done,()=>{el.select()});
+    else { el.select(); try{document.execCommand('copy');done()}catch(e){} }
+    return}
   if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
   if(a==='rvapply'||a==='rvdismiss'){
     const c=+b.dataset.c;
@@ -273,5 +280,6 @@ if(ls) lsShow();
 if(guide&&guide.date!==realToday()){guide=null;LS.set('ob.guide',null)}
 if(guide) gdShow();
 connect();
+calLoad();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 setTimeout(()=>checkUpdate(false),2000);

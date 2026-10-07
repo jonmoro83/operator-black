@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.43',date:'2026-10-07',title:'The plan in your calendar',items:[
+    'Setup \u2192 Calendar feed gives you a private web address for your plan. Subscribe to it and every session turns up in your phone\u2019s calendar as an all-day entry, with the lifts, the sets and reps, and the weight to put on the bar.',
+    'On iPhone there\u2019s an Add to iPhone button that opens Calendar straight away. On Android, add the address in Google Calendar on a computer and it syncs down to the phone \u2014 Google refreshes on its own schedule, which can take a day.',
+    'It is read-only and it keeps itself up to date. Move a week, change a max, swap a lift, and the calendar follows next time you open the app. Eighteen weeks ahead and a fortnight behind.',
+    'The address is private but it isn\u2019t a login, so treat it like a password. New address issues a fresh one and kills the old link. The feed carries your schedule only \u2014 no logs, maxes or measurements.']},
   {v:'1.42',date:'2026-10-07',title:'A version stamp on your data',items:[
     'Housekeeping you shouldn\u2019t ever notice. Your saved data now carries a version number, and the app knows how to bring older data up to date when it loads it.',
     'The useful half: if a phone or tablet is running an out-of-date copy of the app and your data has moved on since, it now stops and tells you instead of saving over something it doesn\u2019t understand. Reload and it\u2019s fine. Before this, an old device could quietly undo a setting and nothing would flag it.',

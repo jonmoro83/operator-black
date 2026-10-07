@@ -1035,6 +1035,9 @@ function queueWrite(path,get){
   outbox[path]=clone(get()); saveOutbox(); saveCache();
   setStatus(navigator.onLine===false?errText(null):'Saving…',navigator.onLine===false);
   w.timer=setTimeout(()=>{w.timer=null;flush(path)},500);
+  // The calendar is generated from the plan, so a plan write is the only thing that can
+  // change it. calPush debounces and compares before uploading, so this is usually free.
+  if(path==='plan/main'&&typeof calPush==='function') calPush();
 }
 async function flush(path){
   const w=writers[path]||(writers[path]={get:()=>outbox[path]});
@@ -3852,6 +3855,7 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
+  h+=calFeedCard();
   h+=`<div class="card"><h2>Backups</h2><p class="small muted" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday and kept for 26 weeks.</p>
   ${backups.err?`<div class="small muted">${esc(backups.err)}</div>`:!bk?'<div class="small muted">Loading backups…</div>':bk.length?`<div class="tbl-wrap"><table><thead><tr><th>Backup</th><th class="n">Sessions</th><th class="n">Size</th><th></th></tr></thead><tbody>${bk.slice(0,6).map(x=>`<tr><td>${esc(x.name.replace(/-(manual|before-restore(-\d{6})?)$/,''))}${x.name.endsWith('-manual')?' <span class="chip">manual</span>':''}${x.name.includes('-before-restore')?' <span class="chip">before restore</span>':''}</td><td class="n">${x.logs??'—'}</td><td class="n">${x.bytes?Math.max(1,Math.round(x.bytes/1024))+' KB':'—'}</td><td class="n" style="white-space:nowrap"><a class="btn sm ghost" href="/api/backups/${encodeURIComponent(x.name)}">Download</a><button class="btn sm ghost" data-act="restore" data-name="${esc(x.name)}" ${restoreState.busy?'disabled':''}>${restoreState.arm===x.name?'Tap again':'Restore'}</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="small muted">No backups yet. The first automatic one runs Sunday.</div>'}
   <div class="row"><button class="btn" data-act="backupnow" ${backups.busy?'disabled':''}>${backups.busy?'Backing up…':'Back up now'}</button><a class="btn ghost" href="/api/export">Download current data</a><label class="btn ghost" for="restore-file">Restore from a file…</label><input type="file" id="restore-file" accept="application/json,.json" hidden></div>
@@ -3938,6 +3942,155 @@ function vGuide(){
   ].map(([g,ids])=>`<div><h4 class="sub-h">${esc(g)}</h4><div class="stack" style="gap:6px;margin-top:6px">${ids.map(id=>`<details class="px" data-px="ml-${id}"${openPx.has('ml-'+id)?' open':''}><summary><span>${esc(MLIB[id].name)}</span></summary>${libBody(MLIB[id])}</details>`).join('')}</div></div>`).join('')}</div></div>`;
 }
 
+/* ---------------- calendar feed ----------------
+A subscribable .ics of the plan, for iPhone Calendar, Google Calendar or anything else
+that reads a URL.
+
+The schedule only exists in this file's neighbours -- weeks(), dayPlan(), rx() -- so the
+app generates the calendar and the Worker stores and serves the text verbatim. That keeps
+one implementation of the programme instead of a second one on the server that could
+drift. The cost is that the feed is as fresh as the last time the app was opened, which
+for a plan that changes a few times a cycle is no cost at all.
+
+Subscribers cannot sign in, so the feed is addressed by an unguessable token and sits on
+the one path that Cloudflare Access has to let through. */
+
+const CAL_BACK = 2, CAL_AHEAD = 18;   // weeks either side of today
+
+function icsEsc(s){return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n')}
+// RFC 5545 wants lines folded at 75 octets, continued with a leading space.
+function icsFold(line){
+  const b=[...line].reduce((a,ch)=>{const w=new TextEncoder().encode(ch).length;const last=a[a.length-1];
+    if(last.n+w>74){a.push({s:ch,n:w+1})}else{last.s+=ch;last.n+=w}return a},[{s:'',n:0}]);
+  return b.map((x,i)=>i?' '+x.s:x.s).join('\r\n');
+}
+function icsDate(d){return d.replace(/-/g,'')}
+
+// One line per lift: what it is, the prescription, and the weight to put on the bar.
+function calLiftLines(wk,dp,date){
+  const out=[];
+  for(const k of dp.lifts||[]){
+    const r=rx(wk,k,date);
+    const sets=r.sMax>r.s?r.s+'\u2013'+r.sMax:r.s;
+    const w=r.w!=null?(isBW(k)?fmtLoad(k,r.w):n(r.w)+' '+u()):null;
+    out.push(`${liftName(k,date)} \u2014 ${sets} \u00d7 ${r.r} @ ${r.p}%${w?' \u2014 '+w:''}`);
+  }
+  return out;
+}
+
+// Short labels for the title. liftName gives the variant in full ("High-bar back squat"),
+// which is what the description wants and what a phone calendar truncates.
+const CAL_SHORT={squat:'Squat',bench:'Bench',dead:'Deadlift',ohp:'Press',pull:'Pulldown',wpu:'Weighted pull-up'};
+// What a day is, in a few words, for the event title.
+function calTitle(wk,dp,date){
+  if(dp.t==='lift'||dp.t==='test'||dp.t==='rm5')
+    return `${dp.short} \u00b7 ${(dp.lifts||[]).map(k=>CAL_SHORT[k]||liftName(k,date)).join(', ')}`;
+  const fmt=dp.fmt&&HIC[dp.fmt]?HIC[dp.fmt].name:null;
+  return fmt?`${dp.short} \u00b7 ${fmt}`:dp.short||'Training';
+}
+
+function calEvent(date){
+  const wk=weekOf(date); if(!wk) return null;
+  const dp=dayPlan(date);
+  if(!dp||dp.t==='off'||dp.t==='pre') return null;
+  const body=[];
+  const wt=weekTitle(wk); if(wt&&wt.t) body.push(wt.t);
+  if(dp.t==='lift'||dp.t==='test'||dp.t==='rm5') body.push(...calLiftLines(wk,dp,date));
+  if(dp.fmt&&HIC[dp.fmt]) body.push(`${HIC[dp.fmt].name} \u2014 ${HIC[dp.fmt].sess}`);
+  if(dp.t==='se'){ const ex=seDayList(date); if(ex&&ex.length) body.push('Circuit: '+ex.join(', ')) }
+  if(dp.acc) body.push('Accessories: '+accList(dp.acc).join(', '));
+  if(dp.note) body.push(dp.note);
+  body.push('operatorblack.com');
+  return {date,summary:calTitle(wk,dp,date),desc:body.filter(Boolean).join('\n')};
+}
+
+function icsFeed(){
+  const mon=mondayOf(todayStr());
+  const from=addDays(mon,-7*CAL_BACK), to=addDays(mon,7*CAL_AHEAD);
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Operator + Black//Training plan//EN',
+    'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:'+icsEsc(progName()),
+    'X-WR-CALDESC:'+icsEsc('Your Operator + Black plan. Updates when you open the app.'),
+    'REFRESH-INTERVAL;VALUE=DURATION:PT6H','X-PUBLISHED-TTL:PT6H'];
+  for(let d=from;d<=to;d=addDays(d,1)){
+    const e=calEvent(d); if(!e) continue;
+    L.push('BEGIN:VEVENT',
+      // Stable per day, so a refresh updates the event instead of adding a second one.
+      'UID:ob-'+e.date+'@operatorblack.com',
+      'DTSTAMP:'+stamp,
+      'DTSTART;VALUE=DATE:'+icsDate(e.date),
+      'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
+      'TRANSP:TRANSPARENT',
+      'SUMMARY:'+icsEsc(e.summary),
+      'DESCRIPTION:'+icsEsc(e.desc),
+      'END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  return L.map(icsFold).join('\r\n')+'\r\n';
+}
+
+/* ---------------- talking to the server ---------------- */
+
+let calFeed=null, calBusy=false, calTimer=null;
+
+async function calLoad(){
+  try{
+    const r=await fetch('/api/calendar',{headers:{accept:'application/json'}});
+    if(r.ok){ calFeed=await r.json(); calPush() }
+    // The feed needs its own table. If the migration has not been run against the live
+    // database this is where it shows up, so say that rather than spinning forever.
+    else calFeed={enabled:false,broken:r.status>=500?'db':'http '+r.status};
+  }catch(e){ calFeed={enabled:false,broken:'offline'} }
+  if(view==='setup') render();
+}
+async function calSet(op){
+  if(calBusy) return; calBusy=true; render();
+  try{ const r=await fetch('/api/calendar/'+op,{method:'POST'});
+    if(r.ok){ calFeed=await r.json(); LS.set('ob.ics',null) } }
+  catch(e){ setStatus('Could not reach the server',true) }
+  calBusy=false; render(); calPush();
+}
+// Upload the feed only when it has actually changed. The plan moves a few times a cycle
+// and the window shifts once a day, so this is normally a no-op.
+function calPush(){
+  if(!calFeed||!calFeed.enabled||viewing||schemaAhead) return;
+  clearTimeout(calTimer);
+  calTimer=setTimeout(async()=>{
+    let text; try{ text=icsFeed() }catch(e){ return }
+    // DTSTAMP is the time of generation and differs on every call, so compare without it
+    // or this would upload an identical calendar every time the app opened.
+    const key=icsKey(text);
+    if(LS.get('ob.ics')===key) return;
+    try{ const r=await fetch('/api/calendar/ics',{method:'PUT',headers:{'content-type':'text/calendar'},body:text});
+      if(r.ok) LS.set('ob.ics',key) }catch(e){}
+  },4000);
+}
+
+function icsKey(t){return t.replace(/^DTSTAMP:.*$/gm,'')}
+function calCount(){ try{ return (icsFeed().match(/BEGIN:VEVENT/g)||[]).length }catch(e){ return 0 } }
+
+function calFeedCard(){
+  const f=calFeed;
+  let h=`<div class="card"><h2>Calendar feed</h2>
+  <p class="small muted" style="margin:0">Put the plan in your phone's calendar: every session as an all-day entry, with the lifts and the weights on it. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
+  if(!f) return h+`<div class="muted small">Checking\u2026</div></div>`;
+  if(f.broken) return h+`<div class="banner warn"><div>${f.broken==='offline'?'Could not reach the server. The feed will show up when you are back online.':'The server could not answer. If this site was just updated, the calendar table may not exist yet \u2014 run <code>npm run db:migrate:remote</code>.'}</div></div></div>`;
+  if(!f.enabled){
+    h+=`<div class="row"><button class="btn primary" data-act="calon"${calBusy?' disabled':''}>${calBusy?'Working\u2026':'Turn on the feed'}</button></div>
+    <div class="small muted">This creates a private web address for your plan. Anyone with the address can read your schedule \u2014 not your logs, maxes or anything else \u2014 so treat it like a password and use <b>New address</b> below if you ever share it by accident.</div></div>`;
+    return h;
+  }
+  const web=f.url.replace(/^https?:/,'webcal:');
+  h+=`<label class="f">Your feed address<input type="text" id="cal-url" value="${esc(f.url)}" readonly onclick="this.select()"></label>
+  <div class="row"><a class="btn primary" href="${esc(web)}">Add to iPhone</a><button class="btn" data-act="calcopy">Copy address</button></div>
+  <div class="small muted"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
+  <b>Android:</b> on a computer open Google Calendar \u2192 Other calendars \u2192 + \u2192 From URL, and paste it there. It then syncs to the phone. Google refreshes subscribed calendars on its own schedule, which can take a day.</div>
+  <div class="small muted">${calCount()} sessions, ${CAL_BACK} weeks back and ${CAL_AHEAD} ahead. It is rewritten whenever you open the app and something has changed.</div>
+  <div class="row"><button class="btn sm ghost" data-act="calrotate"${calBusy?' disabled':''}>New address</button><button class="btn sm ghost" data-act="caloff"${calBusy?' disabled':''}>Turn off</button></div>
+  <div class="small muted">New address stops the old one working, for a link you shared and want back.</div></div>`;
+  return h;
+}
+
 /* ---------------- events ---------------- */
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
@@ -4016,6 +4169,13 @@ document.getElementById('main').addEventListener('click',e=>{
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
   if(a==='reload'){ location.reload(); return }
+  if(a==='calon'||a==='caloff'||a==='calrotate'){ calSet(a==='calon'?'on':a==='caloff'?'off':'rotate'); return }
+  if(a==='calcopy'){
+    const el=document.getElementById('cal-url'); if(!el) return;
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy address'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done,()=>{el.select()});
+    else { el.select(); try{document.execCommand('copy');done()}catch(e){} }
+    return}
   if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
   if(a==='rvapply'||a==='rvdismiss'){
     const c=+b.dataset.c;
@@ -4213,6 +4373,7 @@ if(ls) lsShow();
 if(guide&&guide.date!==realToday()){guide=null;LS.set('ob.guide',null)}
 if(guide) gdShow();
 connect();
+calLoad();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 setTimeout(()=>checkUpdate(false),2000);
 })();

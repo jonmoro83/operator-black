@@ -84,7 +84,7 @@ Access login.
 
 1. `npx wrangler login`
 2. `npx wrangler d1 create operator-black`, then paste the `database_id` into `wrangler.toml`
-3. `npm run db:migrate:remote`
+3. `npm run db:migrate:remote`  (re-run this after any new file in `migrations/`)
 4. Dashboard → Workers & Pages → Create → Import a repository → this repo
    (deploy command `npx wrangler deploy`)
 5. Zero Trust → Access → Applications → Add → Self-hosted, hostname `operatorblack.com`,
@@ -95,6 +95,28 @@ Access login.
 The API rejects every request until those two values are set. Every request must
 also carry a valid Access token, so the app can't be read or written around the
 login screen.
+
+## Calendar feed
+
+The plan as a subscribable `.ics`: Setup → Calendar feed → Turn on the feed.
+
+The app generates the calendar, because the schedule only exists in `src/app/` and a
+second implementation on the server would drift from it. The Worker stores the text and
+serves it at `/cal/<token>.ics`. The feed is therefore as fresh as the last time the app
+was opened, which for a plan that changes a few times a cycle is fine.
+
+**This path has to bypass Access**, and that is a dashboard setting, not something in
+this repo. A calendar app cannot complete a login, so without the bypass iPhone and
+Google both get the Access sign-in page and report the calendar as broken:
+
+> Zero Trust → Access → Applications → Operator Black → Policies → Add a policy
+> → Action **Bypass**, Include **Everyone**, and set the policy's path to `/cal/*`.
+> Order it above the Allow policy.
+
+The token is the whole of the authentication for that path, so it is 128 bits of
+`crypto.randomUUID()` and the feed exposes the schedule only — no logs, maxes, body
+measurements or account details. **New address** in Setup issues a fresh token and drops
+the stored body, which makes any link already handed out stop working.
 
 ## Offline and home screen
 

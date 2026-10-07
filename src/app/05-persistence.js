@@ -39,6 +39,9 @@ function queueWrite(path,get){
   outbox[path]=clone(get()); saveOutbox(); saveCache();
   setStatus(navigator.onLine===false?errText(null):'Saving…',navigator.onLine===false);
   w.timer=setTimeout(()=>{w.timer=null;flush(path)},500);
+  // The calendar is generated from the plan, so a plan write is the only thing that can
+  // change it. calPush debounces and compares before uploading, so this is usually free.
+  if(path==='plan/main'&&typeof calPush==='function') calPush();
 }
 async function flush(path){
   const w=writers[path]||(writers[path]={get:()=>outbox[path]});

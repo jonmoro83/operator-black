@@ -1773,3 +1773,71 @@ test("every migration is numbered in order and matches SCHEMA", () => {
   for (const m of x.MIGRATIONS) a.ok(m.note && typeof m.run === "function", `migration ${m.to} is complete`);
   a.equal(x.DEF.schema, 0, "a brand new plan starts unversioned and migrates like any other");
 });
+
+test("the calendar feed is valid iCalendar that a phone will accept", () => {
+  const x = app({ now: "2026-09-14" });   // week 1 inside the feed window
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const t = x.icsFeed();
+  const lines = t.split("\r\n");
+
+  a.ok(t.startsWith("BEGIN:VCALENDAR\r\n"), "opens as a calendar");
+  a.ok(t.endsWith("END:VCALENDAR\r\n"), "and closes as one");
+  a.match(t, /\r\nVERSION:2\.0\r\n/, "RFC 5545 version");
+  a.match(t, /\r\nPRODID:/, "and identifies itself");
+  a.ok(!/[^\r]\n/.test(t), "every break is CRLF, which strict parsers require");
+  a.ok(lines.every((l) => Buffer.byteLength(l, "utf8") <= 75), "no line over 75 octets");
+
+  const open = (t.match(/BEGIN:VEVENT/g) || []).length, close = (t.match(/END:VEVENT/g) || []).length;
+  a.equal(open, close, "every event is closed");
+  a.ok(open > 50, `a useful horizon, got ${open} events`);
+  const uids = t.match(/^UID:.*$/gm);
+  a.equal(new Set(uids).size, uids.length, "UIDs are unique, so a refresh updates rather than duplicates");
+  a.ok(uids.every((u) => /^UID:ob-\d{4}-\d{2}-\d{2}@/.test(u)), "and stable per day, not random");
+
+  // All-day events, with the end on the following day as the spec requires.
+  a.match(t, /DTSTART;VALUE=DATE:20260907\r\nDTEND;VALUE=DATE:20260908\r\n/);
+  // Commas and semicolons in a title have to be escaped or the line splits.
+  a.match(t, /SUMMARY:Op 1 · Squat\\, Bench\\, Pulldown/);
+});
+
+test("the feed carries the weights, and leaves rest days out", () => {
+  const x = app({ now: "2026-09-14" });   // week 1 inside the feed window
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  Object.assign(x.plan.maxes, { squat: 315, bench: 225, pull: 180, ohp: 135, dead: 405 });
+  x.bump();
+
+  const t = x.icsFeed();
+  const got = new Set([...t.matchAll(/^DTSTART;VALUE=DATE:(\d{8})$/gm)].map((m) => m[1]));
+
+  // Week 1 day 1 is a lifting day at 70%: the event says so, with the bar weight on it.
+  const mon = "2026-09-07", r = x.rx(x.weeks().find((w) => w.monday === mon), "squat", mon);
+  a.equal(r.p, 70);
+  a.ok(got.has("20260907"), "the lifting day is in the feed");
+  a.ok(t.includes("3 × 5 @ 70%"), "with the prescription");
+  a.ok(t.includes(x.n(r.w) + " lb"), `and the working weight (${r.w})`);
+
+  // Sunday is off, and nothing is emitted for it.
+  const sun = x.addDays(mon, 6);
+  a.equal(x.dayPlan(sun).t, "off", "Sunday is a rest day");
+  a.ok(!got.has(sun.replace(/-/g, "")), "so it gets no calendar entry");
+
+  // Every date in the feed is a day the programme actually asks for something.
+  for (const d of got) {
+    const iso = d.slice(0, 4) + "-" + d.slice(4, 6) + "-" + d.slice(6);
+    a.ok(!["off", "pre"].includes(x.dayPlan(iso).t), `${iso} is a training day`);
+  }
+});
+
+test("the feed is only re-uploaded when it actually changes", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+
+  const before = x.icsKey(x.icsFeed());
+  a.equal(before, x.icsKey(x.icsFeed()), "generating twice gives the same calendar");
+  a.notEqual(x.icsFeed().indexOf("DTSTAMP:"), -1, "even though DTSTAMP is in there");
+  a.ok(!before.includes("DTSTAMP:2"), "the comparison key drops it");
+
+  // A change to the plan does change it.
+  x.plan.maxes.squat = 400; x.bump();
+  a.notEqual(x.icsKey(x.icsFeed()), before, "a new max rewrites the weights");
+});
