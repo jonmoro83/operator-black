@@ -26,7 +26,7 @@ const ASLOT={
   pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
   sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
   pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
-  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply.'},
+  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Last, because a fried grip makes everything after it worse.'},
 };
 
 // gear: what you need, so the picker reads usefully when the rack is busy.
@@ -115,7 +115,7 @@ const ALIB={
 // Shoulders sit on OP1, away from whichever day the overhead press lands on, and the
 // row moves to OP2 to balance it. Rear delts stay with the shoulders: that slot is
 // shoulder health, not back volume.
-const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','carry','biceps','triceps'] };
+const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','biceps','triceps','carry'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

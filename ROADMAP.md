@@ -121,6 +121,10 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Carries moved to the end of OP3 (2026-10-07)**
+- Grip work last, so a fried grip is not making the curls and the rows that follow worse.
+  OP3: Single-leg · Posterior chain · Biceps · Triceps · Carry / grip.
+
 **Shoulders split into a press and a raise (2026-10-07)**
 - One slot doing "shoulders" was really two jobs. **Shoulder press** on OP1 (eight
   options, dumbbell press by default) and **Lateral raise** on OP2.

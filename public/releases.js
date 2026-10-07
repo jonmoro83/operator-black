@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.57',date:'2026-10-07',title:'Carries last',items:[
+    'On OP3 the carry now comes at the end of the accessories rather than in the middle, so a fried grip is not making the curls and rows that follow it worse.']},
   {v:'1.56',date:'2026-10-07',title:'A shoulder press and a raise',items:[
     'Shoulders were one job doing two things. There is now a Shoulder press on OP1 \u2014 dumbbell press, Arnold press, landmine, push press, machine, kettlebell or pike push-ups \u2014 and a Lateral raise on OP2.',
     'That keeps the overhead pushing away from whichever day your main overhead press lands on, with the raises on the other day where they cost you nothing.',

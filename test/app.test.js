@@ -2126,7 +2126,7 @@ test("accessories are slots filled by a choice, not a list of text", () => {
   const mon = "2026-09-07";
 
   a.deepEqual(x.accSlots("mon"), ["spress", "rdelt", "core", "biceps", "triceps"], "a day covers jobs");
-  a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "carry", "biceps", "triceps"]);
+  a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "biceps", "triceps", "carry"], "carries last");
   for (const d of ["mon", "wed", "fri"]) {
     a.ok(x.accSlots(d).includes("biceps") && x.accSlots(d).includes("triceps"), `arms on ${d}`);
   }
