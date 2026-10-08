@@ -2476,13 +2476,17 @@ function unlockAudio(){
   }catch(e){}
 }
 function beep(){
+  // Buzz first and unconditionally. Silent mode exists so iOS does not take the audio
+  // session off your music; vibration never touches audio, so suppressing it as well
+  // left Silent with no way at all to tell you a rest had ended. (Moot on iPhone, which
+  // has no Vibration API, but right on Android and right in principle.)
+  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
   try{
     if(quiet()) return; if(!audioCtx) unlockAudio(); if(!audioCtx) return;
     if(audioCtx.state==='suspended') audioCtx.resume();
     const t0=audioCtx.currentTime;
     [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
   }catch(e){}
-  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
 }
 // iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
 // object, so re-check `released` rather than trusting we still hold it.
@@ -3402,8 +3406,17 @@ function showRest(){
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
   el.hidden=false;document.body.classList.add('timing');
   document.getElementById('rest-lbl').textContent=rest.lbl+(rest.sides>1?' · side '+rest.side+' of '+rest.sides:'');
+  // A timer that cannot make a sound should say so, or it reads as broken.
+  const q=document.getElementById('rest-quiet'); if(q) q.hidden=!quiet();
   if(!restTick) restTick=setInterval(tickRest,250);
   tickRest();
+}
+// Turning the sound back on from the timer itself, where you noticed it was off.
+// A named function because the click handler cannot be reached from a test.
+function unquiet(){
+  setPlan('quietTimer',false);
+  unlockAudio();
+  showRest(); render();
 }
 function tickRest(){
   if(!rest) return;
@@ -3425,6 +3438,7 @@ function tickRest(){
 document.getElementById('rest').addEventListener('click',e=>{
   const b=e.target.closest('[data-rest]'); if(!b||!rest) return; const v=b.dataset.rest;
   if(v==='stop') return stopRest();
+  if(v==='unquiet'){ unquiet(); return }
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
@@ -4219,7 +4233,8 @@ function vSetup(){
     h+=`<div class="card"><div class="lift-h"><h2>Sound</h2>${q?'<span class="chip">Silent</span>':'<span class="chip light">Beeps on</span>'}</div>
     <p class="small muted" style="margin:0">On iPhone, a web app that makes any sound takes over the audio session and pauses whatever you were listening to. If the timer keeps stopping your music, this is why.</p>
     <label class="check"><input type="checkbox" id="p-quiet" data-pbind="quietTimer" ${q?'checked':''}> Silent timers \u2014 keep my music playing</label>
-    <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. The countdown, the vibration and the screen still work, and rest alerts still arrive as notifications, which do not touch your music.</div></div>`;
+    <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. Vibration still fires, and rest alerts still arrive as notifications \u2014 neither touches your music. <b>On iPhone that leaves the screen and the notification only</b>, because Safari gives a web app no way to vibrate. If you want an audible rest beep on an iPhone, the price is your music pausing.</div>
+    ${q?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}</div>`;
   }
   {
     const v=!!plan.voice&&!plan.quietTimer;

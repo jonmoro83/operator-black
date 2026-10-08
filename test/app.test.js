@@ -2400,3 +2400,52 @@ test("typing in the admin confirmation keeps the caret, and only one box is ever
   // Both ids are distinct wherever they appear, so focus restoration is unambiguous.
   a.equal((rs.match(/id="admin-confirm-restore"/g) || []).length, 1);
 });
+
+test("Silent stops the beep, not every way of telling you the rest is over", () => {
+  const x = app({ now: "2026-10-07" });
+  const buzzes = () => global.navigator.__buzzes;
+  buzzes().length = 0;
+
+  // Sound on: it buzzes (and would beep, with an AudioContext to beep through).
+  x.plan.quietTimer = false; x.bump();
+  x.beep();
+  a.equal(buzzes().length, 1, "a buzz with sound on");
+
+  // Silent on: still buzzes. Silent exists so iOS does not take the audio session off
+  // your music; vibration never touches audio, so there is no reason to suppress it.
+  x.plan.quietTimer = true; x.bump();
+  x.beep();
+  a.equal(buzzes().length, 2, "and a buzz with sound off");
+  a.deepEqual(buzzes()[1], [200, 100, 200], "the same pattern either way");
+
+  a.equal(x.quiet(), true, "while the sound itself is genuinely off");
+});
+
+test("a silenced rest timer says so, and offers one tap to turn sound back on", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.quietTimer = true; x.bump();
+  x.startRest("squat", "Squat · set 2", 180, "Rest");
+  x.showRest();
+  a.equal(x.dom.made["rest-quiet"].hidden, false, "the tag is up while Silent is on");
+
+  x.plan.quietTimer = false; x.bump();
+  x.showRest();
+  a.equal(x.dom.made["rest-quiet"].hidden, true, "and gone when it is not");
+
+  // Tapping the tag turns sound back on, and the tag goes with it.
+  x.plan.quietTimer = true; x.bump();
+  x.startRest("squat", "Squat \u00b7 set 2", 180, "Rest");
+  x.showRest();
+  a.equal(x.dom.made["rest-quiet"].hidden, false);
+  x.unquiet();
+  a.equal(x.plan.quietTimer, false, "sound is back on");
+  a.equal(x.quiet(), false);
+  a.equal(x.dom.made["rest-quiet"].hidden, true, "and the tag has gone");
+
+  // Setup is honest about what Silent costs on an iPhone.
+  x.plan.quietTimer = true; x.bump();
+  const setup = x.vSetup();
+  a.match(setup, /no way to vibrate/i, "it says Safari cannot vibrate");
+  a.ok(!/the countdown, the vibration and the screen still work/i.test(setup),
+    "and no longer promises vibration as though it were universal");
+});

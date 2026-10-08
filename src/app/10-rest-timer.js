@@ -27,13 +27,17 @@ function unlockAudio(){
   }catch(e){}
 }
 function beep(){
+  // Buzz first and unconditionally. Silent mode exists so iOS does not take the audio
+  // session off your music; vibration never touches audio, so suppressing it as well
+  // left Silent with no way at all to tell you a rest had ended. (Moot on iPhone, which
+  // has no Vibration API, but right on Android and right in principle.)
+  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
   try{
     if(quiet()) return; if(!audioCtx) unlockAudio(); if(!audioCtx) return;
     if(audioCtx.state==='suspended') audioCtx.resume();
     const t0=audioCtx.currentTime;
     [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
   }catch(e){}
-  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
 }
 // iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
 // object, so re-check `released` rather than trusting we still hold it.

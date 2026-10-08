@@ -114,6 +114,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The rest beep: silenced, not broken (2026-10-07)**
+- Reported from the gym as "completely broken for all rest timers". It was not broken:
+  `plan.quietTimer` was on, so `quiet()` short-circuited `beep()`. Three real problems
+  behind that, though.
+- **Silent suppressed vibration too.** The `return` sat above the `navigator.vibrate`
+  call. Silent exists so iOS does not take the audio session off your music; vibration
+  never touches audio. The buzz now fires first and unconditionally. (No help on iPhone,
+  which has no Vibration API — right on Android and right in principle.)
+- **Nothing said sound was off.** The rest timer now shows a **Silent** tag while
+  `quietTimer` is on, tappable to turn sound back on. A timer that cannot make a noise
+  should say so rather than read as faulty.
+- **The Setup copy was false.** It promised "the countdown, the vibration and the screen
+  still work" — vibration did not, and on iPhone never can. Rewritten to say plainly
+  that Silent on an iPhone leaves the screen and the notification only.
+- **Harness bug found doing it:** Node defines `navigator` as a read-only getter, so
+  `global.navigator = {...}` had been silently doing nothing and every test was reading
+  Node's own navigator. Nothing the app reads off navigator could be stubbed. Now defined
+  with `Object.defineProperty`.
+- `unquiet()` is a named function because the `#rest` click handler cannot be reached
+  from a test — the same reason `addSet` is one. 167 → 169 tests.
+
 **Restore has now run against real data (2026-10-07)**
 - Closed the oldest open issue. A real backup was restored into a real account through
   the admin panel at 20:25 UTC: read, safety copy taken first, written in one batch,

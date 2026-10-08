@@ -406,6 +406,10 @@ details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
 .acc-slot select{width:100%}
 /* A backup that did not verify should not read like ordinary small print. */
 .warn-t{color:var(--yellow);font-weight:600}
+/* On the rest timer when Silent is on: the feedback channel is off, so say where it went. */
+.quiet-tag{all:unset;cursor:pointer;align-self:flex-start;font-size:11px;font-weight:650;letter-spacing:.02em;
+  color:var(--yellow);background:var(--yellow-bg);border-radius:999px;padding:2px 8px;margin-top:2px}
+.quiet-tag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .setb.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .setb.on small{color:var(--accent-ink)}
 .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}

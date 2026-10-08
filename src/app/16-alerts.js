@@ -73,8 +73,17 @@ function showRest(){
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
   el.hidden=false;document.body.classList.add('timing');
   document.getElementById('rest-lbl').textContent=rest.lbl+(rest.sides>1?' · side '+rest.side+' of '+rest.sides:'');
+  // A timer that cannot make a sound should say so, or it reads as broken.
+  const q=document.getElementById('rest-quiet'); if(q) q.hidden=!quiet();
   if(!restTick) restTick=setInterval(tickRest,250);
   tickRest();
+}
+// Turning the sound back on from the timer itself, where you noticed it was off.
+// A named function because the click handler cannot be reached from a test.
+function unquiet(){
+  setPlan('quietTimer',false);
+  unlockAudio();
+  showRest(); render();
 }
 function tickRest(){
   if(!rest) return;
@@ -96,6 +105,7 @@ function tickRest(){
 document.getElementById('rest').addEventListener('click',e=>{
   const b=e.target.closest('[data-rest]'); if(!b||!rest) return; const v=b.dataset.rest;
   if(v==='stop') return stopRest();
+  if(v==='unquiet'){ unquiet(); return }
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));

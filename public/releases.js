@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.64',date:'2026-10-07',title:'A silent timer says it is silent',items:[
+    'If you have Silent timers on, the rest timer now shows a <b>Silent</b> tag you can tap to turn sound back on. It was off the whole time and nothing said so, which reads exactly like a broken beep.',
+    'Silent was also suppressing the vibration, which it had no business doing \u2014 vibrating does not interrupt your music. It buzzes now whatever the sound setting says. (iPhones cannot vibrate from a web app at all, so there it really is screen and notifications only, and Setup now says that instead of claiming otherwise.)']},
   {v:'1.63',date:'2026-10-07',title:'Confirmation boxes you can actually type in',items:[
     'Typing an address to confirm an admin restore or removal kicked you out of the box after every character. Fixed \u2014 the caret stays where it was.',
     'Same cause, quieter symptom: in Setup \u2192 Accessories, the \u201cAdd it\u201d button for your own exercise never came alive while you typed a name. It does now.']},

@@ -28,7 +28,16 @@ function stubDom() {
     AudioContext: undefined, Notification: undefined,
   };
   global.matchMedia = window.matchMedia;
-  global.navigator = { onLine: true, userAgent: "node", serviceWorker: undefined };
+  // Node defines `navigator` as a read-only getter, so `global.navigator = {...}` was
+  // silently doing nothing and every test has been reading Node's own navigator. The
+  // descriptor is configurable, so define over it instead. Without this, nothing that
+  // the app reads off navigator can be stubbed at all.
+  const buzzes = [];
+  Object.defineProperty(globalThis, "navigator", {
+    value: { onLine: true, userAgent: "node", serviceWorker: undefined,
+      vibrate: (p) => (buzzes.push(p), true), __buzzes: buzzes },
+    configurable: true, writable: true,
+  });
   global.document = {
     getElementById: (id) => made[id] || (made[id] = el(id)),
     // Enough of a selector engine for the few places the app reaches into the header.
