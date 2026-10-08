@@ -72,7 +72,14 @@ function rateAim(date, id, v) {
 }
 
 // A day you can set an aim on: one that asks something of you.
-function aimsDay(date) { const t = (dayPlan(date) || {}).t; return !['off', 'pre', 'convert'].includes(t) }
+// Any day that asks something of you. The note you leave is worth reading back whatever
+// the session was, so it is gated on this rather than on the aims.
+function trainingDay(date) { const t = (dayPlan(date) || {}).t; return !['off', 'pre', 'convert'].includes(t) }
+// Aims are Operator days only. Every question above is a lifting question — "complete
+// every set as programmed" means nothing on a bike, and a test day is not the place to
+// be setting intentions about technique. Conditioning would need its own set, and its
+// own review, rather than these ones reworded.
+function aimsDay(date) { return (dayPlan(date) || {}).t === 'lift' }
 
 /* ---------------- the note you left last time ---------------- */
 
@@ -89,7 +96,7 @@ function lastNote(date) {
   return { date: d, text: String(logs[d].notes).trim(), short: (dayPlan(d) || {}).short || '', same: !!same };
 }
 function noteCard(date) {
-  if (viewing || !aimsDay(date) || lg(date).noteSeen || lg(date).done) return '';
+  if (viewing || !trainingDay(date) || lg(date).noteSeen || lg(date).done) return '';
   const n = lastNote(date); if (!n) return '';
   return `<div class="card"><div class="lift-h"><h3>From your last ${esc(n.same && n.short ? n.short : 'session')}</h3><span class="small muted">${esc(fmtD(n.date, true))}</span></div>
   <p style="margin:0;white-space:pre-wrap">${esc(n.text)}</p>

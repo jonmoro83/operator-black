@@ -2898,3 +2898,36 @@ test("a personal addition from before the shared list still works, and is named 
   x.catalog = [{ id: "mine-old", slot: "biceps", name: "Curated version", hidden: false }]; x.bump();
   a.equal(x.accName("mine-old"), "Curated version");
 });
+
+test("aims are an Operator-day thing; the note carries back from any session", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const day = (i) => x.addDays("2026-09-07", i);
+
+  // Lifting days ask what matters; conditioning days do not, because every one of
+  // those questions is about lifting.
+  for (const i of [0, 2, 4]) {
+    a.equal(x.dayPlan(day(i)).t, "lift");
+    a.match(x.aimsCard(day(i)), /What matters today/, `day ${i} asks`);
+  }
+  for (const i of [1, 3, 5, 6]) {
+    a.notEqual(x.dayPlan(day(i)).t, "lift");
+    a.equal(x.aimsCard(day(i)), "", `day ${i} does not`);
+  }
+
+  // Nor do the testing weeks: setting an intention about technique before a max is
+  // not the same exercise.
+  const x2 = app({ now: "2026-09-14" });
+  x2.plan.startMonday = "2026-09-07"; x2.plan.bridge = true; x2.bump();
+  const br = x2.weeks(10).find((w) => w.kind === "bridge");
+  for (let i = 0; i < 7; i++) {
+    const d = x2.addDays(br.monday, i);
+    if (["rm5", "test"].includes(x2.dayPlan(d).t)) a.equal(x2.aimsCard(d), "", "a test day sets no aims");
+  }
+
+  // The note loop is not lifting-only: a conditioning note is worth reading back too.
+  x.seed({ [day(1)]: { date: day(1), done: true, notes: "Bike seat too low." } }); x.bump();
+  a.equal(x.trainingDay(day(3)), true);
+  a.match(x.noteCard(day(3)), /Bike seat too low/, "and it reaches the next conditioning day");
+  a.equal(x.noteCard(day(6)), "", "but not a rest day");
+});

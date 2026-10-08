@@ -104,6 +104,17 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Aims are Operator days only (2026-10-08)**
+- Every one of the eight questions is a lifting question: "complete every set as
+  programmed" means nothing on a bike. The card now shows on `t==='lift'` days only, and
+  not on bridge or retest days either — setting an intention about technique before a
+  max is a different exercise.
+- The **note** is gated separately, on any training day. A conditioning note is worth
+  reading back before the next conditioning session, and notes can already be written
+  on those days from the session card.
+- Conditioning would need its own questions and its own review rather than these
+  reworded. Not built; sketched for a decision.
+
 **A shared, curated exercise list (2026-10-08)**
 - `acc_catalog` in D1 (migration `0005`), served to everyone with `/api/state` and cached
   locally. Admins add and retire from the Admin tab; nobody else can write to it.

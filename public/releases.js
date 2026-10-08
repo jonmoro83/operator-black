@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.72',date:'2026-10-08',title:'Aims on lifting days only',items:[
+    '\u201cWhat matters today\u201d now appears on Operator days only. Every question on it is a lifting question, so it had no business turning up before a bike session or a test day.',
+    'The note you leave still carries forward from any session, conditioning included \u2014 that part was never lifting-specific.']},
   {v:'1.71',date:'2026-10-08',title:'One shared exercise list',items:[
     'The accessory movements everyone can choose from are now a single shared list, curated from the Admin tab rather than added privately by each person. If something you do is missing, it gets added for everyone.',
     'A movement can be retired rather than deleted. It stops being offered to anyone choosing fresh, but stays with whoever had already picked it until they change it themselves \u2014 your programme does not get rewritten in the middle of a cycle because a list changed.',

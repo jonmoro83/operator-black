@@ -2488,7 +2488,14 @@ function rateAim(date, id, v) {
 }
 
 // A day you can set an aim on: one that asks something of you.
-function aimsDay(date) { const t = (dayPlan(date) || {}).t; return !['off', 'pre', 'convert'].includes(t) }
+// Any day that asks something of you. The note you leave is worth reading back whatever
+// the session was, so it is gated on this rather than on the aims.
+function trainingDay(date) { const t = (dayPlan(date) || {}).t; return !['off', 'pre', 'convert'].includes(t) }
+// Aims are Operator days only. Every question above is a lifting question — "complete
+// every set as programmed" means nothing on a bike, and a test day is not the place to
+// be setting intentions about technique. Conditioning would need its own set, and its
+// own review, rather than these ones reworded.
+function aimsDay(date) { return (dayPlan(date) || {}).t === 'lift' }
 
 /* ---------------- the note you left last time ---------------- */
 
@@ -2505,7 +2512,7 @@ function lastNote(date) {
   return { date: d, text: String(logs[d].notes).trim(), short: (dayPlan(d) || {}).short || '', same: !!same };
 }
 function noteCard(date) {
-  if (viewing || !aimsDay(date) || lg(date).noteSeen || lg(date).done) return '';
+  if (viewing || !trainingDay(date) || lg(date).noteSeen || lg(date).done) return '';
   const n = lastNote(date); if (!n) return '';
   return `<div class="card"><div class="lift-h"><h3>From your last ${esc(n.same && n.short ? n.short : 'session')}</h3><span class="small muted">${esc(fmtD(n.date, true))}</span></div>
   <p style="margin:0;white-space:pre-wrap">${esc(n.text)}</p>
@@ -4647,7 +4654,7 @@ function vGuide(){
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul>
   <p><b>Optional sets (Operator I/A).</b> K. Black's intermediate/advanced take on Operator hands you the volume decision: rather than a fixed three sets, you work somewhere in a range and choose on the day. Tap <b>+</b> at the end of the sets on any lift card and you get another one, for that lift on that day only — the program is not touched and tomorrow is back to normal. If you want the room there every week instead, give the week an <b>Up to</b> value in Setup. Either way the surplus sets show dashed, and nothing is counted as missed if you skip them. In <i>Ageless Athlete</i> Jim Madden calls this the part of I/A he considers essential, and a few extra sets on weighted pull-ups his favourite way to add upper-body size without derailing recovery. Deadlift has always worked this way here: one set required, up to three.</p>
   <p><b>What this is not.</b> Full Operator I/A also floats your lifting days 48 to 72 hours apart, so the wave advances by session rather than by week. This app runs on a calendar, so it does not do that — and Madden says he mostly keeps a fixed three-sessions-a-week schedule himself, taking his variability in sets and intensity instead. That is the part you have here.</p>
-  <p><b>What matters today.</b> Before a session you pick up to three things to pay attention to \u2014 finishing every set, a proper warm-up, keeping technique tight. Afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
+  <p><b>What matters today.</b> On an Operator day — not conditioning, and not a test day — you pick up to three things to pay attention to \u2014 finishing every set, a proper warm-up, keeping technique tight. Afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
   <p>Some the app can score from what you logged, and does. The rest only you can judge, so those ask you once at the end rather than being guessed at. The difference is visible: a scored line tells you what it counted, a self-rated line asks.</p>
   <p><b>The note is the point.</b> What you write in \u201canything to remember\u201d is shown to you before your next session of the same kind \u2014 your last squat note before you squat again, not Tuesday's bike session. A note nobody reads again is just journalling.</p>
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
