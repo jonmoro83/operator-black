@@ -2449,3 +2449,58 @@ test("a silenced rest timer says so, and offers one tap to turn sound back on", 
   a.ok(!/the countdown, the vibration and the screen still work/i.test(setup),
     "and no longer promises vibration as though it were universal");
 });
+
+test("session mode walks the accessories one at a time, like the working sets", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  Object.assign(x.plan.maxes, { squat: 315, bench: 225, pull: 180, ohp: 135, dead: 405 });
+  x.bump();
+  const mon = "2026-09-07";
+
+  const steps = x.lsSteps(mon).filter((s) => s.type === "acc");
+  a.deepEqual(steps.map((s) => s.slot), x.accSlots("mon"), "one step per job, in the day's order");
+  a.ok(steps.length >= 4, `and there are several: ${steps.length}`);
+
+  // They count towards the session's progress rather than sitting outside it.
+  const counted = x.lsSteps(mon).filter((s) => ["warm", "work", "test", "pullups", "acc"].includes(s.type));
+  a.ok(counted.length > x.lsSteps(mon).filter((s) => s.type === "work").length, "progress includes them");
+});
+
+test("an accessory step logs weight and reps, and knows when it is finished", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07", slot = x.accSlots("mon")[0];
+  x.ls = { date: mon, i: 0, warm: false };   // lsStepDone reads the open session's date
+
+  a.equal(x.accDone(mon, slot), false);
+  a.equal(x.lsStepDone({ type: "acc", slot }), false, "the stepper agrees it is not done");
+
+  x.setLog(mon, "acc.sets." + slot, [{ w: 40, r: 12 }, { w: 40, r: 10 }]);
+  a.equal(x.lsStepDone({ type: "acc", slot }), true, "logging a set finishes it");
+  a.deepEqual(x.accSets(mon, slot), [{ w: 40, r: 12 }, { w: 40, r: 10 }]);
+});
+
+test("the accessory step offers the swap and the sets, not just a tick", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+  x.setLog(mon, "acc.sets.biceps", [{ w: 35, r: 12 }]);
+  x.ls = { date: mon, i: 0, warm: false };
+  const i = x.lsSteps(mon).findIndex((s) => s.type === "acc" && s.slot === "biceps");
+  a.ok(i >= 0, "biceps is a step");
+  x.ls.i = i;
+  x.lsRender();
+  const h = x.dom.made["ls-in"].innerHTML;
+
+  a.match(h, /Biceps/, "it says which job");
+  a.match(h, /data-lsaccex="biceps"/, "with a picker to swap today's movement");
+  a.match(h, /Barbell curl/, "showing what is currently doing it");
+  a.match(h, /data-lsacc="biceps\|0\|w"/, "a weight box");
+  a.match(h, /data-lsacc="biceps\|0\|r"/, "and a reps box");
+  a.match(h, /value="35"/, "carrying what is already logged");
+  a.match(h, /data-ls="accadd"/, "a way to add another set");
+  a.match(h, /data-ls="accrest"[^>]*>Rest 90s/, "and a rest timer, defaulting to 90 seconds");
+
+  // Every input in the overlay can be found again, same rule as the main view.
+  for (const tag of h.match(/<input\b[^>]*>/g) || []) a.match(tag, /\sid=/, `needs an id: ${tag.slice(0, 80)}`);
+});

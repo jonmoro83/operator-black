@@ -348,7 +348,7 @@ const DEF={
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
-  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[],
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90,
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
@@ -2852,7 +2852,7 @@ function lsSteps(date){
     for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
   const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
-  if(!dp.deload&&!heavy&&dp.acc) steps.push({type:'acc'});
+  if(!dp.deload&&!heavy&&dp.acc) for(const sl of accSlots(dp.acc)) steps.push({type:'acc',slot:sl});
   steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
@@ -2861,14 +2861,15 @@ function lsStepDone(st){
   const L=(lg(ls.date).lifts||{})[st.k]||{};
   if(st.type==='warm') return !!((wuListFor(ls.date,st.k)[st.j]||{}).done);
   if(st.type==='work') return !!((L.sets||[])[st.j]);
+  if(st.type==='acc') return accDone(ls.date,st.slot);
   if(st.type==='test'){const t=((lg(ls.date).test||{})[st.k])||{};return t.w!=null&&t.w!==''}
   if(st.type==='pullups') return lg(ls.date).pullups!=null&&lg(ls.date).pullups!=='';
   return false;
 }
 function wuListFor(date,k){const W=((lg(date).lifts||{})[k]||{}).warmup;return Array.isArray(W)?W:W?Object.keys(W).reduce((a,i)=>(a[+i]=W[i],a),[]):[]}
 function lsFirstOpen(){const st=lsSteps(ls.date);
-  if(!st.some(x=>['warm','work','test','pullups'].includes(x.type)&&lsStepDone(x))) return 0;
-  const i=st.findIndex(x=>['warm','work','test','pullups'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
+  if(!st.some(x=>['warm','work','test','pullups','acc'].includes(x.type)&&lsStepDone(x))) return 0;
+  const i=st.findIndex(x=>['warm','work','test','pullups','acc'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
 function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); syncScreen(); lsShow(); }
 function lsClose(){ ls=null; LS.set('ob.ls',null); syncScreen(); lsShow(); render(); }
 function lsShow(){
@@ -2900,7 +2901,7 @@ function lsRender(){
   const box=document.getElementById('ls-in'); if(!ls||!box) return;
   const steps=lsSteps(ls.date); if(!steps.length){lsClose();return}
   ls.i=Math.min(Math.max(0,ls.i),steps.length-1);
-  const st=steps[ls.i], wk=weekOf(ls.date), dp=dayPlan(ls.date), done=steps.filter(x=>['warm','work','test','pullups'].includes(x.type)&&lsStepDone(x)).length, total=steps.filter(x=>['warm','work','test','pullups'].includes(x.type)).length;
+  const st=steps[ls.i], wk=weekOf(ls.date), dp=dayPlan(ls.date), done=steps.filter(x=>['warm','work','test','pullups','acc'].includes(x.type)&&lsStepDone(x)).length, total=steps.filter(x=>['warm','work','test','pullups','acc'].includes(x.type)).length;
   let h=`<div class="ls-top"><span>${esc(dp.short||'')} · ${esc(weekTitle(wk).t)}</span><button class="btn sm ghost" data-ls="close">Close</button></div><div class="ls-prog"><i style="width:${total?100*done/total:0}%"></i></div>`;
   h+=lsRestHtml();
   if(st.type==='warm'||st.type==='work'){
@@ -2938,11 +2939,21 @@ function lsRender(){
       <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const slots=accSlots(dp.acc);
-    h+=`<div class="ls-card"><div class="ls-lift">Accessories</div><div class="small muted">Two or three sets each, a couple of reps short of failure. Tap one to mark it done; the weights go on Today’s card.</div><div class="stack">${slots.map(sl=>{
-      const on=accDone(ls.date,sl), ns=accSets(ls.date,sl).length;
-      return `<button class="btn${on?' primary':''}" style="justify-content:flex-start" data-ls="acc" data-slot="${esc(sl)}">${on?'✓ ':''}${esc((ASLOT[sl]||{}).name||sl)} · ${esc(accName(accOn(ls.date,sl)))}${ns?` <span class="small">(${ns} set${ns===1?'':'s'})</span>`:''}</button>`;
-    }).join('')}</div></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
+    const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
+    const list=accFor(sl), all=accAll(), rest=+plan.accRest||90;
+    h+=`<div class="ls-card"><div class="ls-lift">${esc((ASLOT[sl]||{}).name||sl)}</div>
+      <div class="ls-kind">Accessory${accSwapped(ls.date,sl)?' \u00b7 swapped for today':''}${accDone(ls.date,sl)?' \u00b7 \u2713 done':''}</div>
+      <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>
+      ${sl==='pullup'?`<div class="small muted">${esc(pullupState(ls.date).st.work)}</div>`:''}
+      <div class="stack" style="gap:6px">${sets.map((x,i2)=>`<div class="wu-row"><span class="wu-lbl">${i2+1}</span>
+        <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i2}" data-lsacc="${esc(sl)}|${i2}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i2+1} weight">
+        <span class="wu-x">\u00d7</span>
+        <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i2}" data-lsacc="${esc(sl)}|${i2}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i2+1} reps">
+        <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i2}" aria-label="Remove set ${i2+1}">\u00d7</button></div>`).join('')}</div>
+      <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button>
+      <button class="btn sm" data-ls="accrest" data-slot="${esc(sl)}">Rest ${rest}s</button></div>
+    </div>
+    <button class="btn primary ls-done" data-ls="done">${accDone(ls.date,sl)?'Done \u2713 \u00b7 next':'Done'}</button>`;
   } else if(st.test){
     const L=lg(ls.date), isRm5=dp.t==='rm5';
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
@@ -2980,6 +2991,18 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
+  if(a==='accadd'||a==='accrm'){
+    const sl=b.dataset.slot, cur=accSets(ls.date,sl).slice();
+    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    setLog(ls.date,'acc.sets.'+sl,cur);
+    if(cur.length) setLog(ls.date,'acc.done.'+sl,null);
+    return lsRender();
+  }
+  if(a==='accrest'){
+    const sl=b.dataset.slot, next=lsSteps(ls.date)[ls.i+1];
+    startRest(null,next&&next.type==='acc'?(ASLOT[next.slot]||{}).name:accName(accOn(ls.date,sl)),+plan.accRest||90,'Rest \u00b7 '+((ASLOT[sl]||{}).name||sl));
+    return lsRender();
+  }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
@@ -3016,6 +3039,21 @@ document.getElementById('ls').addEventListener('click',e=>{
     } else if(st.type==='work') stopRest();
     return go(ls.i+1);
   }
+});
+document.getElementById('ls').addEventListener('input',e=>{
+  const t=e.target; if(!ls||!t.dataset||!t.dataset.lsacc) return;
+  const [sl,i,f]=t.dataset.lsacc.split('|'), cur=accSets(ls.date,sl).slice();
+  while(cur.length<=+i) cur.push({});
+  cur[+i]=Object.assign({},cur[+i],{[f]:t.value===''?null:+t.value});
+  setLog(ls.date,'acc.sets.'+sl,cur);
+});
+document.getElementById('ls').addEventListener('change',e=>{
+  const t=e.target; if(!ls||!t.dataset) return;
+  if(t.dataset.lsaccex){ const sl=t.dataset.lsaccex;
+    setLog(ls.date,'acc.ex.'+sl, t.value===accPickFor(accDayOf(ls.date),sl,accCycleOf(ls.date))?null:t.value);
+    return lsRender();
+  }
+  if(t.dataset.lsacc) return lsRender();   // on blur only: the caret survives
 });
 document.getElementById('ls').addEventListener('change',e=>{ const t=e.target; if(t.dataset.lsin&&ls){ const v=t.value===''?null:+t.value; if(t.dataset.lsin==='pullups') setLog(ls.date,'pullups',v); else setLog(ls.date,'test.'+t.dataset.k+'.'+t.dataset.lsin,v); lsRender(); return }
   if(e.target.id==='ls-warm'&&ls){ ls.warm=e.target.checked; ls.i=0; LS.set('ob.ls',ls); lsRender(); } });
@@ -4408,6 +4446,7 @@ function vGuide(){
   <div class="card guide"><h3>Accessories</h3>
   <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
+  <p><b>In session mode.</b> Each job is its own step, after the lifts: it names what is doing it, lets you swap for that session, takes the sets, and has a rest timer of its own — 90 seconds by default, where the main lifts use your per-lift two to five minutes.</p>
   <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
   <p><b>Missing a movement?</b> Setup → Accessories → Your own takes a name, the job it does and the kit it needs. It then appears everywhere the built-in ones do and follows you to your other devices.</p>
   <ul class="tight"><li>After the main lifts, never before. Two or three sets of each job, a couple of reps short of failure.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>

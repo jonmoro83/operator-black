@@ -114,6 +114,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Accessories in session mode (2026-10-08)**
+- They were one lump step of done-toggles while every real control — the exercise, the
+  swap, the sets — lived only on Today's card. Each job is now its own step, after the
+  working sets, with the picker, weight and reps, and a rest timer.
+- Rest defaults to `plan.accRest` = **90 s**, against the two to five minutes the main
+  lifts use. The global rest bar's ±30 s still applies.
+- Accessories now count towards the session's progress rather than sitting outside it.
+- Typing saves on every keystroke but re-renders only on blur: `lsRender` rebuilds the
+  card and, unlike `renderMain`, does not restore focus. Writing on input and rendering
+  on change avoids the caret problem rather than working around it.
+- Four mutations — back to one lump step, an accessory that is never finished, no rest
+  timer, no swap — all fail. 169 → 172 tests.
+
 **The rest beep: silenced, not broken (2026-10-07)**
 - Reported from the gym as "completely broken for all rest timers". It was not broken:
   `plan.quietTimer` was on, so `quiet()` short-circuited `beep()`. Three real problems

@@ -346,7 +346,7 @@ const DEF={
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
-  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[],
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90,
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
