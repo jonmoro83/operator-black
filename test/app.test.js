@@ -2638,3 +2638,50 @@ test("a focus that keeps slipping is pointed out, once there is a pattern", () =
   // It only looks at sessions where the aim was actually picked and rated.
   a.equal(x.aimPattern(d(14), "unhurried"), "", "nothing to say about one you never chose");
 });
+
+test("hill sprints are an activity of their own, with elevation and a warm-up", () => {
+  const x = app({ now: "2026-10-08" });
+  const m = x.MOD.hill;
+  a.ok(m, "it exists");
+  a.equal(m.name, "Hill sprints");
+  a.equal(m.elev, true, "elevation counts, as it does for trail, ruck and hike");
+  a.ok(m.wu && m.tip, "with a warm-up and the thing worth knowing");
+
+  // Distance on a hard day; nothing to measure on an easy one, so it asks for minutes
+  // instead of inventing a number, exactly as Other does.
+  a.deepEqual(x.metricFor("hill", "map"), ["dist", "m"]);
+  a.equal(x.metricFor("hill", "liss"), null);
+  a.equal(x.metricFor("other", "liss"), null, "the same shape that already works");
+
+  // It is offered wherever the other activities are.
+  const setup = x.vSetup();
+  a.match(setup, /<option value="hill"[^>]*>Hill sprints/, "as a default activity");
+  a.match(setup, /value="hill"/, "and as a benchmark activity");
+
+  // Every activity is well formed, hill included.
+  for (const [k, v] of Object.entries(x.MOD)) {
+    a.ok(v.name, `${k} has a name`);
+    for (const f of ["hic", "liss"]) {
+      a.ok(v[f] === null || v[f] === undefined || (Array.isArray(v[f]) && v[f].length === 2), `${k}.${f} is a metric or nothing`);
+    }
+  }
+});
+
+test("a hill sprint session logs and reads back like any other", () => {
+  const x = app({ now: "2026-10-08" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  // Find a hard conditioning day and run it on the hill.
+  const d = [...Array(14)].map((_, i) => x.addDays("2026-09-28", i)).find((dd) => {
+    const p = x.dayPlan(dd); return p && p.fmt && p.fmt !== "liss";
+  });
+  a.ok(d, "there is a hard conditioning day");
+
+  x.seed({ [d]: { date: d, hic: { mod: "hill", format: x.dayPlan(d).fmt, dist: 900, elev: 120, min: 28 } } });
+  x.bump();
+  a.equal(x.modOf(d), "hill", "the day knows what it was done on");
+  const sess = x.hicSessions(true).find((s) => s.d === d);
+  a.ok(sess, "it shows up as a logged session");
+  a.equal(sess.mod, "hill");
+  a.equal(sess.v, 900, "with its distance");
+  a.equal(sess.elev, 120, "and its climb");
+});

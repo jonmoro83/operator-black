@@ -114,6 +114,12 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Hill sprints as an activity (2026-10-08)**
+- Its own entry rather than a note under Run / sprints: the incline caps the top speed,
+  which changes both the risk and what the session is for. Distance in metres on a hard
+  day, elevation counted like trail, ruck and hike, and no LISS metric — a hill sprint
+  session is not a steady one, so it asks for minutes instead of inventing a number.
+
 **Session aims, and the note that comes back (2026-10-08)**
 - Pick up to three things that matter before a session; get an honest account after.
   Not a restatement of the prescription — the numbers are already on the cards. This is

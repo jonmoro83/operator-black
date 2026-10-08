@@ -24,6 +24,9 @@ const MOD={
   trail:{name:'Trail run',hic:['dist','m'],liss:['dist','mi'],elev:true,wu:'10 min easy jog on flat ground, then 3 × 20 s hard uphill with an easy jog back down.',tip:'Uneven ground makes pace meaningless, so run the hard efforts by breathing rather than by watch. Downhills are where the damage is: that is eccentric load, and it turns up as sore quads two days later, so take them easy before a squat day.'},
   ruck:{name:'Ruck',hic:['dist','mi'],liss:['dist','mi'],load:true,elev:true,tip:'Build ruck load gradually, starting around 10–15% of bodyweight. Rucking loads the back and hips, so keep it easy before heavy squat or deadlift days.'},
   hike:{name:'Hike',hic:['dist','mi'],liss:['dist','mi'],elev:true,wu:'10 min easy walking, then 3 × 20 s hard uphill with a walk back down.',tip:'Hills do the work: on HIC days use a steep section for the hard efforts and walk down easy. On LISS days keep it conversational the whole way.'},
+  hill:{name:'Hill sprints',hic:['dist','m'],liss:null,elev:true,
+    wu:'10 min easy jog on the flat, leg swings, then 2\u20133 build-ups on the hill at about half effort, walking back down each time.',
+    tip:'The safest way to sprint: the incline shortens the stride and caps the top speed, so most of the hamstring risk of flat sprinting goes with it. The cost is calves and Achilles, and these are a true anaerobic effort \u2014 keep them to anaerobic days, walk down slowly as the rest, and stop when your times start slipping rather than grinding out the last few. Log the total distance run, or let the elevation stand in for it.'},
   swim:{name:'Swim',hic:['dist','yd'],liss:['dist','yd'],wu:'200 easy, then 4 × 25 building to HIC pace.'},
   other:{name:'Other',hic:null,liss:null}
 };
