@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.73',date:'2026-10-08',title:'Conditioning gets its own questions',items:[
+    'Conditioning days now ask what matters too, but with their own questions: hitting every round, warming up before the hard efforts, holding the pace without fading, keeping the easy periods genuinely easy, finishing able to do one more, cooling down, and logging the number.',
+    'Four of those the app counts for you from what you logged. The three about pacing it asks, because only you know where the effort went.',
+    'A question that cannot apply is not asked \u2014 a steady session is never asked about rounds. And if the same thing keeps slipping it tells you what that usually means for conditioning, which is going out too hard rather than being unfit.']},
   {v:'1.72',date:'2026-10-08',title:'Aims on lifting days only',items:[
     '\u201cWhat matters today\u201d now appears on Operator days only. Every question on it is a lifting question, so it had no business turning up before a bike session or a test day.',
     'The note you leave still carries forward from any session, conditioning included \u2014 that part was never lifting-specific.']},

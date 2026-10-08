@@ -2430,7 +2430,7 @@ table nobody reads. */
 const AIM_MAX = 3;
 
 // check(date) -> {ok, detail} for an aim the app can score, or null for one only you can.
-const AIMS = [
+const AIMS_LIFT = [
   { id: 'sets', label: 'Complete every set as programmed', check(d) {
       const dp = dayPlan(d), wk = weekOf(d);
       if (!wk || !(dp.lifts || []).length) return null;
@@ -2467,15 +2467,59 @@ const AIMS = [
     } },
   { id: 'unhurried', label: 'Keep it unhurried' },
 ];
-function aimById(id) { return AIMS.find(a => a.id === id) || null }
-function aimsOn(date) { const a = lg(date).aims; return Array.isArray(a) ? a.filter(aimById) : [] }
+
+// Conditioning asks different questions. The lifting ones are about execution; these
+// are about where the effort went, which is the thing that actually goes wrong on a
+// bike. `when` keeps a question off a day it cannot mean anything on -- there are no
+// rounds, and no easy periods, in a steady session.
+const AIMS_COND = [
+  { id: 'crounds', label: 'Hit every round as prescribed',
+    when: d => ivRounds(d) > 0,
+    check(d) {
+      const want = ivRounds(d), got = +((lg(d).hic || {}).rounds);
+      if (!want) return null;
+      if (!isFinite(got) || !got) return { ok: false, detail: 'No rounds logged.' };
+      return { ok: got >= want, detail: `${got} of ${want}.` };
+    } },
+  { id: 'cwarm', label: 'Warm up properly before the hard efforts',
+    when: d => effFmt(d) !== 'liss',
+    check(d) {
+      const on = (((lg(d).hic || {}).iv) || {}).warm;
+      return { ok: !!on, detail: on ? 'Logged.' : 'Not logged \u2014 the session started cold, or it went unticked.' };
+    } },
+  { id: 'cpace', label: 'Hold the pace \u2014 no fading on the last rounds', when: d => ivRounds(d) > 0 },
+  { id: 'ceasy', label: 'Keep the easy periods genuinely easy', when: d => ivRounds(d) > 0 },
+  { id: 'cspare', label: 'Finish able to do one more, not emptied' },
+  { id: 'ccool', label: 'Cool down instead of stopping dead', check(d) {
+      const on = (((lg(d).hic || {}).iv) || {}).cool;
+      return { ok: !!on, detail: on ? 'Logged.' : 'Not logged.' };
+    } },
+  { id: 'clog', label: 'Log the number so it can be compared', check(d) {
+      const H = lg(d).hic || {}, met = metricFor(modOf(d), effFmt(d));
+      if (met) { const v = H[met[0]]; return { ok: v != null && v !== '', detail: v != null && v !== '' ? `${n(v)} ${met[1]}.` : 'Nothing logged to compare against.' } }
+      const m = H.min; return { ok: m != null && m !== '', detail: m ? `${n(m)} min.` : 'No minutes logged.' };
+    } },
+];
+// How many hard rounds the day's format asks for, or 0 for a steady session.
+function ivRounds(d) {
+  try { const f = effFmt(d); if (!f || f === 'liss') return 0; return +(ivOpts(d, f) || {}).rounds || 0 } catch (e) { return 0 }
+}
+
+// Which set of questions a day gets, already filtered to the ones that can apply.
+function aimSet(date) {
+  const t = (dayPlan(date) || {}).t;
+  const base = t === 'lift' ? AIMS_LIFT : (t === 'hic' || t === 'plyohic') ? AIMS_COND : [];
+  return base.filter(a => !a.when || a.when(date));
+}
+function aimById(date, id) { return aimSet(date).find(a => a.id === id) || null }
+function aimsOn(date) { const a = lg(date).aims; return Array.isArray(a) ? a.filter(id => aimById(date, id)) : [] }
 function aimRating(date, id) { return ((lg(date).aimsRated) || {})[id] || null }
 const RATE = { yes: 'Held up', part: 'Slipped late on', no: 'No' };
 
 // Toggling an aim, with the cap enforced here rather than only in the markup: the click
 // handler cannot be reached from a test, so the rule has to live somewhere that can.
 function pickAim(date, id) {
-  if (!aimById(id)) return false;
+  if (!aimById(date, id)) return false;
   const cur = aimsOn(date);
   if (cur.includes(id)) { setLog(date, 'aims', cur.filter(x => x !== id)); return true }
   if (cur.length >= AIM_MAX) return false;
@@ -2483,7 +2527,7 @@ function pickAim(date, id) {
   return true;
 }
 function rateAim(date, id, v) {
-  if (!aimById(id) || !RATE[v]) return;
+  if (!aimById(date, id) || !RATE[v]) return;
   setLog(date, 'aimsRated.' + id, aimRating(date, id) === v ? null : v);
 }
 
@@ -2491,11 +2535,10 @@ function rateAim(date, id, v) {
 // Any day that asks something of you. The note you leave is worth reading back whatever
 // the session was, so it is gated on this rather than on the aims.
 function trainingDay(date) { const t = (dayPlan(date) || {}).t; return !['off', 'pre', 'convert'].includes(t) }
-// Aims are Operator days only. Every question above is a lifting question — "complete
-// every set as programmed" means nothing on a bike, and a test day is not the place to
-// be setting intentions about technique. Conditioning would need its own set, and its
-// own review, rather than these ones reworded.
-function aimsDay(date) { return (dayPlan(date) || {}).t === 'lift' }
+// Lifting days get the lifting questions, conditioning days the conditioning ones, and
+// anything else — a test day, a Base Building circuit — gets none. A test day is not
+// the place to be setting intentions about technique.
+function aimsDay(date) { return aimSet(date).length > 0 }
 
 /* ---------------- the note you left last time ---------------- */
 
@@ -2527,7 +2570,7 @@ function aimsCard(date) {
   const picked = aimsOn(date);
   return `<div class="card"><div class="lift-h"><h3>What matters today</h3><span class="small muted">${picked.length ? picked.length + ' of ' + AIM_MAX : 'pick up to ' + AIM_MAX}</span></div>
   <p class="small muted" style="margin:0">Not the numbers — those are on the cards below. This is how you mean to train today, and you get an honest account of it afterwards.</p>
-  <div class="stack" style="gap:4px">${AIMS.map(a => {
+  <div class="stack" style="gap:4px">${aimSet(date).map(a => {
     const on = picked.includes(a.id), full = picked.length >= AIM_MAX && !on;
     return `<button class="aim${on ? ' on' : ''}" data-act="aim" data-id="${a.id}"${full ? ' disabled' : ''} aria-pressed="${on}">${on ? '✓' : ''} ${esc(a.label)}</button>`;
   }).join('')}</div>
@@ -2542,9 +2585,12 @@ function aimPattern(date, id) {
     .sort().reverse().slice(0, 3);
   const bad = prior.filter(d => aimRating(d, id) !== 'yes').length;
   if (prior.length < 2 || bad < 2) return '';
-  const a = aimById(id);
+  const a = aimById(date, id); if (!a) return '';
   const why = id === 'technique' ? 'That usually means the weight, not the focus.'
     : id === 'short' ? 'A max set too high will do that. Lowering it is the fix.'
+    : id === 'cpace' ? 'Going out too hard on the first rounds is the usual cause, not a lack of fitness.'
+    : id === 'cspare' ? 'These are meant to be repeatable. Emptying yourself on one is borrowing from the next.'
+    : id === 'ceasy' ? 'If the easy parts are not easy, the hard parts cannot be hard. Slow them right down.'
     : 'Worth changing something rather than trying harder at it.';
   return `You have picked “${esc(a.label)}” ${prior.length + 1} sessions running and it has not held up. ${why}`;
 }
@@ -2554,7 +2600,8 @@ function aimsReport(date) {
   let h = `<div class="card"><div class="lift-h"><h3>How it went</h3></div>`;
   if (!picked.length) h += `<p class="small muted" style="margin:0">You did not set anything for this one.</p>`;
   for (const id of picked) {
-    const a = aimById(id), res = a.check ? a.check(date) : null;
+    const a = aimById(date, id); if (!a) continue;
+    const res = a.check ? a.check(date) : null;
     if (res) {
       h += `<div class="aim-row"><div><b>${res.ok ? '✓' : '✗'} ${esc(a.label)}</b><div class="small muted">${esc(res.detail)}</div></div></div>`;
     } else {
@@ -4654,7 +4701,8 @@ function vGuide(){
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul>
   <p><b>Optional sets (Operator I/A).</b> K. Black's intermediate/advanced take on Operator hands you the volume decision: rather than a fixed three sets, you work somewhere in a range and choose on the day. Tap <b>+</b> at the end of the sets on any lift card and you get another one, for that lift on that day only — the program is not touched and tomorrow is back to normal. If you want the room there every week instead, give the week an <b>Up to</b> value in Setup. Either way the surplus sets show dashed, and nothing is counted as missed if you skip them. In <i>Ageless Athlete</i> Jim Madden calls this the part of I/A he considers essential, and a few extra sets on weighted pull-ups his favourite way to add upper-body size without derailing recovery. Deadlift has always worked this way here: one set required, up to three.</p>
   <p><b>What this is not.</b> Full Operator I/A also floats your lifting days 48 to 72 hours apart, so the wave advances by session rather than by week. This app runs on a calendar, so it does not do that — and Madden says he mostly keeps a fixed three-sessions-a-week schedule himself, taking his variability in sets and intensity instead. That is the part you have here.</p>
-  <p><b>What matters today.</b> On an Operator day — not conditioning, and not a test day — you pick up to three things to pay attention to \u2014 finishing every set, a proper warm-up, keeping technique tight. Afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
+  <p><b>What matters today.</b> Before a session you pick up to three things to pay attention to, and afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
+  <p>The questions depend on the day. <b>Lifting days</b> ask about execution — finishing every set, a proper warm-up, keeping technique tight, stopping short of failure. <b>Conditioning days</b> ask about where the effort went, which is the thing that actually goes wrong on a bike: hitting the rounds, holding the pace, keeping the easy parts easy, finishing able to do one more. A question that cannot apply is not asked — a steady session is never asked about rounds. Test days and Base Building circuits set no aims at all.</p>
   <p>Some the app can score from what you logged, and does. The rest only you can judge, so those ask you once at the end rather than being guessed at. The difference is visible: a scored line tells you what it counted, a self-rated line asks.</p>
   <p><b>The note is the point.</b> What you write in \u201canything to remember\u201d is shown to you before your next session of the same kind \u2014 your last squat note before you squat again, not Tuesday's bike session. A note nobody reads again is just journalling.</p>
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>

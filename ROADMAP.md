@@ -104,6 +104,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Conditioning gets its own aims (2026-10-08)**
+- `AIMS_COND`: rounds hit, warm-up, holding the pace, keeping the easy parts easy,
+  finishing with something left, cooling down, logging the number. Four are scored from
+  what is already logged (`hic.rounds` against `ivOpts().rounds`, the warm-up and
+  cool-down ticks, the metric); three are pacing judgements only you can make.
+- `aimSet(date)` picks the set by day type and filters by an optional `when`, so a
+  steady session is never asked about rounds or easy periods — it has neither.
+- The pattern advice is set-specific. Fading repeatedly is told it went out too hard,
+  not that the weight is too high.
+- Nothing logged is not a pass: an unlogged round count, an unticked warm-up and a
+  session with no number all report as missed. The mutation making an unlogged session
+  count as success passed until a test for it existed.
+- Test days and Base Building circuits still get no aims: neither set fits them.
+- 190 → 193 tests.
+
 **Aims are Operator days only (2026-10-08)**
 - Every one of the eight questions is a lifting question: "complete every set as
   programmed" means nothing on a bike. The card now shows on `t==='lift'` days only, and

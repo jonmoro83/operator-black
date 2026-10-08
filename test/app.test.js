@@ -2541,7 +2541,7 @@ test("you pick up to three things that matter, and only three", () => {
   a.deepEqual(x.aimsOn(mon), ["sets"]);
 
   // Every aim is either scorable or self-rated, and all have a label.
-  for (const aim of x.AIMS) {
+  for (const aim of [...x.AIMS_LIFT, ...x.AIMS_COND]) {
     a.ok(aim.id && aim.label, "an aim needs both");
     a.ok(aim.check === undefined || typeof aim.check === "function");
   }
@@ -2899,24 +2899,27 @@ test("a personal addition from before the shared list still works, and is named 
   a.equal(x.accName("mine-old"), "Curated version");
 });
 
-test("aims are an Operator-day thing; the note carries back from any session", () => {
+test("each kind of day gets its own questions, and some get none", () => {
   const x = app({ now: "2026-09-07" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   const day = (i) => x.addDays("2026-09-07", i);
+  const ids = (d) => x.aimSet(d).map((a) => a.id);
 
-  // Lifting days ask what matters; conditioning days do not, because every one of
-  // those questions is about lifting.
   for (const i of [0, 2, 4]) {
     a.equal(x.dayPlan(day(i)).t, "lift");
-    a.match(x.aimsCard(day(i)), /What matters today/, `day ${i} asks`);
+    a.ok(ids(day(i)).includes("sets"), `day ${i} asks about sets`);
+    a.ok(!ids(day(i)).some((v) => v.startsWith("c")), "and nothing about rounds");
   }
-  for (const i of [1, 3, 5, 6]) {
+  for (const i of [1, 3, 5]) {
     a.notEqual(x.dayPlan(day(i)).t, "lift");
-    a.equal(x.aimsCard(day(i)), "", `day ${i} does not`);
+    const got = ids(day(i));
+    a.ok(got.length, `day ${i} has questions of its own`);
+    a.ok(got.every((v) => v.startsWith("c")), `day ${i} asks only conditioning ones: ${got}`);
+    a.match(x.aimsCard(day(i)), /What matters today/);
   }
 
-  // Nor do the testing weeks: setting an intention about technique before a max is
-  // not the same exercise.
+  // Rest days, test days and circuits get none: there is no set that fits them.
+  a.equal(x.aimsCard(day(6)), "", "not a rest day");
   const x2 = app({ now: "2026-09-14" });
   x2.plan.startMonday = "2026-09-07"; x2.plan.bridge = true; x2.bump();
   const br = x2.weeks(10).find((w) => w.kind === "bridge");
@@ -2925,9 +2928,84 @@ test("aims are an Operator-day thing; the note carries back from any session", (
     if (["rm5", "test"].includes(x2.dayPlan(d).t)) a.equal(x2.aimsCard(d), "", "a test day sets no aims");
   }
 
-  // The note loop is not lifting-only: a conditioning note is worth reading back too.
+  // The note loop is not lifting-only.
   x.seed({ [day(1)]: { date: day(1), done: true, notes: "Bike seat too low." } }); x.bump();
-  a.equal(x.trainingDay(day(3)), true);
-  a.match(x.noteCard(day(3)), /Bike seat too low/, "and it reaches the next conditioning day");
+  a.match(x.noteCard(day(3)), /Bike seat too low/, "it reaches the next conditioning day");
   a.equal(x.noteCard(day(6)), "", "but not a rest day");
+});
+
+test("a question that cannot apply to the day is not offered", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const day = (i) => x.addDays("2026-09-07", i);
+  const ids = (d) => x.aimSet(d).map((a) => a.id);
+
+  const hard = day(1);
+  a.ok(x.ivRounds(hard) > 0, "Tuesday is intervals");
+  a.ok(ids(hard).includes("crounds") && ids(hard).includes("ceasy"));
+  a.ok(ids(hard).includes("cwarm"), "and a warm-up to tick");
+
+  // A steady session has no rounds and no easy periods, so it is not asked about them.
+  const easy = day(5);
+  x.setLog(easy, "hic.format", "liss"); x.bump();
+  a.equal(x.effFmt(easy), "liss");
+  a.equal(x.ivRounds(easy), 0);
+  const e = ids(easy);
+  a.ok(!e.includes("crounds"), "no rounds to hit");
+  a.ok(!e.includes("ceasy"), "no easy periods to keep easy");
+  a.ok(!e.includes("cwarm"), "and no separate warm-up on a steady day");
+  a.ok(e.includes("cspare") && e.includes("clog"), "but the ones that still apply remain");
+});
+
+test("the conditioning report counts what was logged and asks about the pacing", () => {
+  const x = app({ now: "2026-09-08" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = "2026-09-08";
+  const want = x.ivRounds(d);
+  a.ok(want > 0);
+
+  x.setLog(d, "aims", ["crounds", "cwarm", "cpace"]);
+  x.setLog(d, "hic.rounds", want);
+  x.setLog(d, "hic.iv.warm", true);
+  x.setLog(d, "done", true);
+
+  const h = x.aimsCard(d);
+  a.match(h, /How it went/);
+  a.match(h, /\u2713 Hit every round as prescribed/, "rounds are counted, not asked about");
+  a.match(h, new RegExp(want + " of " + want));
+  a.match(h, /\u2713 Warm up properly/);
+  a.match(h, /data-act="aimrate" data-id="cpace"/, "pacing is a judgement, so it asks");
+  a.ok(!/data-act="aimrate" data-id="crounds"/.test(h));
+
+  x.setLog(d, "hic.rounds", 1);
+  a.match(x.aimsCard(d), /\u2717 Hit every round/, "falling short says so");
+
+  // Nothing logged is not the same as nothing to report: an unlogged session must not
+  // be counted as a success just because there is no number to argue with.
+  x.setLog(d, "hic.rounds", null);
+  const none = x.aimsCard(d);
+  a.match(none, /\u2717 Hit every round/, "unlogged is not a pass");
+  a.match(none, /No rounds logged/);
+
+  // The same for the warm-up and for the number itself.
+  x.setLog(d, "aims", ["cwarm", "clog"]);
+  x.setLog(d, "hic.iv.warm", null);
+  const h2 = x.aimsCard(d);
+  a.match(h2, /\u2717 Warm up properly/, "an unticked warm-up is not a pass either");
+  a.match(h2, /\u2717 Log the number/, "nor is a session with no number on it");
+});
+
+test("a conditioning focus that keeps slipping gets conditioning advice", () => {
+  const x = app({ now: "2026-09-29" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = (n) => x.addDays("2026-09-08", n * 7);     // successive Tuesdays
+  x.seed({
+    [d(0)]: { date: d(0), done: true, aims: ["cpace"], aimsRated: { cpace: "no" } },
+    [d(1)]: { date: d(1), done: true, aims: ["cpace"], aimsRated: { cpace: "part" } },
+  });
+  x.bump();
+  const p = x.aimPattern(d(3), "cpace");
+  a.match(p, /sessions running/);
+  a.match(p, /too hard on the first rounds/, "advice about pacing, not about the weight");
+  a.ok(!/the weight, not the focus/.test(p), "the lifting advice does not leak across");
 });
