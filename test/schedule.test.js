@@ -66,8 +66,17 @@ test("past weeks are frozen and survive a rule change", () => {
   a.equal(after.cycle, before.cycle);
   a.equal(after.w, before.w);
   a.equal(x.rx(after, "squat").p, 90, "a locked week keeps the percentage it was trained at");
-  // the new rules apply from the current week on: a deload now falls after cycle 1
-  a.equal(x.weekOf("2026-11-16").kind, "deload");
+
+  // The week you are in keeps its identity: a cadence change on Wednesday must not turn
+  // the week you are halfway through into a deload. It takes effect from next week.
+  a.equal(x.weekOf("2026-11-16").kind, "cycle", "the current week is not reshuffled underneath you");
+  // The boundary the deload belonged to (the end of cycle 1) is behind the frozen week,
+  // so it is not retro-fitted; the new cadence acts on the next boundary it can reach.
+  const dl = x.weeks(60).filter((w) => w.kind === "deload");
+  a.ok(dl.length, "the new cadence does take effect");
+  a.ok(dl[0].monday > "2026-11-16", "just not inside the week already under way");
+
+  // Its numbers are not frozen though -- Setup promises the wave applies from this week.
   const w3 = x.weeks().find((w) => w.kind === "cycle" && w.w === 3 && w.monday > "2026-11-16");
   a.equal(x.rx(w3, "squat").p, 85, "the next week 3 takes the edited wave");
 });

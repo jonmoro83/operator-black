@@ -2739,3 +2739,92 @@ test("a distance you measure yourself follows the units you chose", () => {
     }
   }
 });
+
+test("two strength-endurance circuits cannot be pushed onto consecutive days", () => {
+  const x = app({ now: "2026-10-08" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.inserts = { "2026-10-12": "bb" }; x.bump();
+  const bb = x.weeks(30).find((w) => w.kind === "bb");
+  a.ok(bb, "a Base Building block is scheduled");
+
+  // Block I's week is two circuits with three days between them.
+  const kinds = [...Array(7)].map((_, i) => x.sessKind(x.dayPlan(x.addDays(bb.monday, i))));
+  a.equal(kinds.filter((k) => k === "se").length, 2, "two circuits");
+  a.ok(!kinds.some((k, i) => i && k === "se" && kinds[i - 1] === "se"), "not next to each other");
+
+  // They used to be invisible to the adjacency rules, so the Move tool would allow it.
+  // Build the one arrangement Block I forbids: the second circuit moved up next to the
+  // first. ord maps weekday -> slot, so this puts slot 3 (Thursday's circuit) on Tuesday.
+  const se = kinds.map((k, i) => (k === "se" ? i : -1)).filter((i) => i >= 0);
+  a.deepEqual(se, [0, 3], "the circuits start on Monday and Thursday");
+  const bad = [0, 3, 1, 2, 4, 5, 6];
+  a.equal(x.sessKind(x.dayPlanSlot(bb.monday, bad[0])), "se");
+  a.equal(x.sessKind(x.dayPlanSlot(bb.monday, bad[1])), "se", "now back to back");
+  const issues = x.orderIssues(bb.monday, bad);
+  a.ok(issues.some((i) => i.kind === "se"), `the clash is reported: ${JSON.stringify(issues)}`);
+  a.equal(x.kindName("se"), "strength-endurance", "and it is named in words");
+
+  // bestOrder refuses to produce it.
+  for (let day = 0; day < 7; day++) {
+    for (let slot = 0; slot < 7; slot++) {
+      const r = x.bestOrder(bb.monday, day, slot);
+      if (!r) continue;
+      const ks = r.ord.map((s) => x.sessKind(x.dayPlanSlot(x.addDays(bb.monday, 0), s)));
+      a.ok(!ks.some((k, i) => i && k === "se" && ks[i - 1] === "se"), "no arrangement doubles them up");
+    }
+  }
+});
+
+test("a retest splits the cluster across two days once it is bigger than a pair", () => {
+  const x = app({ now: "2026-10-08" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.l3 = { on: { pull: true, ohp: true, wpu: true }, mode: "alt-day", primary: "pull" };
+  x.bump();
+  const t = x.weeks(60).find((w) => w.kind === "test");
+  a.ok(t, "a retest week exists");
+
+  const days = [...Array(7)].map((_, i) => x.dayPlan(x.addDays(t.monday, i)));
+  const tests = days.map((p, i) => ({ i, p })).filter(({ p }) => p.t === "test");
+  a.equal(tests.length, 3, "Thursday, Friday and Saturday");
+  for (const { i, p } of tests) a.ok(p.lifts.length <= 2, `day ${i} tests ${p.lifts.length} lifts, not more`);
+
+  // Every lift in the cluster is still tested exactly once, and the apply card is last.
+  const all = tests.flatMap(({ p }) => p.lifts);
+  a.deepEqual([...all].sort(), ["bench", "dead", "ohp", "pull", "squat", "wpu"].sort());
+  a.equal(new Set(all).size, all.length, "nothing tested twice");
+  a.equal(days[5].apply, true, "results are fed forward from Saturday");
+  a.equal(days[5].pullups, true);
+
+  // A small cluster still fits in two days, with Friday left off as before.
+  x.plan.l3 = { on: { pull: true, ohp: false, wpu: false }, mode: "same", primary: "pull" }; x.bump();
+  const t2 = x.weeks(60).find((w) => w.kind === "test");
+  const d2 = [...Array(7)].map((_, i) => x.dayPlan(x.addDays(t2.monday, i)));
+  a.equal(d2.filter((p) => p.t === "test").length, 2, "two test days");
+  a.equal(d2[4].t, "off", "Friday stays off when it is not needed");
+});
+
+test("the week you are in cannot be turned into a different kind of week", () => {
+  const x = app({ now: "2026-11-18" });            // a Wednesday
+  Object.assign(x.plan.maxes, { squat: 300, bench: 200, pull: 180, ohp: 135, dead: 400 });
+  x.bump();
+  const mon = x.mondayOf("2026-11-18");
+  const was = x.weekOf(mon);
+  x.freezePast();
+
+  a.ok(x.plan.frozen[mon], "the current week is recorded");
+  a.equal(x.plan.frozen[mon].soft, true, "but only softly: its identity, not its numbers");
+
+  x.plan.deloadEvery = 1; x.plan.testEvery = 1; x.bump();
+  const now = x.weekOf(mon);
+  a.equal(now.kind, was.kind, "still the same kind of week");
+  a.equal(now.cycle, was.cycle);
+  a.equal(now.w, was.w);
+
+  // The numbers are not frozen: Setup promises the wave applies from this week on.
+  x.plan.wave[was.w - 1].p = 62; x.bump();
+  a.equal(x.rx(x.weekOf(mon), "squat").p, 62, "the edited wave reaches the week you are in");
+
+  // And Setup says which is which rather than promising the old behaviour.
+  a.match(x.vSetup(), /takes effect from <b>next<\/b> week/);
+  a.match(x.vSetup(), /wave and your maxes still apply from this week/);
+});

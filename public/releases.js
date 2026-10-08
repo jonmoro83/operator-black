@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.70',date:'2026-10-08',title:'Three fixes to the calendar',items:[
+    'Moving days around in a Base Building week could put the two circuits on consecutive days, which is the one arrangement that block is built to avoid. It will not any more.',
+    'A retest week with a big cluster was testing four lifts on the Saturday while the Friday sat empty. It now splits them across Thursday, Friday and Saturday, the same way the bridge week does \u2014 tired singles measure fatigue, not strength.',
+    'Changing your deload or retest spacing mid-week could turn the week you were halfway through into a different kind of week. It now takes effect from next week. Your wave and maxes still apply from this week, as before.']},
   {v:'1.69',date:'2026-10-08',title:'Swimming stays in metres',items:[
     'Swim distances are always in metres now, whichever units the app is set to \u2014 a pool is measured in metres and that is not a matter of preference. Same for the rower and ski erg, which read metres on their own displays.',
     'Everything you measure yourself \u2014 running, trail, hill sprints, rucks, hikes \u2014 still follows your setting.']},

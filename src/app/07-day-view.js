@@ -63,13 +63,13 @@ function bestOrder(mon,fixDay,fixSlot){
   let best=null, bestCost=99;
   (function go(i,prev,cost){
     if(cost>=bestCost) return;
-    if(i===7){ if((prev==='strength'||prev==='hic')&&prev===nextK) return; best=ord.slice(); bestCost=cost; return }
+    if(i===7){ if(clashes(prev,nextK)) return; best=ord.slice(); bestCost=cost; return }
     for(let sl=0;sl<7;sl++){
       if(used[sl]) continue;
       if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
       if(fixDay!=null&&fixDay===i&&sl!==fixSlot) continue;
       if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
-      const k=K[sl]; if((k==='strength'||k==='hic')&&k===prev) continue;
+      const k=K[sl]; if(clashes(k,prev)) continue;
       used[sl]=true; ord[i]=sl;
       go(i+1,k,cost+(cur[i]===sl?0:1));
       used[sl]=false;

@@ -1018,18 +1018,27 @@ function easyCondWeek(date){const wk=date?weekOf(date):null;return !!(wk&&wk.kin
 // Lock every week that has fully passed: its type, cycle/week, prescription and Lift 3
 // picks. A cycle whose last week is locked also gets its maxes locked.
 function freezePast(){
-  const cur=idxOf(todayStr()); if(cur<=0) return false;
-  const list=weeks(cur+1), fz=plan.frozen||(plan.frozen={}), lm=plan.lockedMax||(plan.lockedMax={});
+  const cur=idxOf(todayStr()); if(cur<0) return false;
+  const list=weeks(cur+2), fz=plan.frozen||(plan.frozen={}), lm=plan.lockedMax||(plan.lockedMax={});
   let changed=false;
-  for(let i=0;i<cur&&i<list.length;i++){
-    const wk=list[i]; if(fz[wk.monday]) continue;
+  // Up to and including the week you are in. A week already under way has told you what
+  // it is, and changing the deload or retest spacing should not turn it into something
+  // else on the Wednesday. Its *prescription* is deliberately not frozen while it is
+  // current: Setup promises the wave and your maxes apply from this week on, and they do.
+  for(let i=0;i<=cur&&i<list.length;i++){
+    const wk=list[i], now=i===cur; if(fz[wk.monday]&&!(now&&!fz[wk.monday].soft)) continue;
+    if(fz[wk.monday]&&now) continue;
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
-    if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    if(now) f.soft=true;                       // identity only; the numbers still follow
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
     fz[wk.monday]=f; changed=true;
     if(changed) planV++;
   }
-  for(const f of Object.values(fz)) if(f.kind==='cycle'&&f.w===6&&!lm[f.cycle]){
+  // Once the week you are in has passed, it is frozen properly like any other.
+  const curMon=list[cur]&&list[cur].monday;
+  for(const [mon,f] of Object.entries(fz)) if(f.soft&&mon<curMon){ delete f.soft; changed=true; planV++ }
+  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&f.w===6&&!lm[f.cycle]&&mon<curMon){
     const mx=maxFor(f.cycle), o={}; for(const k of LK) if(mx[k]) o[k]=mx[k].v; lm[f.cycle]=o; changed=true; planV++;
   }
   if(changed) queueWrite('plan/main',()=>plan);
@@ -1089,9 +1098,17 @@ function sessKind(dp){
   if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test'||dp.t==='travel') return 'strength';
   if(dp.t==='plyohic') return 'hic';
   if(dp.t==='hic') return dp.fmt==='liss'?'easy':'hic';
+  // Base Building's week is two circuits with three days between them. Classed as
+  // 'other' they were invisible to the adjacency rules and the Move tool would happily
+  // put them back to back, which is the one arrangement Block I is built to avoid.
+  if(dp.t==='se') return 'se';
   return 'other';
 }
-function kindName(k){return k==='strength'?'strength':'hard conditioning'}
+function kindName(k){return k==='strength'?'strength':k==='se'?'strength-endurance':'hard conditioning'}
+// Kinds that must not land on consecutive days. One list, used by the arranger and by
+// the warning it shows, because when those two disagree the arranger silently wins.
+const ADJACENT_BAN=['strength','hic','se'];
+function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
 // Conflicts a proposed order would create, including the days either side of the week.
 function orderIssues(monday,ord){
   const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
@@ -1099,7 +1116,7 @@ function orderIssues(monday,ord){
   for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
   K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
   const out=[];
-  for(let i=1;i<K.length;i++) if((K[i]==='strength'||K[i]==='hic')&&K[i]===K[i-1]) out.push({a:N[i-1],b:N[i],kind:K[i]});
+  for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
   return out;
 }
 function dayPlan(date){
@@ -1130,8 +1147,12 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Mobility',note:'Easy day. Mobility only: the warm-up hip and t-spine work. No cardio — the two heavy test days are what this week is for.'},
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     {t:'test',lifts:['squat','bench'],jumps:true,short:'Test'},
-    {t:'off',short:'Off'},
-    {t:'test',lifts:['dead',...l3On()],pullups:true,apply:true,short:'Test'},
+    // Friday takes the overflow once the cluster is bigger than two lifts a day, the
+    // same split the bridge week already makes. Testing four lifts in one session is
+    // not wrong -- TB1 works the whole cluster in one -- but tired singles measure
+    // fatigue rather than strength, and the day was sitting empty.
+    (()=>{const rest=['dead',...l3On()];return rest.length>2?{t:'test',lifts:rest.slice(0,rest.length-2),short:'Test'}:{t:'off',short:'Off'}})(),
+    (()=>{const rest=['dead',...l3On()];return {t:'test',lifts:rest.length>2?rest.slice(-2):rest,pullups:true,apply:true,short:'Test'}})(),
     {t:'off',short:'Off'}][d];
   if(wk.kind==='bb'){
     const row=bbRow(wk)[d]||['rest'], k=row[0];
@@ -1648,13 +1669,13 @@ function bestOrder(mon,fixDay,fixSlot){
   let best=null, bestCost=99;
   (function go(i,prev,cost){
     if(cost>=bestCost) return;
-    if(i===7){ if((prev==='strength'||prev==='hic')&&prev===nextK) return; best=ord.slice(); bestCost=cost; return }
+    if(i===7){ if(clashes(prev,nextK)) return; best=ord.slice(); bestCost=cost; return }
     for(let sl=0;sl<7;sl++){
       if(used[sl]) continue;
       if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
       if(fixDay!=null&&fixDay===i&&sl!==fixSlot) continue;
       if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
-      const k=K[sl]; if((k==='strength'||k==='hic')&&k===prev) continue;
+      const k=K[sl]; if(clashes(k,prev)) continue;
       used[sl]=true; ord[i]=sl;
       go(i+1,k,cost+(cur[i]===sl?0:1));
       used[sl]=false;
@@ -4533,7 +4554,7 @@ function vSetup(){
   <p class="small muted" style="margin:0"><b>2 is the book\u2019s recommendation</b> \u2014 two six-week blocks, so twelve weeks between tests, which it calls the optimal length of a strength phase. 1 (six weeks) is the minimum and is offered to experienced lifters who respond better to testing often. Going longer is explicitly fine: if the loads still feel heavy, stay on your current numbers and test when they feel solid.</p>
   <p class="small muted" style="margin:0">A retest week doubles as a deload: 3 easy days, then heavy singles. When both land on the same cycle, the retest wins.</p>
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
-  <div class="banner"><div class="small">Past weeks are locked: changing these rules, the wave or maxes only re-plans from the current week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
+  <div class="banner"><div class="small">Past weeks are locked, and so is the week you are in: changing the deload or retest cadence takes effect from <b>next</b> week, so a week already under way cannot turn into something else on the Wednesday. The wave and your maxes still apply from this week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
   h+=syncCard();
   h+=crashCard();

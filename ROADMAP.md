@@ -17,16 +17,6 @@ Known gaps and things to verify. Fix or close these before starting new features
   but nothing has been observed on a phone since. Confirmed so far: home-screen install,
   Access login in the installed app, the update banner, rest alerts arriving on the lock
   screen, and spoken cues through AirPods with the app open.
-- **The Move tool will shuffle a Base Building week freely.** SE days are `'other'` to the
-  back-to-back adjacency rules, so nothing stops two circuits landing on consecutive days
-  — and Block I's week is built around that spacing. Either give `se` its own adjacency
-  class or refuse to rearrange a `bb` week.
-- **Retest Saturday tests more than two lifts** when several Lift 3 variants are on
-  (deadlift + pulldown + OHP, plus pull-ups). Splitting them is an app choice for
-  freshness, not a rule — TB1's test day works through the whole cluster in one session.
-  Bridge week already splits them; retest week doesn't yet.
-- **The current week can still re-plan.** Only fully past weeks are locked, so changing
-  deload/retest spacing mid-week can change this week's type.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically.
 - **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02.** Settled:
@@ -113,6 +103,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Three open issues closed (2026-10-08)**
+- **Base Building circuits can no longer be put back to back.** `sessKind` gives `se` its
+  own class. The rule lived in two places — `orderIssues` warned and `bestOrder` chose —
+  and fixing only the warning left the arranger still producing the forbidden week, which
+  the tests caught. Both now read one `ADJACENT_BAN` list, because when those disagree
+  the arranger silently wins.
+- **A retest splits the cluster across Thursday, Friday and Saturday** once it is more
+  than a pair, the same split the bridge week already makes. Friday was sitting empty
+  while Saturday tested four lifts. A small cluster still uses two days.
+- **The week you are in keeps its identity.** `freezePast` now records the current week
+  too, but *softly*: kind, cycle and number are fixed, the prescription is not. Changing
+  the deload or retest cadence takes effect from next week rather than turning Wednesday
+  into a deload; the wave and maxes still reach this week, which is what Setup promises.
+  The soft mark is dropped once the week has passed and it freezes properly.
+  - Consequence worth knowing: a cadence change does not retro-fit a deload to a boundary
+    already behind the frozen week. It acts on the next boundary it can reach.
+- Setup's locking note rewritten, since it had been promising the old behaviour.
+- Five mutations all fail. 179 → 182 tests.
 
 **Swimming is always metres, and `fixedUnit` is real (2026-10-08)**
 - Swimming is measured in metres because a pool is, not because of a preference. Joined
