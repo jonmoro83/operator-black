@@ -16,13 +16,17 @@ const HIC={
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
 // Units follow the Setup choice: metricFor turns 'mi' into 'km' and 'yd' into 'm' on
-// metric. Distances you measure yourself are written here in their imperial form so the
-// conversion applies. The rower and ski erg keep a hard 'm' on purpose — that is what
-// the machine's own display reads, in either system, and it would be wrong to relabel it.
+// metric. A distance you measure yourself is written here in its imperial form so the
+// conversion reaches it.
+//
+// `fixedUnit` opts out, for the cases where the unit is not a preference: the rower and
+// ski erg read metres on their own displays whatever you prefer, and a pool is measured
+// in metres. Relabelling either would be telling you something untrue about the number
+// in front of you.
 const MOD={
   echo:{name:'Echo bike',hic:['cal','cal'],liss:['cal','cal'],wu:'5 min easy spin, then 3 × 15 s at HIC pace with 45 s easy between.'},
-  rower:{name:'Rower',hic:['cal','cal'],liss:['dist','m'],wu:'5 min easy row, then 3 × 15 s at HIC pace with 45 s easy between.'},
-  ski:{name:'Ski erg',hic:['cal','cal'],liss:['dist','m'],wu:'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'},
+  rower:{name:'Rower',hic:['cal','cal'],liss:['dist','m'],fixedUnit:true,wu:'5 min easy row, then 3 × 15 s at HIC pace with 45 s easy between.'},
+  ski:{name:'Ski erg',hic:['cal','cal'],liss:['dist','m'],fixedUnit:true,wu:'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'},
   run:{name:'Run / sprints',hic:['dist','yd'],liss:['dist','mi'],wu:'5 min jog, leg swings, then 3–4 strides building up to HIC pace.',tip:'Running adds impact. Keep hard efforts smooth (about 90%) on MAP, threshold and long intervals, and save true sprints for anaerobic days. Hills are easier on the legs than flat sprints.'},
   cycle:{name:'Cycling',hic:['watts','avg W'],liss:['dist','mi'],wu:'10 min easy spin, then 3 × 15 s at HIC pace.'},
   trail:{name:'Trail run',hic:['dist','yd'],liss:['dist','mi'],elev:true,wu:'10 min easy jog on flat ground, then 3 × 20 s hard uphill with an easy jog back down.',tip:'Uneven ground makes pace meaningless, so run the hard efforts by breathing rather than by watch. Downhills are where the damage is: that is eccentric load, and it turns up as sore quads two days later, so take them easy before a squat day.'},
@@ -31,7 +35,7 @@ const MOD={
   hill:{name:'Hill sprints',hic:['dist','yd'],liss:null,elev:true,
     wu:'10 min easy jog on the flat, leg swings, then 2\u20133 build-ups on the hill at about half effort, walking back down each time.',
     tip:'The safest way to sprint: the incline shortens the stride and caps the top speed, so most of the hamstring risk of flat sprinting goes with it. The cost is calves and Achilles, and these are a true anaerobic effort \u2014 keep them to anaerobic days, walk down slowly as the rest, and stop when your times start slipping rather than grinding out the last few. Log the total distance run, or let the elevation stand in for it.'},
-  swim:{name:'Swim',hic:['dist','yd'],liss:['dist','yd'],wu:'200 easy, then 4 × 25 building to HIC pace.'},
+  swim:{name:'Swim',hic:['dist','m'],liss:['dist','m'],fixedUnit:true,wu:'200 easy, then 4 × 25 building to HIC pace.'},
   other:{name:'Other',hic:null,liss:null}
 };
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.

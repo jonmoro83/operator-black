@@ -234,7 +234,20 @@ function effFmt(date){const L=logs[date];const dp=dayPlan(date);return (L&&L.hic
 function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
 // Sessions logged before activities existed have calories but no activity: they were on the Echo bike.
 function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
-function metricFor(mod,fmt){if(HIC[fmt]&&HIC[fmt].noMetric)return null;const m=MOD[mod]&&MOD[mod][fmt==='liss'?'liss':'hic'];if(!m)return null;let un=m[1];if(u()==='kg'){if(un==='mi')un='km';if(un==='yd')un='m'}return [m[0],un]}
+function metricFor(mod,fmt){
+  if(HIC[fmt]&&HIC[fmt].noMetric)return null;
+  const M=MOD[mod], m=M&&M[fmt==='liss'?'liss':'hic'];
+  if(!m)return null;
+  let un=m[1];
+  // Symmetric, so a distance can be declared in either system and still follow the
+  // setting. Without the imperial half, anything written in metres was simply stuck
+  // there and `fixedUnit` protected nothing.
+  if(!M.fixedUnit){
+    if(u()==='kg'){ if(un==='mi')un='km'; if(un==='yd')un='m' }
+    else { if(un==='km')un='mi'; if(un==='m')un='yd' }
+  }
+  return [m[0],un];
+}
 function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.

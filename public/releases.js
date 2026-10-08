@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.69',date:'2026-10-08',title:'Swimming stays in metres',items:[
+    'Swim distances are always in metres now, whichever units the app is set to \u2014 a pool is measured in metres and that is not a matter of preference. Same for the rower and ski erg, which read metres on their own displays.',
+    'Everything you measure yourself \u2014 running, trail, hill sprints, rucks, hikes \u2014 still follows your setting.']},
   {v:'1.68',date:'2026-10-08',title:'Distances in your own units',items:[
     'Interval distances for running, trail running and hill sprints were always shown in metres, even with the app set to pounds and miles. They now follow your unit setting like everything else \u2014 yards on imperial, metres on metric.',
     'The rower and ski erg still read in metres whichever setting you use, because that is what the machine in front of you says.']},

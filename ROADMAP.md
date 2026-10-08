@@ -114,6 +114,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Swimming is always metres, and `fixedUnit` is real (2026-10-08)**
+- Swimming is measured in metres because a pool is, not because of a preference. Joined
+  the rower and ski erg under a new `fixedUnit` flag on the activity.
+- The flag was **inert when first written** — the mutation that ignored it passed. The
+  conversion only ran one way (`yd→m` on metric), so anything declared in metres was
+  stuck there anyway and the flag protected nothing. Documentation wearing the costume
+  of a mechanism.
+- Fixed by making the conversion symmetric: metric converts `mi→km`/`yd→m`, imperial
+  converts `km→mi`/`m→yd`. Now a distance can be declared in whichever unit is natural
+  and still follow the setting, and `fixedUnit` genuinely opts out.
+- The imperial half had no caller, so a test adds a throwaway activity declared in metres
+  and asserts it reads as yards on imperial. Otherwise it was untested dead code that
+  happened to be correct.
+
 **Interval distances follow the unit setting (2026-10-08)**
 - On imperial you got run and trail LISS in miles but run and trail **HIC in metres**.
   `metricFor` only ever converted `mi→km` and `yd→m`, so a distance written as metres

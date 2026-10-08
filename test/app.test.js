@@ -2702,20 +2702,40 @@ test("a distance you measure yourself follows the units you chose", () => {
   x.plan.unit = "lb"; x.bump(); a.equal(x.elevUnit(), "ft");
   x.plan.unit = "kg"; x.bump(); a.equal(x.elevUnit(), "m");
 
-  // The erg is the exception, deliberately: metres is what its own display reads, in
-  // either system, so relabelling it to yards would be telling you something untrue.
+  // Some units are not a preference. The ergs read metres on their own displays and a
+  // pool is measured in metres, whatever you have the app set to. `fixedUnit` says so.
   for (const unitSet of ["lb", "kg"]) {
     x.plan.unit = unitSet; x.bump();
     a.equal(unit("rower", "liss"), "m", `rower stays metres on ${unitSet}`);
     a.equal(unit("ski", "liss"), "m", `ski erg stays metres on ${unitSet}`);
+    a.equal(unit("swim", "liss"), "m", `swimming stays metres on ${unitSet}`);
+    a.equal(unit("swim", "map"), "m", `swim intervals too, on ${unitSet}`);
   }
 
-  // Nothing you measure yourself is left in a unit the setting cannot reach.
+  // The conversion works from either side, so a new activity can be declared in
+  // whichever unit is natural to write and still follow the setting. Nothing in MOD is
+  // currently declared in metric, so without this the imperial half is never exercised.
+  x.MOD.__probe = { name: "Probe", hic: ["dist", "m"], liss: ["dist", "km"] };
+  try {
+    x.plan.unit = "lb"; x.bump();
+    a.equal(unit("__probe", "map"), "yd", "metres declared, yards shown on imperial");
+    a.equal(unit("__probe", "liss"), "mi", "and kilometres become miles");
+    x.plan.unit = "kg"; x.bump();
+    a.equal(unit("__probe", "map"), "m", "unchanged on metric");
+    a.equal(unit("__probe", "liss"), "km");
+
+    x.MOD.__probe.fixedUnit = true;
+    x.plan.unit = "lb"; x.bump();
+    a.equal(unit("__probe", "map"), "m", "and fixedUnit pins it whichever way it is declared");
+  } finally { delete x.MOD.__probe }
+
+  // Every distance is either pinned by fixedUnit or declared so the setting reaches it.
+  // Without this, the next activity added could quietly be stuck in one system.
   for (const [k, v] of Object.entries(x.MOD)) {
-    if (["rower", "ski"].includes(k)) continue;
     for (const f of ["hic", "liss"]) {
       if (!v[f] || v[f][0] !== "dist") continue;
-      a.ok(["mi", "yd"].includes(v[f][1]), `${k}.${f} is declared in an imperial unit so it can convert, got ${v[f][1]}`);
+      if (v.fixedUnit) { a.equal(v[f][1], "m", `${k}.${f} is pinned, so it should be metres`); continue }
+      a.ok(["mi", "yd"].includes(v[f][1]), `${k}.${f} must be declared imperial to convert, got ${v[f][1]}`);
     }
   }
 });
