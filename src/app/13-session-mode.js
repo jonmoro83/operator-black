@@ -124,7 +124,7 @@ function lsRender(){
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
     const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
-    const list=accFor(sl), all=accAll(), rest=+plan.accRest||90;
+    const list=accFor(sl,id), all=accAll(), rest=+plan.accRest||90;
     h+=`<div class="ls-card"><div class="ls-lift">${esc((ASLOT[sl]||{}).name||sl)}</div>
       <div class="ls-kind">Accessory${accSwapped(ls.date,sl)?' \u00b7 swapped for today':''}${accDone(ls.date,sl)?' \u00b7 \u2713 done':''}</div>
       <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>

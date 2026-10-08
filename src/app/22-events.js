@@ -5,6 +5,7 @@ document.addEventListener('input',e=>{
   if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
   // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
   // and the caret survive it.
+  if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
@@ -114,6 +115,13 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.confirm=null; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminrsoff'){ admin.rsFor=null; admin.typed=''; render(); return }
   if(a==='adminrsgo'){ adminRestore(b.dataset.user,b.dataset.name); return }
+  if(a==='cathide'){ catSave({id:b.dataset.id,slot:b.dataset.slot,name:b.dataset.name,gear:b.dataset.gear,hidden:b.dataset.on==='1'}); return }
+  if(a==='catrm'){ catRemove(b.dataset.id); return }
+  if(a==='catadd'){
+    const name=(catNew.name||'').trim(); if(!name) return;
+    catSave({slot:catNew.slot,name,gear:(catNew.gear||'').trim()});
+    catNew={name:'',slot:catNew.slot,gear:''};
+    return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
     if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);

@@ -114,6 +114,11 @@ everyone else's; the secret only decides what that identity may do. The server r
 on every admin route, so hiding the card is a convenience and not the control — and a
 non-admin gets **404**, not 403, so the routes do not advertise themselves.
 
+It also curates the **shared exercise list** for accessories: add a movement for
+everyone, or retire one. Retiring stops it being offered but leaves it with anyone who
+has already chosen it, so nobody's programme is rewritten mid-cycle. Needs migration
+`0005`.
+
 What it can do: list everyone with counts, sizes, last activity and whether their newest
 backup verified; export one person's data whole; **restore one of their backups** (their
 current data is kept as a `before-restore` copy first, so it is undoable from their own

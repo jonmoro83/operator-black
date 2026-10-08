@@ -436,7 +436,7 @@ statements src/api.js actually issues, over real rows. Narrow on purpose: it ans
 queries this code sends and throws on anything it does not recognise, so a new query
 cannot pass by being quietly ignored. */
 function fakeDB() {
-  const docs = [], feeds = [], adminLog = [];
+  const docs = [], feeds = [], adminLog = [], cat = [];
   const norm = (s) => s.replace(/\s+/g, " ").trim();
   const exec = (sql, a) => {
     const q = norm(sql);
@@ -497,11 +497,24 @@ function fakeDB() {
     }
     if (/^SELECT at, actor, action, subject, detail FROM admin_log/.test(q))
       return [...adminLog].sort((x, y) => y.at - x.at).slice(0, 100);
+    if (/^SELECT id, slot, name, gear, hidden FROM acc_catalog$/.test(q))
+      return cat.map((c) => ({ ...c }));
+    if (/^INSERT INTO acc_catalog/.test(q)) {
+      const row = { id: a[0], slot: a[1], name: a[2], gear: a[3], hidden: a[4], updated_at: a[5] };
+      const i = cat.findIndex((c) => c.id === row.id);
+      if (i >= 0) cat[i] = row; else cat.push(row);
+      return [];
+    }
+    if (/^DELETE FROM acc_catalog WHERE id = \?1$/.test(q)) {
+      const keep = cat.filter((c) => c.id !== a[0]);
+      cat.length = 0; cat.push(...keep);
+      return [];
+    }
     throw new Error("fakeDB does not know this query: " + q);
   };
   const batches = [];
   return {
-    docs, feeds, adminLog, batches,
+    docs, feeds, adminLog, cat, batches,
     prepare(sql) {
       // A statement can be run with or without parameters, like the real binding.
       const made = (args) => ({
@@ -1056,4 +1069,67 @@ test("a restore done for someone is written to the audit log", async () => {
   const d = JSON.parse(entry.detail);
   a.equal(d.from, good.name, "which backup it came from");
   a.match(d.safety, /before-restore/, "and where their previous data went");
+});
+
+test("the shared catalogue is readable by everyone and writable only by an admin", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+
+  // It reaches every user with their state, admin or not.
+  a.deepEqual((await (await call2(env, "state", {}, await asOther(k))).json()).catalog, []);
+
+  const add = (body, token) => call2(env, "admin/catalog", { method: "POST", body: JSON.stringify(body) }, token);
+  a.equal((await add({ slot: "biceps", name: "Spider curl", gear: "EZ bar" }, await asOther(k))).status, 404, "not for an ordinary user");
+
+  const res = await add({ slot: "biceps", name: "Spider curl", gear: "EZ bar" }, await mint(k.a));
+  a.equal(res.status, 200);
+  const cat = (await res.json()).catalog;
+  a.equal(cat.length, 1);
+  a.equal(cat[0].id, "cat-spider-curl", "the id is made from the name and cannot collide with a built-in");
+  a.equal(cat[0].name, "Spider curl");
+  a.equal(cat[0].hidden, false);
+
+  // And now everyone sees it, including people who are not admins.
+  const theirs = (await (await call2(env, "state", {}, await asOther(k))).json()).catalog;
+  a.equal(theirs.length, 1);
+  a.equal(theirs[0].name, "Spider curl");
+});
+
+test("retiring a built-in is a row, and removing an addition takes it away", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const post = (b) => call2(env, "admin/catalog", { method: "POST", body: JSON.stringify(b) }, mintOne);
+  let mintOne = await mint(k.a);
+
+  await call2(env, "admin/catalog", { method: "POST", body: JSON.stringify({ id: "bbcurl", slot: "biceps", hidden: true }) }, await mint(k.a));
+  let cat = (await (await call2(env, "state", {}, await mint(k.a))).json()).catalog;
+  a.equal(cat.length, 1);
+  a.equal(cat[0].id, "bbcurl");
+  a.equal(cat[0].hidden, true, "a built-in is retired by a row that only says so");
+  a.equal(cat[0].name, "", "with no name of its own — the built-in keeps that");
+
+  // Bringing it back is the same row with hidden off.
+  await call2(env, "admin/catalog", { method: "POST", body: JSON.stringify({ id: "bbcurl", slot: "biceps", name: "Barbell curl", hidden: false }) }, await mint(k.a));
+  cat = (await (await call2(env, "state", {}, await mint(k.a))).json()).catalog;
+  a.equal(cat[0].hidden, false);
+
+  await call2(env, "admin/catalog/bbcurl", { method: "DELETE" }, await mint(k.a));
+  a.deepEqual((await (await call2(env, "state", {}, await mint(k.a))).json()).catalog, []);
+  a.ok(post);
+});
+
+test("the catalogue refuses nonsense, and every change is audited", async () => {
+  const k = await setupKeys(); const env = adminEnv();
+  const post = async (b) => (await call2(env, "admin/catalog", { method: "POST", body: JSON.stringify(b) }, await mint(k.a))).status;
+
+  a.equal(await post({ slot: "biceps" }), 400, "no name");
+  a.equal(await post({ name: "Thing" }), 400, "no slot");
+  a.equal(await post({ slot: "NOT A SLOT", name: "Thing" }), 400);
+  a.equal(await post({ slot: "biceps", name: "Thing", id: "../../etc" }), 400, "nor a path for an id");
+  a.deepEqual((await (await call2(env, "state", {}, await mint(k.a))).json()).catalog, [], "and none of it was stored");
+
+  a.equal(await post({ slot: "biceps", name: "Spider curl" }), 200);
+  await call2(env, "admin/catalog/cat-spider-curl", { method: "DELETE" }, await mint(k.a));
+
+  const log = (await (await call2(env, "admin/log", {}, await mint(k.a))).json()).log;
+  a.deepEqual(log.map((e) => e.action).sort(), ["catalog-add", "catalog-remove"], "both recorded");
+  a.ok(log.every((e) => e.actor === "lifter@example.com"));
 });

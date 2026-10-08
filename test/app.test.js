@@ -2828,3 +2828,73 @@ test("the week you are in cannot be turned into a different kind of week", () =>
   a.match(x.vSetup(), /takes effect from <b>next<\/b> week/);
   a.match(x.vSetup(), /wave and your maxes still apply from this week/);
 });
+
+test("the shared catalogue adds to the built-in list for everyone", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.ok(!x.accFor("biceps").includes("cat-spider-curl"));
+
+  x.catalog = [{ id: "cat-spider-curl", slot: "biceps", name: "Spider curl", gear: "EZ bar", hidden: false }];
+  x.bump();
+  a.ok(x.accFor("biceps").includes("cat-spider-curl"), "offered to everyone");
+  a.equal(x.accName("cat-spider-curl"), "Spider curl");
+  a.equal(x.accEx("cat-spider-curl").shared, true, "and marked as a shared addition");
+
+  x.plan.accPick = { mon: { biceps: "cat-spider-curl" } }; x.bump();
+  a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Spider curl", "and usable like any other");
+});
+
+test("retiring a movement stops it being offered but leaves it with whoever has it", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.accPick = { mon: { biceps: "bbcurl" } };          // this person is mid-cycle on it
+  x.catalog = [{ id: "bbcurl", slot: "biceps", name: "", gear: "", hidden: true }];
+  x.bump();
+  const mon = "2026-09-07";
+
+  // Still resolves, still named, still theirs.
+  a.equal(x.accName("bbcurl"), "Barbell curl", "a retired movement keeps its name");
+  a.equal(x.accEx("bbcurl").hidden, true);
+  a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl", "and they keep doing it");
+
+  // Not offered to anyone choosing fresh.
+  a.ok(!x.accFor("biceps").includes("bbcurl"), "nobody new is offered it");
+  // But it stays in the picker of the person who has it, or their dropdown would lie.
+  a.ok(x.accFor("biceps", "bbcurl").includes("bbcurl"), "their own picker still shows it");
+
+  // Someone who had not chosen it gets the default, not a blank.
+  const other = app({ now: "2026-09-07" });
+  other.plan.startMonday = "2026-09-07"; other.plan.bridge = false;
+  other.catalog = [{ id: "bbcurl", slot: "biceps", name: "", gear: "", hidden: true }];
+  other.bump();
+  a.ok(other.accName(other.accOn(mon, "biceps")), "they still have something to do");
+});
+
+test("a shared movement that is deleted outright falls back rather than breaking", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.catalog = [{ id: "cat-gone", slot: "biceps", name: "Gone curl", hidden: false }];
+  x.plan.accPick = { mon: { biceps: "cat-gone" } }; x.bump();
+  a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Gone curl");
+
+  x.catalog = []; x.bump();   // the admin removed it entirely
+  a.equal(x.accEx("cat-gone"), null, "it is gone");
+  a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "Barbell curl", "and the slot falls back to its default");
+  a.ok(x.accFor("biceps").length > 0, "the picker still has options");
+});
+
+test("a personal addition from before the shared list still works, and is named as such", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.accCustom = [{ id: "mine-old", slot: "biceps", name: "My old curl", gear: "" }];
+  x.plan.accPick = { mon: { biceps: "mine-old" } }; x.bump();
+
+  a.equal(x.accName(x.accOn("2026-09-07", "biceps")), "My old curl");
+  a.equal(x.accEx("mine-old").mine, true);
+  a.match(x.vSetup(), /of your own from before the list was shared/);
+  a.ok(!/Add it<\/button>/.test(x.vSetup()), "and Setup no longer offers to add more");
+
+  // A shared entry wins if an id ever collides, since that is the curated one.
+  x.catalog = [{ id: "mine-old", slot: "biceps", name: "Curated version", hidden: false }]; x.bump();
+  a.equal(x.accName("mine-old"), "Curated version");
+});

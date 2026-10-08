@@ -104,6 +104,22 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A shared, curated exercise list (2026-10-08)**
+- `acc_catalog` in D1 (migration `0005`), served to everyone with `/api/state` and cached
+  locally. Admins add and retire from the Admin tab; nobody else can write to it.
+- **Retiring is not deleting**, and that is the whole design. A retired movement stops
+  being offered but still resolves, keeps its name, and stays in the picker of anyone
+  who already chose it. Rewriting somebody's accessory mid-cycle because a list changed
+  would be worse than letting them finish with it.
+- Retiring a built-in is a row carrying only `hidden` — the built-in keeps its own name,
+  so the two cannot drift apart. A hard delete of an added movement does fall back to the
+  slot's default, which is the honest outcome when the thing no longer exists at all.
+- Per-user additions are no longer offered: the list is curated now. Existing ones still
+  resolve and Setup names them, so nothing anyone picked has broken.
+- The fake D1 threw on the three new queries rather than ignoring them, which is exactly
+  what it was built to do.
+- Five mutations all fail. 182 → 189 tests.
+
 **Three open issues closed (2026-10-08)**
 - **Base Building circuits can no longer be put back to back.** `sessKind` gives `se` its
   own class. The rule lived in two places — `orderIssues` warned and `bestOrder` chose —

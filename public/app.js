@@ -792,11 +792,31 @@ const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl',
 /* ---------------- reading the choice ---------------- */
 
 // Your own exercises, stored in the plan so they reach every device.
+// Anything a person added before the catalogue was shared. Still resolved so nobody's
+// choice breaks; no longer addable, because the list is curated now.
 function accCustom(){ const a=(plan.accCustom||[]); return Array.isArray(a)?a.filter(x=>x&&x.id&&x.name&&ASLOT[x.slot]):[] }
-function accAll(){ const out=Object.assign({},ALIB); for(const x of accCustom()) out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',mine:true}; return out }
+function accShared(){ return Array.isArray(catalog)?catalog.filter(x=>x&&x.id&&ASLOT[x.slot]):[] }
+
+// Everything that can be resolved, hidden ones included. A retired movement still has
+// to have a name: someone may be mid-cycle with it, and showing them a blank row or
+// silently swapping their exercise would be worse than letting them finish with it.
+function accAll(){
+  const out=Object.assign({},ALIB);
+  for(const x of accShared()){
+    if(x.hidden&&!x.name){ if(out[x.id]) out[x.id]=Object.assign({},out[x.id],{hidden:true}); continue }
+    out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',shared:true,hidden:!!x.hidden};
+  }
+  for(const x of accCustom()) if(!out[x.id]) out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',mine:true};
+  return out;
+}
 function accEx(id){ return accAll()[id]||null }
 function accName(id){ const e=accEx(id); return e?e.name:'' }
-function accFor(slot){ const all=accAll(); return Object.keys(all).filter(k=>all[k].slot===slot) }
+// What to offer in a picker: everything not retired, plus whatever is already chosen
+// here so the dropdown still shows the right thing.
+function accFor(slot,keep){
+  const all=accAll();
+  return Object.keys(all).filter(k=>all[k].slot===slot&&(!all[k].hidden||k===keep));
+}
 
 // The slots a day fills. Editable per day, falling back to the defaults above.
 function accSlots(day){
@@ -856,6 +876,9 @@ let programs={}, viewing=null, stash=null;
 let schemaAhead=false;
 // Whether the server says this address administers the app. Set from /api/state only.
 let amAdmin=false;
+// The shared accessory catalogue, curated by an administrator and the same for everyone.
+// Shared state, not yours, so it lives beside the plan rather than inside it.
+let catalog=[];
 let view='today', sel=todayStr(), planShow=26, planMode='list', calMonth=null;
 try{const pm=localStorage.getItem('ob.planmode'); if(pm==='cal'||pm==='list') planMode=pm}catch(e){}
 try{ const v=localStorage.getItem('ob.view'); if(v) view=v; }catch(e){}
@@ -1392,6 +1415,7 @@ function applyState(st){
 function loadLocal(){
   const c=LS.get('ob.cache');
   amAdmin=LS.get('ob.admin')===true;
+  { const c=LS.get('ob.catalog'); if(Array.isArray(c)) catalog=c }
   if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; programs=c.programs||{}; }
   for(const [path,doc] of Object.entries(outbox)){
     if(path==='plan/main') plan=deepMerge(clone(DEF),doc);
@@ -1409,7 +1433,7 @@ function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.ke
 function switchUser(user){
   for(const w of Object.values(writers)) clearTimeout(w.timer);
   for(const k of Object.keys(writers)) delete writers[k];
-  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false;
+  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false; LS.set('ob.catalog',null); catalog=[];
   plan=clone(DEF); logs={}; programs={}; stash=null; viewing=null; planV++;
   rest=null; iv=null; showRest(); ivShow();
   me=user; LS.set('ob.user',user);
@@ -1421,6 +1445,7 @@ async function connect(){
     // Remembered so the tab does not vanish on a cold or offline open. It is a hint for
     // the page only: every admin route checks again, so a stale yes grants nothing.
     amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
+    if(Array.isArray(st.catalog)){ catalog=st.catalog; LS.set('ob.catalog',catalog) }
     if(st.user&&me&&st.user!==me) switchUser(st.user);
     if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
     loaded=true; applyState(st);
@@ -2198,7 +2223,7 @@ function accCard(wk,dp){
 // One slot: what it is for, what is filling it today, and what you did.
 function accSlotRow(date,slot){
   const id=accOn(date,slot), e=accEx(id), sets=accSets(date,slot), swapped=accSwapped(date,slot);
-  const list=accFor(slot), all=accAll();
+  const list=accFor(slot,id), all=accAll();
   const isDone=accDone(date,slot), noSets=!sets.length;
   let h=`<div class="acc-slot">
   <div class="acc-head"><span class="acc-role">${esc((ASLOT[slot]||{}).name||slot)}</span>${swapped?'<span class="chip blue">today only</span>':''}${isDone?'<span class="chip light">done</span>':''}</div>`;
@@ -3137,7 +3162,7 @@ function lsRender(){
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
     const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
-    const list=accFor(sl), all=accAll(), rest=+plan.accRest||90;
+    const list=accFor(sl,id), all=accAll(), rest=+plan.accRest||90;
     h+=`<div class="ls-card"><div class="ls-lift">${esc((ASLOT[sl]||{}).name||sl)}</div>
       <div class="ls-kind">Accessory${accSwapped(ls.date,sl)?' \u00b7 swapped for today':''}${accDone(ls.date,sl)?' \u00b7 \u2713 done':''}</div>
       <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>
@@ -4235,7 +4260,7 @@ function accSetupCard(){
     h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><div class="small" style="font-weight:650">${label}</div>`;
     if(!sl.length) h+=`<div class="small muted" style="margin-top:4px">Nothing on this day.</div>`;
     for(const k of sl){
-      const pick=accPickFor(d,k,later?null:cyc), list=accFor(k);
+      const pick=accPickFor(d,k,later?null:cyc), list=accFor(k,pick);
       h+=`<div style="margin-top:8px"><div class="row between" style="gap:8px"><span class="acc-role">${esc(ASLOT[k].name)}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>
       <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></div>`;
     }
@@ -4244,13 +4269,11 @@ function accSetupCard(){
   }
 
   const mine=accCustom();
-  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Your own</div>
-  <p class="small muted" style="margin:2px 0 0">Anything the list is missing. It appears everywhere the built-in ones do, and syncs to your other devices.</p>
-  ${mine.length?`<div class="stack" style="gap:6px;margin-top:6px">${mine.map(x=>`<div class="row between"><span class="small">${esc(x.name)} <span class="muted">\u00b7 ${esc((ASLOT[x.slot]||{}).name||x.slot)}${x.gear?' \u00b7 '+esc(x.gear):''}</span></span><button class="btn sm ghost" data-act="accmineRm" data-id="${esc(x.id)}">Remove</button></div>`).join('')}</div>`:''}
-  <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" id="accnew-name" data-accnew="name" value="${esc(accNew.name)}" placeholder="e.g. Spider curl"></label>
-  <label class="f">Job<select id="accnew-slot" data-accnew="slot">${Object.entries(ASLOT).map(([k,v])=>`<option value="${k}"${k===accNew.slot?' selected':''}>${esc(v.name)}</option>`).join('')}</select></label>
-  <label class="f">Kit<input type="text" id="accnew-gear" data-accnew="gear" value="${esc(accNew.gear)}" placeholder="e.g. EZ bar"></label></div>
-  <div class="row"><button class="btn" data-act="accmineAdd"${accNew.name.trim()?'':' disabled'}>Add it</button></div></div>`;
+  h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">The list</div>
+  <p class="small muted" style="margin:2px 0 0">${amAdmin
+    ? 'The movements on offer are the shared list, which you curate from the <b>Admin</b> tab.'
+    : 'The movements on offer are a shared list. If something you do is missing, ask and it can be added for everyone.'}</p>
+  ${mine.length?`<div class="small muted" style="margin-top:6px">You also have ${mine.length} of your own from before the list was shared \u2014 ${esc(mine.map(x=>x.name).join(', '))} \u2014 and they still work wherever you have already chosen them.</div>`:''}</div>`;
 
   const legacy=Object.values(plan.acc||{}).some(a=>Array.isArray(a)&&a.length);
   if(legacy) h+=`<div class="banner info"><div class="small">Your old typed-in accessory lists have been replaced by the jobs above. Nothing was lost \u2014 they are still in your plan, and what you ticked on past days still shows on those days.</div></div>`;
@@ -4648,7 +4671,7 @@ function vGuide(){
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
   <p><b>In session mode.</b> Each job is its own step, after the lifts: it names what is doing it, lets you swap for that session, takes the sets, and has a rest timer of its own — 90 seconds by default, where the main lifts use your per-lift two to five minutes.</p>
   <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
-  <p><b>Missing a movement?</b> Setup → Accessories → Your own takes a name, the job it does and the kit it needs. It then appears everywhere the built-in ones do and follows you to your other devices.</p>
+  <p><b>Missing a movement?</b> The list is shared and curated, so ask and it can be added for everyone. A movement that is retired stops being offered but stays with anyone who had already chosen it — nobody has their programme rewritten mid-cycle.</p>
   <ul class="tight"><li>After the main lifts, never before. Two or three sets of each job, a couple of reps short of failure.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
@@ -4983,6 +5006,52 @@ function adminBackupList(who) {
   return h + `</div>`;
 }
 
+let catNew = { name: '', slot: 'hpull', gear: '' };
+async function catSave(body) {
+  admin.catBusy = true; render();
+  try {
+    const r = await api('POST', '/admin/catalog', body);
+    catalog = r.catalog || catalog; LS.set('ob.catalog', catalog);
+    admin.catErr = null;
+  } catch (e) { admin.catErr = 'Could not save that.' }
+  admin.catBusy = false; render();
+}
+async function catRemove(id) {
+  admin.catBusy = true; render();
+  try {
+    const r = await api('DELETE', '/admin/catalog/' + encodeURIComponent(id));
+    catalog = r.catalog || catalog; LS.set('ob.catalog', catalog);
+  } catch (e) { admin.catErr = 'Could not remove that.' }
+  admin.catBusy = false; render();
+}
+
+// The shared list, grouped by the job each movement does.
+function vCatalog() {
+  const all = accAll();
+  let h = `<div class="card"><div class="lift-h"><h2>Exercise list</h2><span class="small muted">${Object.keys(all).length} movements</span></div>
+  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's programme is rewritten mid-cycle.</p>`;
+  if (admin.catErr) h += `<div class="banner warn"><div>${esc(admin.catErr)}</div></div>`;
+
+  for (const [slot, meta] of Object.entries(ASLOT)) {
+    const ids = Object.keys(all).filter(k => all[k].slot === slot);
+    if (!ids.length) continue;
+    h += `<div style="border-top:1px solid var(--line);padding-top:8px"><div class="small" style="font-weight:650">${esc(meta.name)}</div>
+    <div class="stack" style="gap:4px;margin-top:4px">${ids.map(id => {
+      const e = all[id];
+      return `<div class="row between" style="gap:8px"><span class="small${e.hidden ? ' muted' : ''}">${esc(e.name)}${e.hidden ? ' \u00b7 retired' : ''}${e.shared ? ' <span class="chip">added</span>' : ''}${e.mine ? ' <span class="chip">personal</span>' : ''}<span class="muted"> ${esc(e.gear || '')}</span></span>
+      <span class="row" style="gap:6px">${e.mine ? '' : `<button class="btn sm ghost" data-act="cathide" data-id="${esc(id)}" data-slot="${esc(slot)}" data-name="${esc(e.name)}" data-gear="${esc(e.gear || '')}" data-on="${e.hidden ? '0' : '1'}"${admin.catBusy ? ' disabled' : ''}>${e.hidden ? 'Bring back' : 'Retire'}</button>`}
+      ${e.shared ? `<button class="btn sm ghost" data-act="catrm" data-id="${esc(id)}"${admin.catBusy ? ' disabled' : ''}>Remove</button>` : ''}</span></div>`;
+    }).join('')}</div></div>`;
+  }
+
+  h += `<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Add a movement</div>
+  <div class="grid3" style="margin-top:6px"><label class="f">Name<input type="text" id="catnew-name" data-catnew="name" value="${esc(catNew.name)}" placeholder="e.g. Spider curl"></label>
+  <label class="f">Job<select id="catnew-slot" data-catnew="slot">${Object.entries(ASLOT).map(([k, v]) => `<option value="${k}"${k === catNew.slot ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select></label>
+  <label class="f">Kit<input type="text" id="catnew-gear" data-catnew="gear" value="${esc(catNew.gear)}" placeholder="e.g. EZ bar"></label></div>
+  <div class="row"><button class="btn" data-act="catadd"${catNew.name.trim() && !admin.catBusy ? '' : ' disabled'}>Add for everyone</button></div></div>`;
+  return h + `</div>`;
+}
+
 function vAdmin() {
   let h = `<div class="card"><div class="lift-h"><h2>People</h2><button class="btn sm ghost" data-act="adminrefresh">Refresh</button></div>
   <p class="small muted" style="margin:0">Everyone with data in this app. Counts and dates only — their sessions and numbers are theirs, and there is no screen here that shows them.</p>`;
@@ -5014,6 +5083,7 @@ function vAdmin() {
   }
   h += `</div>`;
 
+  h += vCatalog();
   h += `<div class="card"><div class="lift-h"><h2>Audit log</h2><button class="btn sm ghost" data-act="adminlog">Refresh</button></div>
   <p class="small muted" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
   if (admin.logErr) h += `<div class="banner warn"><div>${esc(admin.logErr)}</div></div>`;
@@ -5036,6 +5106,7 @@ document.addEventListener('input',e=>{
   if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
   // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
   // and the caret survive it.
+  if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
@@ -5145,6 +5216,13 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='adminrs'){ admin.rsFor=b.dataset.user+'|'+b.dataset.name; admin.confirm=null; admin.typed=''; admin.err=null; admin.msg=null; render(); return }
   if(a==='adminrsoff'){ admin.rsFor=null; admin.typed=''; render(); return }
   if(a==='adminrsgo'){ adminRestore(b.dataset.user,b.dataset.name); return }
+  if(a==='cathide'){ catSave({id:b.dataset.id,slot:b.dataset.slot,name:b.dataset.name,gear:b.dataset.gear,hidden:b.dataset.on==='1'}); return }
+  if(a==='catrm'){ catRemove(b.dataset.id); return }
+  if(a==='catadd'){
+    const name=(catNew.name||'').trim(); if(!name) return;
+    catSave({slot:catNew.slot,name,gear:(catNew.gear||'').trim()});
+    catNew={name:'',slot:catNew.slot,gear:''};
+    return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
     if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);

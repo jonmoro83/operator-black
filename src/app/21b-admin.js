@@ -95,6 +95,52 @@ function adminBackupList(who) {
   return h + `</div>`;
 }
 
+let catNew = { name: '', slot: 'hpull', gear: '' };
+async function catSave(body) {
+  admin.catBusy = true; render();
+  try {
+    const r = await api('POST', '/admin/catalog', body);
+    catalog = r.catalog || catalog; LS.set('ob.catalog', catalog);
+    admin.catErr = null;
+  } catch (e) { admin.catErr = 'Could not save that.' }
+  admin.catBusy = false; render();
+}
+async function catRemove(id) {
+  admin.catBusy = true; render();
+  try {
+    const r = await api('DELETE', '/admin/catalog/' + encodeURIComponent(id));
+    catalog = r.catalog || catalog; LS.set('ob.catalog', catalog);
+  } catch (e) { admin.catErr = 'Could not remove that.' }
+  admin.catBusy = false; render();
+}
+
+// The shared list, grouped by the job each movement does.
+function vCatalog() {
+  const all = accAll();
+  let h = `<div class="card"><div class="lift-h"><h2>Exercise list</h2><span class="small muted">${Object.keys(all).length} movements</span></div>
+  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's programme is rewritten mid-cycle.</p>`;
+  if (admin.catErr) h += `<div class="banner warn"><div>${esc(admin.catErr)}</div></div>`;
+
+  for (const [slot, meta] of Object.entries(ASLOT)) {
+    const ids = Object.keys(all).filter(k => all[k].slot === slot);
+    if (!ids.length) continue;
+    h += `<div style="border-top:1px solid var(--line);padding-top:8px"><div class="small" style="font-weight:650">${esc(meta.name)}</div>
+    <div class="stack" style="gap:4px;margin-top:4px">${ids.map(id => {
+      const e = all[id];
+      return `<div class="row between" style="gap:8px"><span class="small${e.hidden ? ' muted' : ''}">${esc(e.name)}${e.hidden ? ' \u00b7 retired' : ''}${e.shared ? ' <span class="chip">added</span>' : ''}${e.mine ? ' <span class="chip">personal</span>' : ''}<span class="muted"> ${esc(e.gear || '')}</span></span>
+      <span class="row" style="gap:6px">${e.mine ? '' : `<button class="btn sm ghost" data-act="cathide" data-id="${esc(id)}" data-slot="${esc(slot)}" data-name="${esc(e.name)}" data-gear="${esc(e.gear || '')}" data-on="${e.hidden ? '0' : '1'}"${admin.catBusy ? ' disabled' : ''}>${e.hidden ? 'Bring back' : 'Retire'}</button>`}
+      ${e.shared ? `<button class="btn sm ghost" data-act="catrm" data-id="${esc(id)}"${admin.catBusy ? ' disabled' : ''}>Remove</button>` : ''}</span></div>`;
+    }).join('')}</div></div>`;
+  }
+
+  h += `<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Add a movement</div>
+  <div class="grid3" style="margin-top:6px"><label class="f">Name<input type="text" id="catnew-name" data-catnew="name" value="${esc(catNew.name)}" placeholder="e.g. Spider curl"></label>
+  <label class="f">Job<select id="catnew-slot" data-catnew="slot">${Object.entries(ASLOT).map(([k, v]) => `<option value="${k}"${k === catNew.slot ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select></label>
+  <label class="f">Kit<input type="text" id="catnew-gear" data-catnew="gear" value="${esc(catNew.gear)}" placeholder="e.g. EZ bar"></label></div>
+  <div class="row"><button class="btn" data-act="catadd"${catNew.name.trim() && !admin.catBusy ? '' : ' disabled'}>Add for everyone</button></div></div>`;
+  return h + `</div>`;
+}
+
 function vAdmin() {
   let h = `<div class="card"><div class="lift-h"><h2>People</h2><button class="btn sm ghost" data-act="adminrefresh">Refresh</button></div>
   <p class="small muted" style="margin:0">Everyone with data in this app. Counts and dates only — their sessions and numbers are theirs, and there is no screen here that shows them.</p>`;
@@ -126,6 +172,7 @@ function vAdmin() {
   }
   h += `</div>`;
 
+  h += vCatalog();
   h += `<div class="card"><div class="lift-h"><h2>Audit log</h2><button class="btn sm ghost" data-act="adminlog">Refresh</button></div>
   <p class="small muted" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
   if (admin.logErr) h += `<div class="banner warn"><div>${esc(admin.logErr)}</div></div>`;

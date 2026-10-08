@@ -267,7 +267,7 @@ function accCard(wk,dp){
 // One slot: what it is for, what is filling it today, and what you did.
 function accSlotRow(date,slot){
   const id=accOn(date,slot), e=accEx(id), sets=accSets(date,slot), swapped=accSwapped(date,slot);
-  const list=accFor(slot), all=accAll();
+  const list=accFor(slot,id), all=accAll();
   const isDone=accDone(date,slot), noSets=!sets.length;
   let h=`<div class="acc-slot">
   <div class="acc-head"><span class="acc-role">${esc((ASLOT[slot]||{}).name||slot)}</span>${swapped?'<span class="chip blue">today only</span>':''}${isDone?'<span class="chip light">done</span>':''}</div>`;

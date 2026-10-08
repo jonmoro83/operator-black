@@ -16,6 +16,8 @@
 //   GET  /api/calendar            → { enabled, url, updatedAt } for your .ics feed
 //   POST /api/calendar/on|off|rotate → turn the feed on, off, or change its address
 //   PUT  /api/calendar/ics        → store the feed body (the app generates it)
+//   POST /api/admin/catalog       → (admins) add or change a shared exercise
+//   DELETE /api/admin/catalog/<id> → (admins) drop one they added
 //   GET  /api/admin/users         → (admins) everyone, with counts and last activity
 //   GET  /api/admin/users/<email>/export → (admins) one person's full JSON
 //   DELETE /api/admin/users/<email> → (admins) remove a person entirely
@@ -55,7 +57,7 @@ export async function handleApi(request, env) {
 
   if (route === "state" && request.method === "GET") {
     // `admin` is decided here, not in the page: the client only uses it to show a link.
-    return json({ user, admin: isAdmin(env, user) || undefined, ...(await readAll(env, user)) }, 200, { "cache-control": "no-store" });
+    return json({ user, admin: isAdmin(env, user) || undefined, catalog: await readCatalog(env), ...(await readAll(env, user)) }, 200, { "cache-control": "no-store" });
   }
 
   if (route === "admin" || route.startsWith("admin/")) return handleAdmin(request, env, user, route.replace(/^admin\/?/, ""));
@@ -360,6 +362,14 @@ export async function readCheck(env, user) {
   } catch { return null }
 }
 
+/** The shared accessory catalogue. Empty is the normal state, not an error. */
+async function readCatalog(env) {
+  try {
+    const { results } = await env.DB.prepare("SELECT id, slot, name, gear, hidden FROM acc_catalog").all();
+    return results.map(r => ({ id: r.id, slot: r.slot, name: r.name, gear: r.gear, hidden: !!r.hidden }));
+  } catch { return [] }
+}
+
 /** Does the stored copy read back as exactly what we wrote? */
 export async function verifyBackup(env, user, name, data, body) {
   try {
@@ -505,6 +515,41 @@ async function handleAdmin(request, env, user, op) {
       // Almost certainly the table, which lives in migration 0004.
       return json({ log: [], error: "No record table. Run npm run db:migrate:remote." }, 200, { "cache-control": "no-store" });
     }
+  }
+
+  if (op === "catalog" && request.method === "POST") {
+    let b = {};
+    try { b = JSON.parse(await request.text() || "{}") } catch {}
+    const slot = String(b.slot || "").trim();
+    const name = String(b.name || "").trim().slice(0, 60);
+    const gear = String(b.gear || "").trim().slice(0, 60);
+    const hidden = b.hidden ? 1 : 0;
+    if (!/^[a-z]{2,12}$/.test(slot)) return json({ error: "That is not a slot." }, 400);
+    // An id is supplied when hiding a built-in or editing an existing row; otherwise
+    // one is made from the name, prefixed so it can never collide with a built-in.
+    let id = String(b.id || "").trim();
+    if (!id) {
+      if (!name) return json({ error: "It needs a name." }, 400);
+      id = "cat-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+    }
+    if (!/^[a-z0-9-]{1,40}$/.test(id)) return json({ error: "That is not an id." }, 400);
+    if (!name && !hidden) return json({ error: "It needs a name." }, 400);
+    await env.DB.prepare(
+      `INSERT INTO acc_catalog (id, slot, name, gear, hidden, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+       ON CONFLICT(id) DO UPDATE SET slot = excluded.slot, name = excluded.name, gear = excluded.gear,
+         hidden = excluded.hidden, updated_at = excluded.updated_at`
+    ).bind(id, slot, name, gear, hidden, Date.now()).run();
+    await adminLog(env, user, hidden ? "catalog-hide" : "catalog-add", id, name || slot);
+    return json({ catalog: await readCatalog(env) });
+  }
+
+  const cd = op.match(/^catalog\/(.+)$/);
+  if (cd && request.method === "DELETE") {
+    const id = decodeURIComponent(cd[1]);
+    if (!/^[a-z0-9-]{1,40}$/.test(id)) return json({ error: "That is not an id." }, 400);
+    await env.DB.prepare("DELETE FROM acc_catalog WHERE id = ?1").bind(id).run();
+    await adminLog(env, user, "catalog-remove", id, "");
+    return json({ catalog: await readCatalog(env) });
   }
 
   const ex = op.match(/^users\/(.+)\/export$/);

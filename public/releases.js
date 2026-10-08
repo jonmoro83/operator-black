@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.71',date:'2026-10-08',title:'One shared exercise list',items:[
+    'The accessory movements everyone can choose from are now a single shared list, curated from the Admin tab rather than added privately by each person. If something you do is missing, it gets added for everyone.',
+    'A movement can be retired rather than deleted. It stops being offered to anyone choosing fresh, but stays with whoever had already picked it until they change it themselves \u2014 your programme does not get rewritten in the middle of a cycle because a list changed.',
+    'Anything you added yourself before this still works wherever you had chosen it, and Setup says so.']},
   {v:'1.70',date:'2026-10-08',title:'Three fixes to the calendar',items:[
     'Moving days around in a Base Building week could put the two circuits on consecutive days, which is the one arrangement that block is built to avoid. It will not any more.',
     'A retest week with a big cluster was testing four lifts on the Saturday while the Friday sat empty. It now splits them across Thursday, Friday and Saturday, the same way the bridge week does \u2014 tired singles measure fatigue, not strength.',

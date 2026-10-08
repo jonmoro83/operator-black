@@ -123,11 +123,31 @@ const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl',
 /* ---------------- reading the choice ---------------- */
 
 // Your own exercises, stored in the plan so they reach every device.
+// Anything a person added before the catalogue was shared. Still resolved so nobody's
+// choice breaks; no longer addable, because the list is curated now.
 function accCustom(){ const a=(plan.accCustom||[]); return Array.isArray(a)?a.filter(x=>x&&x.id&&x.name&&ASLOT[x.slot]):[] }
-function accAll(){ const out=Object.assign({},ALIB); for(const x of accCustom()) out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',mine:true}; return out }
+function accShared(){ return Array.isArray(catalog)?catalog.filter(x=>x&&x.id&&ASLOT[x.slot]):[] }
+
+// Everything that can be resolved, hidden ones included. A retired movement still has
+// to have a name: someone may be mid-cycle with it, and showing them a blank row or
+// silently swapping their exercise would be worse than letting them finish with it.
+function accAll(){
+  const out=Object.assign({},ALIB);
+  for(const x of accShared()){
+    if(x.hidden&&!x.name){ if(out[x.id]) out[x.id]=Object.assign({},out[x.id],{hidden:true}); continue }
+    out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',shared:true,hidden:!!x.hidden};
+  }
+  for(const x of accCustom()) if(!out[x.id]) out[x.id]={slot:x.slot,name:x.name,gear:x.gear||'',mine:true};
+  return out;
+}
 function accEx(id){ return accAll()[id]||null }
 function accName(id){ const e=accEx(id); return e?e.name:'' }
-function accFor(slot){ const all=accAll(); return Object.keys(all).filter(k=>all[k].slot===slot) }
+// What to offer in a picker: everything not retired, plus whatever is already chosen
+// here so the dropdown still shows the right thing.
+function accFor(slot,keep){
+  const all=accAll();
+  return Object.keys(all).filter(k=>all[k].slot===slot&&(!all[k].hidden||k===keep));
+}
 
 // The slots a day fills. Editable per day, falling back to the defaults above.
 function accSlots(day){
