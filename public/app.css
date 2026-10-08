@@ -410,6 +410,13 @@ details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
 .quiet-tag{all:unset;cursor:pointer;align-self:flex-start;font-size:11px;font-weight:650;letter-spacing:.02em;
   color:var(--yellow);background:var(--yellow-bg);border-radius:999px;padding:2px 8px;margin-top:2px}
 .quiet-tag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Picking what matters before a session, and reading it back afterwards. */
+.aim{all:unset;cursor:pointer;display:block;padding:9px 11px;border-radius:9px;border:1px solid var(--line);
+  font-size:14px;font-weight:600;line-height:1.3;background:var(--surface)}
+.aim.on{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.aim[disabled]{cursor:default;opacity:.45}
+.aim:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.aim-row{border-top:1px solid var(--line);padding-top:8px}
 .setb.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .setb.on small{color:var(--accent-ink)}
 .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}

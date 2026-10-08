@@ -114,6 +114,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Session aims, and the note that comes back (2026-10-08)**
+- Pick up to three things that matter before a session; get an honest account after.
+  Not a restatement of the prescription — the numbers are already on the cards. This is
+  how you mean to train, which is the part that drifts.
+- Five of the eight are scored from what is already logged (sets against prescribed,
+  warm-up flags, grinder flags, accessory completion, mobility). Three can only be
+  self-judged and ask once at the end. The screen shows which is which rather than
+  pretending to know.
+- **The note is the point.** `logs[d].notes` already existed and went straight into a
+  History table nobody reads. It is now shown before the next *comparable* session — the
+  last lifting note before a lifting day, not yesterday's bike session — dismissible, and
+  gone once the day is done.
+- "Focus on this next time" only fires on a pattern: the same aim picked and reported
+  slipped in two of the last three sessions. One bad session says nothing.
+- `pickAim`/`rateAim` are named functions because the click handler is unreachable from a
+  test — the cap mutation passed until they existed, since the tests were only checking
+  that the markup *said* three was the limit. Third time this pattern has bitten.
+- 172 → 176 tests.
+
 **Accessories in session mode (2026-10-08)**
 - They were one lump step of done-toggles while every real control — the exercise, the
   swap, the sets — lived only on Today's card. Each job is now its own step, after the

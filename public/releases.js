@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.66',date:'2026-10-08',title:'What matters today',items:[
+    'Before a session you can now pick up to three things to pay attention to \u2014 finishing every set, a proper warm-up, keeping technique tight, stopping short of failure, and so on. Three is the limit on purpose: any more and none of them is a focus.',
+    'Afterwards you get an account of them. The ones the app can see \u2014 sets, warm-up, grinders, accessories, mobility \u2014 it counts for you. The ones only you can judge, like technique, ask you once with three buttons.',
+    'The note you write at the end is now shown to you before your next session of the same kind. Your last squat note turns up before you squat again. It used to go into a table and stay there.',
+    'If the same focus slips two sessions out of three, it says so once \u2014 and for technique it says what that usually means, which is the weight rather than the concentration.']},
   {v:'1.65',date:'2026-10-08',title:'Accessories in session mode',items:[
     'Session mode used to hand you the accessories as one list of tick boxes. Each job is its own step now, after the lifts: it says what is doing it, you can swap it for that session if the bar is taken, and you log the weight and reps as you go.',
     'Each one has its own rest timer, 90 seconds by default rather than the two to five minutes the main lifts use. The \u00b130s buttons on the timer still work if that is wrong for a given movement.',

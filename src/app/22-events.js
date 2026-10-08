@@ -100,6 +100,9 @@ document.getElementById('main').addEventListener('click',e=>{
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
   if(a==='reload'){ location.reload(); return }
+  if(a==='noteseen'){ setLog(sel,'noteSeen',true); render(); return }
+  if(a==='aim'){ pickAim(sel,b.dataset.id); render(); return }
+  if(a==='aimrate'){ rateAim(sel,b.dataset.id,b.dataset.v); render(); return }
   if(a==='errclear'){ crashClear(); return }
   if(a==='syncclear'){ clearConflicts(); return }
   if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); adminLoadLog(true); return }

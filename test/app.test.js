@@ -2504,3 +2504,137 @@ test("the accessory step offers the swap and the sets, not just a tick", () => {
   // Every input in the overlay can be found again, same rule as the main view.
   for (const tag of h.match(/<input\b[^>]*>/g) || []) a.match(tag, /\sid=/, `needs an id: ${tag.slice(0, 80)}`);
 });
+
+test("you pick up to three things that matter, and only three", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+
+  a.match(x.aimsCard(mon), /pick up to 3/);
+  a.deepEqual(x.aimsOn(mon), []);
+
+  x.setLog(mon, "aims", ["sets", "technique", "mob"]);
+  a.equal(x.aimsOn(mon).length, 3);
+  a.match(x.aimsCard(mon), /Three is the limit/, "and it says why there is a cap");
+  a.match(x.aimsCard(mon), /disabled/, "the rest cannot be added");
+
+  // The cap is enforced where it is decided, not only in the markup.
+  x.setLog(mon, "aims", []);
+  for (const id of ["sets", "warmup", "technique"]) a.equal(x.pickAim(mon, id), true, id);
+  a.equal(x.pickAim(mon, "mob"), false, "a fourth is refused");
+  a.deepEqual(x.aimsOn(mon), ["sets", "warmup", "technique"], "and does not sneak in");
+  a.equal(x.pickAim(mon, "warmup"), true, "but you can always drop one");
+  a.deepEqual(x.aimsOn(mon), ["sets", "technique"]);
+  a.equal(x.pickAim(mon, "nosuchaim"), false, "and an unknown id is not an aim");
+
+  // Rating only takes the three answers it offers, and tapping again clears it.
+  x.rateAim(mon, "technique", "part");
+  a.equal(x.aimRating(mon, "technique"), "part");
+  x.rateAim(mon, "technique", "nonsense");
+  a.equal(x.aimRating(mon, "technique"), "part", "rubbish is ignored");
+  x.rateAim(mon, "technique", "part");
+  a.equal(x.aimRating(mon, "technique"), null, "tapping the same one clears it");
+
+  x.setLog(mon, "aims", ["sets", "technique", "mob"]);
+  // Rubbish in the stored list is ignored rather than rendering a blank row.
+  x.setLog(mon, "aims", ["sets", "nosuchaim", null]);
+  a.deepEqual(x.aimsOn(mon), ["sets"]);
+
+  // Every aim is either scorable or self-rated, and all have a label.
+  for (const aim of x.AIMS) {
+    a.ok(aim.id && aim.label, "an aim needs both");
+    a.ok(aim.check === undefined || typeof aim.check === "function");
+  }
+  a.equal(x.AIM_MAX, 3);
+
+  // Rest days are not something you set an aim for.
+  const sun = x.addDays(mon, 6);
+  a.equal(x.dayPlan(sun).t, "off");
+  a.equal(x.aimsCard(sun), "");
+});
+
+test("the report scores what it can see and asks about what it cannot", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  Object.assign(x.plan.maxes, { squat: 315, bench: 225, pull: 180, ohp: 135, dead: 405 });
+  x.bump();
+  const mon = "2026-09-07";
+
+  x.setLog(mon, "aims", ["sets", "short", "technique"]);
+  x.setLog(mon, "done", true);
+  const wk = x.weekOf(mon), need = x.rx(wk, "squat", mon).s;
+  x.setLog(mon, "lifts.squat.sets", Array(need).fill(true));
+  x.setLog(mon, "lifts.bench.grinder", true);
+
+  const h = x.aimsCard(mon);
+  a.match(h, /How it went/, "it becomes the report once the day is done");
+  a.match(h, /of \d+\./, "the sets aim is counted, not asked about");
+  a.match(h, /✗ Stop short of failure/, "a grinder fails that aim");
+  a.match(h, /Bench.*ground/, "and names what ground");
+  a.match(h, /data-act="aimrate" data-id="technique"/, "technique asks you, because nothing logged can tell it");
+  a.ok(!/data-act="aimrate" data-id="sets"/.test(h), "and what can be counted is never asked");
+
+  // Your note, with the reason for writing it.
+  a.match(h, /data-bind="notes"/);
+  a.match(h, /shown to you before your next/i);
+});
+
+test("a note written after one session greets you before the next comparable one", () => {
+  const x = app({ now: "2026-09-09" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07", tue = "2026-09-08", wed = "2026-09-09";
+  a.equal(x.dayPlan(mon).t, "lift");
+  a.equal(x.dayPlan(wed).t, "lift");
+
+  x.seed({
+    [mon]: { date: mon, done: true, notes: "Left hip tight on squats." },
+    [tue]: { date: tue, done: true, notes: "Bike felt easy." },
+  });
+  x.bump();
+
+  const n = x.lastNote(wed);
+  a.equal(n.date, mon, "the last lifting note, not yesterday's bike session");
+  a.equal(n.same, true);
+  a.match(x.noteCard(wed), /Left hip tight on squats/);
+  a.match(x.noteCard(wed), /From your last Op 1/i, "labelled with where it came from");
+
+  // Dismissed, and it stays dismissed.
+  x.setLog(wed, "noteSeen", true);
+  a.equal(x.noteCard(wed), "");
+
+  // Once the session is done the note is history, not a prompt.
+  x.setLog(wed, "noteSeen", null); x.setLog(wed, "done", true);
+  a.equal(x.noteCard(wed), "");
+
+  // With no comparable session it falls back to the most recent of any kind.
+  const x2 = app({ now: "2026-09-08" });
+  x2.plan.startMonday = "2026-09-07"; x2.plan.bridge = false;
+  x2.seed({ [mon]: { date: mon, done: true, notes: "Only note there is." } }); x2.bump();
+  const n2 = x2.lastNote(tue);
+  a.equal(n2.date, mon);
+  a.equal(n2.same, false, "and says it is not a like-for-like");
+});
+
+test("a focus that keeps slipping is pointed out, once there is a pattern", () => {
+  const x = app({ now: "2026-09-21" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = (n) => x.addDays("2026-09-07", n);
+
+  // One bad session is not a pattern.
+  x.seed({ [d(0)]: { date: d(0), done: true, aims: ["technique"], aimsRated: { technique: "no" } } });
+  x.bump();
+  a.equal(x.aimPattern(d(14), "technique"), "", "one is nothing");
+
+  // Two out of three is.
+  x.seed({
+    [d(2)]: { date: d(2), done: true, aims: ["technique"], aimsRated: { technique: "yes" } },
+    [d(4)]: { date: d(4), done: true, aims: ["technique"], aimsRated: { technique: "part" } },
+  });
+  x.bump();
+  const p = x.aimPattern(d(14), "technique");
+  a.match(p, /sessions running/);
+  a.match(p, /the weight, not the focus/, "with the advice that fits that aim");
+
+  // It only looks at sessions where the aim was actually picked and rated.
+  a.equal(x.aimPattern(d(14), "unhurried"), "", "nothing to say about one you never chose");
+});

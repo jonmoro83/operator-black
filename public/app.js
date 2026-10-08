@@ -1597,6 +1597,8 @@ function vToday(){
   const wt=weekTitle(wk);
   h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'&&(dp.t==='plyohic'||dp.t==='plyobase')?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
+  h+=noteCard(sel);
+  h+=aimsCard(sel);
   h+=weekSummaryCard();
   h+=weeklyCard();
   h+=prCard(sel);
@@ -2340,6 +2342,156 @@ function footer(active){
     <div class="small muted">${L.pain==='sharp'?'Sharp pain counts against that lift at the end of the cycle. Stop the movement causing it rather than working around it.':'Logged as a flag. It won’t move your numbers, but it shows up in the cycle review if it keeps happening.'}</div>`:''}
   </div>`:'';
   return `<div class="card"><div class="grid2"><label class="f">Session RPE<select id="rpe" data-bind="rpe" data-type="num"><option value="">—</option>${[5,6,7,8,9,10].map(v=>`<option value="${v}"${+L.rpe===v?' selected':''}>${v}</option>`).join('')}</select></label><div style="display:flex;align-items:flex-end"><button class="btn ${L.done?'':'primary'}" style="width:100%" data-act="done">${L.done?'✓ Done · undo':'Mark session done'}</button></div></div><label class="f">Notes<textarea id="notes" data-bind="notes" placeholder="Machine settings, how it moved, anything to remember">${esc(L.notes||'')}</textarea></label>${after}</div>`;
+}
+
+/* ---------------- what matters today ----------------
+Pick up to three things to pay attention to before a session, and get an honest account
+of them afterwards. Not a restatement of the prescription — the numbers are already on
+the cards. This is about how you mean to train, which is the part that drifts.
+
+Some aims the app can check from what you logged. Some only you can judge, so those ask
+you once at the end rather than being guessed at. The difference is visible on screen:
+a scored line says what it counted, a self-rated line asks.
+
+And the note you write afterwards is shown before the next comparable session, which is
+the whole reason to write one. `logs[d].notes` already existed and went straight into a
+table nobody reads. */
+
+const AIM_MAX = 3;
+
+// check(date) -> {ok, detail} for an aim the app can score, or null for one only you can.
+const AIMS = [
+  { id: 'sets', label: 'Complete every set as programmed', check(d) {
+      const dp = dayPlan(d), wk = weekOf(d);
+      if (!wk || !(dp.lifts || []).length) return null;
+      let want = 0, got = 0;
+      for (const k of dp.lifts) {
+        const r = rx(wk, k, d), done = ((lg(d).lifts || {})[k] || {}).sets || [];
+        want += r.s; got += Math.min(r.s, done.filter(Boolean).length);
+      }
+      return { ok: got >= want, detail: `${got} of ${want}.` };
+    } },
+  { id: 'warmup', label: 'Do the full warm-up, not the short one', check(d) {
+      const L = lg(d), flags = Array.isArray(L.warmup) ? L.warmup : [];
+      const idx = WARMUP.map((x, i) => i).filter(i => !L.warmShort || WARMUP[i].s);
+      const got = idx.filter(i => flags[i]).length;
+      if (L.warmShort) return { ok: false, detail: `The short version, ${got} of ${idx.length}.` };
+      return { ok: got >= idx.length, detail: `${got} of ${idx.length}.` };
+    } },
+  { id: 'technique', label: 'Keep technique tight — no ugly reps' },
+  { id: 'rest', label: 'Take the full rest between sets' },
+  { id: 'short', label: 'Stop short of failure', check(d) {
+      const lifts = Object.entries((lg(d).lifts) || {}).filter(([, v]) => v && v.grinder);
+      if (!lifts.length) return { ok: true, detail: 'Nothing logged as a grinder.' };
+      return { ok: false, detail: lifts.map(([k]) => liftName(k, d)).join(', ') + ' ground.' };
+    } },
+  { id: 'acc', label: 'Get the accessories done, not skipped', check(d) {
+      const dp = dayPlan(d); if (!dp.acc) return null;
+      const slots = accSlots(dp.acc), got = accDoneCount(d, dp.acc);
+      return { ok: got >= slots.length, detail: `${got} of ${slots.length}.` };
+    } },
+  { id: 'mob', label: 'Finish with the mobility block', check(d) {
+      const items = mobList(mobKind(dayPlan(d))), flags = lg(d).mobility || [];
+      const got = items.filter((_, i) => flags[i]).length;
+      return { ok: got >= items.length, detail: `${got} of ${items.length}.` };
+    } },
+  { id: 'unhurried', label: 'Keep it unhurried' },
+];
+function aimById(id) { return AIMS.find(a => a.id === id) || null }
+function aimsOn(date) { const a = lg(date).aims; return Array.isArray(a) ? a.filter(aimById) : [] }
+function aimRating(date, id) { return ((lg(date).aimsRated) || {})[id] || null }
+const RATE = { yes: 'Held up', part: 'Slipped late on', no: 'No' };
+
+// Toggling an aim, with the cap enforced here rather than only in the markup: the click
+// handler cannot be reached from a test, so the rule has to live somewhere that can.
+function pickAim(date, id) {
+  if (!aimById(id)) return false;
+  const cur = aimsOn(date);
+  if (cur.includes(id)) { setLog(date, 'aims', cur.filter(x => x !== id)); return true }
+  if (cur.length >= AIM_MAX) return false;
+  setLog(date, 'aims', [...cur, id]);
+  return true;
+}
+function rateAim(date, id, v) {
+  if (!aimById(id) || !RATE[v]) return;
+  setLog(date, 'aimsRated.' + id, aimRating(date, id) === v ? null : v);
+}
+
+// A day you can set an aim on: one that asks something of you.
+function aimsDay(date) { const t = (dayPlan(date) || {}).t; return !['off', 'pre', 'convert'].includes(t) }
+
+/* ---------------- the note you left last time ---------------- */
+
+// The most recent note from a comparable session, falling back to the most recent of
+// any kind. Comparable means the same sort of day: your last squat note is the one
+// worth reading before squatting, not Tuesday's bike session.
+function lastNote(date) {
+  const kind = d => { const t = (dayPlan(d) || {}).t; return t === 'lift' || t === 'rm5' || t === 'test' ? 'lift' : t };
+  const want = kind(date);
+  const days = Object.keys(logs).filter(d => d < date && (logs[d].notes || '').trim()).sort().reverse();
+  const same = days.find(d => kind(d) === want);
+  const d = same || days[0];
+  if (!d) return null;
+  return { date: d, text: String(logs[d].notes).trim(), short: (dayPlan(d) || {}).short || '', same: !!same };
+}
+function noteCard(date) {
+  if (viewing || !aimsDay(date) || lg(date).noteSeen || lg(date).done) return '';
+  const n = lastNote(date); if (!n) return '';
+  return `<div class="card"><div class="lift-h"><h3>From your last ${esc(n.same && n.short ? n.short : 'session')}</h3><span class="small muted">${esc(fmtD(n.date, true))}</span></div>
+  <p style="margin:0;white-space:pre-wrap">${esc(n.text)}</p>
+  <div class="row"><button class="btn sm ghost" data-act="noteseen">Got it</button></div></div>`;
+}
+
+/* ---------------- before ---------------- */
+
+function aimsCard(date) {
+  if (viewing || !aimsDay(date)) return '';
+  if (lg(date).done) return aimsReport(date);
+  const picked = aimsOn(date);
+  return `<div class="card"><div class="lift-h"><h3>What matters today</h3><span class="small muted">${picked.length ? picked.length + ' of ' + AIM_MAX : 'pick up to ' + AIM_MAX}</span></div>
+  <p class="small muted" style="margin:0">Not the numbers — those are on the cards below. This is how you mean to train today, and you get an honest account of it afterwards.</p>
+  <div class="stack" style="gap:4px">${AIMS.map(a => {
+    const on = picked.includes(a.id), full = picked.length >= AIM_MAX && !on;
+    return `<button class="aim${on ? ' on' : ''}" data-act="aim" data-id="${a.id}"${full ? ' disabled' : ''} aria-pressed="${on}">${on ? '✓' : ''} ${esc(a.label)}</button>`;
+  }).join('')}</div>
+  ${picked.length >= AIM_MAX ? '<div class="small muted">Three is the limit. Any more and none of them is a focus.</div>' : ''}</div>`;
+}
+
+/* ---------------- after ---------------- */
+
+// Has this aim been slipping? Only across sessions, never from one.
+function aimPattern(date, id) {
+  const prior = Object.keys(logs).filter(d => d < date && aimsOn(d).includes(id) && aimRating(d, id))
+    .sort().reverse().slice(0, 3);
+  const bad = prior.filter(d => aimRating(d, id) !== 'yes').length;
+  if (prior.length < 2 || bad < 2) return '';
+  const a = aimById(id);
+  const why = id === 'technique' ? 'That usually means the weight, not the focus.'
+    : id === 'short' ? 'A max set too high will do that. Lowering it is the fix.'
+    : 'Worth changing something rather than trying harder at it.';
+  return `You have picked “${esc(a.label)}” ${prior.length + 1} sessions running and it has not held up. ${why}`;
+}
+
+function aimsReport(date) {
+  const picked = aimsOn(date);
+  let h = `<div class="card"><div class="lift-h"><h3>How it went</h3></div>`;
+  if (!picked.length) h += `<p class="small muted" style="margin:0">You did not set anything for this one.</p>`;
+  for (const id of picked) {
+    const a = aimById(id), res = a.check ? a.check(date) : null;
+    if (res) {
+      h += `<div class="aim-row"><div><b>${res.ok ? '✓' : '✗'} ${esc(a.label)}</b><div class="small muted">${esc(res.detail)}</div></div></div>`;
+    } else {
+      const r = aimRating(date, id);
+      h += `<div class="aim-row"><div><b>${r === 'yes' ? '✓' : r ? '✗' : ''} ${esc(a.label)}</b>
+      <div class="seg" style="margin-top:4px">${Object.entries(RATE).map(([k, l]) => `<button class="segb${r === k ? ' on' : ''}" data-act="aimrate" data-id="${id}" data-v="${k}" aria-pressed="${r === k}">${l}</button>`).join('')}</div></div></div>`;
+    }
+    const p = aimPattern(date, id);
+    if (p) h += `<div class="banner info"><div class="small">${p}</div></div>`;
+  }
+  const L = lg(date);
+  h += `<label class="f" style="margin-top:4px">Anything to remember?<textarea id="aim-notes" data-bind="notes" rows="3" placeholder="How it moved, what to change, what to watch">${esc(L.notes || '')}</textarea></label>
+  <div class="small muted">This is shown to you before your next ${esc((dayPlan(date) || {}).short || 'session')}, which is the point of writing it.</div></div>`;
+  return h;
 }
 
 /* ---------- end-of-cycle review ---------- */
@@ -4427,6 +4579,9 @@ function vGuide(){
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul>
   <p><b>Optional sets (Operator I/A).</b> K. Black's intermediate/advanced take on Operator hands you the volume decision: rather than a fixed three sets, you work somewhere in a range and choose on the day. Tap <b>+</b> at the end of the sets on any lift card and you get another one, for that lift on that day only — the program is not touched and tomorrow is back to normal. If you want the room there every week instead, give the week an <b>Up to</b> value in Setup. Either way the surplus sets show dashed, and nothing is counted as missed if you skip them. In <i>Ageless Athlete</i> Jim Madden calls this the part of I/A he considers essential, and a few extra sets on weighted pull-ups his favourite way to add upper-body size without derailing recovery. Deadlift has always worked this way here: one set required, up to three.</p>
   <p><b>What this is not.</b> Full Operator I/A also floats your lifting days 48 to 72 hours apart, so the wave advances by session rather than by week. This app runs on a calendar, so it does not do that — and Madden says he mostly keeps a fixed three-sessions-a-week schedule himself, taking his variability in sets and intensity instead. That is the part you have here.</p>
+  <p><b>What matters today.</b> Before a session you pick up to three things to pay attention to \u2014 finishing every set, a proper warm-up, keeping technique tight. Afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
+  <p>Some the app can score from what you logged, and does. The rest only you can judge, so those ask you once at the end rather than being guessed at. The difference is visible: a scored line tells you what it counted, a self-rated line asks.</p>
+  <p><b>The note is the point.</b> What you write in \u201canything to remember\u201d is shown to you before your next session of the same kind \u2014 your last squat note before you squat again, not Tuesday's bike session. A note nobody reads again is just journalling.</p>
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
   <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving on an easy base — a pace just under a jog — and step off every two minutes for a set of reps, alternating two movements: twenty kettlebell swings, then ten snatches per arm. Twenty minutes of base is the standard dose; fifteen is the easy version with the reps halved, thirty the hard one. The sets are not on the clock, so the session runs longer than its name. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
   <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
@@ -4931,6 +5086,9 @@ document.getElementById('main').addEventListener('click',e=>{
     if(addSet(k,a==='addset'?1:-1)){ offerUndo((a==='addset'?'Set added · ':'Set removed · ')+liftName(k),snap); render() }
     return}
   if(a==='reload'){ location.reload(); return }
+  if(a==='noteseen'){ setLog(sel,'noteSeen',true); render(); return }
+  if(a==='aim'){ pickAim(sel,b.dataset.id); render(); return }
+  if(a==='aimrate'){ rateAim(sel,b.dataset.id,b.dataset.v); render(); return }
   if(a==='errclear'){ crashClear(); return }
   if(a==='syncclear'){ clearConflicts(); return }
   if(a==='adminrefresh'){ admin.msg=null; adminLoad(true); adminLoadLog(true); return }

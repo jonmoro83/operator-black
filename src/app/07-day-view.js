@@ -36,6 +36,8 @@ function vToday(){
   const wt=weekTitle(wk);
   h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'&&(dp.t==='plyohic'||dp.t==='plyobase')?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
+  h+=noteCard(sel);
+  h+=aimsCard(sel);
   h+=weekSummaryCard();
   h+=weeklyCard();
   h+=prCard(sel);
