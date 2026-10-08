@@ -1581,7 +1581,7 @@ test("trail running and hiking log elevation gain", () => {
   a.equal(s.mod, "trail");
   a.equal(s.elev, 1800);                               // carried through for history and CSV
   a.deepEqual(x.metricFor("trail", "liss"), ["dist", "mi"]);
-  a.deepEqual(x.metricFor("trail", "map"), ["dist", "m"]);
+  a.deepEqual(x.metricFor("trail", "map"), ["dist", "yd"], "imperial by default in tests");
 });
 
 test("climbing counts as distance, and ranks sessions by the flat equivalent", () => {
@@ -2649,7 +2649,7 @@ test("hill sprints are an activity of their own, with elevation and a warm-up", 
 
   // Distance on a hard day; nothing to measure on an easy one, so it asks for minutes
   // instead of inventing a number, exactly as Other does.
-  a.deepEqual(x.metricFor("hill", "map"), ["dist", "m"]);
+  a.deepEqual(x.metricFor("hill", "map"), ["dist", "yd"]);
   a.equal(x.metricFor("hill", "liss"), null);
   a.equal(x.metricFor("other", "liss"), null, "the same shape that already works");
 
@@ -2684,4 +2684,38 @@ test("a hill sprint session logs and reads back like any other", () => {
   a.equal(sess.mod, "hill");
   a.equal(sess.v, 900, "with its distance");
   a.equal(sess.elev, 120, "and its climb");
+});
+
+test("a distance you measure yourself follows the units you chose", () => {
+  const x = app({ now: "2026-10-08" });
+  const unit = (mod, fmt) => { const m = x.metricFor(mod, fmt); return m ? m[1] : null };
+
+  x.plan.unit = "lb"; x.bump();
+  for (const mod of ["run", "trail", "hill"]) a.equal(unit(mod, "map"), "yd", `${mod} on imperial`);
+  for (const mod of ["run", "trail", "ruck", "hike"]) a.equal(unit(mod, "liss"), "mi", `${mod} LISS on imperial`);
+
+  x.plan.unit = "kg"; x.bump();
+  for (const mod of ["run", "trail", "hill"]) a.equal(unit(mod, "map"), "m", `${mod} on metric`);
+  for (const mod of ["run", "trail", "ruck", "hike"]) a.equal(unit(mod, "liss"), "km", `${mod} LISS on metric`);
+
+  // Elevation already followed the setting; distance now matches it.
+  x.plan.unit = "lb"; x.bump(); a.equal(x.elevUnit(), "ft");
+  x.plan.unit = "kg"; x.bump(); a.equal(x.elevUnit(), "m");
+
+  // The erg is the exception, deliberately: metres is what its own display reads, in
+  // either system, so relabelling it to yards would be telling you something untrue.
+  for (const unitSet of ["lb", "kg"]) {
+    x.plan.unit = unitSet; x.bump();
+    a.equal(unit("rower", "liss"), "m", `rower stays metres on ${unitSet}`);
+    a.equal(unit("ski", "liss"), "m", `ski erg stays metres on ${unitSet}`);
+  }
+
+  // Nothing you measure yourself is left in a unit the setting cannot reach.
+  for (const [k, v] of Object.entries(x.MOD)) {
+    if (["rower", "ski"].includes(k)) continue;
+    for (const f of ["hic", "liss"]) {
+      if (!v[f] || v[f][0] !== "dist") continue;
+      a.ok(["mi", "yd"].includes(v[f][1]), `${k}.${f} is declared in an imperial unit so it can convert, got ${v[f][1]}`);
+    }
+  }
 });

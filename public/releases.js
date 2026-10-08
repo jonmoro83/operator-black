@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.68',date:'2026-10-08',title:'Distances in your own units',items:[
+    'Interval distances for running, trail running and hill sprints were always shown in metres, even with the app set to pounds and miles. They now follow your unit setting like everything else \u2014 yards on imperial, metres on metric.',
+    'The rower and ski erg still read in metres whichever setting you use, because that is what the machine in front of you says.']},
   {v:'1.67',date:'2026-10-08',title:'Hill sprints',items:[
     'Hill sprints are their own activity now, rather than something to write into the Other box. Pick them on any hard conditioning day and log the distance, with elevation counted the way it is for trail runs, rucks and hikes.',
     'The card carries the warm-up and the thing worth knowing: the incline caps your top speed, which takes most of the hamstring risk out of sprinting, but they are hard on calves and Achilles and they are a true anaerobic effort. Walk down slowly, and stop when your times start slipping.']},

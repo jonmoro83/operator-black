@@ -114,6 +114,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Interval distances follow the unit setting (2026-10-08)**
+- On imperial you got run and trail LISS in miles but run and trail **HIC in metres**.
+  `metricFor` only ever converted `mi→km` and `yd→m`, so a distance written as metres
+  never moved. An omission, not a decision — swim already converted.
+- Fixed by declaring the self-measured distances in their imperial form (`yd`) so the
+  existing conversion reaches them. No new rule.
+- **The rower and ski erg keep a hard `m` deliberately**, and the comment says so: metres
+  is what the machine's own display reads in either system, and relabelling it to yards
+  would be telling the user something untrue.
+- Checked before relabelling: no run or trail distances were logged, so nothing already
+  stored changed meaning. Switching units has never converted stored values anywhere in
+  this app, so the risk was real rather than theoretical.
+- A test now asserts that anything self-measured is declared in a unit the setting can
+  reach, so the next activity added cannot quietly repeat this.
+
 **Hill sprints as an activity (2026-10-08)**
 - Its own entry rather than a note under Run / sprints: the incline caps the top speed,
   which changes both the risk and what the session is for. Distance in metres on a hard
