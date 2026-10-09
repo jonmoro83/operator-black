@@ -134,7 +134,6 @@ function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
 function sessKind(dp){
   if(!dp) return 'other';
   if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test'||dp.t==='travel') return 'strength';
-  if(dp.t==='plyohic') return 'hic';
   if(dp.t==='hic') return dp.fmt==='liss'?'easy':'hic';
   // Base Building's week is two circuits with three days between them. Classed as
   // 'other' they were invisible to the adjacency rules and the Move tool would happily
@@ -157,9 +156,48 @@ function orderIssues(monday,ord){
   for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
   return out;
 }
+// Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
+// baked into a slot: a slot belongs to the arrangement of the week and gets shuffled by
+// the Move tool, and plyos should not be shuffled with it. 0 = Monday.
+function weekHasPlyo(wk){ return !!wk&&['cycle','deload','travel'].includes(wk.kind) }
+function plyoDow(monday){
+  const o=(plan.plyoMove||{})[monday];
+  const v=o!=null?+o:+plan.plyoDow;
+  return (v>=0&&v<=6)?v:3;
+}
+function plyoMoved(monday){ return (plan.plyoMove||{})[monday]!=null }
+// Plyos are not part of a session, so they move on their own. Picking a day for one week
+// overrides the usual day for that week only; picking the usual day again clears it.
+// Weeks that have gone by are left alone, and so are days already past in this week.
+function plyoDayOpen(monday,d){
+  const t=realToday(), curMon=mondayOf(t);
+  if(monday<curMon) return false;
+  if(monday===curMon&&d<dow(t)) return false;
+  return true;
+}
+function setPlyoDay(monday,d){
+  d=+d; if(!(d>=0&&d<=6)) return false;
+  if(!weekHasPlyo(weekOf(monday))) return false;
+  if(!plyoDayOpen(monday,d)) return false;
+  mutatePlan(p=>{
+    const m=Object.assign({},p.plyoMove||{});
+    if(d===(+p.plyoDow>=0&&+p.plyoDow<=6?+p.plyoDow:3)) delete m[monday]; else m[monday]=d;
+    p.plyoMove=m;
+  });
+  return true;
+}
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
-  return dayPlanSlot(date,slotOf(date));
+  const dp=dayPlanSlot(date,slotOf(date));
+  if(weekHasPlyo(wk)&&dow(date)===plyoDow(mondayOf(date))){
+    // A deload halves the contacts, as the week it sits in does to everything else.
+    // The label carries them too, so the week strip, the calendar feed and the CSV all
+    // say which day has plyos without anyone having to open it.
+    const bare=['off','pre'].includes(dp.t);
+    return Object.assign({},dp,{plyo:true,plyoCut:dp.plyoCut||wk.kind==='deload',
+      short:bare?'Plyo':'Plyo+'+(dp.short||'Session')});
+  }
+  return dp;
 }
 function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
@@ -168,7 +206,7 @@ function dayPlanSlot(date,d){
     {t:'lift',day:1,lifts:SBP,acc:'mon',short:'Op 1'},
     {t:'hic',fmt:'map',short:'HIC'},
     {t:'lift',day:2,lifts:SBP,acc:'wed',short:'Op 2'},
-    {t:'plyohic',fmt:'anaerobic',short:'Plyo+HIC'},
+    {t:'hic',fmt:'anaerobic',short:'HIC'},
     {t:'lift',day:3,lifts:SBD,acc:'fri',short:'Op 3'},
     {t:'hic',fmt:wk.w%2?'threshold':'long',short:'HIC',note:'Swap to LISS if the week has been heavy.'},
     {t:'off',short:'Off'}][d];
@@ -176,7 +214,7 @@ function dayPlanSlot(date,d){
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS'},
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
-    {t:'plyohic',fmt:'liss',plyoCut:true,short:'Plyo+LISS'},
+    {t:'hic',fmt:'liss',short:'LISS'},
     {t:'lift',deload:true,lifts:SBD,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS',note:'Optional. Take it off if you feel flat.'},
     {t:'off',short:'Off'}][d];
@@ -217,7 +255,7 @@ function dayPlanSlot(date,d){
     {t:'travel',slot:'day1',short:'Travel 1'},
     {t:'hic',fmt:'map',short:'HIC'},
     {t:'travel',slot:'day2',short:'Travel 2'},
-    {t:'plyohic',fmt:'anaerobic',short:'Plyo+HIC'},
+    {t:'hic',fmt:'anaerobic',short:'HIC'},
     {t:'travel',slot:'day3',short:'Travel 3'},
     {t:'hic',fmt:'threshold',short:'HIC',note:'Swap to LISS or a walk if the week has been long.'},
     {t:'off',short:'Off'}][d];

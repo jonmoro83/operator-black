@@ -206,7 +206,9 @@ test("a travel week pauses the cycle and keeps its own movements", () => {
   a.equal(x.weekOf("2026-10-26").w, 3, "the cycle picks up where it left off");
 
   const week = [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlan(x.addDays("2026-10-19", i)));
-  a.deepEqual(week.map((d) => d.t), ["travel", "hic", "travel", "plyohic", "travel", "hic", "off"]);
+  a.deepEqual(week.map((d) => d.t), ["travel", "hic", "travel", "hic", "travel", "hic", "off"]);
+  a.deepEqual(week.map((d) => !!d.plyo), [false, false, false, true, false, false, false],
+    "and the plyos sit on their own day, not on a day type of their own");
   a.deepEqual(week.map((d) => x.sessKind(d)),
     ["strength", "hic", "strength", "hic", "strength", "hic", "other"],
     "the rule about back-to-back days still holds on a travel week");
@@ -321,7 +323,8 @@ test("the plyo phase is on the day header only where it applies", () => {
   const line = (d) => { x.sel = d; return x.vToday().split("</div>").find((s) => s.includes("wkline")) || ""; };
 
   const thu = x.addDays(wk.monday, 3);
-  a.equal(x.dayPlan(thu).t, "plyohic", "Thursday is the plyo day");
+  a.equal(x.dayPlan(thu).plyo, true, "Thursday is the plyo day");
+  a.equal(x.dayPlan(thu).t, "hic", "and it is still the week's conditioning day underneath");
   a.match(line(thu), /Plyo: Extensive · ~60 contacts/, "named, with its contact target");
 
   for (const i of [0, 1, 2, 4, 5, 6]) {
@@ -3008,4 +3011,154 @@ test("a conditioning focus that keeps slipping gets conditioning advice", () => 
   a.match(p, /sessions running/);
   a.match(p, /too hard on the first rounds/, "advice about pacing, not about the weight");
   a.ok(!/the weight, not the focus/.test(p), "the lifting advice does not leak across");
+});
+
+test("plyos move around the week on their own, a week at a time", () => {
+  const x = app({ now: "2026-10-19" });        // Monday, cycle 1 week 3
+  const mon = "2026-10-19";
+  const on = () => [0, 1, 2, 3, 4, 5, 6].filter((d) => !!x.dayPlan(x.addDays(mon, d)).plyo);
+
+  a.deepEqual(on(), [3], "Thursday unless you say otherwise");
+  // The label says so, so the week strip and the calendar feed carry it too.
+  a.equal(x.dayPlan(x.addDays(mon, 3)).short, "Plyo+HIC");
+
+  a.equal(x.setPlyoDay(mon, 5), true);
+  a.deepEqual(on(), [5], "moved to Saturday, and only one day holds them");
+  a.equal(x.plyoMoved(mon), true);
+  a.equal(x.dayPlan(x.addDays(mon, 3)).t, "hic", "Thursday keeps the session it always had");
+  a.equal(x.dayPlan("2026-10-26").plyo, undefined, "next week is untouched");
+  a.equal(x.plyoDow("2026-10-26"), 3);
+
+  // Choosing the usual day again clears the override rather than pinning it.
+  a.equal(x.setPlyoDay(mon, 3), true);
+  a.equal(x.plyoMoved(mon), false);
+  a.deepEqual(on(), [3]);
+
+  // Days gone by are not on offer: not in a week that has passed, nor earlier in this one.
+  x.setToday("2026-10-22");                    // Thursday
+  a.equal(x.plyoDayOpen(mon, 1), false, "Tuesday has been and gone");
+  a.equal(x.setPlyoDay(mon, 1), false);
+  a.deepEqual(on(), [3], "so nothing moved");
+  a.equal(x.plyoDayOpen(mon, 4), true, "tomorrow is fine");
+  a.equal(x.setPlyoDay("2026-10-12", 4), false, "and last week is closed");
+
+  a.equal(x.setPlyoDay(mon, 7), false, "7 is not a day");
+  a.equal(x.setPlyoDay(mon, "nope"), false);
+
+  // A bridge week runs no plyos, so there is no day to put them on.
+  const bridge = x.weeks().find((w) => w.kind === "bridge");
+  x.setToday(bridge.monday);
+  a.equal(x.setPlyoDay(bridge.monday, 2), false);
+  a.equal(x.plyoMoved(bridge.monday), false, "and nothing is written for it");
+});
+
+test("a moved plyo day shows the plyos and keeps what was already on it", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  const wk = x.weekOf(mon);
+
+  // Onto Monday, which lifts: plyos first, then the lifting, and the week header says so.
+  a.equal(x.setPlyoDay(mon, 0), true);
+  x.sel = mon;
+  const dp = x.dayPlan(mon);
+  a.equal(dp.t, "lift", "still a lifting day");
+  a.equal(dp.short, "Plyo+Op 1", "named on the week strip as both");
+  a.equal(x.dayPlan(x.addDays(mon, 3)).short, "HIC", "and Thursday is plain again");
+  const h = x.sessionHtml(wk, dp);
+  a.match(h, /Plyos ·/, "with the plyos on it");
+  a.match(h, /before you lift/, "told in the right order");
+  a.ok(h.indexOf("Plyos ·") < h.indexOf("Working weight"), "and drawn before the lifts");
+  a.match(x.vToday(), /Plyo: Extensive/, "named on the week header");
+
+  // Onto Sunday, which is a rest day: the plyos are the session, so no rest-day copy.
+  a.equal(x.setPlyoDay(mon, 6), true);
+  x.sel = x.addDays(mon, 6);
+  const sun = x.dayPlan(x.sel);
+  a.equal(sun.t, "off");
+  a.equal(sun.short, "Plyo", "a day with nothing else on it is just the plyos");
+  const hs = x.sessionHtml(wk, sun);
+  a.match(hs, /Plyos ·/);
+  a.doesNotMatch(hs, /Full rest/, "it is not a rest day any more");
+
+  // Thursday, now plyo-free, is a plain conditioning day again.
+  x.sel = x.addDays(mon, 3);
+  const thu = x.dayPlan(x.sel);
+  a.equal(!!thu.plyo, false);
+  a.doesNotMatch(x.sessionHtml(wk, thu), /Plyos ·/);
+  a.doesNotMatch(x.vToday(), /Plyo:/);
+});
+
+test("the move sheet offers the plyo day only where plyos happen", () => {
+  const x = app({ now: "2026-10-21" });        // Wednesday
+  const sheet = x.moveCard();
+  a.match(sheet, /Plyometrics/);
+  for (const d of ["Mon", "Thu", "Sun"]) a.match(sheet, new RegExp(`data-act="plyoday"[^>]*>${d}<`));
+  a.match(sheet, /data-act="plyoday" data-d="3"[^>]*aria-pressed="true"/, "Thursday is the one marked");
+  a.match(sheet, /data-act="plyoday" data-d="0"[^>]*disabled/, "Monday has gone, so it is closed off");
+  a.doesNotMatch(sheet, /data-act="plyoday" data-d="4"[^>]*disabled/, "Friday is still open");
+
+  // A bridge week has no plyo phase, so it is not offered one.
+  const bridge = x.weeks().find((w) => w.kind === "bridge");
+  a.equal(x.plyoMovePicker(bridge.monday), "");
+});
+
+test("ramp rests set below a minute are raised to 90 s once", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.warmRest = { squat: 30, bench: 45, dead: 120, ohp: 90 };
+  x.plan.schema = 3; x.outbox = {}; x.bump();
+
+  a.equal(x.migrate(), true);
+  a.equal(x.plan.schema, x.SCHEMA);
+  a.equal(x.plan.warmRest.squat, 90, "30 s was the old floor, not a choice");
+  a.equal(x.plan.warmRest.bench, 90);
+  a.equal(x.plan.warmRest.dead, 120, "a longer rest is someone's decision and stays");
+  a.equal(x.plan.warmRest.ohp, 90);
+  a.ok("plan/main" in x.outbox, "and the change is saved");
+});
+
+test("the warm-up checklist times its own holds, without the guided run-through", () => {
+  const x = app({ now: "2026-10-19" });        // Monday, a lifting day
+  x.lsStart();
+  const st = x.lsSteps("2026-10-19");
+  a.equal(st[0].type, "gwarm", "session mode opens on the warm-up");
+  x.ls.i = 0;
+  x.lsRender();
+  const h = x.dom.made["ls-in"].innerHTML;
+
+  a.match(h, /data-ls="guide"/, "the guided run is still offered");
+  // "4–5 min" on the bike and "45–60 sec per side" on the couch stretch both get a clock.
+const clock = (name) => {
+    const i = x.WARMUP.findIndex((w) => w.n === name);
+    a.match(h, new RegExp(`data-ls="hold" data-i="${i}"`), `${name} has a clock`);
+    return i;
+  };
+  clock("Bike, rower or easy jog");
+  clock("Couch stretch");
+  // Rep-counted items have nothing to time, so they get no button.
+  const rows = h.split('class="ls-wrow"').slice(1);
+  const cat = rows.find((r) => r.includes("Cat / cow"));
+  a.ok(cat, "the rep items are still listed");
+  a.doesNotMatch(cat, /data-ls="hold"/, "but not given a timer");
+
+  // Tapping one starts the shared rest/hold timer rather than opening the overlay.
+  a.equal(x.lsHold("warmup", x.WARMUP.findIndex((w) => w.n === "Couch stretch")), true);
+  a.equal(x.guide, null, "no guided overlay");
+  a.equal(x.rest.lbl, "Couch stretch");
+  a.equal(x.rest.dur, 60, "the dose read off the item itself");
+  a.equal(x.rest.sides, 2, "both sides");
+  a.match(x.lsRestHtml(), /Couch stretch/, "and it shows inside session mode");
+  // "4–5 min" on the bike is a timer too; a rep count is not.
+  a.equal(x.lsHold("warmup", x.WARMUP.findIndex((w) => w.n === "Bike, rower or easy jog")), true);
+  a.equal(x.rest.dur, 300);
+  a.equal(x.lsHold("warmup", x.WARMUP.findIndex((w) => w.n === "Cat / cow")), false);
+  a.equal(x.rest.dur, 300, "and the running clock is left alone");
+  a.equal(x.lsHold("warmup", 999), false, "an index that is not on the list does nothing");
+
+  // The short warm-up drops most of the list. Items are still addressed by their place in
+  // WARMUP, not their place in what is shown, so the clock stays on the right movement.
+  x.setLog("2026-10-19", "warmShort", true);
+  const couch = x.WARMUP.findIndex((w) => w.n === "Couch stretch");
+  a.ok(x.gdItems("warmup", "2026-10-19").length < x.WARMUP.length, "fewer items on offer");
+  a.equal(x.lsHold("warmup", couch), true);
+  a.equal(x.rest.lbl, "Couch stretch", "still the couch stretch, not whatever sits there now");
 });

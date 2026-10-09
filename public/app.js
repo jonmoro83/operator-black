@@ -360,6 +360,10 @@ const DEF={
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
   accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90,
+  // Plyos ride on a weekday of their own rather than being welded to a session, so
+  // moving the conditioning around does not drag them with it. plyoMove overrides the
+  // default for one week. 0 = Monday.
+  plyoDow:3, plyoMove:{},
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
@@ -434,7 +438,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=3;
+const SCHEMA=4;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -484,6 +488,12 @@ const MIGRATIONS=[
     const pk=spread(p.accPick); if(pk) p.accPick=pk;
     const cy=p.accCycle;
     if(cy&&typeof cy==='object') for(const [c,v] of Object.entries(cy)){ const n=spread(v); if(n) cy[c]=n }
+  }},
+  {to:4,note:'Warm-up rests shorter than a minute become 90 s',run(d,p){
+    // 30 s and 45 s used to be on offer and are no longer: too short between ramp singles.
+    // Anything set that low was almost certainly the old default rather than a choice.
+    const w=p.warmRest;
+    if(w&&typeof w==='object') for(const [k,v] of Object.entries(w)) if(+v<60) w[k]=90;
   }},
 ];
 
@@ -1119,7 +1129,6 @@ function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
 function sessKind(dp){
   if(!dp) return 'other';
   if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test'||dp.t==='travel') return 'strength';
-  if(dp.t==='plyohic') return 'hic';
   if(dp.t==='hic') return dp.fmt==='liss'?'easy':'hic';
   // Base Building's week is two circuits with three days between them. Classed as
   // 'other' they were invisible to the adjacency rules and the Move tool would happily
@@ -1142,9 +1151,48 @@ function orderIssues(monday,ord){
   for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
   return out;
 }
+// Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
+// baked into a slot: a slot belongs to the arrangement of the week and gets shuffled by
+// the Move tool, and plyos should not be shuffled with it. 0 = Monday.
+function weekHasPlyo(wk){ return !!wk&&['cycle','deload','travel'].includes(wk.kind) }
+function plyoDow(monday){
+  const o=(plan.plyoMove||{})[monday];
+  const v=o!=null?+o:+plan.plyoDow;
+  return (v>=0&&v<=6)?v:3;
+}
+function plyoMoved(monday){ return (plan.plyoMove||{})[monday]!=null }
+// Plyos are not part of a session, so they move on their own. Picking a day for one week
+// overrides the usual day for that week only; picking the usual day again clears it.
+// Weeks that have gone by are left alone, and so are days already past in this week.
+function plyoDayOpen(monday,d){
+  const t=realToday(), curMon=mondayOf(t);
+  if(monday<curMon) return false;
+  if(monday===curMon&&d<dow(t)) return false;
+  return true;
+}
+function setPlyoDay(monday,d){
+  d=+d; if(!(d>=0&&d<=6)) return false;
+  if(!weekHasPlyo(weekOf(monday))) return false;
+  if(!plyoDayOpen(monday,d)) return false;
+  mutatePlan(p=>{
+    const m=Object.assign({},p.plyoMove||{});
+    if(d===(+p.plyoDow>=0&&+p.plyoDow<=6?+p.plyoDow:3)) delete m[monday]; else m[monday]=d;
+    p.plyoMove=m;
+  });
+  return true;
+}
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
-  return dayPlanSlot(date,slotOf(date));
+  const dp=dayPlanSlot(date,slotOf(date));
+  if(weekHasPlyo(wk)&&dow(date)===plyoDow(mondayOf(date))){
+    // A deload halves the contacts, as the week it sits in does to everything else.
+    // The label carries them too, so the week strip, the calendar feed and the CSV all
+    // say which day has plyos without anyone having to open it.
+    const bare=['off','pre'].includes(dp.t);
+    return Object.assign({},dp,{plyo:true,plyoCut:dp.plyoCut||wk.kind==='deload',
+      short:bare?'Plyo':'Plyo+'+(dp.short||'Session')});
+  }
+  return dp;
 }
 function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
@@ -1153,7 +1201,7 @@ function dayPlanSlot(date,d){
     {t:'lift',day:1,lifts:SBP,acc:'mon',short:'Op 1'},
     {t:'hic',fmt:'map',short:'HIC'},
     {t:'lift',day:2,lifts:SBP,acc:'wed',short:'Op 2'},
-    {t:'plyohic',fmt:'anaerobic',short:'Plyo+HIC'},
+    {t:'hic',fmt:'anaerobic',short:'HIC'},
     {t:'lift',day:3,lifts:SBD,acc:'fri',short:'Op 3'},
     {t:'hic',fmt:wk.w%2?'threshold':'long',short:'HIC',note:'Swap to LISS if the week has been heavy.'},
     {t:'off',short:'Off'}][d];
@@ -1161,7 +1209,7 @@ function dayPlanSlot(date,d){
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS'},
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
-    {t:'plyohic',fmt:'liss',plyoCut:true,short:'Plyo+LISS'},
+    {t:'hic',fmt:'liss',short:'LISS'},
     {t:'lift',deload:true,lifts:SBD,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS',note:'Optional. Take it off if you feel flat.'},
     {t:'off',short:'Off'}][d];
@@ -1202,7 +1250,7 @@ function dayPlanSlot(date,d){
     {t:'travel',slot:'day1',short:'Travel 1'},
     {t:'hic',fmt:'map',short:'HIC'},
     {t:'travel',slot:'day2',short:'Travel 2'},
-    {t:'plyohic',fmt:'anaerobic',short:'Plyo+HIC'},
+    {t:'hic',fmt:'anaerobic',short:'HIC'},
     {t:'travel',slot:'day3',short:'Travel 3'},
     {t:'hic',fmt:'threshold',short:'HIC',note:'Swap to LISS or a walk if the week has been long.'},
     {t:'off',short:'Off'}][d];
@@ -1665,7 +1713,7 @@ function vToday(){
   h+=`</div>`;
   if(!wk){ return h+checkinCard(sel)+`<div class="card"><h3>Not started</h3><p class="muted">The program starts the week of ${fmtLong(plan.startMonday)}. Change the start date in Setup.</p></div>` }
   const wt=weekTitle(wk);
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'&&(dp.t==='plyohic'||dp.t==='plyobase')?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
   h+=noteCard(sel);
   h+=aimsCard(sel);
@@ -1730,7 +1778,23 @@ function moveCard(){
     h+=`</div>`;
   }
   if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
+  h+=plyoMovePicker(mon);
   return h+`</div>`;
+}
+// Plyos ride along with whichever day you put them on, so they get their own picker
+// rather than taking part in the session shuffle above.
+function plyoMovePicker(mon){
+  const wk=weekOf(mon); if(!weekHasPlyo(wk)) return '';
+  const cur=plyoDow(mon);
+  let h=`<div class="divider">Plyometrics</div><p class="small muted" style="margin:0">Plyos aren’t part of a session. Put them on any day — they run before the conditioning if they land on a conditioning day, and stand alone if they don’t.</p>
+  <div class="row wrap" style="gap:6px">`;
+  for(let d=0;d<7;d++){
+    const open=plyoDayOpen(mon,d);
+    h+=`<button class="btn sm${d===cur?' primary':''}" data-act="plyoday" data-d="${d}" ${open?'':'disabled'} aria-pressed="${d===cur}">${DAYN[d]}</button>`;
+  }
+  h+=`</div>`;
+  if(plyoMoved(mon)) h+=`<div class="small muted">Moved off ${DAYN[(+plan.plyoDow>=0&&+plan.plyoDow<=6?+plan.plyoDow:3)]} for this week only.</div>`;
+  return h;
 }
 // Shown once a day is marked done: what actually got logged, and anything still missing.
 function finishCard(date,dp){
@@ -1746,11 +1810,11 @@ function finishCard(date,dp){
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
-  if(dp.t==='hic'||dp.t==='plyohic'||dp.cardio){
+  if(dp.t==='hic'||dp.cardio){
     const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
     if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
   }
-  if(dp.t==='plyohic'||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
+  if(dp.plyo||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
   if(dp.t==='travel'){
     const items=travelList(dp.slot), tv=(L.travel||{}), n0=items.filter((_,i)=>tv[i]).length;
     bits.push(`${n0} of ${items.length} movements`);
@@ -1779,6 +1843,14 @@ function banners(wk,dp){
 function sessionHtml(wk,dp){
   let h='';
   const note=dp.note?`<p class="muted small" style="margin:0">${esc(dp.note)}</p>`:'';
+  // Plyos go first whatever else the day holds: they are a nervous-system stimulus and want
+  // you fresh. Ten minutes between them and hard conditioning. On a day with nothing else
+  // scheduled they are the session, so the rest-day copy below is skipped.
+  if(dp.plyo){
+    h+=plyoCard(wk,dp);
+    if(['off','pre'].includes(dp.t)) return h+mobCard(sel,dp)+footer(true);
+    h+=`<div class="divider">${dp.t==='hic'?'Rest 10 min':'Then'}</div>`;
+  }
   if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+mobCard(sel,dp)+footer(false) }
   if(dp.t==='lift'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
@@ -1789,7 +1861,6 @@ function sessionHtml(wk,dp){
   }
   if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);
   if(dp.t==='hic') return h+hicCard(dp,note)+mobCard(sel,dp)+footer(true);
-  if(dp.t==='plyohic') return h+plyoCard(wk,dp)+`<div class="divider">Rest 10 min</div>`+hicCard(dp,'')+mobCard(sel,dp)+footer(true);
   if(dp.t==='rm5'||dp.t==='test'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     if(dp.note) h+=`<div class="banner info"><div>${esc(dp.note)}</div></div>`;
@@ -1808,7 +1879,7 @@ function sessionHtml(wk,dp){
 }
 function mobKind(dp){
   if(dp.t==='travel') return dp.slot==='day3'?'dead':'lift';
-  if(dp.t==='plyohic'||dp.t==='plyobase') return 'plyo';
+  if(dp.plyo||dp.t==='plyobase') return 'plyo';
   if(dp.t==='hic') return 'hic';
   if(dp.t==='off'||dp.t==='convert'||dp.t==='pre') return 'off';
   return (dp.lifts||[]).includes('dead')?'dead':'lift';
@@ -2133,7 +2204,7 @@ function suggestions(date){
   if(!lv) return out;
   const add=(tone,title,text,act)=>out.push({tone,title,text,act});
   const heavy=wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
-  const hicFmt=(dp.t==='hic'||dp.t==='plyohic')?effFmt(date):null;
+  const hicFmt=dp.t==='hic'?effFmt(date):null;
   // today's session
   if(dp.t==='lift'){
     if(dp.deload) add('go','Deload day','Keep it easy regardless of how you feel. The point is recovery.');
@@ -2149,7 +2220,7 @@ function suggestions(date){
     else if(lv.k==='care') add('care','Conditioning: low end of the range',`Do ${low}. Hold the same pace, just fewer rounds.`);
     else add('stop','Swap today’s HIC to LISS','30–45 min conversational. Change the format in the conditioning card so your history stays clean.');
   }
-  if(dp.t==='plyohic'&&(lv.k==='stop'||c.soreness>=4)) add('care','Plyos: halve the contacts','Cut, don’t skip. Tick “halve the contacts” and drop depth jumps today. Stop the moment a jump comes up short.');
+  if(dp.plyo&&(lv.k==='stop'||c.soreness>=4)) add('care','Plyos: halve the contacts','Cut, don’t skip. Tick “halve the contacts” and drop depth jumps today. Stop the moment a jump comes up short.');
   if(dp.t==='test'||dp.t==='rm5'){
     if(lv.k!=='go') add('care','Testing on a so-so day','If you can move the test a day, do it. If not, take the lower number. Starting light and adding later works. Starting heavy and stalling doesn’t.');
     else add('go','Good day to test','Ramp in singles, stop when the bar slows.');
@@ -2261,7 +2332,7 @@ function hicCard(dp,note){
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
-  if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
+  if(dp.plyo&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((HIC[f]||{}).noMetric){
@@ -2346,7 +2417,9 @@ function plyoUpperCard(wk,cut,pullback){
 function plyoCard(wk,dp){
   const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
   const done=plyoContactsDone(ph,L,cut), target=cut?Math.round(ph.target/2):ph.target;
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work, before HIC.</div>`;
+  // Plyos move independently of the week's sessions, so what comes after them varies.
+  const after=dp.t==='hic'?' before the conditioning':dp.t==='lift'||dp.t==='rm5'||dp.t==='test'?' before you lift':'';
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work${after}.</div>`;
   const pb=plyoPullback(sel);
   if(pb.length&&!cut) h+=`<div class="banner warn"><div class="small"><b>Pull-back check:</b> ${esc(pb.join('; '))}. The program says cut the session in half (or warm-up only). Cut, don’t skip.</div></div>`;
   h+=plyoWarmBlock(L);
@@ -2508,7 +2581,7 @@ function ivRounds(d) {
 // Which set of questions a day gets, already filtered to the ones that can apply.
 function aimSet(date) {
   const t = (dayPlan(date) || {}).t;
-  const base = t === 'lift' ? AIMS_LIFT : (t === 'hic' || t === 'plyohic') ? AIMS_COND : [];
+  const base = t === 'lift' ? AIMS_LIFT : t === 'hic' ? AIMS_COND : [];
   return base.filter(a => !a.when || a.when(date));
 }
 function aimById(date, id) { return aimSet(date).find(a => a.id === id) || null }
@@ -2728,10 +2801,11 @@ function deloadCheckCard(c){
 // locking, the app being backgrounded, or a reload.
 let rest=LS.get('ob.rest'), restTick=null, audioCtx=null, wakeLock=null;
 function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
-// Seconds between ramp sets. Short enough to stay warm, long enough that the last
-// ramp single doesn't eat into the first working set.
-const WARM_RESTS=[30,45,60,90,120];
-function warmRestSecs(k){const v=+((plan.warmRest||{})[k]);return v>=15&&v<=600?v:90}
+// Seconds between ramp sets. Long enough that the last ramp single doesn't eat into the
+// first working set — a minute was the old floor and it was not enough once the bar is
+// heavy. 90 s is the default, and the running timer takes +30 s as many times as you like.
+const WARM_RESTS=[60,90,120,150];
+function warmRestSecs(k){const v=+((plan.warmRest||{})[k]);return v>=60&&v<=600?v:90}
 function warmRestLabel(v){return v<120?v+'s':(v/60)+' min'}
 // Spoken cues (Setup / timer card). iOS only speaks after a first utterance inside a
 // tap, so unlockAudio primes it with a silent one.
@@ -3212,7 +3286,8 @@ function lsRender(){
     h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
       <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
       ${isW?`<div class="seg"><button class="segb${short?'':' on'}" data-ls="wfull">Full</button><button class="segb${short?' on':''}" data-ls="wshort">Short</button></div>`:`<div class="small muted">${esc(MOB[mobKind(dp)].why)}</div>`}
-      <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
+      <div class="stack">${items.map(([i,n,d])=>{const hs=holdSecs(d);
+        return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
     const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
@@ -3248,6 +3323,15 @@ function lsRender(){
   if(ls.i===0) h+=`<label class="check small" style="justify-content:center"><input type="checkbox" id="ls-warm" ${ls.warm!==false?'checked':''}> Include warm-up sets</label>`;
   box.innerHTML=h;
 }
+// The dose on a warm-up or mobility item is the timer. Resolving it from the item's
+// index keeps one source of truth, so the clock on the checklist and the guided run
+// cannot drift apart.
+function lsHold(kind,i){
+  const it=gdItems(kind,ls.date).find(x=>x.i===i); if(!it) return false;
+  const h=holdSecs(it.dose); if(!h) return false;
+  startHold(it.name,h.s,h.sides,1);
+  return true;
+}
 function lsMarkWarm(st){
   const W=wuListFor(ls.date,st.k).map(x=>x?Object.assign({},x):{});
   const x=W[st.j]||(W[st.j]={}); x.done=true; if(x.w==null||x.w==='')x.w=st.w; if(x.r==null||x.r==='')x.r=st.r;
@@ -3280,6 +3364,7 @@ document.getElementById('ls').addEventListener('click',e=>{
     return lsRender();
   }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
+  if(a==='hold'){lsHold(st.type==='gwarm'?'warmup':'mobility',+b.dataset.i);return lsRender()}
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
   if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }
@@ -4220,11 +4305,11 @@ function sessionsCsv(){
   const U=u(), rows=[['date','program','week','session','done','session_rpe','readiness','sleep_h','sleep_quality','energy','soreness','stress','protein','fuel','water','alcohol','calories','bodyweight_'+U,'neck','waist','hip','bodyfat_pct','hic_format','activity','result','result_unit','minutes','rounds','ruck_load_'+U,'elevation_gain_'+elevUnit(),'warmup_done','mobility_done','plyo_phase','plyo_contacts','broad_first_in','broad_best_in','test_broad_in','test_vertical_in','test_triple_in','pullups','notes']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), c=L.checkin||{}, H=L.hic||{}, P=L.plyo||{}, J=L.jumps||{};
-    const hasHic=dp.t==='hic'||dp.t==='plyohic'||L.hic, f=hasHic?effFmt(d):null, mod=hasHic?modOf(d):null, met=f&&mod?metricFor(mod,f):null;
+    const hasHic=dp.t==='hic'||L.hic, f=hasHic?effFmt(d):null, mod=hasHic?modOf(d):null, met=f&&mod?metricFor(mod,f):null;
     rows.push([d,prog,wk?weekTitle(wk).t:'',dp.short||'',L.done?'yes':'',L.rpe??'',readiness(c)??'',c.sleepH??'',c.sleepQ??'',c.energy??'',c.soreness??'',c.stress??'',c.protein??'',c.fuel??'',c.water??'',c.alcohol??'',c.kcal??'',c.bw??'',(L.meas||{}).neck??'',(L.meas||{}).waist??'',(L.meas||{}).hip??'',(L.meas&&navyBf(L.meas,d))??'',
       f?HIC[f].name:'',mod?(mod==='other'&&H.what?H.what:MOD[mod].name):'',met?(H[met[0]]??''):'',met&&H[met[0]]!=null?met[1]:'',H.min??'',H.rounds??'',H.load??'',H.elev??'',
       (L.warmup||[]).filter(Boolean).length||'',(L.mobility||[]).filter(Boolean).length||'',
-      dp.t==='plyohic'&&wk?plyoPhase(wk).name:'',P.contacts??'',P.mark??'',P.best??'',J.broad??'',J.vertical??'',J.triple??'',L.pullups??'',L.notes??'']);
+      dp.plyo&&wk?plyoPhase(wk).name:'',P.contacts??'',P.mark??'',P.best??'',J.broad??'',J.vertical??'',J.triple??'',L.pullups??'',L.notes??'']);
   });
   return csvText(rows);
 }
@@ -4698,7 +4783,7 @@ function vGuide(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
-  <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. On Thursdays, plyos come first, so keep sprint volume low that day.</li></ul>
+  <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. Plyos come first on whichever day they land, so keep sprint volume low that day.</li></ul>
   <p><b>Optional sets (Operator I/A).</b> K. Black's intermediate/advanced take on Operator hands you the volume decision: rather than a fixed three sets, you work somewhere in a range and choose on the day. Tap <b>+</b> at the end of the sets on any lift card and you get another one, for that lift on that day only — the program is not touched and tomorrow is back to normal. If you want the room there every week instead, give the week an <b>Up to</b> value in Setup. Either way the surplus sets show dashed, and nothing is counted as missed if you skip them. In <i>Ageless Athlete</i> Jim Madden calls this the part of I/A he considers essential, and a few extra sets on weighted pull-ups his favourite way to add upper-body size without derailing recovery. Deadlift has always worked this way here: one set required, up to three.</p>
   <p><b>What this is not.</b> Full Operator I/A also floats your lifting days 48 to 72 hours apart, so the wave advances by session rather than by week. This app runs on a calendar, so it does not do that — and Madden says he mostly keeps a fixed three-sessions-a-week schedule himself, taking his variability in sets and intensity instead. That is the part you have here.</p>
   <p><b>What matters today.</b> Before a session you pick up to three things to pay attention to, and afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
@@ -4708,7 +4793,8 @@ function vGuide(){
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
   <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving on an easy base — a pace just under a jog — and step off every two minutes for a set of reps, alternating two movements: twenty kettlebell swings, then ten snatches per arm. Twenty minutes of base is the standard dose; fifteen is the easy version with the reps halved, thirty the hard one. The sets are not on the clock, so the session runs longer than its name. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
   <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
-  <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week, before HIC and never after. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
+  <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
+  <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>
   <ul class="tight"><li><b>Watch distance, not set count.</b> If any jump drops more than ~5% off your first broad jump, the session is over.</li><li><b>Every rep maximal or near it.</b> If you’re breathing hard, you’re doing conditioning.</li><li><b>Cut, don’t skip.</b> After a hard lifting week, halve the contacts.</li><li><b>Counting contacts:</b> one landing = one contact, even on two feet. The volumes are calibrated that way.</li></ul>
   <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
@@ -4744,7 +4830,9 @@ function vGuide(){
   <p><b>What is in it, and what is not.</b> The feed carries the schedule only: dates, session types, lifts, prescriptions and working weights. It does not carry what you logged, your maxes, bodyweight, measurements, readiness scores or anything about your account. Someone who found the address would learn what you are planning to lift, and nothing else.</p>
   <p><b>If you need to revoke it.</b> <b>New address</b> on the same card issues a fresh one and stops the old address working immediately. Use it if the link gets out. You then have to re-subscribe on your devices, because the old subscription is pointing at an address that no longer exists. <b>Turn off</b> removes the feed entirely.</p>
   <p><b>If the calendar says it cannot connect.</b> Check the address is the current one, since <b>New address</b> invalidates the previous link. If it is right and it still fails, open this app once to make sure the feed has been written, then try again.</p></div>
-  <div class="card guide"><h3>Warm-up</h3>${warmupShort()}</div>
+  <div class="card guide"><h3>Warm-up</h3>${warmupShort()}
+  <p class="small muted">Anything with a time on it has a ⏱ next to it, on the day's card and inside session mode. Tap it and the timer runs; per-side holds count both sides. “Guide me through it” is the hands-free version of the same list, not the only way to get a clock.</p>
+  <p class="small muted">Between ramp sets the rest is 90 seconds by default, set per lift in the warm-up block on each lift card. Anything under a minute is no longer on offer — it is not long enough once the bar is heavy. If you want more on the day, the running timer takes +30 s as many times as you like.</p></div>
   <div class="card guide"><h3>Warm-up and mobility library</h3><p class="small muted">Every movement in the warm-up and the mobility blocks, with what it is for and the ways it usually goes wrong. The same entries open from the checklists on the day.</p>
   <div class="stack" style="gap:10px">${[
     ['Raise and reset',['raise','breath9090','catcow','breathwall']],
@@ -4799,7 +4887,7 @@ function calMins(dp,date){
   if(dp.t==='test'||dp.t==='rm5') return 90;
   if(dp.t==='se') return 45;
   let m=0; if(dp.fmt){ try{ m=ivPartsLabel(dp.fmt,ivOpts(date,dp.fmt)).total||0 }catch(e){} }
-  if(dp.t==='plyohic') return (m||40)+20;   // plyos first, rest, then the HIC
+  if(dp.plyo) return (m||40)+20;   // plyos first, rest, then the HIC
   return m||45;
 }
 
@@ -5418,6 +5506,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='mclear'){offerUndo('Mobility cleared',snapLog(sel));setLog(sel,'mobility',[]);render();return}
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
+  if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
   if(a==='upset'){
     const i=+b.dataset.i,j=+b.dataset.j, L=(lg(sel).plyo||{}).up||{}, arr=[...((L[i])||[])];
     arr[j]=!arr[j]; for(let x=0;x<arr.length;x++) if(arr[x]==null) arr[x]=false;

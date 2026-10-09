@@ -41,7 +41,7 @@ function calMins(dp,date){
   if(dp.t==='test'||dp.t==='rm5') return 90;
   if(dp.t==='se') return 45;
   let m=0; if(dp.fmt){ try{ m=ivPartsLabel(dp.fmt,ivOpts(date,dp.fmt)).total||0 }catch(e){} }
-  if(dp.t==='plyohic') return (m||40)+20;   // plyos first, rest, then the HIC
+  if(dp.plyo) return (m||40)+20;   // plyos first, rest, then the HIC
   return m||45;
 }
 

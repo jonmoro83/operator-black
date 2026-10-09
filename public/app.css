@@ -167,6 +167,7 @@ svg.loader.big{max-width:420px}
 .ls-rest b{font-family:var(--f-display);font-stretch:68%;font-weight:900;font-size:48px;line-height:1;font-variant-numeric:tabular-nums}
 .ls-done{padding:18px!important;font-size:19px!important;width:100%}
 .ls-row{display:flex;gap:8px;flex-wrap:wrap}.ls-row .btn{flex:1}
+.ls-wrow{display:flex;gap:6px;align-items:stretch}.ls-wrow .btn.hold{flex:0 0 auto;padding:0 12px;font-size:18px}
 /* interval timer: full screen on the bike, or a bar at the bottom */
 #iv{position:fixed;inset:0;z-index:30;background:var(--sunk);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex}
 #iv.work{background:var(--red-bg)}

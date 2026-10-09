@@ -34,7 +34,7 @@ function vToday(){
   h+=`</div>`;
   if(!wk){ return h+checkinCard(sel)+`<div class="card"><h3>Not started</h3><p class="muted">The program starts the week of ${fmtLong(plan.startMonday)}. Change the start date in Setup.</p></div>` }
   const wt=weekTitle(wk);
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${wk.kind==='cycle'&&(dp.t==='plyohic'||dp.t==='plyobase')?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
   h+=noteCard(sel);
   h+=aimsCard(sel);
@@ -99,7 +99,23 @@ function moveCard(){
     h+=`</div>`;
   }
   if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
+  h+=plyoMovePicker(mon);
   return h+`</div>`;
+}
+// Plyos ride along with whichever day you put them on, so they get their own picker
+// rather than taking part in the session shuffle above.
+function plyoMovePicker(mon){
+  const wk=weekOf(mon); if(!weekHasPlyo(wk)) return '';
+  const cur=plyoDow(mon);
+  let h=`<div class="divider">Plyometrics</div><p class="small muted" style="margin:0">Plyos aren’t part of a session. Put them on any day — they run before the conditioning if they land on a conditioning day, and stand alone if they don’t.</p>
+  <div class="row wrap" style="gap:6px">`;
+  for(let d=0;d<7;d++){
+    const open=plyoDayOpen(mon,d);
+    h+=`<button class="btn sm${d===cur?' primary':''}" data-act="plyoday" data-d="${d}" ${open?'':'disabled'} aria-pressed="${d===cur}">${DAYN[d]}</button>`;
+  }
+  h+=`</div>`;
+  if(plyoMoved(mon)) h+=`<div class="small muted">Moved off ${DAYN[(+plan.plyoDow>=0&&+plan.plyoDow<=6?+plan.plyoDow:3)]} for this week only.</div>`;
+  return h;
 }
 // Shown once a day is marked done: what actually got logged, and anything still missing.
 function finishCard(date,dp){
@@ -115,11 +131,11 @@ function finishCard(date,dp){
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
-  if(dp.t==='hic'||dp.t==='plyohic'||dp.cardio){
+  if(dp.t==='hic'||dp.cardio){
     const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
     if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
   }
-  if(dp.t==='plyohic'||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
+  if(dp.plyo||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
   if(dp.t==='travel'){
     const items=travelList(dp.slot), tv=(L.travel||{}), n0=items.filter((_,i)=>tv[i]).length;
     bits.push(`${n0} of ${items.length} movements`);
@@ -148,6 +164,14 @@ function banners(wk,dp){
 function sessionHtml(wk,dp){
   let h='';
   const note=dp.note?`<p class="muted small" style="margin:0">${esc(dp.note)}</p>`:'';
+  // Plyos go first whatever else the day holds: they are a nervous-system stimulus and want
+  // you fresh. Ten minutes between them and hard conditioning. On a day with nothing else
+  // scheduled they are the session, so the rest-day copy below is skipped.
+  if(dp.plyo){
+    h+=plyoCard(wk,dp);
+    if(['off','pre'].includes(dp.t)) return h+mobCard(sel,dp)+footer(true);
+    h+=`<div class="divider">${dp.t==='hic'?'Rest 10 min':'Then'}</div>`;
+  }
   if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+mobCard(sel,dp)+footer(false) }
   if(dp.t==='lift'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
@@ -158,7 +182,6 @@ function sessionHtml(wk,dp){
   }
   if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);
   if(dp.t==='hic') return h+hicCard(dp,note)+mobCard(sel,dp)+footer(true);
-  if(dp.t==='plyohic') return h+plyoCard(wk,dp)+`<div class="divider">Rest 10 min</div>`+hicCard(dp,'')+mobCard(sel,dp)+footer(true);
   if(dp.t==='rm5'||dp.t==='test'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     if(dp.note) h+=`<div class="banner info"><div>${esc(dp.note)}</div></div>`;
@@ -177,7 +200,7 @@ function sessionHtml(wk,dp){
 }
 function mobKind(dp){
   if(dp.t==='travel') return dp.slot==='day3'?'dead':'lift';
-  if(dp.t==='plyohic'||dp.t==='plyobase') return 'plyo';
+  if(dp.plyo||dp.t==='plyobase') return 'plyo';
   if(dp.t==='hic') return 'hic';
   if(dp.t==='off'||dp.t==='convert'||dp.t==='pre') return 'off';
   return (dp.lifts||[]).includes('dead')?'dead':'lift';

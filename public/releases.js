@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.74',date:'2026-10-08',title:'Plyos move, and the warm-up gets a clock',items:[
+    'Plyos are no longer stuck to the Thursday conditioning session. Open any day in a training week, tap Move…, and pick a day under Plyometrics. It moves them for that week only; picking Thursday again puts them back.',
+    'The week strip, the calendar feed and the CSV all name the day, so you can see where the plyos are without opening it.',
+    'Whatever was already on the day you pick stays where it is. Plyos go first, and if they land on a conditioning day you still get the ten minutes in between. Put them on a rest day and they are the session.',
+    'Rest between warm-up sets is 90 seconds. The 30 and 45 second options are gone — they are not long enough once the bar is heavy — and if yours was set that low it has been moved up to 90. A longer rest you chose yourself is left alone, and the running timer still takes +30s as many times as you want.',
+    'Every warm-up and mobility movement with a time on it now has a ⏱ beside it inside session mode, the same as on the day’s card. You no longer have to start the guided run-through just to get a timer.']},
   {v:'1.73',date:'2026-10-08',title:'Conditioning gets its own questions',items:[
     'Conditioning days now ask what matters too, but with their own questions: hitting every round, warming up before the hard efforts, holding the pace without fading, keeping the easy periods genuinely easy, finishing able to do one more, cooling down, and logging the number.',
     'Four of those the app counts for you from what you logged. The three about pacing it asks, because only you know where the effort went.',

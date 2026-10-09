@@ -358,6 +358,10 @@ const DEF={
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
   accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90,
+  // Plyos ride on a weekday of their own rather than being welded to a session, so
+  // moving the conditioning around does not drag them with it. plyoMove overrides the
+  // default for one week. 0 = Monday.
+  plyoDow:3, plyoMove:{},
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
@@ -432,7 +436,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=3;
+const SCHEMA=4;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -482,6 +486,12 @@ const MIGRATIONS=[
     const pk=spread(p.accPick); if(pk) p.accPick=pk;
     const cy=p.accCycle;
     if(cy&&typeof cy==='object') for(const [c,v] of Object.entries(cy)){ const n=spread(v); if(n) cy[c]=n }
+  }},
+  {to:4,note:'Warm-up rests shorter than a minute become 90 s',run(d,p){
+    // 30 s and 45 s used to be on offer and are no longer: too short between ramp singles.
+    // Anything set that low was almost certainly the old default rather than a choice.
+    const w=p.warmRest;
+    if(w&&typeof w==='object') for(const [k,v] of Object.entries(w)) if(+v<60) w[k]=90;
   }},
 ];
 

@@ -120,7 +120,8 @@ function lsRender(){
     h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
       <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
       ${isW?`<div class="seg"><button class="segb${short?'':' on'}" data-ls="wfull">Full</button><button class="segb${short?' on':''}" data-ls="wshort">Short</button></div>`:`<div class="small muted">${esc(MOB[mobKind(dp)].why)}</div>`}
-      <div class="stack">${items.map(([i,n,d])=>`<button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>`).join('')}</div></div>
+      <div class="stack">${items.map(([i,n,d])=>{const hs=holdSecs(d);
+        return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
     const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
@@ -156,6 +157,15 @@ function lsRender(){
   if(ls.i===0) h+=`<label class="check small" style="justify-content:center"><input type="checkbox" id="ls-warm" ${ls.warm!==false?'checked':''}> Include warm-up sets</label>`;
   box.innerHTML=h;
 }
+// The dose on a warm-up or mobility item is the timer. Resolving it from the item's
+// index keeps one source of truth, so the clock on the checklist and the guided run
+// cannot drift apart.
+function lsHold(kind,i){
+  const it=gdItems(kind,ls.date).find(x=>x.i===i); if(!it) return false;
+  const h=holdSecs(it.dose); if(!h) return false;
+  startHold(it.name,h.s,h.sides,1);
+  return true;
+}
 function lsMarkWarm(st){
   const W=wuListFor(ls.date,st.k).map(x=>x?Object.assign({},x):{});
   const x=W[st.j]||(W[st.j]={}); x.done=true; if(x.w==null||x.w==='')x.w=st.w; if(x.r==null||x.r==='')x.r=st.r;
@@ -188,6 +198,7 @@ document.getElementById('ls').addEventListener('click',e=>{
     return lsRender();
   }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
+  if(a==='hold'){lsHold(st.type==='gwarm'?'warmup':'mobility',+b.dataset.i);return lsRender()}
   if(a==='gw'||a==='mb'){ const f=a==='gw'?'warmup':'mobility', A=[...(lg(ls.date)[f]||[])], i=+b.dataset.i; A[i]=!A[i]; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false; setLog(ls.date,f,A); return lsRender() }
   if(a==='wfull'||a==='wshort'){ setLog(ls.date,'warmShort',a==='wshort'); return lsRender() }
   if(a==='rpe'){ setLog(ls.date,'rpe',+b.dataset.v); return lsRender() }

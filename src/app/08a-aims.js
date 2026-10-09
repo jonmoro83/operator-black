@@ -92,7 +92,7 @@ function ivRounds(d) {
 // Which set of questions a day gets, already filtered to the ones that can apply.
 function aimSet(date) {
   const t = (dayPlan(date) || {}).t;
-  const base = t === 'lift' ? AIMS_LIFT : (t === 'hic' || t === 'plyohic') ? AIMS_COND : [];
+  const base = t === 'lift' ? AIMS_LIFT : t === 'hic' ? AIMS_COND : [];
   return base.filter(a => !a.when || a.when(date));
 }
 function aimById(date, id) { return aimSet(date).find(a => a.id === id) || null }

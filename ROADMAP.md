@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-07.
+Update it as things ship. Last updated 2026-10-08.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -103,6 +103,41 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Plyos come off the HIC day (2026-10-08)**
+- Plyometrics were a day *type* (`t:'plyohic'`) in three week layouts, which made them
+  inseparable from the Thursday conditioning session. They are now an *attribute*:
+  `dayPlan()` attaches `{plyo:true}` to whichever weekday `plyoDow(monday)` names, and the
+  day underneath keeps whatever it always was. The three `plyohic` layout slots are plain
+  HIC/LISS again and `sessKind` lost its special case.
+- `plan.plyoDow` (3, Thursday) is the usual day; `plan.plyoMove[monday]` overrides it for
+  one week. `setPlyoDay` deletes the override when you pick the usual day again, so no-op
+  entries do not accumulate, and refuses a week that has gone by, a day already past in
+  this week, and a week with no plyo phase at all.
+- The picker lives under Plyometrics in the existing Move… sheet, which is reachable from
+  every day, rather than on the plyo card, which is only reachable from the plyo day.
+- `dayPlan` rewrites `short` as well (`Plyo+Op 1`, `Plyo+HIC`, or just `Plyo` on a day with
+  nothing else), so the week strip, the Plan calendar, the ICS feed and the CSV all name the
+  day without any of them needing to know about `plan.plyoMove`.
+- `sessionHtml` draws the plyo card first and returns early on a rest day, so plyos on a
+  Sunday are the session rather than a card under "Full rest". The card's closing line
+  ("before the conditioning" / "before you lift" / nothing) follows the day it landed on.
+- 193 → 196 tests. All 14 mutants caught; the one that survived first time was dropping the
+  `weekHasPlyo` guard from `setPlyoDay`.
+
+**90 s between ramp sets, and a clock on the warm-up list (2026-10-08)**
+- Two things from a session. Rest between warm-up sets was too short, and the only way to
+  time a warm-up movement was to hand the whole block to "Guide me through it".
+- `WARM_RESTS` drops 30 s and 45 s (now `[60,90,120,150]`), `warmRestSecs` floors at 60,
+  and migration 4 lifts any stored value under a minute to 90. A rest someone deliberately
+  made *longer* is left alone. The running timer already took +30 s, as many times as you
+  want, which is the "extend" half of the ask.
+- Session mode's warm-up and mobility checklists now carry the same ⏱ the day view's rows
+  have. `lsHold(kind, i)` resolves the dose from the item's index in `WARMUP`/`MOB`, not
+  its position in what is shown, so the short warm-up does not shift the clock onto the
+  wrong movement — which is exactly the mutant that survived until a `warmShort` test
+  existed.
+- 196 → 198 tests.
 
 **Conditioning gets its own aims (2026-10-08)**
 - `AIMS_COND`: rounds hit, warm-up, holding the pace, keeping the easy parts easy,

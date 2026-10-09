@@ -177,7 +177,7 @@ function suggestions(date){
   if(!lv) return out;
   const add=(tone,title,text,act)=>out.push({tone,title,text,act});
   const heavy=wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
-  const hicFmt=(dp.t==='hic'||dp.t==='plyohic')?effFmt(date):null;
+  const hicFmt=dp.t==='hic'?effFmt(date):null;
   // today's session
   if(dp.t==='lift'){
     if(dp.deload) add('go','Deload day','Keep it easy regardless of how you feel. The point is recovery.');
@@ -193,7 +193,7 @@ function suggestions(date){
     else if(lv.k==='care') add('care','Conditioning: low end of the range',`Do ${low}. Hold the same pace, just fewer rounds.`);
     else add('stop','Swap today’s HIC to LISS','30–45 min conversational. Change the format in the conditioning card so your history stays clean.');
   }
-  if(dp.t==='plyohic'&&(lv.k==='stop'||c.soreness>=4)) add('care','Plyos: halve the contacts','Cut, don’t skip. Tick “halve the contacts” and drop depth jumps today. Stop the moment a jump comes up short.');
+  if(dp.plyo&&(lv.k==='stop'||c.soreness>=4)) add('care','Plyos: halve the contacts','Cut, don’t skip. Tick “halve the contacts” and drop depth jumps today. Stop the moment a jump comes up short.');
   if(dp.t==='test'||dp.t==='rm5'){
     if(lv.k!=='go') add('care','Testing on a so-so day','If you can move the test a day, do it. If not, take the lower number. Starting light and adding later works. Starting heavy and stalling doesn’t.');
     else add('go','Good day to test','Ramp in singles, stop when the bar slows.');
@@ -305,7 +305,7 @@ function hicCard(dp,note){
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
-  if(dp.t==='plyohic'&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
+  if(dp.plyo&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((HIC[f]||{}).noMetric){
@@ -390,7 +390,9 @@ function plyoUpperCard(wk,cut,pullback){
 function plyoCard(wk,dp){
   const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
   const done=plyoContactsDone(ph,L,cut), target=cut?Math.round(ph.target/2):ph.target;
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work, before HIC.</div>`;
+  // Plyos move independently of the week's sessions, so what comes after them varies.
+  const after=dp.t==='hic'?' before the conditioning':dp.t==='lift'||dp.t==='rm5'||dp.t==='test'?' before you lift':'';
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work${after}.</div>`;
   const pb=plyoPullback(sel);
   if(pb.length&&!cut) h+=`<div class="banner warn"><div class="small"><b>Pull-back check:</b> ${esc(pb.join('; '))}. The program says cut the session in half (or warm-up only). Cut, don’t skip.</div></div>`;
   h+=plyoWarmBlock(L);

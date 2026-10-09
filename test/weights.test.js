@@ -95,11 +95,13 @@ test("Lift 3 rotates the way the setting says", () => {
 test("ramp rest defaults to 90 s, is per lift, and ignores nonsense", () => {
   const x = app();
   a.equal(x.warmRestSecs("squat"), 90);                      // the default, not the old 45
-  x.plan.warmRest = { squat: 120, bench: 30 };
+  x.plan.warmRest = { squat: 120, bench: 60 };
   a.equal(x.warmRestSecs("squat"), 120);                     // shortened or lengthened per lift
-  a.equal(x.warmRestSecs("bench"), 30);
+  a.equal(x.warmRestSecs("bench"), 60);
   a.equal(x.warmRestSecs("dead"), 90);                       // a lift with nothing set
-  x.plan.warmRest = { squat: 0, bench: 9000, pull: "x" };
-  for (const k of ["squat", "bench", "pull"]) a.equal(x.warmRestSecs(k), 90);
-  a.deepEqual(x.WARM_RESTS.map(x.warmRestLabel), ["30s", "45s", "60s", "90s", "2 min"]);
+  // Under a minute is not a ramp rest any more, however it got there.
+  x.plan.warmRest = { squat: 0, bench: 9000, pull: "x", ohp: 30, wpu: 45 };
+  for (const k of ["squat", "bench", "pull", "ohp", "wpu"]) a.equal(x.warmRestSecs(k), 90);
+  a.deepEqual(x.WARM_RESTS.map(x.warmRestLabel), ["60s", "90s", "2 min", "2.5 min"]);
+  a.ok(x.WARM_RESTS.every((v) => v >= 60), "nothing shorter than a minute is on offer");
 });
