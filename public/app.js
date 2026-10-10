@@ -2819,24 +2819,138 @@ function unlockAudio(){
   if(quiet()) return;
   try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
-    if(navigator.audioSession) navigator.audioSession.type='transient';
+    // 'transient' ducks other audio and is silenced by the iPhone ringer switch.
+    // A rest alert you cannot hear is the bug, so this asks for playback instead.
+    if(navigator.audioSession) navigator.audioSession.type='playback';
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended') audioCtx.resume();
     const b=audioCtx.createBuffer(1,1,22050), s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0);
   }catch(e){}
+}
+/* ---------- making a noise that actually arrives ----------
+Third report of "the rest beep doesn't work", so this stopped being a one-line fix and
+got taken apart. Three separate things can swallow it, and the beep now goes around all
+three rather than assuming which one it was:
+
+1. On iPhone the ringer switch silences Web Audio, because a bare AudioContext plays in
+   the ambient category. An HTML media element does not get silenced that way, so the
+   beep goes out as a media element too. That is the one a gym timer cares about: the
+   phone is on silent and nothing is wrong with the app.
+2. `resume()` is async. The old code called it and read `currentTime` on the next line,
+   off a context that was still suspended, then scheduled three oscillators against that
+   stale clock. Now the tones are scheduled after the resume settles.
+3. iPhone Safari has no Vibration API at all, so the buzz half can never work there. It
+   fires unconditionally anyway, for Android and for Silent mode.
+
+`beepDiag()` reports which of these is in play on the device in hand, because guessing
+at this from a laptop is what produced the first two fixes. */
+let beepEl=null, beepSrc=null, lastBeep=null;
+// A three-note WAV built in memory: no asset to fetch, no decode, and nothing to go
+// stale in a cache. 8 kHz 8-bit mono is plenty for a beep and keeps it a few KB.
+function beepWav(){
+  if(beepSrc) return beepSrc;
+  try{
+    const sr=8000, segs=[[880,.22],[0,.06],[880,.22],[0,.06],[1320,.26]];
+    const n=segs.reduce((a,x)=>a+Math.round(x[1]*sr),0);
+    const b=new Uint8Array(44+n), dv=new DataView(b.buffer);
+    const str=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+    str(0,'RIFF'); dv.setUint32(4,36+n,true); str(8,'WAVEfmt ');
+    dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+    dv.setUint32(24,sr,true); dv.setUint32(28,sr,true); dv.setUint16(32,1,true); dv.setUint16(34,8,true);
+    str(36,'data'); dv.setUint32(40,n,true);
+    let p=44;
+    for(const seg of segs){ const hz=seg[0], len=Math.round(seg[1]*sr);
+      for(let i=0;i<len;i++){
+        // a short fade each end, or the square edges click
+        const env=Math.min(1,Math.min(i,len-i)/(sr*.012));
+        b[p++]=hz?128+Math.round(100*env*Math.sin(2*Math.PI*hz*i/sr)):128;
+      } }
+    let t=''; for(let i=0;i<b.length;i++) t+=String.fromCharCode(b[i]);
+    beepSrc='data:audio/wav;base64,'+btoa(t);
+  }catch(e){ beepSrc=null }
+  return beepSrc;
+}
+function beepMedia(){
+  try{
+    if(!beepEl){
+      const src=beepWav(); if(!src) return 'no-wav';
+      beepEl=document.createElement('audio');
+      beepEl.src=src; beepEl.preload='auto';
+    }
+    beepEl.currentTime=0;
+    const p=beepEl.play();
+    if(p&&p.then){ p.then(()=>{lastBeep='media'},e=>{lastBeep='media-blocked:'+((e&&e.name)||'?')}) ; return 'pending' }
+    return 'played';
+  }catch(e){ return 'threw:'+((e&&e.name)||'?') }
+}
+function beepTones(){
+  if(!audioCtx) unlockAudio();
+  if(!audioCtx) return 'no-context';
+  const go=()=>{ try{
+    const t0=audioCtx.currentTime;
+    [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
+  }catch(e){} };
+  // Scheduling against a suspended context's clock was bug 2: resume first, then read it.
+  if(audioCtx.state==='suspended'){
+    try{ const p=audioCtx.resume(); if(p&&p.then) p.then(go,()=>{}); else go(); }catch(e){ return 'resume-threw' }
+    return 'resuming';
+  }
+  go(); return 'running';
 }
 function beep(){
   // Buzz first and unconditionally. Silent mode exists so iOS does not take the audio
   // session off your music; vibration never touches audio, so suppressing it as well
   // left Silent with no way at all to tell you a rest had ended. (Moot on iPhone, which
   // has no Vibration API, but right on Android and right in principle.)
-  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
-  try{
-    if(quiet()) return; if(!audioCtx) unlockAudio(); if(!audioCtx) return;
-    if(audioCtx.state==='suspended') audioCtx.resume();
-    const t0=audioCtx.currentTime;
-    [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
-  }catch(e){}
+  let vib=false;
+  try{ vib=!!(navigator.vibrate&&navigator.vibrate([200,100,200])) }catch(e){}
+  if(quiet()){ lastBeep='silent'; return {vib,media:'silent',tones:'silent'} }
+  const media=beepMedia(), tones=beepTones();
+  lastBeep=lastBeep==='media'?lastBeep:(media+'/'+tones);
+  return {vib,media,tones};
+}
+// What the Sound card shows after a test, so a report comes with facts attached.
+let beepSeen=null;
+// What the device can do, read without touching anything. Separate from beepDiag
+// because that one makes a noise, and an inspector with a side effect is a trap.
+function audioState(){
+  return {
+    silent:quiet(),
+    canVibrate:typeof navigator!=='undefined'&&!!navigator.vibrate,
+    ctx:audioCtx?audioCtx.state:'none',
+    session:(typeof navigator!=='undefined'&&navigator.audioSession)?String(navigator.audioSession.type):'unsupported',
+    ua:typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'',
+  };
+}
+// What to tell me when it still doesn't work: facts off the device, not a diagnosis.
+// This beeps, on purpose — the point is to hear it and report what happened.
+function beepDiag(){
+  const r=beep();
+  return Object.assign(audioState(),{vibrated:r.vib,media:r.media,tones:r.tones});
+}
+// Plain English for each thing that can swallow a beep, so the card says what to try
+// rather than printing a status code at someone standing in a gym.
+function beepAdvice(d){
+  const out=[];
+  if(d.silent) out.push('Silent timers are on below, so the beep is turned off on purpose. The buzz and the notification still fire.');
+  if(/iPhone|iPad/i.test(d.ua)){
+    if(!d.canVibrate) out.push('This is an iPhone or iPad, and Safari gives a web app no way to vibrate at all. There will never be a buzz here \u2014 sound, screen and notifications are what you get.');
+    out.push('If you heard nothing: check the ringer switch on the side, and that the volume is up. The beep now also plays as a media clip, which the ringer switch does not silence, so this is the case that should have been fixed.');
+  } else if(!d.canVibrate) out.push('This browser has no Vibration API, so there will be no buzz.');
+  if(d.ctx==='none') out.push('No audio channel was opened. That usually means nothing has been tapped yet on this page \u2014 tap the button again.');
+  if(d.ctx==='suspended') out.push('The audio channel is suspended, which is what happens after the phone locks. Tap the button again with the app on screen.');
+  if(String(d.media).indexOf('blocked')===0||String(d.media).indexOf('media-blocked')===0) out.push('The media clip was blocked by the browser. Tap the button again \u2014 the first play has to come from a tap.');
+  if(!out.length) out.push('Everything the app can check came back fine. If you still heard nothing, it is the device volume or a Focus mode rather than the app.');
+  return out;
+}
+function beepTest(){ beepSeen=beepDiag(); render(); }
+// Paste-able, same shape as the crash report, so a "still broken" comes with the facts.
+function beepReport(){
+  const d=beepSeen; if(!d) return 'No beep test run yet.';
+  const head='Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 beep test';
+  const rows=[['silent',d.silent],['can vibrate',d.canVibrate],['vibrated',d.vibrated],
+    ['media clip',d.media],['web audio',d.tones],['audio channel',d.ctx],['audio session',d.session]];
+  return head+'\n'+rows.map(r=>r[0]+': '+r[1]).join('\n')+'\n'+d.ua+'\n\n'+beepAdvice(d).join('\n');
 }
 // iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
 // object, so re-check `released` rather than trusting we still hold it.
@@ -3178,13 +3292,29 @@ function testTargetOn(date,k,isRm5){
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return {T,tgt,est};
 }
+// A warm-up weight you set yourself beats the calculated ramp, so the plates, the
+// "Next:" line and the step itself all agree with what is actually on the bar.
+function warmW(date,k,j,calc){
+  const x=wuListFor(date,k)[j];
+  return x&&x.w!=null&&x.w!==''?+x.w:calc;
+}
+// The bar does not come in every weight the percentages ask for. Nudging a ramp set
+// writes it to that row, which is the same place typing it on the day's card writes to.
+function adjustWarm(date,k,j,delta,calc){
+  const cur=warmW(date,k,j,calc);
+  if(cur==null) return null;
+  const inc=+plan.round[k]||5, floor=isBW(k)?-500:+plan.bar||0;
+  const next=Math.max(floor,cur+(delta>0?inc:-inc));
+  setLog(date,'lifts.'+k+'.warmup.'+j+'.w',next);
+  return next;
+}
 function lsSteps(date){
   const wk=weekOf(date), dp=dayPlan(date); if(!wk) return [];
   if(dp.t==='rm5'||dp.t==='test'){
     const isRm5=dp.t==='rm5', steps=[];
     for(const k of dp.lifts){
       const {tgt}=testTargetOn(date,k,isRm5);
-      if(ls&&ls.warm!==false&&tgt!=null) testRamp(k,tgt,isRm5).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:x.w,r:x.r,lbl:x.lbl}));
+      if(ls&&ls.warm!==false&&tgt!=null) testRamp(k,tgt,isRm5).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:warmW(date,k,j,x.w),r:x.r,lbl:x.lbl}));
       steps.push({k,type:'test',isRm5,w:tgt,r:isRm5?5:1});
     }
     if(dp.pullups) steps.push({type:'pullups'});
@@ -3197,7 +3327,7 @@ function lsSteps(date){
   for(const k of dp.lifts){
     const r=rx(wk,k), L=(lg(date).lifts||{})[k]||{}, T=L.used!=null&&L.used!==''?+L.used:r.w;
     if(T==null) continue;
-    if(ls&&ls.warm!==false){ ramp(k,T,r.t,dp.deload).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:x.w,r:x.r,lbl:x.lbl})) }
+    if(ls&&ls.warm!==false){ ramp(k,T,r.t,dp.deload).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:warmW(date,k,j,x.w),r:x.r,lbl:x.lbl})) }
     const nS=r.sMax;
     for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
@@ -3261,7 +3391,8 @@ function lsRender(){
       <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''} · ${st.pct}%`}${isDone?' · ✓ done':''}</div>
       <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
-      ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>
+      ${st.type==='warm'?`<div class="ls-row"><button class="btn sm" data-ls="ww-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="ww+">+${n(plan.round[k]||5)}</button></div>`:''}
+    ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>
       ${st.j===st.n-1&&st.n<SETCAP(rx(wk,k,ls.date))?`<div class="ls-row"><button class="btn sm ghost" data-ls="addset">+ One more set</button></div>`:''}`:''}
     </div>`;
     h+=`<button class="btn primary ls-done" data-ls="done">${isDone?'Done ✓ · next':'Done'}</button>`;
@@ -3338,8 +3469,11 @@ function lsMarkWarm(st){
   for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
   setLog(ls.date,'lifts.'+st.k+'.warmup',W);
 }
-document.getElementById('ls').addEventListener('click',e=>{
-  const b=e.target.closest('[data-ls]'); if(!b||!ls) return; const a=b.dataset.ls;
+// The whole of session mode's behaviour sits behind one click handler, which means none
+// of it is reachable from a test. Naming it makes every button's effect testable; the
+// listener's only job is to find which button was tapped.
+function lsAct(a,b){
+  if(!ls) return;
   const steps=lsSteps(ls.date), st=steps[ls.i]; unlockAudio();
   const go=i=>{ls.i=i;LS.set('ob.ls',ls);lsRender();document.getElementById('ls').scrollTo(0,0)};
   if(a==='close') return lsClose();
@@ -3349,6 +3483,7 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='rskip'){ stopRest(); return lsRender() }
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
+  if(a==='ww-'||a==='ww+'){ adjustWarm(ls.date,st.k,st.j,a==='ww+'?1:-1,st.w); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
   if(a==='accadd'||a==='accrm'){
@@ -3400,6 +3535,10 @@ document.getElementById('ls').addEventListener('click',e=>{
     } else if(st.type==='work') stopRest();
     return go(ls.i+1);
   }
+}
+document.getElementById('ls').addEventListener('click',e=>{
+  const b=e.target.closest('[data-ls]'); if(!b||!ls) return;
+  lsAct(b.dataset.ls,b);
 });
 document.getElementById('ls').addEventListener('input',e=>{
   const t=e.target; if(!ls||!t.dataset||!t.dataset.lsacc) return;
@@ -4631,7 +4770,12 @@ function vSetup(){
     <p class="small muted" style="margin:0">On iPhone, a web app that makes any sound takes over the audio session and pauses whatever you were listening to. If the timer keeps stopping your music, this is why.</p>
     <label class="check"><input type="checkbox" id="p-quiet" data-pbind="quietTimer" ${q?'checked':''}> Silent timers \u2014 keep my music playing</label>
     <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. Vibration still fires, and rest alerts still arrive as notifications \u2014 neither touches your music. <b>On iPhone that leaves the screen and the notification only</b>, because Safari gives a web app no way to vibrate. If you want an audible rest beep on an iPhone, the price is your music pausing.</div>
-    ${q?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}</div>`;
+    ${q?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}</div>
+    <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
+    <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
+    ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
+      <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
+      <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}`;
   }
   {
     const v=!!plan.voice&&!plan.quietTimer;
@@ -4832,6 +4976,7 @@ function vGuide(){
   <p><b>If the calendar says it cannot connect.</b> Check the address is the current one, since <b>New address</b> invalidates the previous link. If it is right and it still fails, open this app once to make sure the feed has been written, then try again.</p></div>
   <div class="card guide"><h3>Warm-up</h3>${warmupShort()}
   <p class="small muted">Anything with a time on it has a ⏱ next to it, on the day's card and inside session mode. Tap it and the timer runs; per-side holds count both sides. “Guide me through it” is the hands-free version of the same list, not the only way to get a clock.</p>
+  <p class="small muted">Session mode shows one ramp set at a time with − and + beside it, stepping by that lift's rounding increment, because the bar does not come in every weight a percentage asks for. What you set is written to that row, the same place typing it on the day's card writes to, so the plates and the “Next” line follow it.</p>
   <p class="small muted">Between ramp sets the rest is 90 seconds by default, set per lift in the warm-up block on each lift card. Anything under a minute is no longer on offer — it is not long enough once the bar is heavy. If you want more on the day, the running timer takes +30 s as many times as you like.</p></div>
   <div class="card guide"><h3>Warm-up and mobility library</h3><p class="small muted">Every movement in the warm-up and the mobility blocks, with what it is for and the ways it usually goes wrong. The same entries open from the checklists on the day.</p>
   <div class="stack" style="gap:10px">${[
@@ -5420,6 +5565,12 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
+  if(a==='beeptest'){unlockAudio();beepTest();return}
+  if(a==='beepcopy'){
+    const text=beepReport();
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{});
+    return}
   if(a==='restore'){const nm=b.dataset.name;if(restoreState.arm!==nm){restoreState.arm=nm;restoreState.msg=null;render();setTimeout(()=>{if(restoreState.arm===nm){restoreState.arm=null;render()}},4000);return}doRestore('/backups/'+encodeURIComponent(nm)+'/restore');return}
   if(a==='restorefile'){if(restoreState.file) doRestore('/restore',restoreState.file.data);return}
   if(a==='restorecancel'){restoreState.file=null;render();return}

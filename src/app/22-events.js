@@ -176,6 +176,12 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
+  if(a==='beeptest'){unlockAudio();beepTest();return}
+  if(a==='beepcopy'){
+    const text=beepReport();
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{});
+    return}
   if(a==='restore'){const nm=b.dataset.name;if(restoreState.arm!==nm){restoreState.arm=nm;restoreState.msg=null;render();setTimeout(()=>{if(restoreState.arm===nm){restoreState.arm=null;render()}},4000);return}doRestore('/backups/'+encodeURIComponent(nm)+'/restore');return}
   if(a==='restorefile'){if(restoreState.file) doRestore('/restore',restoreState.file.data);return}
   if(a==='restorecancel'){restoreState.file=null;render();return}

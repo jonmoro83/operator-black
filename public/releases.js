@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.75',date:'2026-10-09',title:'Nudge the ramp, and a beep you can test',items:[
+    'Warm-up sets now have − and + beside them in session mode, stepping by that lift’s rounding increment. The bar does not come in every weight a percentage asks for, and what you set is written to that warm-up row, so the plates and the “Next” line follow it.',
+    'Third go at the rest beep, and this time with the actual causes. On iPhone the ringer switch silences the kind of sound the app was making, so the beep now also plays as a media clip, which that switch does not touch, and the app asks for the audio mode that is meant to be heard.',
+    'There was also a real bug underneath: after the phone had locked, the three notes were being scheduled against a clock that had stopped, so they went nowhere. They now wait for the sound channel to actually wake up.',
+    'And Setup → Sound has a <b>Test the beep</b> button. It plays the real rest-end alert and tells you what it found — whether the channel opened, whether this device can vibrate at all (an iPhone cannot, ever), and what to try. If it is still silent, that panel copies as a bug report.']},
   {v:'1.74',date:'2026-10-08',title:'Plyos move, and the warm-up gets a clock',items:[
     'Plyos are no longer stuck to the Thursday conditioning session. Open any day in a training week, tap Move…, and pick a day under Plyometrics. It moves them for that week only; picking Thursday again puts them back.',
     'The week strip, the calendar feed and the CSV all name the day, so you can see where the plyos are without opening it.',

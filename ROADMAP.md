@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-08.
+Update it as things ship. Last updated 2026-10-09.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -11,12 +11,18 @@ Setup → About this app → What's new.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **iPhone testing, still to confirm at the gym:** offline launch, the beep on the rest
-  between working sets, whether the screen stays awake for a whole session, and the
-  interval timer on the bike. The first two were the 1.36 fix and the reasoning is sound,
-  but nothing has been observed on a phone since. Confirmed so far: home-screen install,
-  Access login in the installed app, the update banner, rest alerts arriving on the lock
-  screen, and spoken cues through AirPods with the app open.
+- **The rest beep: instrumented, not yet confirmed.** Reported broken three times
+  (latest 2026-10-09). 1.75 fixed two real defects and added a second audio route, but
+  **nothing has been heard on a phone yet**, so this stays open until it has. Next report
+  should come with Setup → Sound → **Test the beep** → *Copy for a bug report*, which
+  names which of the causes is in play instead of leaving it to guesswork.
+  - If `channel suspended` or `media-blocked`: a gesture problem, look at `unlockAudio`.
+  - If everything reads fine and it is still silent on an iPhone: the ringer switch /
+    `audioSession` theory was wrong, and the remaining lead is a notification-only alert.
+- **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
+  stays awake for a whole session, and the interval timer on the bike. Confirmed so far:
+  home-screen install, Access login in the installed app, the update banner, rest alerts
+  arriving on the lock screen, and spoken cues through AirPods with the app open.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically.
 - **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02.** Settled:
@@ -103,6 +109,42 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The rest beep, taken apart properly (2026-10-09)**
+- Third report of "the beep doesn't work". The first two fixes were guesses, and they were
+  guesses because **the harness stubbed `AudioContext` as `undefined`**, so `audioCtx` was
+  always null and every beep in every test was a silent no-op. Nothing about the alert
+  sounds had ever been asserted. That is the root cause of the root cause.
+- The harness now has a recording `AudioContext` (oscillators started, resumes counted, a
+  clock that is frozen until resumed) and an `<audio>` stub that records `play()`.
+- Two real defects fell out once it was testable:
+  1. `resume()` is async. The old code called it and read `currentTime` on the very next
+     line, off a context still suspended, then scheduled three oscillators against that
+     stale clock. After a phone lock the clock jumps on resume, so all three were queued
+     in the past and never sounded. `beepTones` now schedules inside the resume's `.then`.
+  2. `audioSession.type` was `'transient'`, which ducks other audio **and is silenced by
+     the iPhone ringer switch**. Now `'playback'`.
+- Added a second route out: the beep is also an HTML media element, built as a ~6.5 KB
+  WAV in memory (no asset, nothing to cache-bust). iOS silences bare Web Audio when the
+  ringer is off but plays media elements, which is the case a gym timer exists for.
+- `audioState()` is the pure inspector; `beepDiag()` beeps and reports. Splitting them
+  mattered: the first version of the test read state through `beepDiag` and got six tones,
+  because the inspector was making a noise of its own.
+- Setup → Sound has **Test the beep**: runs the real path, prints plain-English advice per
+  cause (`beepAdvice`), and copies as a report. Three rounds of guessing is enough.
+- Still true and now said out loud in the UI: iPhone Safari has no Vibration API, so the
+  buzz half can never work there.
+- `lsAct(a,b)` extracted from session mode's click listener. Every button in session mode
+  was unreachable from a test; three mutants that survived (the ramp nudge, the warm-up
+  clock, the working-set nudge) are now caught through the real dispatcher.
+
+**Adjust a ramp set by the lift's increment (2026-10-09)**
+- `adjustWarm(date,k,j,delta,calc)` and `warmW(date,k,j,calc)`: session mode's warm-up step
+  gets − / + stepping by `plan.round[k]`, floored at the bar. A weight you set beats the
+  calculated ramp everywhere, so the step, the plate maths and the "Next:" line agree.
+- It writes `lifts.<k>.warmup.<j>.w` — the same field the day card's typed input uses, so
+  the two screens are one source of truth rather than two.
+- 198 → 205 tests.
 
 **Plyos come off the HIC day (2026-10-08)**
 - Plyometrics were a day *type* (`t:'plyohic'`) in three week layouts, which made them

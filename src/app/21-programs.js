@@ -287,7 +287,12 @@ function vSetup(){
     <p class="small muted" style="margin:0">On iPhone, a web app that makes any sound takes over the audio session and pauses whatever you were listening to. If the timer keeps stopping your music, this is why.</p>
     <label class="check"><input type="checkbox" id="p-quiet" data-pbind="quietTimer" ${q?'checked':''}> Silent timers \u2014 keep my music playing</label>
     <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. Vibration still fires, and rest alerts still arrive as notifications \u2014 neither touches your music. <b>On iPhone that leaves the screen and the notification only</b>, because Safari gives a web app no way to vibrate. If you want an audible rest beep on an iPhone, the price is your music pausing.</div>
-    ${q?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}</div>`;
+    ${q?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}</div>
+    <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
+    <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
+    ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
+      <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
+      <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}`;
   }
   {
     const v=!!plan.voice&&!plan.quietTimer;
@@ -488,6 +493,7 @@ function vGuide(){
   <p><b>If the calendar says it cannot connect.</b> Check the address is the current one, since <b>New address</b> invalidates the previous link. If it is right and it still fails, open this app once to make sure the feed has been written, then try again.</p></div>
   <div class="card guide"><h3>Warm-up</h3>${warmupShort()}
   <p class="small muted">Anything with a time on it has a ⏱ next to it, on the day's card and inside session mode. Tap it and the timer runs; per-side holds count both sides. “Guide me through it” is the hands-free version of the same list, not the only way to get a clock.</p>
+  <p class="small muted">Session mode shows one ramp set at a time with − and + beside it, stepping by that lift's rounding increment, because the bar does not come in every weight a percentage asks for. What you set is written to that row, the same place typing it on the day's card writes to, so the plates and the “Next” line follow it.</p>
   <p class="small muted">Between ramp sets the rest is 90 seconds by default, set per lift in the warm-up block on each lift card. Anything under a minute is no longer on offer — it is not long enough once the bar is heavy. If you want more on the day, the running timer takes +30 s as many times as you like.</p></div>
   <div class="card guide"><h3>Warm-up and mobility library</h3><p class="small muted">Every movement in the warm-up and the mobility blocks, with what it is for and the ways it usually goes wrong. The same entries open from the checklists on the day.</p>
   <div class="stack" style="gap:10px">${[

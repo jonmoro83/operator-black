@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const CONSTS = ["APP_VERSION", "RELEASES", "PLYO_UPPER", "PLIB", "VARS", "openPx", "MLIB", "ASLOT", "ALIB", "ACC_DAYS", "ACC_DEF", "PULLUP", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "IV", "DELOAD_OPTS", "AIMS_LIFT", "AIMS_COND", "AIM_MAX", "SCHEMA", "MIGRATIONS", "CRASH_KEEP", "CONFLICT_KEEP", "WARM_RESTS", "GT_PRESETS", "L3K", "LK"];
-const STATE = ["view", "plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "gt", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey", "schemaAhead", "outbox", "calFeed", "amAdmin", "admin", "catalog"];
+const STATE = ["view", "plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "gt", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey", "schemaAhead", "outbox", "calFeed", "amAdmin", "admin", "catalog", "beepSeen"];
 
 function stubDom() {
   const made = {};
@@ -15,6 +15,9 @@ function stubDom() {
     addEventListener() {}, removeEventListener() {}, remove() {}, appendChild() {}, focus() {},
     scrollTo() {}, setAttribute() {}, removeAttribute() {}, getAttribute() { return null },
     click() {}, querySelector() { return null }, querySelectorAll() { return [] },
+    // An <audio> element: the beep's second route out, which iOS does not silence.
+    play() { audio.plays.push(this.src ? this.src.slice(0, 22) : ""); return Promise.resolve() },
+    pause() {}, load() {}, currentTime: 0, src: "", preload: "",
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false } },
   });
   const store = {};
@@ -23,10 +26,32 @@ function stubDom() {
     setItem: (k, v) => { store[k] = String(v) },
     removeItem: (k) => { delete store[k] },
   };
+  // A recording AudioContext. Without one, `audioCtx` stayed undefined and every beep
+  // was a no-op, so nothing about the alert sounds was testable — which is how the rest
+  // beep got "fixed" twice without anybody being able to check it.
+  const audio = { tones: [], plays: [], ctxs: 0, resumes: 0 };
+  class StubAudioContext {
+    constructor() { this.state = "suspended"; this.currentTime = 0; this.destination = { kind: "out" }; audio.ctxs++ }
+    // A suspended context's clock is frozen, and resume() is async. Jumping the clock on
+    // resume is what makes "scheduled before the resume settled" visible to a test.
+    resume() {
+      audio.resumes++;
+      return Promise.resolve().then(() => { this.state = "running"; this.currentTime += 5 });
+    }
+    createBuffer() { return { kind: "buffer" } }
+    createBufferSource() { return { buffer: null, connect() {}, start() {} } }
+    createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} } }
+    createOscillator() {
+      const o = { type: "", frequency: { value: 0 }, connect() {}, stop() {},
+        start: (t) => audio.tones.push({ hz: o.frequency.value, at: t }) };
+      return o;
+    }
+  }
   global.window = {
     addEventListener() {}, scrollTo() {}, matchMedia: () => ({ matches: false, addEventListener() {} }),
-    AudioContext: undefined, Notification: undefined,
+    AudioContext: StubAudioContext, Notification: undefined,
   };
+  global.AudioContext = StubAudioContext;
   global.matchMedia = window.matchMedia;
   // Node defines `navigator` as a read-only getter, so `global.navigator = {...}` was
   // silently doing nothing and every test has been reading Node's own navigator. The
@@ -35,6 +60,7 @@ function stubDom() {
   const buzzes = [];
   Object.defineProperty(globalThis, "navigator", {
     value: { onLine: true, userAgent: "node", serviceWorker: undefined,
+      audioSession: { type: "auto" },
       vibrate: (p) => (buzzes.push(p), true), __buzzes: buzzes },
     configurable: true, writable: true,
   });
@@ -52,7 +78,7 @@ function stubDom() {
   global.fetch = () => new Promise(() => {});          // never resolves: no network in tests
   global.setInterval = () => 0;
   global.clearInterval = () => {};
-  return { store, made };
+  return { store, made, audio };
 }
 
 /** Load the app. `now` fixes "today" (YYYY-MM-DD). Returns every function plus live state. */
@@ -86,6 +112,8 @@ function loadApp({ now = "2026-10-19" } = {}) {
   app.setToday(now);
   app.loaded = true;
   app.dom = dom;
+  app.audio = dom.audio;
+  app.buzzes = navigator.__buzzes;
   return app;
 }
 

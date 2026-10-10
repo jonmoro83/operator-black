@@ -12,13 +12,29 @@ function testTargetOn(date,k,isRm5){
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return {T,tgt,est};
 }
+// A warm-up weight you set yourself beats the calculated ramp, so the plates, the
+// "Next:" line and the step itself all agree with what is actually on the bar.
+function warmW(date,k,j,calc){
+  const x=wuListFor(date,k)[j];
+  return x&&x.w!=null&&x.w!==''?+x.w:calc;
+}
+// The bar does not come in every weight the percentages ask for. Nudging a ramp set
+// writes it to that row, which is the same place typing it on the day's card writes to.
+function adjustWarm(date,k,j,delta,calc){
+  const cur=warmW(date,k,j,calc);
+  if(cur==null) return null;
+  const inc=+plan.round[k]||5, floor=isBW(k)?-500:+plan.bar||0;
+  const next=Math.max(floor,cur+(delta>0?inc:-inc));
+  setLog(date,'lifts.'+k+'.warmup.'+j+'.w',next);
+  return next;
+}
 function lsSteps(date){
   const wk=weekOf(date), dp=dayPlan(date); if(!wk) return [];
   if(dp.t==='rm5'||dp.t==='test'){
     const isRm5=dp.t==='rm5', steps=[];
     for(const k of dp.lifts){
       const {tgt}=testTargetOn(date,k,isRm5);
-      if(ls&&ls.warm!==false&&tgt!=null) testRamp(k,tgt,isRm5).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:x.w,r:x.r,lbl:x.lbl}));
+      if(ls&&ls.warm!==false&&tgt!=null) testRamp(k,tgt,isRm5).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:warmW(date,k,j,x.w),r:x.r,lbl:x.lbl}));
       steps.push({k,type:'test',isRm5,w:tgt,r:isRm5?5:1});
     }
     if(dp.pullups) steps.push({type:'pullups'});
@@ -31,7 +47,7 @@ function lsSteps(date){
   for(const k of dp.lifts){
     const r=rx(wk,k), L=(lg(date).lifts||{})[k]||{}, T=L.used!=null&&L.used!==''?+L.used:r.w;
     if(T==null) continue;
-    if(ls&&ls.warm!==false){ ramp(k,T,r.t,dp.deload).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:x.w,r:x.r,lbl:x.lbl})) }
+    if(ls&&ls.warm!==false){ ramp(k,T,r.t,dp.deload).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:warmW(date,k,j,x.w),r:x.r,lbl:x.lbl})) }
     const nS=r.sMax;
     for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
@@ -95,7 +111,8 @@ function lsRender(){
       <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''} · ${st.pct}%`}${isDone?' · ✓ done':''}</div>
       <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
-      ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>
+      ${st.type==='warm'?`<div class="ls-row"><button class="btn sm" data-ls="ww-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="ww+">+${n(plan.round[k]||5)}</button></div>`:''}
+    ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>
       ${st.j===st.n-1&&st.n<SETCAP(rx(wk,k,ls.date))?`<div class="ls-row"><button class="btn sm ghost" data-ls="addset">+ One more set</button></div>`:''}`:''}
     </div>`;
     h+=`<button class="btn primary ls-done" data-ls="done">${isDone?'Done ✓ · next':'Done'}</button>`;
@@ -172,8 +189,11 @@ function lsMarkWarm(st){
   for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
   setLog(ls.date,'lifts.'+st.k+'.warmup',W);
 }
-document.getElementById('ls').addEventListener('click',e=>{
-  const b=e.target.closest('[data-ls]'); if(!b||!ls) return; const a=b.dataset.ls;
+// The whole of session mode's behaviour sits behind one click handler, which means none
+// of it is reachable from a test. Naming it makes every button's effect testable; the
+// listener's only job is to find which button was tapped.
+function lsAct(a,b){
+  if(!ls) return;
   const steps=lsSteps(ls.date), st=steps[ls.i]; unlockAudio();
   const go=i=>{ls.i=i;LS.set('ob.ls',ls);lsRender();document.getElementById('ls').scrollTo(0,0)};
   if(a==='close') return lsClose();
@@ -183,6 +203,7 @@ document.getElementById('ls').addEventListener('click',e=>{
   if(a==='rskip'){ stopRest(); return lsRender() }
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
   if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
+  if(a==='ww-'||a==='ww+'){ adjustWarm(ls.date,st.k,st.j,a==='ww+'?1:-1,st.w); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
   if(a==='accadd'||a==='accrm'){
@@ -234,6 +255,10 @@ document.getElementById('ls').addEventListener('click',e=>{
     } else if(st.type==='work') stopRest();
     return go(ls.i+1);
   }
+}
+document.getElementById('ls').addEventListener('click',e=>{
+  const b=e.target.closest('[data-ls]'); if(!b||!ls) return;
+  lsAct(b.dataset.ls,b);
 });
 document.getElementById('ls').addEventListener('input',e=>{
   const t=e.target; if(!ls||!t.dataset||!t.dataset.lsacc) return;

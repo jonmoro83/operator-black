@@ -3140,8 +3140,17 @@ const clock = (name) => {
   a.ok(cat, "the rep items are still listed");
   a.doesNotMatch(cat, /data-ls="hold"/, "but not given a timer");
 
+  // Through the dispatcher the ⏱ is actually wired to.
+  const ci = x.WARMUP.findIndex((w) => w.n === "Couch stretch");
+  x.ls.i = 0;
+  x.lsAct("hold", { dataset: { i: String(ci) } });
+  a.ok(x.rest, "tapping the clock starts a timer");
+  a.equal(x.rest.lbl, "Couch stretch");
+  a.equal(x.guide, null, "and not the guided overlay");
+  x.stopRest();
+
   // Tapping one starts the shared rest/hold timer rather than opening the overlay.
-  a.equal(x.lsHold("warmup", x.WARMUP.findIndex((w) => w.n === "Couch stretch")), true);
+  a.equal(x.lsHold("warmup", ci), true);
   a.equal(x.guide, null, "no guided overlay");
   a.equal(x.rest.lbl, "Couch stretch");
   a.equal(x.rest.dur, 60, "the dose read off the item itself");
@@ -3161,4 +3170,188 @@ const clock = (name) => {
   a.ok(x.gdItems("warmup", "2026-10-19").length < x.WARMUP.length, "fewer items on offer");
   a.equal(x.lsHold("warmup", couch), true);
   a.equal(x.rest.lbl, "Couch stretch", "still the couch stretch, not whatever sits there now");
+});
+
+test("a ramp set nudges by the lift's increment and the whole step follows", () => {
+  const x = app({ now: "2026-10-19" });
+  x.lsStart();
+  const mon = "2026-10-19";
+  const first = () => x.lsSteps(mon).filter((s) => s.type === "warm" && s.k === "squat");
+  const calc = first().map((s) => s.w);
+  a.ok(calc.length >= 4, "squat ramps");
+
+  // 45 lb bar, 5 lb increment: the bar set goes to 50, then 55.
+  a.equal(x.adjustWarm(mon, "squat", 0, +1, calc[0]), calc[0] + 5);
+  a.equal(x.adjustWarm(mon, "squat", 0, +1, calc[0]), calc[0] + 10, "and again from where it got to");
+  a.equal(first()[0].w, calc[0] + 10, "the step itself carries the new weight");
+  a.deepEqual(first().slice(1).map((s) => s.w), calc.slice(1), "the other ramp sets are untouched");
+
+  // Down the way, and never below the bar.
+  x.setLog(mon, "lifts.squat.warmup.0.w", x.plan.bar);
+  a.equal(x.adjustWarm(mon, "squat", 0, -1, calc[0]), x.plan.bar, "an empty bar is the floor");
+
+  // A lift with a different increment uses its own.
+  x.plan.round = Object.assign({}, x.plan.round, { bench: 2.5 });
+  x.bump();
+  const b0 = x.lsSteps(mon).find((s) => s.type === "warm" && s.k === "bench").w;
+  a.equal(x.adjustWarm(mon, "bench", 0, +1, b0), b0 + 2.5);
+
+  // It is the same field the day's card writes to, so both screens agree.
+  a.equal(x.wuList("bench")[0].w, b0 + 2.5);
+
+  // Through the dispatcher the button actually goes to, not just the function behind it.
+  x.ls.i = x.lsSteps(mon).findIndex((s) => s.type === "warm" && s.k === "squat");
+  const now = () => x.lsSteps(mon)[x.ls.i].w;
+  const was = now();
+  x.lsAct("ww+", { dataset: {} });
+  a.equal(now(), was + 5, "tapping + adds the increment");
+  x.lsAct("ww-", { dataset: {} });
+  a.equal(now(), was, "and − takes it back off");
+  a.equal(x.ls.i, x.lsSteps(mon).findIndex((s) => s.type === "warm" && s.k === "squat"),
+    "nudging the weight does not advance the step");
+
+  // The buttons are on the ramp step and not on a working set.
+  x.ls.i = x.lsSteps(mon).findIndex((s) => s.type === "warm");
+  x.lsRender();
+  a.match(x.dom.made["ls-in"].innerHTML, /data-ls="ww\+"/, "a ramp set can be nudged");
+  x.ls.i = x.lsSteps(mon).findIndex((s) => s.type === "work");
+  x.lsRender();
+  const work = x.dom.made["ls-in"].innerHTML;
+  a.doesNotMatch(work, /data-ls="ww\+"/, "a working set has its own control");
+  a.match(work, /data-ls="w\+"/);
+  // And that one moves the working weight, which is a different field from a ramp set's.
+  const T = x.lsSteps(mon)[x.ls.i].w;
+  x.lsAct("w+", { dataset: {} });
+  a.equal(x.lsSteps(mon)[x.ls.i].w, T + 5, "the working weight goes up");
+  a.equal(((x.logs[mon].lifts || {}).squat || {}).used, T + 5, "written as the day's working weight");
+});
+
+// Lets the resume's promise chain run: resume() is one microtask, beepTones' .then another.
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
+test("the rest beep goes out as a clip and as tones, and Silent stops only the sound", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio();
+  await settle();                                  // the context resumes asynchronously
+  x.audio.tones.length = 0; x.audio.plays.length = 0; x.buzzes.length = 0;
+
+  const r = x.beep();
+  a.equal(r.vib, true, "it buzzes");
+  a.deepEqual(x.buzzes, [[200, 100, 200]]);
+  a.equal(x.audio.tones.length, 3, "three tones through Web Audio");
+  a.deepEqual(x.audio.tones.map((t) => t.hz), [880, 880, 1320]);
+  a.equal(x.audio.plays.length, 1, "and the same beep as a media clip, which iOS does not mute");
+  a.match(x.audio.plays[0], /^data:audio\/wav/);
+
+  // Silent exists to keep your music. It takes the sound, not the buzz.
+  x.plan.quietTimer = true;
+  x.audio.tones.length = 0; x.audio.plays.length = 0; x.buzzes.length = 0;
+  const q = x.beep();
+  a.equal(q.vib, true, "a silent timer still buzzes, or it cannot tell you anything");
+  a.equal(x.audio.tones.length, 0, "no tones");
+  a.equal(x.audio.plays.length, 0, "and no clip");
+});
+
+test("a suspended channel is resumed before the tones are scheduled against its clock", async () => {
+  const x = app({ now: "2026-10-19" });
+  // Exactly the state after the phone has locked: a context whose clock is frozen.
+  x.unlockAudio();
+  a.equal(x.audioState().ctx, "suspended", "it starts suspended, as iOS leaves it");
+  x.audio.tones.length = 0;
+
+  const r = x.beep();
+  a.equal(r.tones, "resuming");
+  a.equal(x.audio.tones.length, 0, "nothing is scheduled while the clock is still stale");
+
+  await settle();
+  a.equal(x.audio.tones.length, 3, "the tones go out once the resume has landed");
+  a.equal(x.audioState().ctx, "running", "and the channel is awake");
+  // The clock jumps on resume. Reading it first would have queued all three in the past.
+  const at = x.audio.tones.map((t) => t.at);
+  a.ok(at[0] >= 5, `first tone at ${at[0]}, on the post-resume clock, not the frozen one`);
+  a.deepEqual([at[1] - at[0], at[2] - at[0]].map((d) => Math.round(d * 100) / 100), [0.28, 0.56],
+    "spaced as a three-note beep");
+});
+
+test("the audio session asks for playback, which the iPhone ringer switch cannot silence", () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio();
+  a.equal(navigator.audioSession.type, "playback",
+    "'transient' is ducking-and-mutable; an alert you cannot hear is the whole bug");
+  a.equal(x.beepDiag().session, "playback", "and the diagnostic reports it");
+});
+
+test("one rest ending makes exactly one noise", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio();
+  await settle();
+  x.startRest("squat", "set 2", 90, "Rest \u00b7 Squat");
+  a.equal(x.rest.done, false);
+  x.audio.tones.length = 0; x.audio.plays.length = 0; x.buzzes.length = 0;
+
+  x.tickRest();
+  a.equal(x.audio.tones.length, 0, "nothing while it is still counting");
+
+  x.rest.end = Date.now() - 500;
+  x.tickRest();
+  await settle();
+  a.equal(x.rest.done, true, "the rest is marked finished");
+  a.equal(x.audio.tones.length, 3, "and it beeps");
+  a.equal(x.buzzes.length, 1);
+
+  // Every later tick is silent: a finished rest sits on screen until it is dismissed.
+  x.tickRest(); x.tickRest();
+  await settle();
+  a.equal(x.audio.tones.length, 3, "it does not beep again");
+  a.equal(x.buzzes.length, 1);
+});
+
+test("the beep test reports what it found and says what to try", () => {
+  const x = app({ now: "2026-10-19" });
+  a.equal(x.beepReport(), "No beep test run yet.");
+
+  x.beepTest();
+  a.ok(x.beepSeen, "the result is kept for the card");
+  a.equal(x.beepSeen.silent, false);
+  a.match(x.beepReport(), /beep test/);
+  a.match(x.beepReport(), /audio session: playback/);
+  a.equal(x.audioState().silent, false, "and reading the state does not need a beep");
+
+  // Silent is a setting, not a fault, and the advice says so first.
+  x.plan.quietTimer = true;
+  x.beepTest();
+  a.match(x.beepAdvice(x.beepSeen)[0], /on purpose/);
+
+  // An iPhone can never buzz, and that is worth saying rather than looking broken.
+  const ip = { ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1",
+    silent: false, canVibrate: false, vibrated: false, media: "pending", tones: "running",
+    ctx: "running", session: "playback" };
+  const adv = x.beepAdvice(ip).join(" ");
+  a.match(adv, /no way to vibrate/);
+  a.match(adv, /ringer switch/, "and points at the thing that actually silences it");
+
+  // A channel that never opened, and one the phone suspended, get their own advice.
+  a.match(x.beepAdvice(Object.assign({}, ip, { ctx: "none" })).join(" "), /nothing has been tapped/);
+  a.match(x.beepAdvice(Object.assign({}, ip, { ctx: "suspended" })).join(" "), /suspended/);
+
+  // Nothing wrong that the app can see is its own answer, not silence.
+  const ok = { ua: "Android Chrome", silent: false, canVibrate: true, vibrated: true,
+    media: "played", tones: "running", ctx: "running", session: "unsupported" };
+  a.match(x.beepAdvice(ok).join(" "), /came back fine/);
+  a.equal(x.beepAdvice(ok).length, 1, "and it does not pile on advice that does not apply");
+});
+
+test("the Sound card offers the beep test and shows the result", () => {
+  const x = app({ now: "2026-10-19" });
+  x.view = "setup";
+  const before = x.vSetup();
+  a.match(before, /data-act="beeptest"/, "the button is there before any test");
+  a.doesNotMatch(before, /data-act="beepcopy"/, "the report only appears once there is one");
+
+  x.beepTest();
+  const after = x.vSetup();
+  a.match(after, /data-act="beepcopy"/, "with a way to send it on");
+  a.match(after, /What the app saw/, "behind a disclosure");
+  a.match(after, /channel (running|suspended)/, "with the raw facts in it");
+  a.match(after, /session playback/);
 });
