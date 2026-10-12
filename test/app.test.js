@@ -4026,3 +4026,98 @@ test("a frozen week keeps reading the table it was trained under", () => {
   const after = x.rx(x.weekOf(dd), "dead", dd);
   a.equal(after.s + "x" + after.r, "5x5", "still Fighter HT's, because that is what was done");
 });
+
+test("Grey Man alternates A-B-A then B-A-B, with its own supplementary numbers", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "greyman"; x.bump();
+  const cyc = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1);
+  a.equal(cyc.length, 3, "three-week blocks");
+
+  const week = (wk) => [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(wk.monday, d), d))
+    .filter((p) => p.t === "lift");
+
+  // The book's GM exercise schedule: the pair that opens the week swaps every week.
+  a.deepEqual(week(cyc[0]).map((p) => p.short), ["GM A", "GM B", "GM A"]);
+  a.deepEqual(week(cyc[1]).map((p) => p.short), ["GM B", "GM A", "GM B"], "swapped over");
+  a.deepEqual(week(cyc[2]).map((p) => p.short), ["GM A", "GM B", "GM A"], "and back");
+  a.deepEqual(week(cyc[0])[0].lifts, ["bench", "squat"]);
+  a.deepEqual(week(cyc[0])[1].lifts, ["ohp", "dead"]);
+
+  // Main lifts and supplementary work run different numbers, both off the book's table.
+  const main = cyc.map((wk) => { const v = x.wkRx(wk); return v.s + "-" + v.sMax + "x" + v.r + "@" + v.p });
+  a.deepEqual(main, ["4-5x8@70", "4-5x6@75", "4-5x3@80"]);
+  const supp = cyc.map((wk) => { const v = x.accRxFor(wk); return v.s + "x" + v.r + "@" + v.p });
+  a.deepEqual(supp, ["4x12@55", "4x10@60", "4x8@65"]);
+
+  // Each day's supplementary cluster is its own list, and A days share one.
+  a.equal(week(cyc[0])[0].acc, "gm1");
+  a.equal(week(cyc[0])[1].acc, "gm2");
+  a.equal(week(cyc[0])[2].acc, "gm1", "both A days draw on the same cluster");
+});
+
+test("a prescribed supplementary cluster is not skipped on a heavy week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "greyman"; x.bump();
+  // The book's Grey Man tops out at 80%, which is not a heavy week by the app's
+  // reckoning — but the wave is yours to edit, so this is reachable by anyone who
+  // pushes week 3 up, and silently dropping their programmed work would be wrong.
+  x.plan.waves.greyman = x.clone(x.STEMPL.greyman.wave);
+  x.plan.waves.greyman[2].p = 90; x.bump();
+  const heavy = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1)[2];
+  a.equal(x.tier(+x.wkRx(heavy).p), "heavy", "week 3 is now a heavy week");
+
+  const date = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(heavy.monday, d))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  x.sel = date;
+  const card = x.accCard(heavy, x.dayPlan(date));
+  a.doesNotMatch(card, /Skip them/, "Grey Man programmes it, so it happens");
+  a.match(card, /Supplementary/, "and it is called what the book calls it");
+  a.match(card, /4 × 8 @ 65%/, "with the numbers on it");
+
+  // Operator's accessories are still the unprogrammed kind, and still skipped.
+  x.plan.stempl = "operator"; x.bump();
+  const oh = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  const od = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(oh.monday, d))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  x.sel = od;
+  a.match(x.accCard(oh, x.dayPlan(od)), /Skip them/, "Operator's rule is untouched");
+  a.equal(x.accRxFor(oh), null, "because it prescribes nothing");
+});
+
+test("the accessory editor lists each cluster once, not once per day", () => {
+  const x = app({ now: "2026-10-19" });
+  for (const [t, want] of [["operator", 3], ["fighter", 2], ["zulu", 2], ["greyman", 2], ["fighterht", 2]]) {
+    x.plan.stempl = t; x.bump();
+    const card = x.accSetupCard();
+    const keys = [...card.matchAll(/data-act-accadd="(\w+)"/g)].map((m) => m[1]);
+    a.equal(keys.length, want, `${t} shows ${want} cluster(s)`);
+    a.equal(new Set(keys).size, keys.length, `${t} shows no cluster twice`);
+  }
+});
+
+test("the supplementary table belongs to the week that ran it", () => {
+  const x = app({ now: "2026-10-26" });
+  x.plan.stempl = "greyman";
+  x.plan.startMonday = "2026-09-28"; x.plan.bridge = false; x.bump();
+  x.freezePast();
+
+  // Week 2's supplementary numbers differ from week 1's, so it tells the two apart.
+  const w2 = x.weeks().find((w) => w.kind === "cycle" && w.w === 2);
+  a.ok(w2.monday < "2026-10-26", "it is behind us");
+  a.equal(x.plan.frozen[w2.monday].tpl, "greyman");
+  a.equal(x.accRxFor(w2).r, 10, "week 2 is four sets of ten");
+
+  // Switch to a template with no supplementary programming. History keeps its own.
+  x.plan.stempl = "operator"; x.bump();
+  a.equal(x.accRxFor(x.weekOf(w2.monday)).r, 10, "still Grey Man's, because that is what was done");
+
+  // And a week that is not part of a cycle has no supplementary table to read: a deload
+  // has no week number, and reading one off it would hand back week one's numbers.
+  x.plan.stempl = "greyman";
+  x.plan.inserts = { "2026-11-02": "deload" }; x.bump();
+  const dl = x.weekOf("2026-11-02");
+  a.equal(dl.kind, "deload");
+  a.equal(dl.w, undefined, "with no week number of its own");
+  a.equal(x.accRxFor(dl), null, "so it is given none");
+  a.equal(x.accRxFor(null), null);
+});

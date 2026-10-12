@@ -110,6 +110,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Programme templates, stage 5: two clusters, and Grey Man (2026-10-12)**
+- **Days may vary by week.** `T.days` can be a function of the week, because Grey Man
+  alternates A-B-A then B-A-B so the same weekday is a different session seven days
+  later. `tplDays(T,wk)` is the one reader.
+- **A template may prescribe its supplementary work.** `T.accRx(wk)` gives the day's
+  second cluster its own sets, reps and percentage, separate from the main lifts.
+  Operator's accessories stay what they were: deliberately unprogrammed, two or three
+  sets short of failure, skipped on heavy weeks. A programme that prescribes them
+  **overrides that skip** — dropping work the book programmed would be wrong.
+  - The book's Grey Man tops out at 80%, which is `mid`, so nothing in TB III reaches
+    the skip today. The wave is user-editable though, so the guard is reachable by
+    anyone who pushes week 3 up, and the test gets there the same way rather than
+    through a contrivance.
+- Deliberately **not** modelled: a 1RM per supplementary exercise. The book asks for a
+  percentage but immediately hedges ("or keep it simple and do 4 sets of 12"), and
+  tracking maxes for dips and shrugs is a lot of data entry for a hedge. The card shows
+  the sets and reps as the target and names the percentage as guidance.
+- The accessory editor lists each cluster once rather than once per day. Zulu has been
+  showing both its lists twice since 1.77 — two editable copies of one thing.
+- 228 → 232 tests. 11 mutants, all caught; the two survivors were both "which week's
+  table gets read", which is the question this whole stage turns on.
+- **Still to come from TB III:** Mass, Gladiator, Specificity Alpha/Bravo. Specificity
+  needs nothing new in principle now — MS and H days are per-day lift sets with per-day
+  prescriptions, both of which exist — but its H cluster is large and user-defined.
+  Then its Bridge Week, Base Building variant, and named conditioning sessions.
+
 **Programme templates, stage 4: per-day prescriptions, and Fighter HT (2026-10-12)**
 - First TB III template, and the enabling change it needed.
 - **`dayRx(wk,k,date)`.** Operator, Fighter and Zulu run one prescription a week, which

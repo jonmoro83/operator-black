@@ -43,7 +43,13 @@ function syncCard(){
 let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
 function accSetupCard(){
   const cyc=accCycleOf(todayStr()), all=accAll();
-  const days=stemplOf().days.map(d=>[d.acc,d.label||d.short]);
+  // One row per accessory list, not per day: Zulu and Grey Man both run the same list
+  // on more than one day, and showing it twice invites you to edit two copies of it.
+  const days=[]; const seenAcc=new Set();
+  for(const d of tplDays(stemplOf(),weekOf(todayStr()))){
+    if(!d.acc||seenAcc.has(d.acc)) continue;
+    seenAcc.add(d.acc); days.push([d.acc,d.label||d.short]);
+  }
   const later=accLater||cyc==null;              // with no cycle running there is only "later"
   let h=`<div class="card"><h2>Accessories</h2>
   <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;

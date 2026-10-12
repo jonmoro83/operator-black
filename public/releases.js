@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.82',date:'2026-10-12',title:'Grey Man, and supplementary work with real numbers',items:[
+    'Second template from Mass Protocol. <b>Grey Man</b> runs two main lifts a day — bench and squat against overhead press and deadlift — then supplementary work of your own choosing, and it swaps which pair opens the week every week. Four days clear for conditioning.',
+    'The supplementary cluster is programmed, not freeform: four sets of twelve at 55% in week one, climbing to four of eight at 65% in week three, while the main lifts run their own heavier numbers. Setup lets you choose what goes in each of the two clusters, as the book intends.',
+    'Because it is programmed, it is not skipped on a heavy week. That rule belongs to Operator’s accessories, which are deliberately unprogrammed, and it no longer applies to a programme that means it.',
+    'The accessory editor now lists each cluster once rather than once per day — Zulu was showing both of its lists twice.']},
   {v:'1.81',date:'2026-10-12',title:'Fighter HT, and prescriptions that vary by day',items:[
     'First template from <b>Tactical Barbell III: Mass Protocol</b>. Fighter HT is mass building for the minimalist — squat and bench twice a week, deadlift on its own day, five sets of everything, in three-week blocks.',
     'It needed something the app did not have. Operator, Fighter and Zulu run one prescription for the whole week; TB III’s tables are per day, and sometimes per lift. Fighter HT’s deadlift day goes its own way from week two. A template can now set its own numbers for a given day and lift, and anything that does not falls back to the wave exactly as before.',

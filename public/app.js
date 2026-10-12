@@ -22,7 +22,15 @@ const LIFTSET={
   B:date=>halfLifts('b',date),
   SB:()=>['squat','bench'],
   D:()=>['dead'],
+  GMA:()=>['bench','squat'],                   // Grey Man's two halves of the main cluster
+  GMB:()=>['ohp','dead'],
 };
+// A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
+// and B-A-B the next, so the same weekday is a different session a week later.
+function tplDays(T,wk){
+  const d=typeof T.days==='function'?T.days(wk||{w:1}):T.days;
+  return Array.isArray(d)?d:[];
+}
 
 /* Zulu runs half the cluster at a time, twice each per week. The book's suggested split
    is Bench/Squat against Deadlift/Overhead Press, which is the default here, but the
@@ -45,6 +53,19 @@ function halfLifts(which,date){
   return halvesOf()[which].map(k=>k==='l3'?l3For(date):k);
 }
 function halfOfDay(dp){ return dp&&dp.half||null }
+/* What the day's supplementary work is prescribed at, when the template says.
+
+   Operator's accessories are deliberately unprogrammed — a couple of sets short of
+   failure, skipped on heavy weeks, and that is the whole instruction. Tactical Barbell
+   III's supplementary clusters are not like that: Grey Man gives them their own sets,
+   reps and percentage, lighter and longer than the main lifts, and runs them every week
+   including the heavy one. A template that prescribes them therefore also overrides the
+   skip rule, because skipping them is Operator's idea and not every programme's. */
+function accRxFor(wk){
+  const T=STEMPL[wk&&wk.tpl]||stemplOf();
+  if(typeof T.accRx!=='function'||!wk||wk.kind!=='cycle') return null;
+  return T.accRx(wk)||null;
+}
 // Move one lift into a half, or out of both. Refuses to empty a half, because a half
 // with nothing in it is not a session.
 function setHalf(k,to){
@@ -80,6 +101,21 @@ const STEMPL={
     ],
     // TB1's Zulu table, one prescription per week across all four lifting days.
     wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:4,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:4,r:3,p:90}],
+  },
+  greyman:{
+    name:'Grey Man', book:'TB3', slots:[0,2,4],
+    blurb:'Two main lifts a day, then supplementary work of your own choosing. Alternates A-B-A one week and B-A-B the next, which leaves four days clear for conditioning and recovery.',
+    // The book's GM exercise schedule: bench and squat against overhead press and
+    // deadlift, swapping over each week so neither pair always lands on a Monday.
+    days:wk=>{
+      const A={lifts:'GMA',half:'a',acc:'gm1',short:'GM A',label:'Grey Man A'};
+      const B={lifts:'GMB',half:'b',acc:'gm2',short:'GM B',label:'Grey Man B'};
+      return ((wk&&wk.w||1)%2)?[A,B,A]:[B,A,B];
+    },
+    wave:[{s:4,sMax:5,r:8,p:70},{s:4,sMax:5,r:6,p:75},{s:4,sMax:5,r:3,p:80}],
+    // The supplementary cluster runs its own numbers, lighter and longer than the main
+    // lifts, and it is programmed every week — including the heavy one.
+    accRx:wk=>[{s:4,r:12,p:55},{s:4,r:10,p:60},{s:4,r:8,p:65}][(((wk&&wk.w||1)-1)%3)],
   },
   fighterht:{
     name:'Fighter HT', book:'TB3', slots:[0,3,5],  // the book's days 1, 4 and 6
@@ -239,7 +275,7 @@ function composeSlot(date,wk,d){
   // A protocol may say there is no barbell work at all: Green's Progressive SE variation
   // exists for having no equipment, and the book is explicit that you do none. Dropping
   // the slots is enough — with no 'S' roles the template's days are never reached.
-  const sd=T.days;
+  const sd=tplDays(T,wk);
   const shape=weekShape(P.noStrength?[]:(T.slots||sd.map((_,i)=>i*2)),cs);
   let si=0, ci=0;
   for(let i=0;i<7;i++){
@@ -1090,7 +1126,10 @@ const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull',
   z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
   // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
   // anything more means you picked the wrong template.
-  h1:['pullup','biceps','triceps'], h2:['core','rdelt'] };
+  h1:['pullup','biceps','triceps'], h2:['core','rdelt'],
+  // Grey Man's two supplementary clusters. The book says four to six exercises, split
+  // in two, and that what goes in them is yours — these are a starting split.
+  gm1:['spress','triceps','sleg'], gm2:['hpull','biceps','core'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
@@ -2626,12 +2665,14 @@ function checkinCard(date){
 function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.length?a:ACC[day]}
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
-  const v=wkRx(wk);
-  if(wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
+  const v=wkRx(wk), arx=accRxFor(wk);
+  // A programme that prescribes its supplementary work means it, heavy week or not.
+  if(!arx&&wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const day=dp.acc; if(!day) return '';
   const slots=accSlots(day), done=accDoneCount(sel,day);
-  let h=`<div class="card"><div class="lift-h"><h3>Accessories</h3><span class="small muted">${done} of ${slots.length} done</span></div>
-  <p class="muted small" style="margin:0">Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.</p>`;
+  const title=arx?'Supplementary':'Accessories';
+  let h=`<div class="card"><div class="lift-h"><h3>${title}</h3>${arx?`<span class="rx">${arx.s} \u00d7 ${arx.r} @ ${arx.p}%</span>`:''}<span class="small muted">${done} of ${slots.length} done</span></div>
+  <p class="muted small" style="margin:0">${arx?`Every one of these, ${arx.s} sets of ${arx.r}. The percentage is of your own best for that movement \u2014 if you have never tested it, take ${arx.r} reps you could have done a couple more of.`:'Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.'}</p>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
   for(const sl of slots) h+=accSlotRow(sel,sl);
   return h+`</div>`;
@@ -4872,7 +4913,13 @@ function syncCard(){
 let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
 function accSetupCard(){
   const cyc=accCycleOf(todayStr()), all=accAll();
-  const days=stemplOf().days.map(d=>[d.acc,d.label||d.short]);
+  // One row per accessory list, not per day: Zulu and Grey Man both run the same list
+  // on more than one day, and showing it twice invites you to edit two copies of it.
+  const days=[]; const seenAcc=new Set();
+  for(const d of tplDays(stemplOf(),weekOf(todayStr()))){
+    if(!d.acc||seenAcc.has(d.acc)) continue;
+    seenAcc.add(d.acc); days.push([d.acc,d.label||d.short]);
+  }
   const later=accLater||cyc==null;              // with no cycle running there is only "later"
   let h=`<div class="card"><h2>Accessories</h2>
   <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;

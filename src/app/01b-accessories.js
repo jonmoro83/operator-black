@@ -126,7 +126,10 @@ const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull',
   z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
   // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
   // anything more means you picked the wrong template.
-  h1:['pullup','biceps','triceps'], h2:['core','rdelt'] };
+  h1:['pullup','biceps','triceps'], h2:['core','rdelt'],
+  // Grey Man's two supplementary clusters. The book says four to six exercises, split
+  // in two, and that what goes in them is yours — these are a starting split.
+  gm1:['spress','triceps','sleg'], gm2:['hpull','biceps','core'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

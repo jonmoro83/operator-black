@@ -20,7 +20,15 @@ const LIFTSET={
   B:date=>halfLifts('b',date),
   SB:()=>['squat','bench'],
   D:()=>['dead'],
+  GMA:()=>['bench','squat'],                   // Grey Man's two halves of the main cluster
+  GMB:()=>['ohp','dead'],
 };
+// A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
+// and B-A-B the next, so the same weekday is a different session a week later.
+function tplDays(T,wk){
+  const d=typeof T.days==='function'?T.days(wk||{w:1}):T.days;
+  return Array.isArray(d)?d:[];
+}
 
 /* Zulu runs half the cluster at a time, twice each per week. The book's suggested split
    is Bench/Squat against Deadlift/Overhead Press, which is the default here, but the
@@ -43,6 +51,19 @@ function halfLifts(which,date){
   return halvesOf()[which].map(k=>k==='l3'?l3For(date):k);
 }
 function halfOfDay(dp){ return dp&&dp.half||null }
+/* What the day's supplementary work is prescribed at, when the template says.
+
+   Operator's accessories are deliberately unprogrammed — a couple of sets short of
+   failure, skipped on heavy weeks, and that is the whole instruction. Tactical Barbell
+   III's supplementary clusters are not like that: Grey Man gives them their own sets,
+   reps and percentage, lighter and longer than the main lifts, and runs them every week
+   including the heavy one. A template that prescribes them therefore also overrides the
+   skip rule, because skipping them is Operator's idea and not every programme's. */
+function accRxFor(wk){
+  const T=STEMPL[wk&&wk.tpl]||stemplOf();
+  if(typeof T.accRx!=='function'||!wk||wk.kind!=='cycle') return null;
+  return T.accRx(wk)||null;
+}
 // Move one lift into a half, or out of both. Refuses to empty a half, because a half
 // with nothing in it is not a session.
 function setHalf(k,to){
@@ -78,6 +99,21 @@ const STEMPL={
     ],
     // TB1's Zulu table, one prescription per week across all four lifting days.
     wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:4,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:4,r:3,p:90}],
+  },
+  greyman:{
+    name:'Grey Man', book:'TB3', slots:[0,2,4],
+    blurb:'Two main lifts a day, then supplementary work of your own choosing. Alternates A-B-A one week and B-A-B the next, which leaves four days clear for conditioning and recovery.',
+    // The book's GM exercise schedule: bench and squat against overhead press and
+    // deadlift, swapping over each week so neither pair always lands on a Monday.
+    days:wk=>{
+      const A={lifts:'GMA',half:'a',acc:'gm1',short:'GM A',label:'Grey Man A'};
+      const B={lifts:'GMB',half:'b',acc:'gm2',short:'GM B',label:'Grey Man B'};
+      return ((wk&&wk.w||1)%2)?[A,B,A]:[B,A,B];
+    },
+    wave:[{s:4,sMax:5,r:8,p:70},{s:4,sMax:5,r:6,p:75},{s:4,sMax:5,r:3,p:80}],
+    // The supplementary cluster runs its own numbers, lighter and longer than the main
+    // lifts, and it is programmed every week — including the heavy one.
+    accRx:wk=>[{s:4,r:12,p:55},{s:4,r:10,p:60},{s:4,r:8,p:65}][(((wk&&wk.w||1)-1)%3)],
   },
   fighterht:{
     name:'Fighter HT', book:'TB3', slots:[0,3,5],  // the book's days 1, 4 and 6
@@ -237,7 +273,7 @@ function composeSlot(date,wk,d){
   // A protocol may say there is no barbell work at all: Green's Progressive SE variation
   // exists for having no equipment, and the book is explicit that you do none. Dropping
   // the slots is enough — with no 'S' roles the template's days are never reached.
-  const sd=T.days;
+  const sd=tplDays(T,wk);
   const shape=weekShape(P.noStrength?[]:(T.slots||sd.map((_,i)=>i*2)),cs);
   let si=0, ci=0;
   for(let i=0;i<7;i++){
