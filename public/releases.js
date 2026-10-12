@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.83',date:'2026-10-12',title:'Copenhagen planks',items:[
+    'Added to the core movements, so it turns up wherever a core job appears — on any template. Held against a bench, so it logs as bodyweight and asks for seconds rather than a weight.']},
   {v:'1.82',date:'2026-10-12',title:'Grey Man, and supplementary work with real numbers',items:[
     'Second template from Mass Protocol. <b>Grey Man</b> runs two main lifts a day — bench and squat against overhead press and deadlift — then supplementary work of your own choosing, and it swaps which pair opens the week every week. Four days clear for conditioning.',
     'The supplementary cluster is programmed, not freeform: four sets of twelve at 55% in week one, climbing to four of eight at 65% in week three, while the main lifts run their own heavier numbers. Setup lets you choose what goes in each of the two clusters, as the book intends.',

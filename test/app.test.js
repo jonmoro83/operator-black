@@ -4121,3 +4121,21 @@ test("the supplementary table belongs to the week that ran it", () => {
   a.equal(x.accRxFor(dl), null, "so it is given none");
   a.equal(x.accRxFor(null), null);
 });
+
+test("the Copenhagen plank is a core option, loaded by bodyweight", () => {
+  const x = app({ now: "2026-10-19" });
+  a.equal(x.ALIB.copen.slot, "core", "it fills the core job");
+  a.ok(x.accFor("core").includes("copen"), "and is offered wherever core is");
+  a.equal(x.accAll().copen.name, "Copenhagen plank");
+  // Held against a bench, not loaded, so the weight field should not ask for a number.
+  a.equal(x.isBWAcc("copen"), true);
+
+  // It can be picked and logged like any other.
+  const mon = "2026-10-19";
+  x.setPlan("accPick.mon.core", "copen"); x.bump();
+  a.equal(x.accOn(mon, "core"), "copen");
+  x.sel = mon;
+  a.match(x.accSlotRow(mon, "core"), /Copenhagen plank/);
+  x.setLog(mon, "acc.sets.core", [{ r: 30 }]);
+  a.match(x.accSlotRow(mon, "core"), /placeholder="bw"/, "weight reads as bodyweight");
+});

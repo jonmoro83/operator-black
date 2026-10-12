@@ -287,7 +287,7 @@ function accSlotRow(date,slot){
   return h+`</div>`;
 }
 // Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
-function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
+function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
 
 function lastHic(fmt,mod,before){
   let best=null,last=null;

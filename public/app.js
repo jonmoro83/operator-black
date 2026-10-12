@@ -1050,6 +1050,7 @@ const ALIB={
   abwheel: {slot:'core',  name:'Ab wheel',                  gear:'Wheel'},
   plank:   {slot:'core',  name:'Plank',                     gear:'Nothing'},
   sideplank:{slot:'core', name:'Side plank',                gear:'Nothing'},
+  copen:   {slot:'core',  name:'Copenhagen plank',          gear:'Bench or box'},
   deadbug: {slot:'core',  name:'Dead bug',                  gear:'Nothing'},
   cablecr: {slot:'core',  name:'Cable crunch',              gear:'Cable'},
 
@@ -2699,7 +2700,7 @@ function accSlotRow(date,slot){
   return h+`</div>`;
 }
 // Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
-function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
+function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
 
 function lastHic(fmt,mod,before){
   let best=null,last=null;
