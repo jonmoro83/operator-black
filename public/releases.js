@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.78',date:'2026-10-12',title:'Green',items:[
+    'Tactical Barbell II’s endurance protocol, in both its forms. <b>Green</b> is easy aerobic work most days, one strength-endurance circuit a week, and a hard session every other week — for rucking, selection prep and long events. The book runs it beside two lifting days, so it sits best with Fighter.',
+    '<b>Green · Progressive SE</b> is the no-equipment variation: three circuits and three easy sessions a week, climbing over a three-week block. It does no barbell work at all, which the book is explicit about, so it sets your strength template aside while it is running and hands it back when you switch off.',
+    'The week layout learned the difference between a hard session and an easy one. Two easy aerobic days can now sit side by side — Green’s own template does exactly that — while hard days are still kept apart. A rest day survives in every combination.',
+    'The Guide has a Programmes section listing every template and protocol, and how the week gets built from the two.']},
   {v:'1.77',date:'2026-10-12',title:'Zulu',items:[
     'TB1’s four-day template. The cluster splits in two and each half runs twice a week, which is why Zulu’s lifting days sit back to back — they work different lifts, so that pairing is the template rather than a mistake. The app knows the difference now and only warns when the same half would land twice running.',
     'Which lifts go in which half is yours to set, in Setup → Programme. It starts on the book’s suggestion — squat and bench against deadlift and your Lift 3 — and neither half can be left empty.',

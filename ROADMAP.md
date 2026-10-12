@@ -110,6 +110,36 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Programme templates, stage 3: Green (2026-10-12)**
+- TB II's other continuation protocol, both variants, as `CPROTO` entries. The protocol
+  extension point built in stage 1 carried them: `t:'se'` and per-session `short`/`note`
+  were already tested against a scratch protocol, so Green needed no new session plumbing.
+- **The layout learned hardness.** `weekShape` took a count; it now takes the sessions and
+  only keeps *hard* ones apart. Green's own template runs E on days 5 and 6, and
+  `sessKind` has always called LISS `'easy'` and left it out of `ADJACENT_BAN` — the
+  layout just did not know. Without this, Fighter + Green left two days empty and pushed
+  a session onto a lifting day for no reason.
+- **A rest day survives everywhere.** `keepRest` now also holds one back when a lifting
+  day can carry the overflow, not only when a slot is spare. Every protocol in the book
+  asks for one; Operator + Green is 3 + 4 = seven sessions and used to spend it.
+- **`noStrength`**: Progressive SE does no barbell work — the book is explicit — so the
+  protocol drops the template's lifting slots and Setup says so rather than letting the
+  lifting quietly vanish. Dropping the slots is enough; the days are then never reached.
+- **Ride-alongs are generic.** A circuit riding on a lifting day was being drawn as a bike
+  session, interval timer and all. The day carries `ride:'se'|'hic'` and the session's own
+  fields, and the day view picks `seCard` or `hicCard`.
+- Rep tables are the book's grids, not a formula: Progressive SE is 3×30/3×30/2×35 then
+  40/40/45 then 50/50/50. A formula was close but wrong in week 3.
+- New matrix test over every template × protocol pairing: seven days, a rest day, no
+  empty lifting day, every session kept, no clash. That is what catches the next one.
+- 216 → 220 tests. 14 mutants, all caught. The one survivor was dead code, removed rather
+  than tested.
+- **Not built: Bangkok.** Asked for, but it is in none of the four books on disk (TB1 3rd
+  ed., TB II Conditioning, Mass Protocol, Ageless Athlete) — searched text and tables.
+  Dropped for now rather than invented.
+- **Next:** TB III's templates (Mass, Grey Man, Gladiator, Fighter HT, Specificity A/B),
+  which need a hypertrophy prescription model and have their own bridge week.
+
 **Programme templates, stage 2b: Zulu (2026-10-12)**
 - Four lifting days, the cluster split in half, each half twice a week.
 - **Half-clusters.** `plan.halves` with `HALF_KEYS=['squat','bench','dead','l3']`, where

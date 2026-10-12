@@ -3700,3 +3700,111 @@ test("the two halves can be rearranged, and neither can be emptied", () => {
   x.plan.stempl = "operator"; x.bump();
   a.doesNotMatch(x.vSetup(), /data-act="half"/, "Operator has nothing to split");
 });
+
+test("Green is endurance-led: easy days, a circuit, and a hard one every other week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "fighter"; x.plan.cproto = "green"; x.bump();
+  const mon = "2026-10-19";
+  const week = (m) => [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(m, d), d));
+  const w = week(mon);
+
+  // The shape TB II's Green guidelines ask for: two lifting days, three easy aerobic
+  // sessions, one circuit, one rest day — and nothing riding along, because it fits.
+  a.deepEqual(w.map((p) => p.t), ["lift", "hic", "hic", "lift", "hic", "se", "off"]);
+  a.equal(w.filter((p) => p.fmt === "liss").length, 3, "three easy sessions");
+  a.ok(!w.some((p) => p.ride), "all on their own days");
+
+  // Two easy days may sit next to each other — Green's own template does exactly that.
+  a.equal(x.sessKind(w[1]), "easy");
+  a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], "and that is not a clash");
+
+  // The hard session arrives on even weeks only.
+  const odd = x.weeks().find((k) => k.kind === "cycle" && k.w % 2 === 1);
+  const even = x.weeks().find((k) => k.kind === "cycle" && k.w % 2 === 0);
+  a.ok(!week(odd.monday).some((p) => p.fmt === "map"), `week ${odd.w} has no HIC`);
+  a.ok(week(even.monday).some((p) => p.fmt === "map"), `week ${even.w} has one`);
+
+  // The circuits climb over a three-week block and start again.
+  const reps = x.weeks().filter((k) => k.kind === "cycle" && k.cycle === 1)
+    .map((k) => week(k.monday).find((p) => p.t === "se").reps);
+  a.deepEqual(reps, [30, 40, 50, 30, 40, 50]);
+});
+
+test("Green's Progressive SE does no barbell work, whatever template is set", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "zulu"; x.plan.cproto = "greense"; x.bump();
+  const mon = "2026-10-19";
+  const w = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d));
+
+  // The book's Progressive SE week, day for day: three circuits, three easy sessions,
+  // one rest — and no maximal strength, which it is explicit about.
+  a.deepEqual(w.map((p) => p.t), ["se", "hic", "se", "hic", "se", "hic", "off"]);
+  a.ok(!w.some((p) => p.t === "lift"), "Zulu's lifting days are set aside");
+
+  // Its rep table, straight off the book's grid.
+  const byWeek = (n) => {
+    const k = x.weeks().filter((y) => y.kind === "cycle")[n - 1];
+    return [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(k.monday, d), d))
+      .filter((p) => p.t === "se").map((p) => p.circuits + "x" + p.reps);
+  };
+  a.deepEqual(byWeek(1), ["3x30", "3x30", "2x35"]);
+  a.deepEqual(byWeek(2), ["3x40", "3x40", "2x45"]);
+  a.deepEqual(byWeek(3), ["3x50", "3x50", "2x50"]);
+
+  // Setup says the barbell work is parked rather than silently vanishing.
+  x.view = "setup";
+  a.match(x.vSetup(), /does no barbell work at all/);
+  a.doesNotMatch(x.vSetup(), /data-act="half"/, "and the Zulu halves editor is out of the way");
+
+  // Switching off it brings the lifting back.
+  x.plan.cproto = "black"; x.bump();
+  a.equal(x.dayPlanSlot(mon, 0).t, "lift");
+});
+
+test("a circuit that rides on a lifting day is drawn as a circuit, not a bike session", () => {
+  const x = app({ now: "2026-10-19" });
+  // Four lifting days and a protocol whose only session is a circuit: it has to ride.
+  x.plan.stempl = "zulu"; x.bump();
+  x.CPROTO.allse = { name: "All SE", book: "test",
+    sessions: () => [{ t: "se", circuits: 3, reps: 20, short: "SE 3×20" },
+                     { t: "se", circuits: 3, reps: 20, short: "SE 3×20" },
+                     { t: "se", circuits: 2, reps: 25, short: "SE 2×25" },
+                     { t: "se", circuits: 2, reps: 25, short: "SE 2×25" }] };
+  x.plan.cproto = "allse"; x.bump();
+  const mon = "2026-10-19";
+  const d0 = x.dayPlanSlot(mon, 0);
+
+  a.equal(d0.t, "lift", "still a lifting day");
+  a.equal(d0.ride, "se", "with a circuit on it");
+  a.equal(d0.circuits, 3);
+  a.equal(d0.reps, 20);
+  a.ok(!d0.cardio, "and it is not a conditioning-machine session");
+
+  x.sel = mon;
+  const h = x.sessionHtml(x.weekOf(mon), d0);
+  a.match(h, /Then, conditioning/);
+  a.doesNotMatch(h, /Interval timer/, "a circuit gets no interval timer");
+  a.ok(h.indexOf("Working weight") < h.indexOf("Then, conditioning"), "lifting first");
+
+  delete x.CPROTO.allse;
+});
+
+test("every template and protocol pairing gives a legal week", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  for (const t of Object.keys(x.STEMPL)) for (const c of Object.keys(x.CPROTO)) {
+    x.plan.stempl = t; x.plan.cproto = c; x.bump();
+    const w = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d));
+    const tag = `${t} + ${c}`;
+
+    a.equal(w.length, 7, tag);
+    a.ok(w.some((p) => p.t === "off"), `${tag} keeps a rest day`);
+    a.ok(!w.some((p) => p.t === "lift" && !(p.lifts || []).length), `${tag}: no empty lifting day`);
+    // Every session the protocol asked for is somewhere, on its own day or riding along.
+    const want = x.CPROTO[c].sessions({ w: 1 }).length;
+    const got = w.filter((p) => p.t === "hic" || p.t === "se" || p.ride).length;
+    a.equal(got, want, `${tag} keeps all ${want} conditioning sessions`);
+    // And nothing the Move tool would call a clash.
+    a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], `${tag} has no clash`);
+  }
+});

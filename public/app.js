@@ -104,7 +104,44 @@ const CPROTO={
       {t:'hic',fmt:wk.w%2?'threshold':'long',note:'Swap to LISS if the week has been heavy.'},
     ],
   },
+  green:{
+    name:'Green', book:'TB2',
+    blurb:'Endurance first. Easy aerobic work most days, a strength-endurance circuit each week, and one hard session every other week. Built for rucking, selection prep and long events. The book runs it alongside two lifting days, so it sits best with Fighter.',
+    sessions:wk=>{
+      const hicWeek=((wk&&wk.w||1)%2)===0;    // one hard session every other week
+      const E=note=>({t:'hic',fmt:'liss',short:'E',note});
+      const r=greenSeReps(wk);
+      return [
+        E('Conversational the whole way. Run, ruck, swim or ride \u2014 45 to 90 min.'),
+        E('Easy again. Run-walk-run is still aerobic and still counts.'),
+        hicWeek?{t:'hic',fmt:'map',short:'HIC'}
+               :E('The long one. You have a rest day behind you, so push the duration.'),
+        {t:'se',circuits:3,reps:r,short:'SE 3\u00d7'+r},
+      ];
+    },
+  },
+  greense:{
+    name:'Green \u00b7 Progressive SE', book:'TB2', noStrength:true,
+    blurb:'The no-barbell variation. Three strength-endurance circuits and two easy aerobic sessions a week, climbing over a three-week block. For when you have no equipment \u2014 the book says not to run it past nine weeks without going back to maximal strength.',
+    sessions:wk=>{
+      const [r,last]=GREEN_SE[(((wk&&wk.w||1)-1)%3)];
+      const se=(c,n)=>({t:'se',circuits:c,reps:n,short:'SE '+c+'\u00d7'+n});
+      return [
+        se(3,r),
+        {t:'hic',fmt:'liss',short:'E',note:'Conversational. Minimum 30 min.'},
+        se(3,r),
+        {t:'hic',fmt:'liss',short:'E',note:'Easy. Longer than the first if you have it in you.'},
+        se(2,last),
+        {t:'hic',fmt:'liss',short:'E',note:'Easy, or swap it for a HIC if you have the legs.'},
+      ];
+    },
+  },
 };
+
+// Green's circuits climb over a three-week block and start again. Progressive SE's
+// numbers are the book's table; Green standard runs one circuit a week on the same climb.
+const GREEN_SE=[[30,35],[40,45],[50,50]];
+function greenSeReps(wk){ return GREEN_SE[(((wk&&wk.w||1)-1)%3)][0] }
 
 function stemplOf(){ return STEMPL[plan.stempl]||STEMPL.operator }
 function stemplKey(){ return STEMPL[plan.stempl]?plan.stempl:'operator' }
@@ -121,38 +158,47 @@ function waveOf(tpl){
 // How long a cycle runs. Derived, so a template with a three- or nine-week wave works.
 function cycleWeeks(){ return Math.max(1,waveOf().length) }
 
+// Only hard sessions have to be kept apart. An easy aerobic day can sit next to
+// anything, which is why Green's own template runs E on days 5 and 6.
+function sessHard(x){ return !!x&&x.fmt!=='liss' }
+
 /* Lay out a week: the lifting days where the template's table puts them, then the
    conditioning sessions spread through what is left.
 
    The books number the lifting days — Operator trains on days 1, 3 and 5, Fighter on 1
    and 4, Zulu on 1, 2, 4 and 5 — so that is data on the template rather than something
-   to infer. Two days of the same kind must not touch (see ADJACENT_BAN), so conditioning
-   takes free slots greedily, skipping any that would sit next to one already taken.
+   to infer. Two hard days of the same kind must not touch (see ADJACENT_BAN), so a hard
+   session skips a slot that would put it next to another hard one; easy days go anywhere.
 
-   When the conditioning will not fit in the days left over, it goes *on* a lifting day
-   rather than taking the rest day or doubling up. That is what TB II's own "Black + Zulu"
-   week does: four lifting days, and the first one carries a HIC after the barbell work.
-   A week keeps one rest day as long as it has a spare slot at all.
+   When the sessions will not fit in the days left over, the overflow goes *on* a lifting
+   day rather than taking the rest day. That is what TB II's own "Black + Zulu" week does:
+   four lifting days, and the first one carries a HIC after the barbell work. A week keeps
+   one rest day as long as it has a slot to spare.
 
-   Returns seven of 'S' (lift), 'C' (conditioning), 'SC' (both) and 'R' (rest). */
-function weekShape(slots,nC){
+   `sessions` is the protocol's list for the week. Returns seven of 'S' (lift), 'C'
+   (conditioning), 'SC' (both) and 'R' (rest), plus which session index sits where. */
+function weekShape(slots,sessions){
+  const cs=Array.isArray(sessions)?sessions:new Array(Math.max(0,sessions|0)).fill({});
+  const nC=cs.length;
   const out=new Array(7).fill('R');
   const S=(Array.isArray(slots)?slots:[]).filter(v=>v>=0&&v<7);
   for(const i of S) out[i]='S';
   const free=[]; for(let i=0;i<7;i++) if(out[i]==='R') free.push(i);
-  // Hold a rest day back, but only when there is something to hold back.
-  const keepRest=S.length&&free.length>1?1:0;
+  // Every protocol in the book asks for a rest day a week. Hold one back whenever that
+  // is possible at all: either a slot is spare, or a lifting day can carry the overflow.
+  const keepRest=(free.length>nC||S.length)?1:0;
   const room=Math.max(0,free.length-keepRest);
   const take=[];
   for(const i of free){
     if(take.length>=Math.min(nC,room)) break;
-    if(take.length&&i-take[take.length-1]===1) continue;   // would touch the last one
+    const prev=take.length?take[take.length-1]:-9;
+    // A hard session will not sit next to another hard one. Easy days are free to.
+    if(i-prev===1&&sessHard(cs[take.length])&&sessHard(cs[take.length-1])) continue;
     take.push(i);
   }
   for(const i of take) out[i]='C';
-  // Anything that did not fit rides along with a lifting day, earliest first. Riding
-  // along is preferred over two conditioning days back to back, which is the trade the
-  // book makes: its Black + Zulu week stacks a HIC onto day 1 rather than pairing days.
+  // What did not fit rides along with a lifting day, earliest first. Riding along is
+  // preferred over two hard days back to back, which is the trade the book makes.
   let over=nC-take.length;
   for(const i of S){ if(over<=0) break; out[i]='SC'; over-- }
   // Nothing left to ride on: fill what is free, rest day included, rather than drop one.
@@ -165,8 +211,12 @@ function composeSlot(date,wk,d){
   // A week frozen in the past carries the template it was trained under, so changing
   // programme now does not rewrite what you already did into something else.
   const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
-  const sd=T.days, cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[];
-  const shape=weekShape(T.slots||sd.map((_,i)=>i*2),cs.length);
+  const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[];
+  // A protocol may say there is no barbell work at all: Green's Progressive SE variation
+  // exists for having no equipment, and the book is explicit that you do none. Dropping
+  // the slots is enough — with no 'S' roles the template's days are never reached.
+  const sd=T.days;
+  const shape=weekShape(P.noStrength?[]:(T.slots||sd.map((_,i)=>i*2)),cs);
   let si=0, ci=0;
   for(let i=0;i<7;i++){
     const role=shape[i];
@@ -175,10 +225,14 @@ function composeSlot(date,wk,d){
         const x=sd[si], o={t:'lift',day:si+1,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(date),acc:x.acc,short:x.short};
         if(x.half) o.half=x.half;              // which half of the cluster, for adjacency
         if(role==='SC'){
-          // The conditioning rides along after the barbell work, the way the book's
-          // Black + Zulu week does. `cardio` is the flag the day view already renders.
+          // The session rides along after the barbell work, the way the book's Black +
+          // Zulu week does. Its own fields come with it so the right card is drawn: a
+          // circuit is not a bike session and must not be rendered as one.
           const c=cs[ci]||{};
-          o.cardio=true; o.fmt=c.fmt||'map'; o.short=x.short+' + '+(c.short||(c.fmt==='liss'?'E':'HIC'));
+          o.ride=c.t==='se'?'se':'hic';
+          o.short=x.short+' + '+(c.short||(c.fmt==='liss'?'E':'HIC'));
+          if(o.ride==='se'){ o.circuits=c.circuits; o.reps=c.reps }
+          else { o.cardio=true; o.fmt=c.fmt||'map' }
           if(c.note) o.condNote=c.note;
         }
         return o;
@@ -2065,7 +2119,10 @@ function sessionHtml(wk,dp){
     h+=warmupCard(sel);
     for(const k of dp.lifts) h+=liftCard(wk,k,dp);
     h+=accCard(wk,dp);
-    if(dp.cardio) h+=`<div class="divider">Then, conditioning</div>`+hicCard(dp,dp.condNote?`<p class="muted small" style="margin:0">${esc(dp.condNote)}</p>`:'');
+    if(dp.ride||dp.cardio){
+      const note=dp.condNote?`<p class="muted small" style="margin:0">${esc(dp.condNote)}</p>`:'';
+      h+=`<div class="divider">Then, conditioning</div>`+(dp.ride==='se'?seCard(dp):hicCard(dp,note));
+    }
     return h+mobCard(sel,dp)+footer(true);
   }
   if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);
@@ -4957,9 +5014,9 @@ function halvesCard(){
 // Which programme you are running. Two choices, composed into a week — see 00b-templates.js.
 function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
-  const days=T.days.length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
+  const days=P.noStrength?0:T.days.length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
   let h=`<div class="card"><div class="lift-h"><h2>Programme</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
-  <p class="small muted" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two of a kind land together.</p>`;
+  <p class="small muted" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
   if(keys.length>1){
     h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${STEMPL[k].days.length} day${STEMPL[k].days.length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(T.blurb)}</div>`;
@@ -4968,7 +5025,8 @@ function templateCard(){
     h+=`<label class="f">Conditioning protocol<select id="p-cproto" data-pbind="cproto">${pkeys.map(k=>`<option value="${k}"${k===cprotoKey()?' selected':''}>${esc(CPROTO[k].name)} · ${esc(CPROTO[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(P.blurb)}</div>`;
   }
-  if(T.split) h+=halvesCard();
+  if(P.noStrength) h+=`<div class="banner info"><div class="small">${esc(P.name)} does no barbell work at all \u2014 the book is explicit about it \u2014 so your strength template is set aside while this protocol is running. It comes back the moment you switch off it.</div></div>`;
+  else if(T.split) h+=halvesCard();
   h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the programme they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }
@@ -5189,6 +5247,13 @@ function vGuide(){
   <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
   <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
   <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Jump tests',['broad','vertj','triple']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
+  <div class="card guide"><h3>Programmes</h3><p>Your strength template and your conditioning protocol are separate choices, set in Setup \u2192 Programme, and the week is built from the two. That is how the books present it: Tactical Barbell II's sample weeks are headed \u201cBlack + Zulu\u201d, \u201cBlack + Operator\u201d, \u201cBlack + Fighter\u201d.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${v.days.length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
+  <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
+  <li><b>Conditioning fills what is left</b>, keeping hard days apart. Easy aerobic days can sit next to anything, which is what Green's own template does.</li>
+  <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
+  <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the programme they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
   <ul class="tight"><li>Weeks 1–5 are endurance and strength-endurance dense, with no barbell work at all. That is deliberate: it frees the energy for the long sessions and gives tendons and joints a break before heavy lifting returns.</li><li>Weeks 6–8 taper the long work and bring back two strength days and the aerobic-leaning HIC sessions.</li><li>Every E session is a minimum of 30 minutes. Day 6 is the long one, with a recovery day before it and a rest day after, so push the duration there.</li><li>Recovery days are movement drills, mobility, an easy swim or bike, a walk, yoga, or nothing at all.</li><li>At least one completely free day a week. Walking and pick-up sport are fine.</li><li>Eat for it. The book asks for 1–2 g of protein per pound of bodyweight through the block and is firmly against going low-carb while the volume is up.</li><li><b>Strength-first</b> reverses it: lift for the first five weeks, strength-endurance for the last three. The book doesn't give rep numbers for those late SE weeks, so the app ramps 3×30, 3×40, 3×50.</li></ul></div>
