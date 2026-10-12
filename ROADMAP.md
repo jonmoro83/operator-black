@@ -133,16 +133,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   are never lost. But `loadLocal()` migrated the phone's cached plan and queued a write
   **before** `/api/state` had been heard from. On any schema bump, every device whose
   cache was behind therefore declared itself the winner and uploaded a stale plan.
-- **The damage.** One account's plan reverted to its 30 September state: squat, bench and
-  deadlift back to null, losing the maxes its 4 October bridge week had converted. Logs
-  were untouched — only `plan/main` is written at boot.
+- **The damage.** One account's plan reverted to roughly its 30 September state: squat,
+  bench and deadlift back to null, losing the maxes its 4 October bridge week had
+  converted, plus the lift variants, a booked travel week and the body profile. **Logs
+  were untouched** — only `plan/main` is written at boot, which is the signature of this
+  bug rather than of a bad migration.
+- **The date was wrong at first, and the correction matters.** It was found on 12 October,
+  the day the schema went to 5, and blamed on that bump. The 11 October R2 backup then
+  showed the damage already done, so it happened somewhere in the 4–11 October window —
+  three schema bumps, any of which could have been the one. Do not read the KV backup
+  list and assume it is all of them: the Sunday backups moved to R2, and only looking
+  there found the copy that disproved the first answer.
 - **The fix.** `migrate(write)`; `loadLocal()` passes `false`. The boot pass migrates in
   memory so the screen is right and writes nothing; `applyState` migrates whatever copy
   actually won and writes that. Offline, the migrated shape still reaches the cache and
   is written on the next sync.
-- Diagnosed from D1 and the KV backups rather than guessed: the live plan matched the
-  30 September backup byte for byte, and the 4 October backup's maxes reconstruct exactly
-  from the logged bridge-week 5RMs (225×5 → 255, 205×5 → 235, 275×5 → 315, 145×5 → 165).
+- Diagnosed from D1 and the backups rather than guessed: the 4 October maxes reconstruct
+  exactly from the logged bridge-week 5RMs (225×5 → 255, 205×5 → 235, 275×5 → 315,
+  145×5 → 165), which is how they were handed back with confidence.
+- Verified afterwards that nothing else went: all 14 log documents present, none missing
+  from or smaller than either the 4 or 11 October backup.
 - 220 → 222 tests, including one that replays the exact sequence through `loadLocal()`
   and one that proves a genuine unsent edit still beats the server.
 - **Worth keeping:** a sync rule that protects unsent work will protect unsent *nonsense*

@@ -1669,9 +1669,13 @@ function readOnly(){
    local document instead of the server's, so unsent edits are never silently lost. Boot
    used to migrate the cache and queue a plan write before the server had been heard from,
    which turned "this phone's copy is a few days behind" into "this phone's copy wins".
-   On 2026-10-12 that cost a real account its maxes: a device still holding a 30 September
-   plan opened the build that bumped the schema to 5, migrated, and uploaded the stale
-   document over eight days of newer prescription.
+
+   A real account lost its maxes and most of its Setup this way, somewhere between the
+   4 and 11 October backups — a window with three schema bumps in it. The logs were never
+   touched, because only plan/main is written at boot, which is exactly the signature of
+   this bug rather than of a bad migration. Found on 12 October while looking for
+   something else, and first blamed on that day's bump; the 11 October backup showed the
+   damage already done, so the date was wrong and the mechanism was not.
 
    So the boot pass migrates in memory only, to draw a correct screen. The write happens
    in applyState, against whichever copy actually won. Offline, the migrated shape still
