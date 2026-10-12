@@ -3808,3 +3808,49 @@ test("every template and protocol pairing gives a legal week", () => {
     a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], `${tag} has no clash`);
   }
 });
+
+test("a stale phone cannot overwrite the server just by migrating", () => {
+  const x = app({ now: "2026-10-12" });
+  // Exactly what happened on 2026-10-12: a device still holding a 30 September plan
+  // opened the build that bumped the schema, and uploaded it over eight days of newer
+  // prescription. The maxes are the real ones, before and after the bridge week.
+  const stale = { schema: 4, startMonday: "2026-09-28", bridge: true,
+    maxes: { squat: null, bench: null, pull: 170, ohp: 135, wpu: null, dead: null } };
+  const fresh = { schema: 4, startMonday: "2026-09-28", bridge: true,
+    maxes: { squat: 255, bench: 235, pull: 165, ohp: 135, wpu: null, dead: 315 } };
+
+  // Boot the way the app boots: off the phone's cached copy. It migrates so the screen
+  // is right...
+  x.dom.store["ob.cache"] = JSON.stringify({ plan: stale, logs: {}, programs: {} });
+  x.outbox = {}; x.plan = x.clone(x.DEF); x.bump();
+  a.equal(x.loadLocal(), true, "the cache is loaded");
+  a.equal(x.plan.schema, x.SCHEMA);
+  // ...but nothing is queued, so it has not claimed the right to win.
+  a.deepEqual(Object.keys(x.outbox), [], "and nothing is queued off a cache alone");
+  a.equal(x.pending("plan/main"), false);
+
+  // The server answers with the newer plan, which is therefore adopted.
+  x.applyState({ plan: fresh, logs: {}, programs: {} });
+  a.equal(x.plan.maxes.squat, 255, "the server's maxes survive");
+  a.equal(x.plan.maxes.bench, 235);
+  a.equal(x.plan.maxes.dead, 315);
+  a.equal(x.plan.schema, x.SCHEMA, "and the adopted plan is migrated in turn");
+  a.ok("plan/main" in x.outbox, "now it is written back, carrying the right numbers");
+  a.equal(JSON.parse(JSON.stringify(x.outbox["plan/main"])).maxes.squat, 255,
+    "what goes up is the server's plan, not the phone's");
+});
+
+test("an unsent edit still beats the server, which is the point of pending", () => {
+  const x = app({ now: "2026-10-12" });
+  const server = { schema: x.SCHEMA, maxes: { squat: 255, bench: 235, pull: 165, ohp: 135, wpu: null, dead: 315 } };
+  x.plan = x.deepMerge(x.clone(x.DEF), server);
+  x.outbox = {}; x.bump();
+
+  // A real change made on this phone and not yet sent.
+  x.setPlan("maxes.squat", 275);
+  a.equal(x.pending("plan/main"), true, "it is queued");
+
+  // The server's older copy must not wipe it.
+  x.applyState({ plan: server, logs: {}, programs: {} });
+  a.equal(x.plan.maxes.squat, 275, "the edit you made here is kept");
+});

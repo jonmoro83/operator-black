@@ -69,7 +69,21 @@ function readOnly(){
 }
 // Bring stored data up to SCHEMA, then save whatever actually changed. Runs on every load
 // and after every sync, and costs one integer comparison when there is nothing to do.
-function migrate(){
+/* `write` is false for the migration that runs at boot, off the phone's cached copy,
+   and that distinction matters more than it looks.
+
+   A queued write makes a document *pending*, and applyState deliberately keeps a pending
+   local document instead of the server's, so unsent edits are never silently lost. Boot
+   used to migrate the cache and queue a plan write before the server had been heard from,
+   which turned "this phone's copy is a few days behind" into "this phone's copy wins".
+   On 2026-10-12 that cost a real account its maxes: a device still holding a 30 September
+   plan opened the build that bumped the schema to 5, migrated, and uploaded the stale
+   document over eight days of newer prescription.
+
+   So the boot pass migrates in memory only, to draw a correct screen. The write happens
+   in applyState, against whichever copy actually won. Offline, the migrated shape still
+   goes into the local cache and is written on the next sync. */
+function migrate(write){
   const at=+(plan.schema||0);
   if(at===SCHEMA) return false;
   if(at>SCHEMA){ schemaAhead=true; return false }   // the backwards half: stop writing
@@ -79,6 +93,7 @@ function migrate(){
   for(const [id,P] of Object.entries(programs)) before['programs/'+id]=JSON.stringify(P);
   for(const m of MIGRATIONS) if(m.to>at&&m.to<=SCHEMA) m.run(d,plan);
   plan.schema=SCHEMA; planV++;
+  if(write===false) return true;
   queueWrite('plan/main',()=>plan);
   for(const [id,L] of Object.entries(logs)) if(JSON.stringify(L)!==before['logs/'+id]) queueWrite('logs/'+id,()=>logs[id]);
   for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
@@ -145,7 +160,8 @@ function loadLocal(){
     writers[path]={get:()=>docFor(path),dirty:true};
   }
   planV++;
-  if(c||Object.keys(outbox).length){ loaded=true; migrate() }
+  // In memory only: see migrate(). A stale cache must never win by being migrated.
+  if(c||Object.keys(outbox).length){ loaded=true; migrate(false) }
   return !!c;
 }
 function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>docFor(p)});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}

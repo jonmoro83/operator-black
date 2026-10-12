@@ -110,6 +110,33 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A stale cache could overwrite the server on a schema bump (2026-10-12)**
+- Reported as "my maxes are missing from Setup". It was data, not display, and it was a
+  bug in the schema-versioning design I added — not in any migration.
+- **The mechanism.** A queued write makes a document *pending*, and `applyState`
+  deliberately keeps a pending local document rather than the server's, so unsent edits
+  are never lost. But `loadLocal()` migrated the phone's cached plan and queued a write
+  **before** `/api/state` had been heard from. On any schema bump, every device whose
+  cache was behind therefore declared itself the winner and uploaded a stale plan.
+- **The damage.** One account's plan reverted to its 30 September state: squat, bench and
+  deadlift back to null, losing the maxes its 4 October bridge week had converted. Logs
+  were untouched — only `plan/main` is written at boot.
+- **The fix.** `migrate(write)`; `loadLocal()` passes `false`. The boot pass migrates in
+  memory so the screen is right and writes nothing; `applyState` migrates whatever copy
+  actually won and writes that. Offline, the migrated shape still reaches the cache and
+  is written on the next sync.
+- Diagnosed from D1 and the KV backups rather than guessed: the live plan matched the
+  30 September backup byte for byte, and the 4 October backup's maxes reconstruct exactly
+  from the logged bridge-week 5RMs (225×5 → 255, 205×5 → 235, 275×5 → 315, 145×5 → 165).
+- 220 → 222 tests, including one that replays the exact sequence through `loadLocal()`
+  and one that proves a genuine unsent edit still beats the server.
+- **Worth keeping:** a sync rule that protects unsent work will protect unsent *nonsense*
+  just as carefully. Anything that marks a document dirty without the user having changed
+  something needs to ask whether it has earned the right to win.
+- Related, still open: a week frozen while it was the current week keeps `soft` cleared
+  later but never gains the `rx`/`tpl` stamp a hard freeze adds, so those weeks follow
+  today's plan rather than what was trained. Visible in the affected account's `frozen`.
+
 **Programme templates, stage 3: Green (2026-10-12)**
 - TB II's other continuation protocol, both variants, as `CPROTO` entries. The protocol
   extension point built in stage 1 carried them: `t:'se'` and per-session `short`/`note`

@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.79',date:'2026-10-12',title:'A phone that is behind no longer wins',items:[
+    'A real bug, found the hard way. When a release changes how your data is stored, the app brings your copy up to date on the way in. It was doing that to the phone’s cached copy <i>before</i> hearing from the server, and that counted as an unsent change — so a device that had not synced for a while would quietly upload its old copy over the newer one.',
+    'It now brings the cached copy up to date on screen only, and writes nothing until the server has answered. Whichever copy is actually current is the one that gets saved.',
+    'Edits you genuinely made on a phone and have not sent yet still win, which is the whole point of that rule. Only the “I changed nothing, I was just opened” case stops counting.']},
   {v:'1.78',date:'2026-10-12',title:'Green',items:[
     'Tactical Barbell II’s endurance protocol, in both its forms. <b>Green</b> is easy aerobic work most days, one strength-endurance circuit a week, and a hard session every other week — for rucking, selection prep and long events. The book runs it beside two lifting days, so it sits best with Fighter.',
     '<b>Green · Progressive SE</b> is the no-equipment variation: three circuits and three easy sessions a week, climbing over a three-week block. It does no barbell work at all, which the book is explicit about, so it sets your strength template aside while it is running and hands it back when you switch off.',
