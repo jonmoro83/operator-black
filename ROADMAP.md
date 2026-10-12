@@ -110,6 +110,35 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Programme templates, stage 2: Fighter (2026-10-12)**
+- The first second template, and the first real exercise of the stage-1 model.
+- **The books number the lifting days**, so that is data on the template (`slots`) rather
+  than something `weekShape` infers: Operator is days 1/3/5, Fighter 1/4, Zulu 1/2/4/5.
+  The first attempt derived positions by interleaving and put Fighter's two days one
+  apart, which is worse training than the book's Mon/Thu and wrong besides. Conditioning
+  now fills the free slots greedily, skipping any that would touch one already taken.
+  - This also gets Zulu right for free: its A/B days are *meant* to be back to back,
+    because they work different halves of the cluster. `orderIssues` will still call that
+    a clash — something to fix when Zulu lands.
+- **The wave moved onto the template.** Fighter's is a three-week block run twice with
+  3–4 sets, not Operator's six. `plan.wave` became `plan.waves[template]` (migration 5),
+  so switching across and back does not lose tuned numbers. `cycleWeeks()` derives the
+  cycle length from the wave, which was hardcoded at 6 in two places.
+- **Frozen weeks are stamped with the programme they ran under**, so switching does not
+  redraw October as a thing you never did. The stamp goes on the *hard* freeze only: the
+  week you are in is prescription, not history, and follows a switch the same way it
+  follows a changed wave. A surviving mutant found that inconsistency — the first version
+  stamped the soft freeze too, which would have given the new wave with the old layout.
+- Fighter gets its own accessory jobs (`f1`/`f2`), since two days must cover what three
+  did, and the Setup accessory editor now takes its days from the template instead of a
+  hardcoded mon/wed/fri. As with the three-day split, the lists are the app's and not the
+  book's — TB1 prescribes no accessory work.
+- The crash test used to break the plan with `plan.wave = null`; `waveOf()` now falls back
+  to the template, so that no longer breaks anything. It breaks a wave row instead.
+- 209 → 213 tests. 19 mutants, all caught.
+- **Next:** Zulu (needs the A/B half-cluster, which the lift model has no notion of, and
+  the adjacency rule relaxed for it), then TB II's Green protocol, then TB III.
+
 **Programme templates, stage 1: the model (2026-10-12)**
 - Groundwork for building the rest of TB II's protocols and TB III's templates in. No
   user-visible change: 205 tests passed untouched across the refactor, and a new test

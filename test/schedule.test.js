@@ -60,7 +60,7 @@ test("past weeks are frozen and survive a rule change", () => {
   const x = app({ now: "2026-11-18" });
   const before = x.weekOf("2026-10-19");
   a.equal(x.freezePast(), true);
-  x.plan.deloadEvery = 1; x.plan.wave[2].p = 85; x.bump();
+  x.plan.deloadEvery = 1; x.plan.waves.operator[2].p = 85; x.bump();
   const after = x.weekOf("2026-10-19");
   a.equal(after.kind, before.kind);
   a.equal(after.cycle, before.cycle);

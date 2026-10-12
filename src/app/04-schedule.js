@@ -6,7 +6,7 @@ function* ruleSeq(p,from){
   let c=1,w=1,ruleFirst=false;
   if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
   for(;;c++,w=1){
-    if(!ruleFirst) for(;w<=6;w++) yield {kind:'cycle',cycle:c,w};
+    if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++) yield {kind:'cycle',cycle:c,w};
     ruleFirst=false;
     const t=+p.testEvery>0&&c%+p.testEvery===0, d=+p.deloadEvery>0&&c%+p.deloadEvery===0;
     if(t&&!p.skips['test@'+c]) yield {kind:'test',after:c,rule:'test@'+c};
@@ -25,7 +25,7 @@ function weeks(minIdx){
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
       if(wk.kind==='bb'&&wk.w<8){bbLeft=8-wk.w;bbVer=wk.ver||'standard'}
-      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<6?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
+      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<cycleWeeks()?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
@@ -37,7 +37,7 @@ function weeks(minIdx){
     if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
     if(wk.kind==='bb'&&wk.rx==null){
       const i=(wk.ver==='strength')?wk.w-1:wk.w-6;      // which lifting week of the block
-      if(i>=0) wk.rx=clone(plan.wave[Math.min(i,plan.wave.length-1)]);
+      if(i>=0){const W=waveOf(); wk.rx=clone(W[Math.min(i,W.length-1)])}
     }
     if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
     out.push(wk); m=addDays(m,7);
@@ -48,7 +48,7 @@ function weeks(minIdx){
 }
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
-function wkRx(wk){return wk.rx||(wk.kind==='cycle'?plan.wave[wk.w-1]:plan.deload)}
+function wkRx(wk){return wk.rx||(wk.kind==='cycle'?waveOf()[wk.w-1]:plan.deload)}
 // TB2's Easy Week Principle: every third week the conditioning load comes down, and it is
 // meant to land on the strength wave's 90-95% weeks so the heavy lifting gets the energy.
 // In a six-week wave those are weeks 3 and 6, which is exactly `tier()==='heavy'`.
@@ -69,7 +69,7 @@ function freezePast(){
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
-    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
     fz[wk.monday]=f; changed=true;
     if(changed) planV++;
   }

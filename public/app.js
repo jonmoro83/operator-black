@@ -1,5 +1,131 @@
 (function(){
 "use strict";
+/* ---------------- programme templates ----------------
+Two independent choices, which is how the books actually present it. TB II's sample weeks
+are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
+says how many lifting days you take and what is on each, and the conditioning protocol
+says what sits between them. A week is composed from the two.
+
+The alternative was a hardcoded seven-day array per combination, which is what the code
+did when Operator was the only option. It does not survive contact with a second template:
+the combinations multiply, and hand-maintained grids drift apart from each other.
+
+So a template is data, and `composeWeek` is the only function that knows how a week is
+laid out. Adding Fighter is then a `days:` array, not another branch in dayPlanSlot. */
+
+// A lifting day names its lift set rather than listing lifts, because Lift 3 is chosen
+// per session and can only be resolved against a date.
+const LIFTSET={
+  SBP:date=>['squat','bench',l3For(date)],     // squat, bench, press (whichever Lift 3)
+  SBD:()=>['squat','bench','dead'],
+};
+
+const STEMPL={
+  operator:{
+    name:'Operator', book:'TB1', slots:[0,2,4],   // the book's days 1, 3, 5
+    blurb:'Three full-body days a week, the same cluster every session, never near failure. The default, and what Black is built around.',
+    days:[
+      {lifts:'SBP',acc:'mon',short:'Op 1',label:'Operator 1'},
+      {lifts:'SBP',acc:'wed',short:'Op 2',label:'Operator 2'},
+      {lifts:'SBD',acc:'fri',short:'Op 3',label:'Operator 3'},
+    ],
+    // TB1's Operator table, row for row.
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+  },
+  fighter:{
+    name:'Fighter', book:'TB1', slots:[0,3],       // the book's days 1 and 4
+    blurb:'The two-day template. Same idea as Operator on half the lifting days, for when something else — skills, running, shift work — is taking the time.',
+    days:[
+      {lifts:'SBP',acc:'f1',short:'Ftr 1',label:'Fighter 1'},
+      {lifts:'SBD',acc:'f2',short:'Ftr 2',label:'Fighter 2'},
+    ],
+    // TB1's Fighter table: a three-week block run twice, and 3-4 sets rather than 3.
+    // `sMax` is the app's existing "up to" ceiling, which is exactly what 3-4 means.
+    wave:[{s:3,sMax:4,r:5,p:75},{s:3,sMax:4,r:5,p:80},{s:3,sMax:4,r:3,p:90},
+          {s:3,sMax:4,r:5,p:75},{s:3,sMax:4,r:5,p:80},{s:3,sMax:4,r:3,p:90}],
+  },
+};
+
+const CPROTO={
+  black:{
+    name:'Black', book:'TB2', blurb:'The standard continuation protocol. Strength and high-intensity conditioning weighted equally, with endurance kept ticking over.',
+    // Three hard sessions. The last alternates so both aerobic-power qualities stay in
+    // rotation, which is what this week has always done.
+    sessions:wk=>[
+      {t:'hic',fmt:'map'},
+      {t:'hic',fmt:'anaerobic'},
+      {t:'hic',fmt:wk.w%2?'threshold':'long',note:'Swap to LISS if the week has been heavy.'},
+    ],
+  },
+};
+
+function stemplOf(){ return STEMPL[plan.stempl]||STEMPL.operator }
+function stemplKey(){ return STEMPL[plan.stempl]?plan.stempl:'operator' }
+function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }
+function cprotoKey(){ return CPROTO[plan.cproto]?plan.cproto:'black' }
+// The wave belongs to the template: Fighter's is a three-week block run twice, not
+// Operator's six. Yours, once you have edited it, lives under plan.waves by template,
+// so switching templates does not carry one programme's numbers into another.
+function waveOf(tpl){
+  const k=tpl&&STEMPL[tpl]?tpl:stemplKey();
+  const w=(plan.waves||{})[k];
+  return Array.isArray(w)&&w.length?w:STEMPL[k].wave;
+}
+// How long a cycle runs. Derived, so a template with a three- or nine-week wave works.
+function cycleWeeks(){ return Math.max(1,waveOf().length) }
+
+/* Lay out a week: the lifting days where the template's table puts them, then the
+   conditioning sessions spread through what is left.
+
+   The books number the lifting days — Operator trains on days 1, 3 and 5, Fighter on 1
+   and 4 — so that is data on the template rather than something to infer. Two days of
+   the same kind must not touch (see ADJACENT_BAN), so conditioning takes free slots
+   greedily, skipping any that would sit next to one already taken, and falling back to
+   filling in order when there are more sessions than the week can keep apart.
+
+   Operator and Black come out as S C S C S C R, the week this app has always drawn. */
+function weekShape(slots,nC){
+  const out=new Array(7).fill('R');
+  const S=(Array.isArray(slots)?slots:[]).filter(v=>v>=0&&v<7);
+  for(const i of S) out[i]='S';
+  const free=[]; for(let i=0;i<7;i++) if(out[i]==='R') free.push(i);
+  const take=[];
+  for(const i of free){
+    if(take.length>=nC) break;
+    if(take.length&&i-take[take.length-1]===1) continue;   // would touch the last one
+    take.push(i);
+  }
+  for(const i of free){ if(take.length>=nC) break; if(!take.includes(i)) take.push(i) }
+  for(const i of take) out[i]='C';
+  return out;
+}
+
+// One slot of a composed week. `wk` carries the week number, `date` resolves Lift 3.
+function composeSlot(date,wk,d){
+  // A week frozen in the past carries the template it was trained under, so changing
+  // programme now does not rewrite what you already did into something else.
+  const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
+  const sd=T.days, cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[];
+  const shape=weekShape(T.slots||sd.map((_,i)=>i*2),cs.length);
+  let si=0, ci=0;
+  for(let i=0;i<7;i++){
+    const role=shape[i];
+    if(i===d){
+      if(role==='S'){
+        const x=sd[si];
+        return {t:'lift',day:si+1,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(date),acc:x.acc,short:x.short};
+      }
+      if(role==='C'){
+        const x=cs[ci];
+        return Object.assign({short:'HIC'},x,{t:x.t||'hic'});
+      }
+      return {t:'off',short:'Off'};
+    }
+    if(role==='S') si++; else if(role==='C') ci++;
+  }
+  return {t:'off',short:'Off'};
+}
+
 /* ---------------- constants ---------------- */
 // Every lift the app knows. Lift 3 is one of L3K per session (see l3For).
 const LK=['squat','bench','pull','ohp','wpu','dead'];
@@ -368,7 +494,7 @@ const DEF={
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
-  wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+  waves:Object.fromEntries(Object.entries(STEMPL).map(([k,v])=>[k,v.wave.map(x=>Object.assign({},x))])),
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
@@ -441,7 +567,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=4;
+const SCHEMA=5;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -497,6 +623,14 @@ const MIGRATIONS=[
     // Anything set that low was almost certainly the old default rather than a choice.
     const w=p.warmRest;
     if(w&&typeof w==='object') for(const [k,v] of Object.entries(w)) if(+v<60) w[k]=90;
+  }},
+  {to:5,note:'The wave moves under the template that owns it',run(d,p){
+    // plan.wave was global because Operator was the only template. Fighter's wave is a
+    // different shape, so an edited wave belongs to the programme it was edited for.
+    if(Array.isArray(p.wave)&&p.wave.length){
+      p.waves=Object.assign({},p.waves,{[STEMPL[p.stempl]?p.stempl:'operator']:p.wave});
+    }
+    delete p.wave;
   }},
 ];
 
@@ -798,7 +932,11 @@ const ALIB={
 // Shoulders sit on OP1, away from whichever day the overhead press lands on, and the
 // row moves to OP2 to balance it. Rear delts stay with the shoulders: that slot is
 // shoulder health, not back volume.
-const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','biceps','triceps','carry'] };
+const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','biceps','triceps','carry'],
+  // Fighter lifts twice a week, so the same jobs have to fit across two days instead of
+  // three. Like the three-day split, this is the app's arrangement and not the book's:
+  // TB1 prescribes no accessory work, it only says Fighter leaves less room for it.
+  f1:['spress','hpull','core','biceps','triceps'], f2:['sleg','pchain','pullup','delts','carry'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
@@ -874,100 +1012,6 @@ function accDone(date,slot){
   return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
-
-/* ---------------- programme templates ----------------
-Two independent choices, which is how the books actually present it. TB II's sample weeks
-are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
-says how many lifting days you take and what is on each, and the conditioning protocol
-says what sits between them. A week is composed from the two.
-
-The alternative was a hardcoded seven-day array per combination, which is what the code
-did when Operator was the only option. It does not survive contact with a second template:
-the combinations multiply, and hand-maintained grids drift apart from each other.
-
-So a template is data, and `composeWeek` is the only function that knows how a week is
-laid out. Adding Fighter is then a `days:` array, not another branch in dayPlanSlot. */
-
-// A lifting day names its lift set rather than listing lifts, because Lift 3 is chosen
-// per session and can only be resolved against a date.
-const LIFTSET={
-  SBP:date=>['squat','bench',l3For(date)],     // squat, bench, press (whichever Lift 3)
-  SBD:()=>['squat','bench','dead'],
-};
-
-const STEMPL={
-  operator:{
-    name:'Operator', book:'TB1', blurb:'Three full-body days a week, the same three lifts, never near failure. The default, and what Black is built around.',
-    days:[
-      {lifts:'SBP',acc:'mon',short:'Op 1'},
-      {lifts:'SBP',acc:'wed',short:'Op 2'},
-      {lifts:'SBD',acc:'fri',short:'Op 3'},
-    ],
-  },
-};
-
-const CPROTO={
-  black:{
-    name:'Black', book:'TB2', blurb:'The standard continuation protocol. Strength and high-intensity conditioning weighted equally, with endurance kept ticking over.',
-    // Three hard sessions. The last alternates so both aerobic-power qualities stay in
-    // rotation, which is what this week has always done.
-    sessions:wk=>[
-      {t:'hic',fmt:'map'},
-      {t:'hic',fmt:'anaerobic'},
-      {t:'hic',fmt:wk.w%2?'threshold':'long',note:'Swap to LISS if the week has been heavy.'},
-    ],
-  },
-};
-
-function stemplOf(){ return STEMPL[plan.stempl]||STEMPL.operator }
-function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }
-
-/* Lay out a week of nS strength days and nC conditioning days across seven.
-
-   Two days of the same kind must not touch (see ADJACENT_BAN), so the two sets interleave,
-   starting with whichever there are more of. Whatever is left over is rest. For Operator
-   and Black that is three and three, giving S C S C S C R — the week this app has always
-   drawn, now derived rather than typed out. */
-function weekShape(nS,nC){
-  const out=[]; let s=nS, c=nC, r=Math.max(0,7-nS-nC), last=null;
-  while(out.length<7&&(s>0||c>0)){
-    const canS=s>0&&last!=='S', canC=c>0&&last!=='C';
-    let pick;
-    if(canS&&canC) pick=s>=c?'S':'C';            // alternate, leading with the bigger pile
-    else if(canS) pick='S';
-    else if(canC) pick='C';
-    else if(r>0){ out.push('R'); r--; last='R'; continue }   // spend a rest as a spacer
-    else pick=s>0?'S':'C';   // nothing left to separate them with; orderIssues will say so
-    out.push(pick); last=pick;
-    if(pick==='S') s--; else c--;
-  }
-  while(out.length<7) out.push('R');
-  return out;
-}
-
-// One slot of a composed week. `wk` carries the week number, `date` resolves Lift 3.
-function composeSlot(date,wk,d){
-  const T=stemplOf(), P=cprotoOf();
-  const sd=T.days, cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[];
-  const shape=weekShape(sd.length,cs.length);
-  let si=0, ci=0;
-  for(let i=0;i<7;i++){
-    const role=shape[i];
-    if(i===d){
-      if(role==='S'){
-        const x=sd[si];
-        return {t:'lift',day:si+1,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(date),acc:x.acc,short:x.short};
-      }
-      if(role==='C'){
-        const x=cs[ci];
-        return Object.assign({short:'HIC'},x,{t:x.t||'hic'});
-      }
-      return {t:'off',short:'Off'};
-    }
-    if(role==='S') si++; else if(role==='C') ci++;
-  }
-  return {t:'off',short:'Off'};
-}
 
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
@@ -1098,7 +1142,7 @@ function* ruleSeq(p,from){
   let c=1,w=1,ruleFirst=false;
   if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
   for(;;c++,w=1){
-    if(!ruleFirst) for(;w<=6;w++) yield {kind:'cycle',cycle:c,w};
+    if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++) yield {kind:'cycle',cycle:c,w};
     ruleFirst=false;
     const t=+p.testEvery>0&&c%+p.testEvery===0, d=+p.deloadEvery>0&&c%+p.deloadEvery===0;
     if(t&&!p.skips['test@'+c]) yield {kind:'test',after:c,rule:'test@'+c};
@@ -1117,7 +1161,7 @@ function weeks(minIdx){
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
       if(wk.kind==='bb'&&wk.w<8){bbLeft=8-wk.w;bbVer=wk.ver||'standard'}
-      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<6?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
+      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<cycleWeeks()?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
@@ -1129,7 +1173,7 @@ function weeks(minIdx){
     if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
     if(wk.kind==='bb'&&wk.rx==null){
       const i=(wk.ver==='strength')?wk.w-1:wk.w-6;      // which lifting week of the block
-      if(i>=0) wk.rx=clone(plan.wave[Math.min(i,plan.wave.length-1)]);
+      if(i>=0){const W=waveOf(); wk.rx=clone(W[Math.min(i,W.length-1)])}
     }
     if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
     out.push(wk); m=addDays(m,7);
@@ -1140,7 +1184,7 @@ function weeks(minIdx){
 }
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
-function wkRx(wk){return wk.rx||(wk.kind==='cycle'?plan.wave[wk.w-1]:plan.deload)}
+function wkRx(wk){return wk.rx||(wk.kind==='cycle'?waveOf()[wk.w-1]:plan.deload)}
 // TB2's Easy Week Principle: every third week the conditioning load comes down, and it is
 // meant to land on the strength wave's 90-95% weeks so the heavy lifting gets the energy.
 // In a six-week wave those are weeks 3 and 6, which is exactly `tier()==='heavy'`.
@@ -1161,7 +1205,7 @@ function freezePast(){
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
-    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
     fz[wk.monday]=f; changed=true;
     if(changed) planV++;
   }
@@ -4402,7 +4446,7 @@ function vStatus(){
   h+=`<div class="card"><div class="lift-h"><h2>${wt.t}</h2><span class="chip ${wt.cls}">${wt.chip}</span></div>`;
   if(wk.kind==='cycle'){
     const first=ci0-(wk.w-1);
-    h+=`<div class="cyc" aria-label="Cycle ${wk.cycle} progress">${plan.wave.map((v,i)=>{const cls=tier(+v.p);return `<div class="chip ${cls}${i<wk.w-1?' past':''}${i===wk.w-1?' now':''}" style="border-radius:6px">W${i+1}<small>${v.s}×${v.r} ${v.p}%</small></div>`}).join('')}</div>`;
+    h+=`<div class="cyc" aria-label="Cycle ${wk.cycle} progress">${waveOf().map((v,i)=>{const cls=tier(+v.p);return `<div class="chip ${cls}${i<wk.w-1?' past':''}${i===wk.w-1?' now':''}" style="border-radius:6px">W${i+1}<small>${v.s}×${v.r} ${v.p}%</small></div>`}).join('')}</div>`;
     h+=`<div class="small muted">Day ${dow(t)+1} of week ${wk.w}. Cycle ${wk.cycle} ends ${fmtD(addDays(list[first+5].monday,4),true)}.</div>`;
   }
   const nextOf=kind=>{for(let i=ci0+1;i<list.length;i++){if(kind==='cycle'?(list[i].kind==='cycle'&&list[i].w===1):list[i].kind===kind)return list[i]}return null};
@@ -4575,7 +4619,7 @@ async function exportCsv(which){
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','wave','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','stempl','cproto'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -4616,7 +4660,7 @@ function syncCard(){
 let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
 function accSetupCard(){
   const cyc=accCycleOf(todayStr()), all=accAll();
-  const days=[['mon','Operator 1 \u00b7 Monday'],['wed','Operator 2 \u00b7 Wednesday'],['fri','Operator 3 \u00b7 Friday']];
+  const days=stemplOf().days.map(d=>[d.acc,d.label||d.short]);
   const later=accLater||cyc==null;              // with no cycle running there is only "later"
   let h=`<div class="card"><h2>Accessories</h2>
   <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
@@ -4818,6 +4862,23 @@ function vHistory(){
 }
 
 function pIn(path,val,attrs){return `<input type="number" inputmode="decimal" step="any" id="p-${path.replace(/\./g,'-')}" data-pbind="${path}" data-type="num" value="${val??''}" ${attrs||''}>`+oddNote(path,val)}
+// Which programme you are running. Two choices, composed into a week — see 00b-templates.js.
+function templateCard(){
+  const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
+  const days=T.days.length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
+  let h=`<div class="card"><div class="lift-h"><h2>Programme</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
+  <p class="small muted" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two of a kind land together.</p>`;
+  if(keys.length>1){
+    h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${STEMPL[k].days.length} day${STEMPL[k].days.length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
+    <div class="small muted">${esc(T.blurb)}</div>`;
+  }
+  if(pkeys.length>1){
+    h+=`<label class="f">Conditioning protocol<select id="p-cproto" data-pbind="cproto">${pkeys.map(k=>`<option value="${k}"${k===cprotoKey()?' selected':''}>${esc(CPROTO[k].name)} · ${esc(CPROTO[k].book)}</option>`).join('')}</select></label>
+    <div class="small muted">${esc(P.blurb)}</div>`;
+  }
+  h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the programme they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
+  return h+`</div>`;
+}
 function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
   <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
@@ -4832,6 +4893,7 @@ function vSetup(){
     <label class="check"><input type="checkbox" id="p-gym" data-act="gym" ${gymOn()?'checked':''}> <span>Gym mode: bigger buttons and stronger contrast for sweaty hands</span></label></div>`;
   }
   h+=programsCard();
+  h+=templateCard();
   h+=`<div class="card"><h2>Program</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
   <div class="grid4"><label class="f">Units<select id="p-unit" data-pbind="unit"><option value="lb"${u()==='lb'?' selected':''}>lb</option><option value="kg"${u()==='kg'?' selected':''}>kg</option></select></label><label class="f">Bar weight${pIn('bar',plan.bar)}</label><label class="f">Bodyweight${pIn('bodyweight',plan.bodyweight)}</label><label class="f">Percent of<select id="p-basis" data-pbind="basis"><option value="1rm"${plan.basis!=='tm'?' selected':''}>True 1RM</option><option value="tm"${plan.basis==='tm'?' selected':''}>Training max</option></select></label></div>
@@ -4936,7 +4998,7 @@ function vSetup(){
   <div class="small muted">The formulas: Mifflin-St Jeor for the predicted burn, the US Navy circumference method for body fat. Both are estimates — once you have logged calories and weigh-ins for a few weeks, Status uses your own numbers instead.</div></div>
   <div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
   h+=`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
-  <p class="small muted" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${(Array.isArray(plan.wave)?plan.wave:[]).map((v,i)=>`<tr><td><b>${i+1}</b></td><td class="n">${pIn('wave.'+i+'.s',v.s)}</td><td class="n">${pIn('wave.'+i+'.sMax',v.sMax,'placeholder="'+v.s+'"')}</td><td class="n">${pIn('wave.'+i+'.r',v.r)}</td><td class="n">${pIn('wave.'+i+'.p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`).join('')}</tbody></table></div></div>`;
+  <p class="small muted" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${waveOf().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
   {
     const byBook=(+plan.testEvery||0)===2&&(+plan.deloadEvery||0)===0;
     h+=`<div class="card"><h2>Cycles, deloads and retests</h2>

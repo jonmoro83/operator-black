@@ -366,7 +366,7 @@ const DEF={
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
-  wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+  waves:Object.fromEntries(Object.entries(STEMPL).map(([k,v])=>[k,v.wave.map(x=>Object.assign({},x))])),
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
@@ -439,7 +439,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=4;
+const SCHEMA=5;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -495,6 +495,14 @@ const MIGRATIONS=[
     // Anything set that low was almost certainly the old default rather than a choice.
     const w=p.warmRest;
     if(w&&typeof w==='object') for(const [k,v] of Object.entries(w)) if(+v<60) w[k]=90;
+  }},
+  {to:5,note:'The wave moves under the template that owns it',run(d,p){
+    // plan.wave was global because Operator was the only template. Fighter's wave is a
+    // different shape, so an edited wave belongs to the programme it was edited for.
+    if(Array.isArray(p.wave)&&p.wave.length){
+      p.waves=Object.assign({},p.waves,{[STEMPL[p.stempl]?p.stempl:'operator']:p.wave});
+    }
+    delete p.wave;
   }},
 ];
 

@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.76',date:'2026-10-12',title:'Fighter, and a programme you choose',items:[
+    'Setup → Programme now lets you pick your strength template and your conditioning protocol separately, which is how the books put it — Tactical Barbell II’s sample weeks are headed “Black + Zulu”, “Black + Operator”, “Black + Fighter”. The week gets built from the two.',
+    'First new one is <b>Fighter</b>: TB1’s two-day template, on days 1 and 4 where the book puts them, with its own wave (3–4 sets, a three-week block run twice) and its own accessory jobs, since two days have to cover what three did.',
+    'Each template keeps its own wave, so you can switch across and back without losing numbers you have tuned.',
+    'Weeks you have already trained keep the programme they were done under. Switching now changes this week and the ones ahead, and leaves your history as what you actually did.',
+    'More templates and the Green protocol are next. Nothing changes unless you go and change it — Operator and Black are still the default.']},
   {v:'1.75',date:'2026-10-09',title:'Nudge the ramp, and a beep you can test',items:[
     'Warm-up sets now have − and + beside them in session mode, stepping by that lift’s rounding increment. The bar does not come in every weight a percentage asks for, and what you set is written to that warm-up row, so the plates and the “Next” line follow it.',
     'Third go at the rest beep, and this time with the actual causes. On iPhone the ringer switch silences the kind of sound the app was making, so the beep now also plays as a media clip, which that switch does not touch, and the app asks for the audio mode that is meant to be heard.',

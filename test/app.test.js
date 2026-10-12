@@ -1419,7 +1419,7 @@ test("a wave week can carry an optional set ceiling, which is Operator I/A's vol
   a.equal((dcard.match(/class="setb opt"/g) || []).length, 2, "sets two and three are optional");
 
   // Now ask for I/A on week 1: three prescribed, up to ten, the lifter's call on the day.
-  x.plan.wave[0].sMax = 10; x.bump();
+  x.plan.waves.operator[0].sMax = 10; x.bump();
   const r = x.rx(w1, "squat", mon);
   a.deepEqual([r.s, r.sMax], [3, 10]);
   card = x.liftCard(w1, "squat", dp);
@@ -1435,14 +1435,14 @@ test("a wave week can carry an optional set ceiling, which is Operator I/A's vol
   a.deepEqual(work.map((s) => !!s.opt), [false, false, false, true, true, true, true, true, true, true]);
 
   // A ceiling at or below the prescription is meaningless, so it is ignored.
-  x.plan.wave[0].sMax = 2; x.bump();
+  x.plan.waves.operator[0].sMax = 2; x.bump();
   a.equal(x.rx(w1, "squat", mon).sMax, 3, "never fewer than the wave asks for");
-  x.plan.wave[0].sMax = null; x.bump();
+  x.plan.waves.operator[0].sMax = null; x.bump();
   a.equal(x.rx(w1, "squat", mon).sMax, 3, "and clearing it goes back to a plain three");
 
   // Setup exposes it per week, blank by default.
   const setup = x.vSetup();
-  a.match(setup, /data-pbind="wave\.0\.sMax"/, "an input on the wave table");
+  a.match(setup, /data-pbind="waves\.operator\.0\.sMax"/, "an input on the wave table");
   a.match(setup, /Operator I\/A/, "named, so the field is not a mystery");
 });
 
@@ -1463,7 +1463,7 @@ test("a set can be added on the day itself, without going near Setup", () => {
   // Add one. It lands in the day's log, not the plan.
   a.equal(x.addSet("squat", 1, mon), true);
   a.equal(((x.logs[mon].lifts || {}).squat || {}).extra, 1, "stored on the day");
-  a.equal(x.plan.wave[0].sMax, undefined, "the program itself is untouched");
+  a.equal(x.plan.waves.operator[0].sMax, undefined, "the program itself is untouched");
   a.deepEqual([x.rx(w1, "squat", mon).s, x.rx(w1, "squat", mon).sMax], [3, 4]);
   card = x.liftCard(w1, "squat", dp);
   a.equal((card.match(/data-act="set"/g) || []).length, 4, "a fourth button");
@@ -1956,8 +1956,11 @@ test("a thrown view leaves a banner you can act on, not a blank screen", () => {
   a.ok(main.innerHTML.length > 100, "a normal render fills the page");
   a.equal(x.crashList().length, 0, "and records nothing");
 
-  // Break the view the way a real bug would: the wave is read on every lifting day.
-  x.plan.wave = null; x.bump();
+  // Break the view the way a real bug would: the rounding table is read for every
+  // working weight, and there is no sensible fallback for it.
+  const round = x.plan.round;
+  Object.defineProperty(x.plan, "round", { get() { throw new Error("no round") }, configurable: true });
+  x.bump();
   a.doesNotThrow(() => x.render(), "render swallows it rather than dying halfway");
 
   a.match(main.innerHTML, /Something went wrong/, "the page says so");
@@ -1972,7 +1975,8 @@ test("a thrown view leaves a banner you can act on, not a blank screen", () => {
   a.ok(errs[0].at.startsWith("20"), "stamped with when");
 
   // It recovers: fix the cause and the next render is normal again.
-  x.plan.wave = x.DEF.wave.map((w) => ({ ...w })); x.bump();
+  Object.defineProperty(x.plan, "round", { value: round, writable: true, configurable: true });
+  x.bump();
   x.render();
   a.ok(!/Something went wrong/.test(main.innerHTML), "back to normal once the cause is gone");
 });
@@ -2005,7 +2009,7 @@ test("the last few errors are kept, shown in Setup, and can be copied or cleared
 test("a crash in one view does not take the rest of the app with it", () => {
   const x = app({ now: "2026-10-07" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
-  x.plan.wave = null; x.bump();
+  x.plan.waves.operator = [null]; x.bump();
   x.render();
   a.equal(x.crashList().length, 1);
 
@@ -2824,7 +2828,7 @@ test("the week you are in cannot be turned into a different kind of week", () =>
   a.equal(now.w, was.w);
 
   // The numbers are not frozen: Setup promises the wave applies from this week on.
-  x.plan.wave[was.w - 1].p = 62; x.bump();
+  x.plan.waves.operator[was.w - 1].p = 62; x.bump();
   a.equal(x.rx(x.weekOf(mon), "squat").p, 62, "the edited wave reaches the week you are in");
 
   // And Setup says which is which rather than promising the old behaviour.
@@ -3383,36 +3387,39 @@ test("the composed Operator week is exactly the week that used to be hardcoded",
   }
 });
 
-test("a week is laid out so two days of the same kind never touch", () => {
+test("a week puts the lifting days where the book puts them, then fills around them", () => {
   const x = app({ now: "2026-10-19" });
 
-  // Operator and Black: three and three, which is the alternating week.
-  a.deepEqual(x.weekShape(3, 3), ["S", "C", "S", "C", "S", "C", "R"]);
+  // Operator trains on days 1, 3 and 5, which with Black's three sessions alternates.
+  a.deepEqual(x.weekShape([0, 2, 4], 3), ["S", "C", "S", "C", "S", "C", "R"]);
 
-  // Fighter's two days against Black's three: conditioning leads, nothing doubles up.
-  a.deepEqual(x.weekShape(2, 3), ["C", "S", "C", "S", "C", "R", "R"]);
+  // Fighter is days 1 and 4. Three conditioning sessions still fit without touching.
+  a.deepEqual(x.weekShape([0, 3], 3), ["S", "C", "R", "S", "C", "R", "C"]);
 
-  // Four strength days (Zulu) against two conditioning: the spare rest day is spent as a
-  // spacer rather than parked at the end, so the two strength days never end up adjacent.
-  a.deepEqual(x.weekShape(4, 2), ["S", "C", "S", "C", "S", "R", "S"]);
+  // Zulu's days 1, 2, 4 and 5 are deliberately paired — A and B work different lifts —
+  // so the layout honours the template rather than prising them apart.
+  a.deepEqual(x.weekShape([0, 1, 3, 4], 2), ["S", "S", "C", "S", "S", "C", "R"]);
 
-  // Nothing can separate seven strength days, and it says so by doing the obvious thing.
-  a.deepEqual(x.weekShape(7, 0), ["S", "S", "S", "S", "S", "S", "S"]);
+  // A template naming a day outside the week is ignored rather than losing the week.
+  a.deepEqual(x.weekShape([0, 9, -1, 3], 1), ["S", "C", "R", "S", "R", "R", "R"]);
 
-  // Whatever the counts, it is always seven days and never loses a session.
-  for (let s = 0; s <= 5; s++) for (let c = 0; c <= 5; c++) {
-    if (s + c > 7) continue;
-    const sh = x.weekShape(s, c);
-    a.equal(sh.length, 7, `${s}+${c} is a week`);
-    a.equal(sh.filter((v) => v === "S").length, s, `${s}+${c} keeps every strength day`);
-    a.equal(sh.filter((v) => v === "C").length, c, `${s}+${c} keeps every conditioning day`);
-    // Separating n days of one kind takes n-1 others. Where that is possible at all,
-    // the layout has to manage it — five conditioning days and two rests cannot be,
-    // and the shape is allowed to double up there.
-    const canSplit = Math.max(s, c) <= Math.min(s, c) + (7 - s - c) + 1;
-    if (canSplit) for (let i = 1; i < 7; i++) {
-      if (sh[i] === "R") continue;
-      a.notEqual(sh[i], sh[i - 1], `${s}+${c}: ${sh.join("")} doubles up when it need not`);
+  // More sessions than the week can keep apart: it fills rather than dropping any.
+  a.deepEqual(x.weekShape([0, 2, 4], 4), ["S", "C", "S", "C", "S", "C", "C"]);
+
+  // Whatever the counts, it is seven days and never loses a session.
+  for (const slots of [[], [0], [0, 3], [0, 2, 4], [0, 1, 3, 4], [0, 2, 4, 6]]) {
+    for (let c = 0; c <= 4; c++) {
+      const sh = x.weekShape(slots, c);
+      a.equal(sh.length, 7, `${slots}+${c} is a week`);
+      a.equal(sh.filter((v) => v === "S").length, slots.length, `${slots}+${c} keeps the lifting days`);
+      a.equal(sh.filter((v) => v === "C").length, Math.min(c, 7 - slots.length),
+        `${slots}+${c} keeps every conditioning session it has room for`);
+      for (const i of slots) a.equal(sh[i], "S", `${slots}+${c}: day ${i} is where the template says`);
+      // Conditioning days are only put next to each other when there is no other slot.
+      const free = 7 - slots.length;
+      if (c * 2 - 1 <= free) for (let i = 1; i < 7; i++) {
+        if (sh[i] === "C") a.notEqual(sh[i - 1], "C", `${slots}+${c}: ${sh.join("")} doubles up needlessly`);
+      }
     }
   }
 
@@ -3465,4 +3472,100 @@ test("a protocol can name its own sessions, which is what E and SE days need", (
   a.deepEqual(days.map((p) => p.t), ["lift", "hic", "lift", "hic", "lift", "se", "off"]);
 
   delete x.CPROTO.scratch;
+});
+
+test("Fighter is two lifting days on the book's days, with its own wave", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "fighter"; x.bump();
+  const mon = "2026-10-19";
+  const week = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d));
+
+  a.deepEqual(week.map((p) => p.t), ["lift", "hic", "off", "lift", "hic", "off", "hic"],
+    "days 1 and 4 lift, as TB1's Fighter table has it");
+  a.deepEqual(week.filter((p) => p.t === "lift").map((p) => p.short), ["Ftr 1", "Ftr 2"]);
+  a.deepEqual(week[0].lifts, ["squat", "bench", x.l3For(mon)], "first day is the press cluster");
+  a.deepEqual(week[3].lifts, ["squat", "bench", "dead"], "second is the deadlift one");
+
+  // Its own accessory jobs, because two days have to cover what three did.
+  a.equal(week[0].acc, "f1");
+  a.equal(week[3].acc, "f2");
+  const jobs = [...x.accSlots("f1"), ...x.accSlots("f2")];
+  for (const k of ["pullup", "carry", "core", "biceps", "triceps"]) {
+    a.ok(jobs.includes(k), `${k} still has a day to live on`);
+  }
+
+  // Fighter's wave: 3-4 sets, a three-week block run twice.
+  const pct = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1).map((w) => x.wkRx(w).p);
+  a.deepEqual(pct, [75, 80, 90, 75, 80, 90], "two three-week blocks, not Operator's six");
+  const w1 = x.weeks().find((w) => w.kind === "cycle" && w.w === 1);
+  a.equal(x.rx(w1, "squat", mon).s, 3);
+  a.equal(x.rx(w1, "squat", mon).sMax, 4, "the book's 3-4 sets is the existing ceiling");
+
+  // Switching back leaves Operator exactly as it was.
+  x.plan.stempl = "operator"; x.bump();
+  a.deepEqual(x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1).map((w) => x.wkRx(w).p),
+    [70, 80, 90, 75, 85, 95]);
+  a.equal(x.dayPlanSlot(mon, 0).short, "Op 1");
+});
+
+test("each template keeps its own wave, and editing one leaves the other alone", () => {
+  const x = app({ now: "2026-10-19" });
+  a.deepEqual(x.waveOf().map((w) => w.p), [70, 80, 90, 75, 85, 95], "Operator's");
+  a.deepEqual(x.waveOf("fighter").map((w) => w.p), [75, 80, 90, 75, 80, 90], "Fighter's");
+
+  x.plan.waves.operator[0].p = 65; x.bump();
+  a.equal(x.waveOf()[0].p, 65, "an edit sticks");
+  a.equal(x.waveOf("fighter")[0].p, 75, "and does not reach the other template");
+
+  // An unknown template reads the default rather than an empty wave.
+  a.deepEqual(x.waveOf("nope").map((w) => w.p), [65, 80, 90, 75, 85, 95]);
+});
+
+test("a week already trained keeps the programme it was trained under", () => {
+  const x = app({ now: "2026-11-16" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  x.freezePast();
+  const past = "2026-10-19";
+  a.ok(x.plan.frozen[past], "the week is frozen");
+  a.equal(x.plan.frozen[past].tpl, "operator", "stamped with the template it ran under");
+
+  const before = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(past, d), d).short);
+  a.deepEqual(before, ["Op 1", "HIC", "Op 2", "HIC", "Op 3", "HIC", "Off"]);
+
+  // Switch programme now. History must not be rewritten into something never done.
+  x.plan.stempl = "fighter"; x.bump();
+  const after = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(past, d), d).short);
+  a.deepEqual(after, before, "October is still the Operator week it was");
+
+  // The week you are in is not history yet: a programme switch reaches it, the same way
+  // a changed wave or a changed max does. Only weeks fully past are stamped and kept.
+  a.equal(x.plan.frozen["2026-11-16"].soft, true, "the current week is held loosely");
+  a.equal(x.plan.frozen["2026-11-16"].tpl, undefined, "and is not stamped with a programme");
+  a.equal(x.dayPlanSlot("2026-11-16", 0).short, "Ftr 1", "so it follows the switch");
+
+  // The weeks ahead are the new programme.
+  const soon = x.weeks().find((w) => w.kind === "cycle" && w.monday > "2026-11-16");
+  a.ok(soon, "there is a cycle week still to come");
+  a.equal(x.plan.frozen[soon.monday], undefined, "not frozen, so it follows the plan");
+  a.equal(x.dayPlanSlot(soon.monday, 0).short, "Ftr 1", "and from here on it is Fighter");
+});
+
+test("an edited wave moves under the template it was edited for", () => {
+  const x = app({ now: "2026-10-19" });
+  // The 1.75 shape: one global wave, no templates.
+  delete x.plan.waves;
+  x.plan.wave = [{ s: 5, r: 5, p: 70 }, { s: 5, r: 5, p: 80 }, { s: 5, r: 3, p: 90 }];
+  x.plan.schema = 4; x.outbox = {}; x.bump();
+
+  a.equal(x.migrate(), true);
+  a.equal(x.plan.schema, x.SCHEMA);
+  a.equal(x.plan.wave, undefined, "the global wave is gone");
+  a.deepEqual(x.plan.waves.operator.map((w) => w.s), [5, 5, 5], "and is Operator's now");
+  a.equal(x.waveOf()[0].s, 5, "which is what the app reads");
+  a.deepEqual(x.waveOf("fighter").map((w) => w.p), [75, 80, 90, 75, 80, 90], "Fighter is untouched");
+  a.ok("plan/main" in x.outbox, "and it is saved");
+
+  // A three-week wave means three-week cycles, derived rather than hardcoded at six.
+  a.equal(x.cycleWeeks(), 3);
+  a.deepEqual(x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1).map((w) => w.w), [1, 2, 3]);
 });
