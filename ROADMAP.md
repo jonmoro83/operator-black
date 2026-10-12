@@ -110,6 +110,34 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Programme templates, stage 4: per-day prescriptions, and Fighter HT (2026-10-12)**
+- First TB III template, and the enabling change it needed.
+- **`dayRx(wk,k,date)`.** Operator, Fighter and Zulu run one prescription a week, which
+  is what the wave is. TB III's tables are per day and sometimes per lift: Fighter HT's
+  deadlift day diverges from week 2, and Specificity alternates max-strength days against
+  hypertrophy days inside one week. A template may now define `rx(wk,day,k)`; the wave
+  answers when it declines. All 224 existing tests passed untouched across the change.
+- **History stays reproducible without storing a prescription per day**: a frozen week
+  already pins the wave entry and the template, and a template's table is a pure function
+  of the week number. A mutant proved the `wk.tpl` lookup matters — without it a frozen
+  Fighter HT week starts reading Operator's numbers.
+- **`own`** marks a template-set prescription so the generic "deadlift is one to three
+  sets" rule leaves it alone. On Fighter HT the deadlift day *is* five sets of eight.
+- **AMRAP** as a flag on the prescription rather than a day type, with the card saying
+  what to do. Week 3 takes the last set of the day's named lift as far as it goes.
+- Only a composed week can reach a template's table, because `day` is set by
+  `composeSlot` alone — so deload, retest and Base Building keep their own numbers
+  without being named. The first version also tested `wk.kind==='cycle'`, which was both
+  redundant and wrong in principle; removed rather than tested.
+- Reading the book properly first paid again: the MP text extractor was dropping the
+  space glyph, and fixing it gave every table's caption, which is how each one was
+  matched to its template instead of guessed from its shape.
+- 224 → 228 tests. 11 mutants, all caught.
+- **Still to come from TB III:** Mass, Grey Man, Gladiator, Specificity Alpha/Bravo. Those
+  need a second exercise cluster (main + supplementary, or MS + H), which is the next
+  model gap — Zulu's halves were a step toward it. Also its own Bridge Week, its Base
+  Building variant, and its named conditioning sessions.
+
 **A soft-frozen week never got its stamp (2026-10-12)**
 - Spotted while reading the affected account's `frozen` during the sync bug above.
 - The current week is frozen `soft`: identity only, so a changed wave or max still

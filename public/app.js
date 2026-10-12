@@ -20,6 +20,8 @@ const LIFTSET={
   SBD:()=>['squat','bench','dead'],
   A:date=>halfLifts('a',date),                 // Zulu's two halves of the cluster
   B:date=>halfLifts('b',date),
+  SB:()=>['squat','bench'],
+  D:()=>['dead'],
 };
 
 /* Zulu runs half the cluster at a time, twice each per week. The book's suggested split
@@ -78,6 +80,28 @@ const STEMPL={
     ],
     // TB1's Zulu table, one prescription per week across all four lifting days.
     wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:4,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:4,r:3,p:90}],
+  },
+  fighterht:{
+    name:'Fighter HT', book:'TB3', slots:[0,3,5],  // the book's days 1, 4 and 6
+    blurb:'Mass building for the minimalist. Squat and bench twice a week, deadlift on its own day, five sets of everything. Three-week blocks, and week three finishes with an all-out set.',
+    days:[
+      {lifts:'SB',acc:'h1',short:'HT 1',label:'Fighter HT 1'},
+      {lifts:'SB',acc:'h1',short:'HT 2',label:'Fighter HT 2'},
+      {lifts:'D',acc:'h2',short:'HT DL',label:'Fighter HT deadlift'},
+    ],
+    // Days 1 and 2. The deadlift day runs its own numbers — see rx below.
+    wave:[{s:5,r:8,p:60},{s:5,r:6,p:70},{s:5,r:3,p:80}],
+    // The book's table is per day, not per week: the deadlift day diverges from week 2,
+    // and week 3 ends on an all-out set of whichever lift the day is named for.
+    rx(wk,day,k){
+      const w=((wk.w||1)-1)%3;                   // three-week block, then again
+      if(day===3) return [{s:5,r:8,p:60},{s:5,r:5,p:70},
+        {s:1,r:3,p:80,note:'Then a deadlift single above this, or ten sets of three at 80%.'}][w];
+      const base=[{s:5,r:8,p:60},{s:5,r:6,p:70},{s:5,r:3,p:80}][w];
+      // Week 3: the last set of the day's named lift goes as far as it will go.
+      if(w===2&&k===(day===1?'squat':'bench')) return Object.assign({},base,{amrap:true});
+      return base;
+    },
   },
   fighter:{
     name:'Fighter', book:'TB1', slots:[0,3],       // the book's days 1 and 4
@@ -1063,7 +1087,10 @@ const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull',
   f1:['spress','hpull','core','biceps','triceps'], f2:['sleg','pchain','pullup','delts','carry'],
   // Zulu's halves run twice each, so the same two lists cover four days. The book says
   // Zulu leaves the most room for assistance work, so these are the fullest.
-  z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'] };
+  z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
+  // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
+  // anything more means you picked the wrong template.
+  h1:['pullup','biceps','triceps'], h2:['core','rdelt'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 
@@ -1374,23 +1401,48 @@ function maxFor(c){
   }
   return mcache.m[c]=r;
 }
+/* What a lift is prescribed on a given day.
+
+   Operator, Fighter and Zulu run one prescription for the whole week, which is what the
+   wave is. Tactical Barbell III does not: its tables are per day and sometimes per lift
+   — Fighter HT's deadlift day diverges from week 2 on, and Specificity alternates
+   max-strength days against hypertrophy days inside one week. So the template gets first
+   refusal, and the wave is the answer when it declines.
+
+   A frozen week pins the wave entry it ran (`wk.rx`) and the template it ran under
+   (`wk.tpl`), and a template's own table is a pure function of the week number, so
+   history stays reproducible without storing a prescription per day. */
+function dayRx(wk,k,date){
+  const T=STEMPL[wk.tpl]||stemplOf();
+  // `day` is set only by composeSlot, so only a composed week can reach the table. A
+  // deload, a retest or a Base Building week writes its own layout and keeps its own
+  // numbers without needing to be named here.
+  if(typeof T.rx==='function'){
+    const dp=dayPlan(date);
+    // `own` says the template set this deliberately, so the generic deadlift rule below
+    // leaves it alone: on Fighter HT the deadlift day *is* five sets of eight.
+    if(dp&&dp.day){ const v=T.rx(wk,dp.day,k); if(v) return Object.assign({},v,{own:true}) }
+  }
+  return wkRx(wk);
+}
 function rx(wk,k,date){
   let s,r,p,c;
   const d=date||sel;
-  const v=wkRx(wk);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
+  const v=dayRx(wk,k,d);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
   // Operator I/A lets the lifter choose the volume: a wave entry can carry `sMax`, a
   // ceiling above the prescribed sets. `s` stays what the program asks for; the sets from
   // s+1 to sMax are yours to take or leave on the day. Deadlift is the standard template's
   // own version of the same idea -- one set required, up to three -- so it goes through
   // here too rather than being special-cased by every caller.
   let sx=v.sMax!=null&&+v.sMax>s?+v.sMax:s;
-  if(k==='dead'){ s=1; sx=wk.kind==='cycle'?3:1 }
+  if(k==='dead'&&!v.own){ s=1; sx=wk.kind==='cycle'?3:1 }
   // ...and a set added on the day widens it further, for this session only. Setup declares
   // the program's intent; this is the lifter deciding in the gym, which is the half of
   // Operator I/A that actually matters.
   sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
   const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
-  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
+  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null,
+    amrap:!!v.amrap,note:v.note||null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
@@ -2272,7 +2324,11 @@ function liftCard(wk,k,dp){
   const setLbl=r.sMax>r.s?r.s+'–'+r.sMax:String(r.s);
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}</span></div>`;
+  // Tactical Barbell III finishes some weeks on an all-out set, and some of its days
+  // carry a note of their own. Both come off the prescription, not off the day type.
+  if(r.amrap) h+=`<div class="banner info"><div class="small"><b>Last set: as many reps as you can.</b> Keep the same weight and keep going past ${r.r}. Stop with something left — this is not a grinder.</div></div>`;
+  if(r.note) h+=`<div class="small muted">${esc(r.note)}</div>`;
   if(VARS[k]&&!viewing){
     const V=varsOf(k), v=r.vr, cur=V[v];
     h+=`<label class="restsel"><span>This session</span><select class="varsel" data-act-var="${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;

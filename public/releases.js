@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.81',date:'2026-10-12',title:'Fighter HT, and prescriptions that vary by day',items:[
+    'First template from <b>Tactical Barbell III: Mass Protocol</b>. Fighter HT is mass building for the minimalist — squat and bench twice a week, deadlift on its own day, five sets of everything, in three-week blocks.',
+    'It needed something the app did not have. Operator, Fighter and Zulu run one prescription for the whole week; TB III’s tables are per day, and sometimes per lift. Fighter HT’s deadlift day goes its own way from week two. A template can now set its own numbers for a given day and lift, and anything that does not falls back to the wave exactly as before.',
+    'Week three finishes on an all-out set of whichever lift the day is built around — squat on day one, bench on day two — and the lift card says so.',
+    'Blocks are as long as the template’s wave, so Fighter HT runs three weeks where Operator runs six.']},
   {v:'1.80',date:'2026-10-12',title:'The week you just finished stays finished',items:[
     'The week you are in is held loosely on purpose: it is still following your plan, so changing a max or a wave reaches it. Once it passed, the app was letting go of it without writing down what you had actually trained — so that week carried on following whatever the plan said afterwards.',
     'It now gets stamped the moment it becomes history: the sets, reps and percentage you did it at, which programme it was, and which Lift 3 each session used. Change anything after that and the week stays what it was.',

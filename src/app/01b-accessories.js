@@ -123,7 +123,10 @@ const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull',
   f1:['spress','hpull','core','biceps','triceps'], f2:['sleg','pchain','pullup','delts','carry'],
   // Zulu's halves run twice each, so the same two lists cover four days. The book says
   // Zulu leaves the most room for assistance work, so these are the fullest.
-  z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'] };
+  z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
+  // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
+  // anything more means you picked the wrong template.
+  h1:['pullup','biceps','triceps'], h2:['core','rdelt'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

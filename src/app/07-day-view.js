@@ -307,7 +307,11 @@ function liftCard(wk,k,dp){
   const setLbl=r.sMax>r.s?r.s+'–'+r.sMax:String(r.s);
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}</span></div>`;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}</span></div>`;
+  // Tactical Barbell III finishes some weeks on an all-out set, and some of its days
+  // carry a note of their own. Both come off the prescription, not off the day type.
+  if(r.amrap) h+=`<div class="banner info"><div class="small"><b>Last set: as many reps as you can.</b> Keep the same weight and keep going past ${r.r}. Stop with something left — this is not a grinder.</div></div>`;
+  if(r.note) h+=`<div class="small muted">${esc(r.note)}</div>`;
   if(VARS[k]&&!viewing){
     const V=varsOf(k), v=r.vr, cur=V[v];
     h+=`<label class="restsel"><span>This session</span><select class="varsel" data-act-var="${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===v?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;

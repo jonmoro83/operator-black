@@ -18,6 +18,8 @@ const LIFTSET={
   SBD:()=>['squat','bench','dead'],
   A:date=>halfLifts('a',date),                 // Zulu's two halves of the cluster
   B:date=>halfLifts('b',date),
+  SB:()=>['squat','bench'],
+  D:()=>['dead'],
 };
 
 /* Zulu runs half the cluster at a time, twice each per week. The book's suggested split
@@ -76,6 +78,28 @@ const STEMPL={
     ],
     // TB1's Zulu table, one prescription per week across all four lifting days.
     wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:4,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:4,r:3,p:90}],
+  },
+  fighterht:{
+    name:'Fighter HT', book:'TB3', slots:[0,3,5],  // the book's days 1, 4 and 6
+    blurb:'Mass building for the minimalist. Squat and bench twice a week, deadlift on its own day, five sets of everything. Three-week blocks, and week three finishes with an all-out set.',
+    days:[
+      {lifts:'SB',acc:'h1',short:'HT 1',label:'Fighter HT 1'},
+      {lifts:'SB',acc:'h1',short:'HT 2',label:'Fighter HT 2'},
+      {lifts:'D',acc:'h2',short:'HT DL',label:'Fighter HT deadlift'},
+    ],
+    // Days 1 and 2. The deadlift day runs its own numbers — see rx below.
+    wave:[{s:5,r:8,p:60},{s:5,r:6,p:70},{s:5,r:3,p:80}],
+    // The book's table is per day, not per week: the deadlift day diverges from week 2,
+    // and week 3 ends on an all-out set of whichever lift the day is named for.
+    rx(wk,day,k){
+      const w=((wk.w||1)-1)%3;                   // three-week block, then again
+      if(day===3) return [{s:5,r:8,p:60},{s:5,r:5,p:70},
+        {s:1,r:3,p:80,note:'Then a deadlift single above this, or ten sets of three at 80%.'}][w];
+      const base=[{s:5,r:8,p:60},{s:5,r:6,p:70},{s:5,r:3,p:80}][w];
+      // Week 3: the last set of the day's named lift goes as far as it will go.
+      if(w===2&&k===(day===1?'squat':'bench')) return Object.assign({},base,{amrap:true});
+      return base;
+    },
   },
   fighter:{
     name:'Fighter', book:'TB1', slots:[0,3],       // the book's days 1 and 4

@@ -3922,3 +3922,107 @@ test("a cycle's maxes lock on its own last week, not on a hardcoded six", () => 
   x.freezePast();
   a.ok(x.plan.lockedMax[1], "so cycle 1 still locks on its own last week");
 });
+
+test("Fighter HT runs TB III's table, which is per day and not per week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "fighterht"; x.bump();
+  const cyc = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1);
+  a.equal(cyc.length, 3, "three-week blocks, off the wave's own length");
+
+  const dayOf = (wk, n) => {
+    for (let d = 0; d < 7; d++) {
+      const date = x.addDays(wk.monday, d), p = x.dayPlanSlot(date, d);
+      if (p.t === "lift" && p.day === n) return { date, p };
+    }
+  };
+  const got = (wk, n, k) => { const { date } = dayOf(wk, n); const r = x.rx(wk, k, date);
+    return r.s + "x" + r.r + "@" + r.p + (r.amrap ? "+" : ""); };
+
+  // Squat and bench twice a week, deadlift on its own day.
+  a.deepEqual(dayOf(cyc[0], 1).p.lifts, ["squat", "bench"]);
+  a.deepEqual(dayOf(cyc[0], 2).p.lifts, ["squat", "bench"]);
+  a.deepEqual(dayOf(cyc[0], 3).p.lifts, ["dead"]);
+
+  // Week 1: everything the same. Week 2: the deadlift day drops to fives.
+  a.equal(got(cyc[0], 1, "squat"), "5x8@60");
+  a.equal(got(cyc[0], 3, "dead"), "5x8@60");
+  a.equal(got(cyc[1], 1, "squat"), "5x6@70");
+  a.equal(got(cyc[1], 3, "dead"), "5x5@70", "the deadlift day runs its own numbers");
+
+  // Week 3 finishes on an all-out set of whichever lift the day is named for.
+  a.equal(got(cyc[2], 1, "squat"), "5x3@80+", "squat on day 1");
+  a.equal(got(cyc[2], 1, "bench"), "5x3@80", "but not the bench beside it");
+  a.equal(got(cyc[2], 2, "bench"), "5x3@80+", "bench on day 2");
+  a.equal(got(cyc[2], 2, "squat"), "5x3@80");
+  a.equal(got(cyc[2], 3, "dead"), "1x3@80");
+  a.match(x.rx(cyc[2], "dead", dayOf(cyc[2], 3).date).note, /ten sets of three/);
+
+  // The generic "deadlift is one to three sets" rule is Operator's, and must not reach
+  // a template that prescribes the deadlift itself.
+  a.equal(x.rx(cyc[0], "dead", dayOf(cyc[0], 3).date).s, 5);
+  a.equal(x.rx(cyc[0], "dead", dayOf(cyc[0], 3).date).sMax, 5);
+
+  // It shows on the card, not just in the data.
+  x.sel = dayOf(cyc[2], 1).date;
+  const h = x.sessionHtml(cyc[2], dayOf(cyc[2], 1).p);
+  a.match(h, /as many reps as you can/i);
+});
+
+test("a template without its own table still runs off the wave", () => {
+  const x = app({ now: "2026-10-19" });
+  for (const t of ["operator", "fighter", "zulu"]) {
+    x.plan.stempl = t; x.bump();
+    const wk = x.weeks().find((w) => w.kind === "cycle" && w.w === 1);
+    const v = x.wkRx(wk);
+    const date = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(wk.monday, d))
+      .find((dt) => x.dayPlan(dt).t === "lift");
+    const r = x.rx(wk, "squat", date);
+    a.equal(r.p, v.p, `${t} takes its percentage from the wave`);
+    a.equal(r.r, v.r);
+    a.equal(r.amrap, false, `${t} has no all-out set`);
+    a.equal(r.note, null);
+    // And Operator's deadlift rule still applies where no template overrides it.
+    const dd = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(wk.monday, d))
+      .find((dt) => (x.dayPlan(dt).lifts || []).includes("dead"));
+    if (dd) a.equal(x.rx(wk, "dead", dd).s, 1, `${t} keeps one required deadlift set`);
+  }
+});
+
+test("a template's own table does not reach into a deload or a retest week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "fighterht";
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  const mon = "2026-10-19";
+  x.plan.inserts = { [mon]: "deload" }; x.bump();
+
+  const wk = x.weekOf(mon);
+  a.equal(wk.kind, "deload");
+  const date = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(mon, d))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  const r = x.rx(wk, "squat", date);
+  a.equal(r.p, x.plan.deload.p, "a deload is a deload, whatever the template prescribes");
+  a.equal(r.r, x.plan.deload.r);
+  a.equal(r.amrap, false, "and carries no all-out set");
+});
+
+test("a frozen week keeps reading the table it was trained under", () => {
+  const x = app({ now: "2026-10-26" });
+  x.plan.stempl = "fighterht";
+  x.plan.startMonday = "2026-09-28"; x.plan.bridge = false; x.bump();
+  x.freezePast();
+
+  // Week 2's deadlift day is where Fighter HT diverges from its own wave, so it is the
+  // day that tells the two apart.
+  const w2 = x.weeks().find((w) => w.kind === "cycle" && w.w === 2);
+  a.ok(w2.monday < "2026-10-26", "it is behind us");
+  a.equal(x.plan.frozen[w2.monday].tpl, "fighterht");
+  const dd = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(w2.monday, d))
+    .find((dt) => (x.dayPlanSlot(dt, x.slotOf(dt)).lifts || []).includes("dead"));
+  const before = x.rx(x.weekOf(dd), "dead", dd);
+  a.equal(before.s + "x" + before.r, "5x5", "the deadlift day's own numbers");
+
+  // Switch to a template with no table of its own. History must not start reading it.
+  x.plan.stempl = "operator"; x.bump();
+  const after = x.rx(x.weekOf(dd), "dead", dd);
+  a.equal(after.s + "x" + after.r, "5x5", "still Fighter HT's, because that is what was done");
+});

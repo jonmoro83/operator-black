@@ -111,23 +111,48 @@ function maxFor(c){
   }
   return mcache.m[c]=r;
 }
+/* What a lift is prescribed on a given day.
+
+   Operator, Fighter and Zulu run one prescription for the whole week, which is what the
+   wave is. Tactical Barbell III does not: its tables are per day and sometimes per lift
+   — Fighter HT's deadlift day diverges from week 2 on, and Specificity alternates
+   max-strength days against hypertrophy days inside one week. So the template gets first
+   refusal, and the wave is the answer when it declines.
+
+   A frozen week pins the wave entry it ran (`wk.rx`) and the template it ran under
+   (`wk.tpl`), and a template's own table is a pure function of the week number, so
+   history stays reproducible without storing a prescription per day. */
+function dayRx(wk,k,date){
+  const T=STEMPL[wk.tpl]||stemplOf();
+  // `day` is set only by composeSlot, so only a composed week can reach the table. A
+  // deload, a retest or a Base Building week writes its own layout and keeps its own
+  // numbers without needing to be named here.
+  if(typeof T.rx==='function'){
+    const dp=dayPlan(date);
+    // `own` says the template set this deliberately, so the generic deadlift rule below
+    // leaves it alone: on Fighter HT the deadlift day *is* five sets of eight.
+    if(dp&&dp.day){ const v=T.rx(wk,dp.day,k); if(v) return Object.assign({},v,{own:true}) }
+  }
+  return wkRx(wk);
+}
 function rx(wk,k,date){
   let s,r,p,c;
   const d=date||sel;
-  const v=wkRx(wk);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
+  const v=dayRx(wk,k,d);s=+v.s;r=+v.r;p=+v.p;c=wk.kind==='cycle'?wk.cycle:wk.refCycle;
   // Operator I/A lets the lifter choose the volume: a wave entry can carry `sMax`, a
   // ceiling above the prescribed sets. `s` stays what the program asks for; the sets from
   // s+1 to sMax are yours to take or leave on the day. Deadlift is the standard template's
   // own version of the same idea -- one set required, up to three -- so it goes through
   // here too rather than being special-cased by every caller.
   let sx=v.sMax!=null&&+v.sMax>s?+v.sMax:s;
-  if(k==='dead'){ s=1; sx=wk.kind==='cycle'?3:1 }
+  if(k==='dead'&&!v.own){ s=1; sx=wk.kind==='cycle'?3:1 }
   // ...and a set added on the day widens it further, for this session only. Setup declares
   // the program's intent; this is the lifter deciding in the gym, which is the half of
   // Operator I/A that actually matters.
   sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
   const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
-  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null};
+  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null,
+    amrap:!!v.amrap,note:v.note||null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
