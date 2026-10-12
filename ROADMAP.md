@@ -110,6 +110,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A soft-frozen week never got its stamp (2026-10-12)**
+- Spotted while reading the affected account's `frozen` during the sync bug above.
+- The current week is frozen `soft`: identity only, so a changed wave or max still
+  reaches it. When it passed, a trailing pass did `delete f.soft` and nothing else — so
+  it never gained the `rx`/`l3`/`tpl` stamp a hard freeze adds, and went on following
+  today's plan forever. A week trained at 80% could later read as 95%.
+- The upgrade now happens in the main loop instead of a trailing special case: a week
+  that is frozen-and-soft-and-no-longer-current falls through and is written properly.
+  One place decides what a frozen week holds.
+- Same fix removed the last hardcoded 6: a cycle's maxes lock when `f.w` reaches
+  `waveOf(f.tpl).length`, read off the wave that week actually ran.
+- 222 → 224 tests, 6 mutants, all caught. Two needed tests that were missing either way:
+  that freezing twice writes nothing (otherwise every render queues a write), and that
+  the max lock reads the week's wave rather than today's.
+
 **A stale cache could overwrite the server on a schema bump (2026-10-12)**
 - Reported as "my maxes are missing from Setup". It was data, not display, and it was a
   bug in the schema-versioning design I added — not in any migration.

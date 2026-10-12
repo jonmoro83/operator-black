@@ -1327,19 +1327,23 @@ function freezePast(){
   // else on the Wednesday. Its *prescription* is deliberately not frozen while it is
   // current: Setup promises the wave and your maxes apply from this week on, and they do.
   for(let i=0;i<=cur&&i<list.length;i++){
-    const wk=list[i], now=i===cur; if(fz[wk.monday]&&!(now&&!fz[wk.monday].soft)) continue;
-    if(fz[wk.monday]&&now) continue;
+    const wk=list[i], now=i===cur, f0=fz[wk.monday];
+    if(f0&&!f0.soft) continue;                 // already history, and stays as it was
+    if(f0&&now) continue;                      // soft and still current: leave it loose
+    // Everything else gets written: a week not frozen at all, and — the case this used
+    // to miss — a week that was held loosely while it was current and has now passed.
+    // That one only ever had `soft` cleared, so it never gained the prescription stamp
+    // a hard freeze adds, and went on following today's plan instead of what was done.
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
     else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
-    fz[wk.monday]=f; changed=true;
-    if(changed) planV++;
+    fz[wk.monday]=f; changed=true; planV++;
   }
-  // Once the week you are in has passed, it is frozen properly like any other.
   const curMon=list[cur]&&list[cur].monday;
-  for(const [mon,f] of Object.entries(fz)) if(f.soft&&mon<curMon){ delete f.soft; changed=true; planV++ }
-  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&f.w===6&&!lm[f.cycle]&&mon<curMon){
+  // A cycle's maxes lock once its last week is done. Which week is last comes from the
+  // wave that week ran, not from a hardcoded six: a template can have a shorter one.
+  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&f.w===waveOf(f.tpl).length&&!lm[f.cycle]&&mon<curMon){
     const mx=maxFor(f.cycle), o={}; for(const k of LK) if(mx[k]) o[k]=mx[k].v; lm[f.cycle]=o; changed=true; planV++;
   }
   if(changed) queueWrite('plan/main',()=>plan);

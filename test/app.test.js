@@ -3854,3 +3854,71 @@ test("an unsent edit still beats the server, which is the point of pending", () 
   x.applyState({ plan: server, logs: {}, programs: {} });
   a.equal(x.plan.maxes.squat, 275, "the edit you made here is kept");
 });
+
+test("the week you were in gets its stamp once it has passed", () => {
+  // Monday of cycle 1 week 2, the shape a real account was found in.
+  const x = app({ now: "2026-10-12" });
+  x.plan.startMonday = "2026-09-28"; x.plan.bridge = true; x.bump();
+  x.freezePast();
+
+  const w2 = x.plan.frozen["2026-10-12"];
+  a.equal(w2.soft, true, "the week under way is held loosely");
+  a.equal(w2.rx, undefined, "so its numbers still follow the plan");
+  a.equal(w2.tpl, undefined);
+
+  // Freezing is idempotent: nothing to write on a second pass, or every render would
+  // queue one and the app would talk to the server forever.
+  a.equal(x.freezePast(), false, "a second pass finds nothing to do");
+  a.equal(x.plan.frozen["2026-10-12"].soft, true, "and the current week is still loose");
+
+  const w1 = x.plan.frozen["2026-10-05"];
+  a.ok(w1 && !w1.soft, "last week is history");
+  a.ok(w1.rx, "and carries the prescription it was trained at");
+  a.equal(w1.tpl, "operator", "and the programme it was trained under");
+
+  // Roll on a week. The week that was current has now passed and must gain its stamp —
+  // it used to only have `soft` removed, and went on following whatever the plan said.
+  x.setToday("2026-10-19");
+  x.bump();
+  a.equal(x.freezePast(), true, "there is something to write");
+  const was = x.plan.frozen["2026-10-12"];
+  a.equal(was.soft, undefined, "no longer loose");
+  a.ok(was.rx, "it now carries its own prescription");
+  a.equal(was.tpl, "operator");
+  a.equal(was.cpr, "black");
+  a.ok(was.l3, "and which Lift 3 each session used");
+  a.equal(was.w, 2, "while keeping what it always was");
+  a.equal(was.cycle, 1);
+
+  // Which means changing the plan now cannot rewrite it.
+  const before = JSON.stringify(x.plan.frozen["2026-10-12"].rx);
+  x.plan.waves.operator[1] = { s: 9, r: 9, p: 99 };
+  x.plan.stempl = "fighter"; x.bump();
+  a.equal(JSON.stringify(x.plan.frozen["2026-10-12"].rx), before, "the stamp holds");
+  a.equal(x.dayPlanSlot("2026-10-12", 0).short, "Op 1", "and the week still reads as Operator");
+  a.equal(x.wkRx(x.weekOf("2026-10-12")).p, JSON.parse(before).p, "at the numbers it was done at");
+});
+
+test("a cycle's maxes lock on its own last week, not on a hardcoded six", () => {
+  const x = app({ now: "2026-10-12" });
+  // A three-week wave: cycle 1 ends at week 3, and that is when its maxes lock.
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.waves.operator = [{ s: 3, r: 5, p: 70 }, { s: 3, r: 5, p: 80 }, { s: 3, r: 3, p: 90 }];
+  x.bump();
+  a.equal(x.cycleWeeks(), 3);
+
+  x.freezePast();
+  const last = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1 && w.w === 3);
+  a.ok(last.monday < "2026-10-12", "cycle 1 is behind us");
+  a.ok(x.plan.lockedMax[1], "so its maxes are locked");
+  a.ok(Object.keys(x.plan.lockedMax[1]).length, "with numbers in them");
+
+  // And it is the week's own wave that decides, not whatever is selected today.
+  // Switching to a six-week template must not unlock a cycle that already ended.
+  x.plan.lockedMax = {};
+  x.plan.stempl = "fighter"; x.bump();
+  a.equal(x.waveOf().length, 6, "today's template runs six");
+  a.equal(x.plan.frozen[last.monday].tpl, "operator", "but that week ran a three-week one");
+  x.freezePast();
+  a.ok(x.plan.lockedMax[1], "so cycle 1 still locks on its own last week");
+});

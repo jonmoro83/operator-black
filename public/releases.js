@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.80',date:'2026-10-12',title:'The week you just finished stays finished',items:[
+    'The week you are in is held loosely on purpose: it is still following your plan, so changing a max or a wave reaches it. Once it passed, the app was letting go of it without writing down what you had actually trained — so that week carried on following whatever the plan said afterwards.',
+    'It now gets stamped the moment it becomes history: the sets, reps and percentage you did it at, which programme it was, and which Lift 3 each session used. Change anything after that and the week stays what it was.',
+    'Related: a cycle’s maxes lock when its last week is done, and “last week” now comes from that cycle’s own wave instead of always meaning week six. Fighter and Zulu both run six, but a shorter wave would never have locked.']},
   {v:'1.79',date:'2026-10-12',title:'A phone that is behind no longer wins',items:[
     'A real bug, found the hard way. When a release changes how your data is stored, the app brings your copy up to date on the way in. It was doing that to the phone’s cached copy <i>before</i> hearing from the server, and that counted as an unsent change — so a device that had not synced for a while would quietly upload its old copy over the newer one.',
     'It now brings the cached copy up to date on screen only, and writes nothing until the server has answered. Whichever copy is actually current is the one that gets saved.',
