@@ -245,6 +245,23 @@ function vHistory(){
 }
 
 function pIn(path,val,attrs){return `<input type="number" inputmode="decimal" step="any" id="p-${path.replace(/\./g,'-')}" data-pbind="${path}" data-type="num" value="${val??''}" ${attrs||''}>`+oddNote(path,val)}
+// Zulu runs half the cluster at a time. Which lifts are in which half is yours: TB's
+// whole cluster idea is that you choose the lifts, and the book's own suggested splits
+// differ from one example to the next.
+function halvesCard(){
+  const H=halvesOf();
+  const label=k=>k==='l3'?'Lift 3 ('+esc(liftName(l3On()[0]).toLowerCase())+' etc.)':esc(liftName(k));
+  const where=k=>H.a.includes(k)?'a':H.b.includes(k)?'b':'';
+  let h=`<div class="restsel" style="display:block"><span>The two halves</span>
+  <div class="stack" style="gap:6px;margin-top:6px">`;
+  for(const k of HALF_KEYS){
+    const w=where(k);
+    h+=`<div class="row between" style="gap:8px"><span class="acc-role">${label(k)}</span>
+    <div class="seg">${[['a','A'],['b','B'],['','Off']].map(([v,t])=>`<button class="segb${w===v?' on':''}" data-act="half" data-k="${k}" data-v="${v}" aria-pressed="${w===v}">${t}</button>`).join('')}</div></div>`;
+  }
+  h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
+  return h;
+}
 // Which programme you are running. Two choices, composed into a week — see 00b-templates.js.
 function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
@@ -259,6 +276,7 @@ function templateCard(){
     h+=`<label class="f">Conditioning protocol<select id="p-cproto" data-pbind="cproto">${pkeys.map(k=>`<option value="${k}"${k===cprotoKey()?' selected':''}>${esc(CPROTO[k].name)} · ${esc(CPROTO[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(P.blurb)}</div>`;
   }
+  if(T.split) h+=halvesCard();
   h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the programme they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }

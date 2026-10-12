@@ -365,6 +365,8 @@ const DEF={
   // Which programme this is. Two independent choices, composed into a week by
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
+  // Zulu's two halves of the cluster. Empty means the template's default.
+  halves:{},
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   waves:Object.fromEntries(Object.entries(STEMPL).map(([k,v])=>[k,v.wave.map(x=>Object.assign({},x))])),
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},

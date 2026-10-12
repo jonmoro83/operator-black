@@ -120,7 +120,10 @@ const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull',
   // Fighter lifts twice a week, so the same jobs have to fit across two days instead of
   // three. Like the three-day split, this is the app's arrangement and not the book's:
   // TB1 prescribes no accessory work, it only says Fighter leaves less room for it.
-  f1:['spress','hpull','core','biceps','triceps'], f2:['sleg','pchain','pullup','delts','carry'] };
+  f1:['spress','hpull','core','biceps','triceps'], f2:['sleg','pchain','pullup','delts','carry'],
+  // Zulu's halves run twice each, so the same two lists cover four days. The book says
+  // Zulu leaves the most room for assistance work, so these are the fullest.
+  z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

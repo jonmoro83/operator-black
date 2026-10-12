@@ -3397,28 +3397,43 @@ test("a week puts the lifting days where the book puts them, then fills around t
   a.deepEqual(x.weekShape([0, 3], 3), ["S", "C", "R", "S", "C", "R", "C"]);
 
   // Zulu's days 1, 2, 4 and 5 are deliberately paired — A and B work different lifts —
-  // so the layout honours the template rather than prising them apart.
+  // so the layout honours the template rather than prising them apart. The third
+  // conditioning session will not fit in what is left, so it rides on the first lifting
+  // day: this is TB II's own "Black + Zulu" week, day for day.
   a.deepEqual(x.weekShape([0, 1, 3, 4], 2), ["S", "S", "C", "S", "S", "C", "R"]);
+  a.deepEqual(x.weekShape([0, 1, 3, 4], 3), ["SC", "S", "C", "S", "S", "C", "R"]);
+
+  // Riding along beats two conditioning days back to back, and the rest day is kept.
+  a.deepEqual(x.weekShape([0, 3], 4), ["SC", "C", "R", "S", "C", "R", "C"]);
+  a.deepEqual(x.weekShape([0, 2, 4], 4), ["SC", "C", "S", "C", "S", "C", "R"]);
 
   // A template naming a day outside the week is ignored rather than losing the week.
   a.deepEqual(x.weekShape([0, 9, -1, 3], 1), ["S", "C", "R", "S", "R", "R", "R"]);
 
-  // More sessions than the week can keep apart: it fills rather than dropping any.
-  a.deepEqual(x.weekShape([0, 2, 4], 4), ["S", "C", "S", "C", "S", "C", "C"]);
+  // With nothing to ride on, the rest day is spent rather than a session dropped.
+  a.deepEqual(x.weekShape([], 7), ["C", "C", "C", "C", "C", "C", "C"]);
 
   // Whatever the counts, it is seven days and never loses a session.
   for (const slots of [[], [0], [0, 3], [0, 2, 4], [0, 1, 3, 4], [0, 2, 4, 6]]) {
-    for (let c = 0; c <= 4; c++) {
+    for (let c = 0; c <= 5; c++) {
       const sh = x.weekShape(slots, c);
       a.equal(sh.length, 7, `${slots}+${c} is a week`);
-      a.equal(sh.filter((v) => v === "S").length, slots.length, `${slots}+${c} keeps the lifting days`);
-      a.equal(sh.filter((v) => v === "C").length, Math.min(c, 7 - slots.length),
-        `${slots}+${c} keeps every conditioning session it has room for`);
-      for (const i of slots) a.equal(sh[i], "S", `${slots}+${c}: day ${i} is where the template says`);
-      // Conditioning days are only put next to each other when there is no other slot.
-      const free = 7 - slots.length;
-      if (c * 2 - 1 <= free) for (let i = 1; i < 7; i++) {
-        if (sh[i] === "C") a.notEqual(sh[i - 1], "C", `${slots}+${c}: ${sh.join("")} doubles up needlessly`);
+      a.equal(sh.filter((v) => v === "S" || v === "SC").length, slots.length,
+        `${slots}+${c} keeps every lifting day`);
+      a.equal(sh.filter((v) => v === "C" || v === "SC").length, c,
+        `${slots}+${c} keeps every conditioning session`);
+      for (const i of slots) a.ok(sh[i] === "S" || sh[i] === "SC",
+        `${slots}+${c}: day ${i} is where the template says`);
+      // A week with a slot to spare keeps a rest day.
+      if (slots.length && 7 - slots.length > 1) {
+        a.ok(sh.includes("R"), `${slots}+${c}: ${sh.join("|")} keeps a rest day`);
+      }
+      // Conditioning days only touch when there is nothing left to ride on.
+      if (slots.length) for (let i = 1; i < 7; i++) {
+        if (sh[i] === "C" && sh[i - 1] === "C") {
+          a.ok(sh.filter((v) => v === "SC").length === slots.length,
+            `${slots}+${c}: ${sh.join("|")} doubled up with a lifting day still free`);
+        }
       }
     }
   }
@@ -3568,4 +3583,120 @@ test("an edited wave moves under the template it was edited for", () => {
   // A three-week wave means three-week cycles, derived rather than hardcoded at six.
   a.equal(x.cycleWeeks(), 3);
   a.deepEqual(x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1).map((w) => w.w), [1, 2, 3]);
+});
+
+test("Zulu runs half the cluster at a time, four days a week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "zulu"; x.bump();
+  const mon = "2026-10-19";
+  const week = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d));
+
+  // TB II's own Black + Zulu week, day for day: lift, lift, HIC, lift, lift, E, rest —
+  // with the third conditioning session riding on day 1 after the barbell work.
+  a.deepEqual(week.map((p) => p.t), ["lift", "lift", "hic", "lift", "lift", "hic", "off"]);
+  a.equal(week[0].cardio, true, "day 1 carries a conditioning session too");
+  a.equal(week[0].short, "Zulu A + HIC");
+  a.ok(!week[1].cardio && !week[3].cardio && !week[4].cardio, "the other lifting days do not");
+
+  // A session that carries a note keeps it when it rides along, because Green's
+  // endurance days say what they are for and that is most of their value.
+  x.CPROTO.noted = { name: "Noted", book: "test",
+    sessions: () => [{ t: "hic", fmt: "liss", short: "E 60m", note: "Keep it conversational." },
+                     { t: "hic", fmt: "map" }, { t: "hic", fmt: "map" }] };
+  x.plan.cproto = "noted"; x.bump();
+  const ride = x.dayPlanSlot(mon, 0);
+  a.equal(ride.cardio, true);
+  a.equal(ride.fmt, "liss", "the session's own format, not a default");
+  a.equal(ride.short, "Zulu A + E 60m", "and its own label");
+  a.equal(ride.condNote, "Keep it conversational.");
+  x.sel = mon;
+  a.match(x.sessionHtml(x.weekOf(mon), ride), /Keep it conversational/, "shown on the day");
+  delete x.CPROTO.noted;
+  x.plan.cproto = "black"; x.bump();
+
+  // And it is a card you can actually log, after the barbell work rather than before.
+  x.sel = mon;
+  const h = x.sessionHtml(x.weekOf(mon), week[0]);
+  a.match(h, /Then, conditioning/, "the day says what comes next");
+  a.match(h, /Interval timer/, "with the session on it to run and log");
+  a.ok(h.indexOf("Working weight") < h.indexOf("Then, conditioning"), "lifting first");
+
+  // The default split is the book's: bench and squat against deadlift and the press.
+  a.deepEqual(week[0].lifts, ["squat", "bench"], "A");
+  a.deepEqual(week[1].lifts, ["dead", x.l3For(x.addDays(mon, 1))], "B");
+  a.deepEqual(week[3].lifts, week[0].lifts, "and each half runs twice");
+  a.deepEqual(week[4].lifts, week[1].lifts);
+
+  // Its wave: one prescription a week, 4×3 on the heavy weeks.
+  const pct = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1).map((w) => x.wkRx(w).p);
+  a.deepEqual(pct, [70, 80, 90, 75, 85, 90]);
+  a.equal(x.wkRx(x.weeks().find((w) => w.kind === "cycle" && w.w === 3)).s, 4);
+});
+
+test("Zulu's paired days are the template, not a clash", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "zulu"; x.bump();
+  const mon = "2026-10-19";
+
+  // A and B work different lifts, so back to back is the point of the template.
+  a.equal(x.sessKind(x.dayPlanSlot(mon, 0)), "strengthA");
+  a.equal(x.sessKind(x.dayPlanSlot(x.addDays(mon, 1), 1)), "strengthB");
+  a.equal(x.clashes("strengthA", "strengthB"), false, "different halves may touch");
+  a.equal(x.clashes("strengthA", "strengthA"), true, "the same half may not");
+  a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], "so the week reads clean");
+
+  // Moving a day so the same half lands twice running is still reported.
+  const bad = x.orderIssues(mon, [0, 3, 2, 1, 4, 5, 6]);
+  a.ok(bad.length, "two A days in a row is a clash");
+  a.equal(x.kindName(bad[0].kind), "strength", "and is named in words, not as a code");
+
+  // Operator is unaffected: its days are plain strength and still must not touch.
+  x.plan.stempl = "operator"; x.bump();
+  a.equal(x.sessKind(x.dayPlanSlot(mon, 0)), "strength");
+  a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), []);
+});
+
+test("the two halves can be rearranged, and neither can be emptied", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "zulu"; x.bump();
+  const mon = "2026-10-19";
+  a.deepEqual(x.halvesOf(), { a: ["squat", "bench"], b: ["dead", "l3"] }, "the book's split");
+
+  // Move the deadlift across.
+  a.equal(x.setHalf("dead", "a"), true);
+  a.deepEqual(x.halvesOf().a, ["squat", "bench", "dead"]);
+  a.deepEqual(x.halvesOf().b, ["l3"]);
+  a.deepEqual(x.dayPlanSlot(mon, 0).lifts, ["squat", "bench", "dead"], "and the day follows");
+
+  // Drop a lift out of both halves entirely.
+  a.equal(x.setHalf("bench", ""), true);
+  a.deepEqual(x.halvesOf().a, ["squat", "dead"]);
+
+  // But not the last one in a half: an empty half is not a session.
+  a.equal(x.setHalf("l3", "a"), false, "that would leave B with nothing");
+  a.deepEqual(x.halvesOf().b, ["l3"], "so nothing moved");
+  a.equal(x.setHalf("l3", ""), false);
+
+  // Stored halves are data, and data can be junk: an older build, a hand-edited export,
+  // a lift that no longer exists. Neither case may produce a day with no lifts on it.
+  x.plan.halves = { a: ["squat", "banana"], b: ["dead"] }; x.bump();
+  a.deepEqual(x.halvesOf().a, ["squat"], "a lift the app does not track is dropped");
+  a.deepEqual(x.dayPlanSlot(mon, 0).lifts, ["squat"]);
+
+  x.plan.halves = { a: [], b: ["dead"] }; x.bump();
+  a.deepEqual(x.halvesOf().a, ["squat", "bench"], "an emptied half falls back to the default");
+  a.ok(x.dayPlanSlot(mon, 0).lifts.length, "so the day is never blank");
+
+  x.plan.halves = { a: ["banana"], b: ["kiwi"] }; x.bump();
+  a.deepEqual(x.halvesOf(), { a: ["squat", "bench"], b: ["dead", "l3"] }, "and nonsense falls back whole");
+
+  x.plan.halves = {}; x.bump();
+  a.equal(x.setHalf("nope", "a"), false, "a lift the app does not track");
+  a.equal(x.setHalf("squat", "c"), false, "and there is no third half");
+
+  // Setup offers it only for a template that splits.
+  x.view = "setup";
+  a.match(x.vSetup(), /data-act="half" data-k="squat"/);
+  x.plan.stempl = "operator"; x.bump();
+  a.doesNotMatch(x.vSetup(), /data-act="half"/, "Operator has nothing to split");
 });

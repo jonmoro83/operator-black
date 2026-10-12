@@ -178,6 +178,7 @@ function sessionHtml(wk,dp){
     h+=warmupCard(sel);
     for(const k of dp.lifts) h+=liftCard(wk,k,dp);
     h+=accCard(wk,dp);
+    if(dp.cardio) h+=`<div class="divider">Then, conditioning</div>`+hicCard(dp,dp.condNote?`<p class="muted small" style="margin:0">${esc(dp.condNote)}</p>`:'');
     return h+mobCard(sel,dp)+footer(true);
   }
   if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);

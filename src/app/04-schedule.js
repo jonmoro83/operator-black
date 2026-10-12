@@ -133,6 +133,7 @@ function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
 // For adjacency: two strength days or two hard conditioning days must not touch.
 function sessKind(dp){
   if(!dp) return 'other';
+  if(dp.t==='lift'&&dp.half) return 'strength'+dp.half.toUpperCase();
   if(dp.t==='lift'||dp.t==='rm5'||dp.t==='test'||dp.t==='travel') return 'strength';
   if(dp.t==='hic') return dp.fmt==='liss'?'easy':'hic';
   // Base Building's week is two circuits with three days between them. Classed as
@@ -141,10 +142,10 @@ function sessKind(dp){
   if(dp.t==='se') return 'se';
   return 'other';
 }
-function kindName(k){return k==='strength'?'strength':k==='se'?'strength-endurance':'hard conditioning'}
+function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'strength-endurance':'hard conditioning'}
 // Kinds that must not land on consecutive days. One list, used by the arranger and by
 // the warning it shows, because when those two disagree the arranger silently wins.
-const ADJACENT_BAN=['strength','hic','se'];
+const ADJACENT_BAN=['strength','strengthA','strengthB','hic','se'];
 function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
 // Conflicts a proposed order would create, including the days either side of the week.
 function orderIssues(monday,ord){

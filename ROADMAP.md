@@ -110,6 +110,33 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Programme templates, stage 2b: Zulu (2026-10-12)**
+- Four lifting days, the cluster split in half, each half twice a week.
+- **Half-clusters.** `plan.halves` with `HALF_KEYS=['squat','bench','dead','l3']`, where
+  `l3` is a token meaning whatever the Lift 3 rotation gives that day. `setHalf` refuses
+  to empty a half, `halvesOf()` drops lifts the app does not track and falls back per
+  half, so no stored shape can produce a lifting day with nothing on it. Editable in
+  Setup, shown only for a template with `split:true`.
+- **Adjacency learned about halves.** `sessKind` returns `strengthA`/`strengthB` for a
+  split template and both are in `ADJACENT_BAN`, so A-next-to-B is fine and A-next-to-A
+  is still a clash. `kindName` maps both back to "strength" for the warning text.
+- **Conditioning can ride on a lifting day.** Zulu's four days plus Black's three sessions
+  do not fit in seven, and TB II's own "Black + Zulu" week answers that by putting a HIC
+  after the barbell work on day 1 rather than spending the rest day. `weekShape` now
+  returns `SC` as well as `S`/`C`/`R`, preferring a ride-along over two conditioning days
+  back to back, and keeping one rest day whenever the week has a slot to spare. The day
+  view renders the session under the lifts, the way the bridge week's easy spin already
+  did. Our Zulu + Black week comes out day for day identical to the book's.
+- Asked before building rather than guessing: the scan of Zulu's table looked like the
+  two day-pairs ran different percentages within a week, which would have needed a
+  per-day prescription and a much bigger change. Confirmed against the book as one wave
+  per week, so it fits the existing model.
+- 213 → 216 tests. 22 mutants, all caught. Four survived the first pass, all of them
+  stored-data guards and the ride-along's note/label/format — none reachable from the
+  happy path.
+- **Next:** TB II's Green protocol (E and SE sessions, which the protocol model already
+  supports), then TB III's templates.
+
 **Programme templates, stage 2: Fighter (2026-10-12)**
 - The first second template, and the first real exercise of the stage-1 model.
 - **The books number the lifting days**, so that is data on the template (`slots`) rather

@@ -16,7 +16,42 @@ laid out. Adding Fighter is then a `days:` array, not another branch in dayPlanS
 const LIFTSET={
   SBP:date=>['squat','bench',l3For(date)],     // squat, bench, press (whichever Lift 3)
   SBD:()=>['squat','bench','dead'],
+  A:date=>halfLifts('a',date),                 // Zulu's two halves of the cluster
+  B:date=>halfLifts('b',date),
 };
+
+/* Zulu runs half the cluster at a time, twice each per week. The book's suggested split
+   is Bench/Squat against Deadlift/Overhead Press, which is the default here, but the
+   halves are yours to set: TB's whole cluster idea is that you pick the lifts.
+
+   'l3' is a token, not a lift — it means whichever Lift 3 the rotation gives that day. */
+const HALF_KEYS=['squat','bench','dead','l3'];
+const HALF_DEF={a:['squat','bench'],b:['dead','l3']};
+function halvesOf(){
+  const h=plan.halves||{};
+  const pick=k=>{
+    const v=h[k];
+    return Array.isArray(v)?v.filter(x=>HALF_KEYS.includes(x)):null;
+  };
+  const a=pick('a'), b=pick('b');
+  // A half with nothing in it is not a session, so fall back rather than draw a blank day.
+  return {a:a&&a.length?a:HALF_DEF.a, b:b&&b.length?b:HALF_DEF.b};
+}
+function halfLifts(which,date){
+  return halvesOf()[which].map(k=>k==='l3'?l3For(date):k);
+}
+function halfOfDay(dp){ return dp&&dp.half||null }
+// Move one lift into a half, or out of both. Refuses to empty a half, because a half
+// with nothing in it is not a session.
+function setHalf(k,to){
+  if(!HALF_KEYS.includes(k)) return false;
+  if(to!=='a'&&to!=='b'&&to!=='') return false;
+  const H=halvesOf(), next={a:H.a.filter(x=>x!==k),b:H.b.filter(x=>x!==k)};
+  if(to) next[to]=[...next[to],k];
+  if(!next.a.length||!next.b.length) return false;
+  mutatePlan(p=>{p.halves=next});
+  return true;
+}
 
 const STEMPL={
   operator:{
@@ -29,6 +64,18 @@ const STEMPL={
     ],
     // TB1's Operator table, row for row.
     wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+  },
+  zulu:{
+    name:'Zulu', book:'TB1', slots:[0,1,3,4], split:true,
+    blurb:'Four shorter days a week. The cluster is split in two and each half runs twice, which leaves far more room for assistance work than Operator does.',
+    days:[
+      {lifts:'A',half:'a',acc:'z1',short:'Zulu A',label:'Zulu A'},
+      {lifts:'B',half:'b',acc:'z2',short:'Zulu B',label:'Zulu B'},
+      {lifts:'A',half:'a',acc:'z1',short:'Zulu A'},
+      {lifts:'B',half:'b',acc:'z2',short:'Zulu B'},
+    ],
+    // TB1's Zulu table, one prescription per week across all four lifting days.
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:4,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:4,r:3,p:90}],
   },
   fighter:{
     name:'Fighter', book:'TB1', slots:[0,3],       // the book's days 1 and 4
@@ -76,25 +123,38 @@ function cycleWeeks(){ return Math.max(1,waveOf().length) }
    conditioning sessions spread through what is left.
 
    The books number the lifting days — Operator trains on days 1, 3 and 5, Fighter on 1
-   and 4 — so that is data on the template rather than something to infer. Two days of
-   the same kind must not touch (see ADJACENT_BAN), so conditioning takes free slots
-   greedily, skipping any that would sit next to one already taken, and falling back to
-   filling in order when there are more sessions than the week can keep apart.
+   and 4, Zulu on 1, 2, 4 and 5 — so that is data on the template rather than something
+   to infer. Two days of the same kind must not touch (see ADJACENT_BAN), so conditioning
+   takes free slots greedily, skipping any that would sit next to one already taken.
 
-   Operator and Black come out as S C S C S C R, the week this app has always drawn. */
+   When the conditioning will not fit in the days left over, it goes *on* a lifting day
+   rather than taking the rest day or doubling up. That is what TB II's own "Black + Zulu"
+   week does: four lifting days, and the first one carries a HIC after the barbell work.
+   A week keeps one rest day as long as it has a spare slot at all.
+
+   Returns seven of 'S' (lift), 'C' (conditioning), 'SC' (both) and 'R' (rest). */
 function weekShape(slots,nC){
   const out=new Array(7).fill('R');
   const S=(Array.isArray(slots)?slots:[]).filter(v=>v>=0&&v<7);
   for(const i of S) out[i]='S';
   const free=[]; for(let i=0;i<7;i++) if(out[i]==='R') free.push(i);
+  // Hold a rest day back, but only when there is something to hold back.
+  const keepRest=S.length&&free.length>1?1:0;
+  const room=Math.max(0,free.length-keepRest);
   const take=[];
   for(const i of free){
-    if(take.length>=nC) break;
+    if(take.length>=Math.min(nC,room)) break;
     if(take.length&&i-take[take.length-1]===1) continue;   // would touch the last one
     take.push(i);
   }
-  for(const i of free){ if(take.length>=nC) break; if(!take.includes(i)) take.push(i) }
   for(const i of take) out[i]='C';
+  // Anything that did not fit rides along with a lifting day, earliest first. Riding
+  // along is preferred over two conditioning days back to back, which is the trade the
+  // book makes: its Black + Zulu week stacks a HIC onto day 1 rather than pairing days.
+  let over=nC-take.length;
+  for(const i of S){ if(over<=0) break; out[i]='SC'; over-- }
+  // Nothing left to ride on: fill what is free, rest day included, rather than drop one.
+  for(const i of free){ if(over<=0) break; if(out[i]==='R'){ out[i]='C'; over-- } }
   return out;
 }
 
@@ -109,9 +169,17 @@ function composeSlot(date,wk,d){
   for(let i=0;i<7;i++){
     const role=shape[i];
     if(i===d){
-      if(role==='S'){
-        const x=sd[si];
-        return {t:'lift',day:si+1,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(date),acc:x.acc,short:x.short};
+      if(role==='S'||role==='SC'){
+        const x=sd[si], o={t:'lift',day:si+1,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(date),acc:x.acc,short:x.short};
+        if(x.half) o.half=x.half;              // which half of the cluster, for adjacency
+        if(role==='SC'){
+          // The conditioning rides along after the barbell work, the way the book's
+          // Black + Zulu week does. `cardio` is the flag the day view already renders.
+          const c=cs[ci]||{};
+          o.cardio=true; o.fmt=c.fmt||'map'; o.short=x.short+' + '+(c.short||(c.fmt==='liss'?'E':'HIC'));
+          if(c.note) o.condNote=c.note;
+        }
+        return o;
       }
       if(role==='C'){
         const x=cs[ci];
@@ -119,7 +187,7 @@ function composeSlot(date,wk,d){
       }
       return {t:'off',short:'Off'};
     }
-    if(role==='S') si++; else if(role==='C') ci++;
+    if(role==='S') si++; else if(role==='C') ci++; else if(role==='SC'){ si++; ci++ }
   }
   return {t:'off',short:'Off'};
 }

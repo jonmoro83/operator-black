@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.77',date:'2026-10-12',title:'Zulu',items:[
+    'TB1’s four-day template. The cluster splits in two and each half runs twice a week, which is why Zulu’s lifting days sit back to back — they work different lifts, so that pairing is the template rather than a mistake. The app knows the difference now and only warns when the same half would land twice running.',
+    'Which lifts go in which half is yours to set, in Setup → Programme. It starts on the book’s suggestion — squat and bench against deadlift and your Lift 3 — and neither half can be left empty.',
+    'Four lifting days plus three conditioning sessions does not fit in seven days, so the third one rides along after the barbell work on day 1 instead of taking your rest day. That is exactly what Tactical Barbell II’s own “Black + Zulu” week does, and the day gets a full conditioning card under the lifts.']},
   {v:'1.76',date:'2026-10-12',title:'Fighter, and a programme you choose',items:[
     'Setup → Programme now lets you pick your strength template and your conditioning protocol separately, which is how the books put it — Tactical Barbell II’s sample weeks are headed “Black + Zulu”, “Black + Operator”, “Black + Fighter”. The week gets built from the two.',
     'First new one is <b>Fighter</b>: TB1’s two-day template, on days 1 and 4 where the book puts them, with its own wave (3–4 sets, a three-week block run twice) and its own accessory jobs, since two days have to cover what three did.',
