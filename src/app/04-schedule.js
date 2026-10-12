@@ -202,14 +202,7 @@ function dayPlan(date){
 function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
   const SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
-  if(wk.kind==='cycle') return [
-    {t:'lift',day:1,lifts:SBP,acc:'mon',short:'Op 1'},
-    {t:'hic',fmt:'map',short:'HIC'},
-    {t:'lift',day:2,lifts:SBP,acc:'wed',short:'Op 2'},
-    {t:'hic',fmt:'anaerobic',short:'HIC'},
-    {t:'lift',day:3,lifts:SBD,acc:'fri',short:'Op 3'},
-    {t:'hic',fmt:wk.w%2?'threshold':'long',short:'HIC',note:'Swap to LISS if the week has been heavy.'},
-    {t:'off',short:'Off'}][d];
+  if(wk.kind==='cycle') return composeSlot(date,wk,d);
   if(wk.kind==='deload') return [
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS'},

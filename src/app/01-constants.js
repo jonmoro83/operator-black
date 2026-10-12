@@ -362,6 +362,9 @@ const DEF={
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
   plyoDow:3, plyoMove:{},
+  // Which programme this is. Two independent choices, composed into a week by
+  // composeSlot — see 01c-templates.js.
+  stempl:'operator', cproto:'black',
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA
   wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},

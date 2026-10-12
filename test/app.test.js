@@ -3355,3 +3355,114 @@ test("the Sound card offers the beep test and shows the result", () => {
   a.match(after, /channel (running|suspended)/, "with the raw facts in it");
   a.match(after, /session playback/);
 });
+
+test("the composed Operator week is exactly the week that used to be hardcoded", () => {
+  const x = app({ now: "2026-10-19" });
+  const wk = x.weeks().find((w) => w.kind === "cycle" && w.w % 2 === 1);
+  const ev = x.weeks().find((w) => w.kind === "cycle" && w.w % 2 === 0);
+
+  // The literal that lived in dayPlanSlot before templates existed, verbatim.
+  const was = (week, date) => {
+    const SBP = ["squat", "bench", x.l3For(date)], SBD = ["squat", "bench", "dead"];
+    return [
+      { t: "lift", day: 1, lifts: SBP, acc: "mon", short: "Op 1" },
+      { t: "hic", fmt: "map", short: "HIC" },
+      { t: "lift", day: 2, lifts: SBP, acc: "wed", short: "Op 2" },
+      { t: "hic", fmt: "anaerobic", short: "HIC" },
+      { t: "lift", day: 3, lifts: SBD, acc: "fri", short: "Op 3" },
+      { t: "hic", fmt: week.w % 2 ? "threshold" : "long", short: "HIC", note: "Swap to LISS if the week has been heavy." },
+      { t: "off", short: "Off" },
+    ];
+  };
+  for (const week of [wk, ev]) {
+    for (let d = 0; d < 7; d++) {
+      const date = x.addDays(week.monday, d);
+      a.deepEqual(x.composeSlot(date, week, d), was(week, date)[d],
+        `week ${week.w} slot ${d} is unchanged`);
+    }
+  }
+});
+
+test("a week is laid out so two days of the same kind never touch", () => {
+  const x = app({ now: "2026-10-19" });
+
+  // Operator and Black: three and three, which is the alternating week.
+  a.deepEqual(x.weekShape(3, 3), ["S", "C", "S", "C", "S", "C", "R"]);
+
+  // Fighter's two days against Black's three: conditioning leads, nothing doubles up.
+  a.deepEqual(x.weekShape(2, 3), ["C", "S", "C", "S", "C", "R", "R"]);
+
+  // Four strength days (Zulu) against two conditioning: the spare rest day is spent as a
+  // spacer rather than parked at the end, so the two strength days never end up adjacent.
+  a.deepEqual(x.weekShape(4, 2), ["S", "C", "S", "C", "S", "R", "S"]);
+
+  // Nothing can separate seven strength days, and it says so by doing the obvious thing.
+  a.deepEqual(x.weekShape(7, 0), ["S", "S", "S", "S", "S", "S", "S"]);
+
+  // Whatever the counts, it is always seven days and never loses a session.
+  for (let s = 0; s <= 5; s++) for (let c = 0; c <= 5; c++) {
+    if (s + c > 7) continue;
+    const sh = x.weekShape(s, c);
+    a.equal(sh.length, 7, `${s}+${c} is a week`);
+    a.equal(sh.filter((v) => v === "S").length, s, `${s}+${c} keeps every strength day`);
+    a.equal(sh.filter((v) => v === "C").length, c, `${s}+${c} keeps every conditioning day`);
+    // Separating n days of one kind takes n-1 others. Where that is possible at all,
+    // the layout has to manage it — five conditioning days and two rests cannot be,
+    // and the shape is allowed to double up there.
+    const canSplit = Math.max(s, c) <= Math.min(s, c) + (7 - s - c) + 1;
+    if (canSplit) for (let i = 1; i < 7; i++) {
+      if (sh[i] === "R") continue;
+      a.notEqual(sh[i], sh[i - 1], `${s}+${c}: ${sh.join("")} doubles up when it need not`);
+    }
+  }
+
+  // The real one has no clash, checked the way the Move tool checks it.
+  const kinds = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+    const date = x.addDays("2026-10-19", d);
+    return x.sessKind(x.dayPlanSlot(date, d));
+  });
+  for (let i = 1; i < kinds.length; i++) a.equal(x.clashes(kinds[i], kinds[i - 1]), false,
+    `${kinds[i - 1]} then ${kinds[i]}`);
+});
+
+test("an unknown template or protocol falls back rather than emptying the week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "nope"; x.plan.cproto = "also-nope"; x.bump();
+  const dp = x.dayPlan("2026-10-19");
+  a.equal(dp.t, "lift", "a plan naming a template this build does not have still trains");
+  a.equal(dp.short, "Op 1");
+  a.equal(x.stemplOf().name, "Operator");
+  a.equal(x.cprotoOf().name, "Black");
+});
+
+test("a protocol can name its own sessions, which is what E and SE days need", () => {
+  const x = app({ now: "2026-10-19" });
+  // Stand in a protocol of the shape Green needs: a hard session, an endurance session
+  // that is not a HIC, and a strength-endurance circuit. Registered rather than shipped,
+  // so this is a test of the extension point, not of a protocol.
+  x.CPROTO.scratch = {
+    name: "Scratch", book: "test",
+    sessions: () => [
+      { t: "hic", fmt: "map" },
+      { t: "hic", fmt: "liss", short: "E 45m", note: "Conversational." },
+      { t: "se", circuits: 3, reps: 20, short: "SE 3×20" },
+    ],
+  };
+  x.plan.cproto = "scratch"; x.bump();
+
+  const days = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays("2026-10-19", d), d));
+  const byShort = Object.fromEntries(days.filter((p) => p.short).map((p) => [p.short, p]));
+
+  a.ok(byShort["E 45m"], "a session's own label is kept, not overwritten with HIC");
+  a.equal(byShort["E 45m"].fmt, "liss");
+  a.equal(byShort["E 45m"].note, "Conversational.");
+  a.ok(byShort["SE 3×20"], "and a circuit stays a circuit");
+  a.equal(byShort["SE 3×20"].t, "se", "its day type is its own, not forced to hic");
+  a.equal(byShort["SE 3×20"].circuits, 3);
+  a.equal(byShort["HIC"].fmt, "map", "a session that names nothing still gets the default label");
+
+  // Three lifting days and three conditioning, so the week is still the alternating one.
+  a.deepEqual(days.map((p) => p.t), ["lift", "hic", "lift", "hic", "lift", "se", "off"]);
+
+  delete x.CPROTO.scratch;
+});

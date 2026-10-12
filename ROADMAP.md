@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-09.
+Update it as things ship. Last updated 2026-10-12.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -109,6 +109,36 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Programme templates, stage 1: the model (2026-10-12)**
+- Groundwork for building the rest of TB II's protocols and TB III's templates in. No
+  user-visible change: 205 tests passed untouched across the refactor, and a new test
+  deep-equals every composed slot against the literal array it replaced.
+- `dayPlanSlot` wrote each week out as a hardcoded seven-day array per `wk.kind`. That was
+  fine with one programme and does not survive a second: strength template × conditioning
+  protocol multiplies, and hand-maintained grids drift apart.
+- Two independent axes instead, which is how the books present it — TB II's sample weeks
+  are literally headed "Black + Zulu", "Black + Operator", "Black + Fighter".
+  `src/app/01c-templates.js` holds `STEMPL` (lifting days and what is on them) and
+  `CPROTO` (what sits between them); `composeSlot` is the only thing that knows the layout.
+- `weekShape(nS,nC)` interleaves so no two days of the same banned kind touch, leading with
+  the bigger pile and spending spare rest days as spacers. Operator + Black is 3 and 3,
+  which derives S C S C S C R — the week the app has always drawn.
+  - Separating n days of one kind needs n−1 others, so some combinations cannot be split
+    (five conditioning days and two rests). The shape doubles up there and `orderIssues`
+    reports it, rather than the layout pretending.
+  - First version parked all rests at the end, which put two of Zulu's four strength days
+    together when a rest could have gone between them. Caught by writing the four-day case
+    down before Zulu exists.
+- A protocol's session may set its own `t` and `short`, so Green's E and SE days are a data
+  addition rather than another branch. There is a test for that extension point using a
+  scratch protocol, because Black never exercises it and the mutant survived without one.
+- Unknown `plan.stempl`/`plan.cproto` fall back to Operator/Black: a plan naming a template
+  an older build does not have still trains.
+- `dp.day` was dead already; kept so the composed slot deep-equals the old literal.
+- 205 → 209 tests.
+- **Next:** stage 2, the TB1 strength templates (Fighter, Zulu, Operator I/A, Gladiator),
+  which should now be `days:` arrays. Then TB II's Black variations and Green, then TB III.
 
 **The rest beep, taken apart properly (2026-10-09)**
 - Third report of "the beep doesn't work". The first two fixes were guesses, and they were
