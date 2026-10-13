@@ -2133,11 +2133,15 @@ test("accessories are slots filled by a choice, not a list of text", () => {
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
   const mon = "2026-09-07";
 
-  a.deepEqual(x.accSlots("mon"), ["spress", "rdelt", "core", "biceps", "triceps"], "a day covers jobs");
+  a.deepEqual(x.accSlots("mon"), ["pchain", "spress", "rdelt", "core", "biceps", "triceps"],
+    "a day covers jobs, biggest first");
   a.deepEqual(x.accSlots("fri"), ["sleg", "pchain", "biceps", "triceps", "carry"], "carries last");
   for (const d of ["mon", "wed", "fri"]) {
     a.ok(x.accSlots(d).includes("biceps") && x.accSlots(d).includes("triceps"), `arms on ${d}`);
   }
+  // Operator squats three times a week and deadlifts on one of them, so the hamstrings
+  // get two days rather than the one they used to.
+  a.equal(["mon", "wed", "fri"].filter((d) => x.accSlots(d).includes("pchain")).length, 2);
   a.equal(x.accName(x.accOn(mon, "biceps")), "Barbell curl", "with a sensible default in each");
 
   // Every slot has something that can fill it, and nothing is tagged to a slot that
@@ -2208,22 +2212,26 @@ test("ticks stored by position are migrated to slots, and old programs still rea
   const x = app({ now: "2026-09-14" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
   const mon = "2026-09-07";
-  // The old shape: a boolean per position in that day's list.
-  x.seed({ [mon]: { date: mon, acc: [true, false, true, false] } });   // spress, rdelt, core, biceps
+  // The old shape: a boolean per position in that day's list. Which slot a position
+  // means depends on the list as it stands now, which is the whole reason migration 2
+  // pins them once rather than reading them by position forever.
+  const slots = x.accSlots("mon");
+  x.seed({ [mon]: { date: mon, acc: [true, false, true, false] } });
   x.plan.schema = 1; x.bump();
 
-  a.equal(x.accDone(mon, "spress"), true, "readable even before migrating");
-  a.equal(x.accDone(mon, "rdelt"), false);
+  a.equal(x.accDone(mon, slots[0]), true, "readable even before migrating");
+  a.equal(x.accDone(mon, slots[1]), false);
 
   a.equal(x.migrate(), true);
   a.equal(x.plan.schema, x.SCHEMA);
-  a.deepEqual(x.logs[mon].acc, { done: { spress: true, core: true } }, "pinned to what they meant");
-  a.equal(x.accDone(mon, "spress"), true);
-  a.equal(x.accDone(mon, "core"), true);
+  a.deepEqual(x.logs[mon].acc, { done: { [slots[0]]: true, [slots[2]]: true } },
+    "pinned to what they meant");
+  a.equal(x.accDone(mon, slots[0]), true);
+  a.equal(x.accDone(mon, slots[2]), true);
 
   // And now the list can move without dragging them along.
-  x.plan.accSlots = { mon: ["biceps", "spress"] }; x.bump();
-  a.equal(x.accDone(mon, "spress"), true);
+  x.plan.accSlots = { mon: ["biceps", slots[0]] }; x.bump();
+  a.equal(x.accDone(mon, slots[0]), true, "still attached to the job, not the position");
   a.equal(x.accDone(mon, "biceps"), false);
 });
 

@@ -110,6 +110,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Posterior chain on Operator day 1 (2026-10-12)**
+- `ACC_DAYS.mon` gains `pchain`, first in the list. Operator squats three times a week
+  and deadlifts once, so one hamstring job on Friday was the thinnest part of the split.
+- Only the *default* list changed, so anyone with their own `plan.accSlots.mon` is
+  untouched.
+- Two tests broke, and the second was worth reading rather than patching: migration 2
+  interprets old positional accessory ticks against the list **as it stands now**, so
+  changing the list changes what unmigrated data means. Only reachable by a plan that
+  has sat at schema 1 since before 1.53, but the test now derives its slots from
+  `accSlots` instead of naming them, so it states the real contract.
+- **Found while checking:** Zulu and Grey Man have no posterior-chain job on any day,
+  and Fighter HT only reaches it through its deadlift session. Reported rather than
+  changed — three templates' accessory splits is a separate decision.
+
 **elitefts and Westside band presets (2026-10-12)**
 - `BAND_PRESETS` is keyed by brand. Rogue publish a single peak figure per band;
   elitefts and Westside publish ranges, so those seed at the midpoint (`bandPresetW`)

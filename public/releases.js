@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.87',date:'2026-10-12',title:'Posterior chain on Operator 1',items:[
+    'Operator day 1 now covers posterior chain as well, first in the list, defaulting to the Romanian deadlift. Friday keeps its own, so the hamstrings get two days a week instead of one \u2014 which is nearer right for a programme that squats three times and deadlifts once.',
+    'If you have already set your own jobs for that day, nothing changed: this is the default list, and yours wins. Add it from Setup \u2192 Accessories if you want it.']},
   {v:'1.86',date:'2026-10-12',title:'elitefts and Westside bands',items:[
     'Both added alongside Rogue in Setup \u2192 Bands, each as a one-tap starting point you then edit.',
     'A difference worth knowing: Rogue publish one figure per band, while elitefts and Westside publish a <i>range</i>. A range cannot be a log entry, so these seed at the midpoint and the card shows you the range they came from.',

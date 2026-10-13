@@ -1127,7 +1127,10 @@ const ALIB={
 // Shoulders sit on OP1, away from whichever day the overhead press lands on, and the
 // row moves to OP2 to balance it. Rear delts stay with the shoulders: that slot is
 // shoulder health, not back volume.
-const ACC_DAYS={ mon:['spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','biceps','triceps','carry'],
+// Posterior chain twice a week, not once: Operator squats three times and deadlifts on
+// one of them, so a single hamstring job on Friday was the thinnest part of the split.
+// It goes first on Monday, before the small stuff, because it is the biggest thing there.
+const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:['hpull','delts','pullup','biceps','triceps'], fri:['sleg','pchain','biceps','triceps','carry'],
   // Fighter lifts twice a week, so the same jobs have to fit across two days instead of
   // three. Like the three-day split, this is the app's arrangement and not the book's:
   // TB1 prescribes no accessory work, it only says Fighter leaves less room for it.
