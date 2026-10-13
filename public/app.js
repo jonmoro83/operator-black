@@ -1145,11 +1145,11 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   h1:['pullup','biceps','triceps'], h2:['core','rdelt'],
   // Grey Man's two supplementary clusters. The book says four to six exercises, split
   // in two, and that what goes in them is yours — these are a starting split.
-  // Same reasoning for Grey Man's A day. That makes seven supplementary exercises
-  // against the book's "no more than four to six" — one over, and left that way on
-  // purpose: the S clusters are the part the book hands you outright, so trimming one
-  // is your call rather than ours.
-  gm1:['pchain','spress','triceps','sleg'], gm2:['hpull','biceps','core'] };
+  // Same reasoning for Grey Man's A day, and single-leg comes out to make room: the
+  // book caps the supplementary clusters at "no more than four to six" exercises, and
+  // six is what these are. Squat is already on this day, so single-leg was the most
+  // redundant of the four.
+  gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

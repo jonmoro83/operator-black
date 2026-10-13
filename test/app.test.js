@@ -4397,7 +4397,9 @@ test("every template reaches the posterior chain somewhere in its week", () => {
   a.ok(x.accSlots("gm1").includes("pchain"), "Grey Man's bench-and-squat day");
   a.ok(!x.accSlots("gm2").includes("pchain"), "and not its overhead-and-deadlift day");
 
-  // Grey Man's supplementary clusters stay close to the book's four-to-six.
-  a.equal(x.accSlots("gm1").length + x.accSlots("gm2").length, 7,
-    "one over, which the book treats as yours to trim");
+  // The book caps Grey Man's supplementary clusters at four to six exercises, and that
+  // cap is the thing to honour when something has to give.
+  const gm = x.accSlots("gm1").length + x.accSlots("gm2").length;
+  a.ok(gm >= 4 && gm <= 6, `Grey Man runs ${gm} supplementary exercises, the book says 4 to 6`);
+  a.ok(!x.accSlots("gm1").includes("sleg"), "single-leg gave way to it: Grey Man squats that day");
 });

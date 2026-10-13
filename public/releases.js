@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.89',date:'2026-10-13',title:'Grey Man back inside the book\u2019s cap',items:[
+    'Single-leg comes off Grey Man\u2019s A day, putting its supplementary clusters back to six exercises \u2014 the ceiling the book sets. Squat is already on that day, so single-leg was the most redundant of the four.',
+    'Add it back from Setup \u2192 Accessories if you want it; going over the cap is a choice the book leaves to you, it just is not the default.']},
   {v:'1.88',date:'2026-10-12',title:'Posterior chain on Zulu and Grey Man',items:[
     'Neither had a hamstring job anywhere in the week. Both now carry one on their A day \u2014 the squat-and-bench one, which has no hinge in it \u2014 rather than on the day that already deadlifts.',
     'Zulu runs each half twice a week, so that is two sessions of it. Grey Man is now one supplementary exercise over the four-to-six the book suggests; those clusters are the part the book tells you to choose yourself, so trim whichever you like in Setup.',

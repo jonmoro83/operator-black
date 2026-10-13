@@ -110,6 +110,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Grey Man back inside the book's cap (2026-10-13)**
+- Single-leg off `gm1`, so the supplementary clusters are six exercises again — TB III's
+  stated ceiling. Squat is already on that day, which made single-leg the most redundant
+  of the four.
+- **The rule this settled, which is worth more than the change:** when something is
+  genuinely in question, follow the book. I had left Grey Man one over, reasoning that
+  the S clusters are the part the book hands the lifter to choose and so trimming was
+  theirs. That is a defensible argument and it was the wrong call — the book states a
+  cap, and a default that ignores it is the app overriding the programme. Where the app
+  does depart deliberately (the deload week, the accessory splits, the bridge week) it
+  says so; silently exceeding a stated limit is not that.
+- The test asserts the range 4–6 rather than the number 6, so it states the book's rule
+  instead of today's list.
+
 **Posterior chain on Zulu and Grey Man (2026-10-12)**
 - Both had none anywhere in the week. Added to `z1` and `gm1`, the squat-and-bench days,
   rather than the days that already deadlift. Zulu runs each half twice, so that is two
