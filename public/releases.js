@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.84',date:'2026-10-12',title:'A beep that does not stop your music',items:[
+    'Setup → Sound is now a three-way choice, and the default is <b>keep my music playing</b>. The beep goes over the top and nothing pauses.',
+    'Here is the honest version of why this took three goes. iOS gives a web page one audio channel and one choice about it: share it with your music, or take it. A native app can ask for both at once — take the channel <i>and</i> mix — and that is how the apps you are comparing against do it. The web has no way to ask for that combination. So sharing means the ring switch on the side of the phone can silence you, and beating that switch means pausing your music for a second. You now get to pick which.',
+    'In 1.79 I set every phone to take the speaker while chasing a different bug. That is what started the music stopping, and it is undone.',
+    'Separately, a real fault: when Spotify or Apple Music starts, iOS moves the page’s audio into a state the code was not checking for, and every beep after that went nowhere. It now wakes it back up.',
+    '<b>No sound at all</b> is still there as the third option, and the rest timer still shows a Silent tag with one tap to turn sound back on — which now hands back the music-sharing mode rather than the one that interrupts.']},
   {v:'1.83',date:'2026-10-12',title:'Copenhagen planks',items:[
     'Added to the core movements, so it turns up wherever a core job appears — on any template. Held against a bench, so it logs as bodyweight and asks for seconds rather than a weight.']},
   {v:'1.82',date:'2026-10-12',title:'Grey Man, and supplementary work with real numbers',items:[

@@ -110,6 +110,30 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Sound: share the speaker or take it, and you choose (2026-10-12)**
+- Fourth report on the beep, and the first one that got the question right: *keep my
+  music playing and still beep*. Researched before touching anything, as asked.
+- **The constraint is real and is not ours.** The Audio Session spec splits types into
+  exclusive (`playback`, `play-and-record`, `transient-solo`) and mixable (`transient`,
+  `ambient`). A native app combines the playback *category* with a `mixWithOthers`
+  *option* and gets both; `navigator.audioSession.type` is one category and has no
+  equivalent. So: share and be silenced by the ring switch, or seize and pause the music.
+- `plan.soundMode` is `duck` | `takeover` | `silent`, defaulting to **duck**
+  (`transient`). Migration 6 converts `quietTimer`. The WAV clip added in 1.79 now goes
+  out only in takeover — a media element is for beating the ring switch, and beating it
+  means holding the channel, which is the thing ducking exists to avoid.
+- **1.79 set `playback` for everyone.** That was my regression and it is what started the
+  music stopping; it was chasing audibility and traded away the thing actually wanted.
+- **A separate real fault, and probably the oldest one here:** WebKit moves a page's
+  AudioContext to `interrupted` when another app starts playing. Every check in the file
+  tested for `suspended`. On a phone with music on, that is most of the time, and every
+  beep after the music started went nowhere. Now `!== 'running'`.
+- 233 → 236 tests. 13 mutants, all caught. The harness exposes the live stub context so
+  `interrupted` is reachable from a test at all.
+- **Left undone on purpose:** nothing can make a sound on a phone whose ring switch is
+  off without taking the channel. The Apple Watch tap through the existing rest-alert
+  notification is the answer there, and is deferred rather than unknown.
+
 **Programme templates, stage 5: two clusters, and Grey Man (2026-10-12)**
 - **Days may vary by week.** `T.days` can be a function of the week, because Grey Man
   alternates A-B-A then B-A-B so the same weekday is a different session seven days

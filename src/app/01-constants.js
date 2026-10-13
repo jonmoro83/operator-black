@@ -377,6 +377,8 @@ const DEF={
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'},
   askDeload:true, voice:false, guideAuto:true,
+  // 'duck' shares the speaker with your music, 'takeover' seizes it, 'silent' is mute.
+  soundMode:'duck',
   elevPer:{lb:1000,kg:190},
   se:{cluster:'bw',custom:[],rest:60},
   bbVer:{},
@@ -441,7 +443,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=5;
+const SCHEMA=6;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -505,6 +507,12 @@ const MIGRATIONS=[
       p.waves=Object.assign({},p.waves,{[STEMPL[p.stempl]?p.stempl:'operator']:p.wave});
     }
     delete p.wave;
+  }},
+  {to:6,note:'Silent timers become a three-way sound choice',run(d,p){
+    // The old setting was a yes/no: beeps, or your music. Both at once is what people
+    // actually want, and ducking gives it whenever the ring switch is on.
+    if(!p.soundMode) p.soundMode=p.quietTimer?'silent':'duck';
+    delete p.quietTimer;
   }},
 ];
 

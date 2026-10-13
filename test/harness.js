@@ -29,9 +29,9 @@ function stubDom() {
   // A recording AudioContext. Without one, `audioCtx` stayed undefined and every beep
   // was a no-op, so nothing about the alert sounds was testable — which is how the rest
   // beep got "fixed" twice without anybody being able to check it.
-  const audio = { tones: [], plays: [], ctxs: 0, resumes: 0 };
+  const audio = { tones: [], plays: [], ctxs: 0, resumes: 0, ctx: null };
   class StubAudioContext {
-    constructor() { this.state = "suspended"; this.currentTime = 0; this.destination = { kind: "out" }; audio.ctxs++ }
+    constructor() { this.state = "suspended"; this.currentTime = 0; this.destination = { kind: "out" }; audio.ctxs++; audio.ctx = this }
     // A suspended context's clock is frozen, and resume() is async. Jumping the clock on
     // resume is what makes "scheduled before the resume settled" visible to a test.
     resume() {

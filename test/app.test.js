@@ -960,17 +960,18 @@ test("minutes can be logged without using the timer", () => {
 
 test("silent mode never opens an audio channel", () => {
   const x = app({ now: "2026-10-19" });
-  x.plan.quietTimer = true; x.plan.voice = true; x.bump();
+  x.plan.soundMode = "silent"; x.plan.voice = true; x.bump();
   a.equal(x.quiet(), true);
   // say() and the beeps all bail out before touching speechSynthesis or an AudioContext
   x.say("test");                     // would throw if it tried: the stub has neither
   x.beep();
   x.tone(880, 0.2);
   x.unlockAudio();
-  a.match(x.vSetup(), /Silent timers/);
-  a.match(x.vSetup(), /keep my music playing/);
+  a.match(x.vSetup(), /No sound at all/);
+  a.match(x.vSetup(), /data-act="soundmode" data-v="silent"[^>]*aria-pressed="true"/);
+  a.equal(x.audio.ctxs, 0, "and no audio context was ever created");
 
-  x.plan.quietTimer = false; x.bump();
+  x.plan.soundMode = "duck"; x.bump();
   a.equal(x.quiet(), false);
 });
 
@@ -2414,13 +2415,13 @@ test("Silent stops the beep, not every way of telling you the rest is over", () 
   buzzes().length = 0;
 
   // Sound on: it buzzes (and would beep, with an AudioContext to beep through).
-  x.plan.quietTimer = false; x.bump();
+  x.plan.soundMode = "duck"; x.bump();
   x.beep();
   a.equal(buzzes().length, 1, "a buzz with sound on");
 
   // Silent on: still buzzes. Silent exists so iOS does not take the audio session off
   // your music; vibration never touches audio, so there is no reason to suppress it.
-  x.plan.quietTimer = true; x.bump();
+  x.plan.soundMode = "silent"; x.bump();
   x.beep();
   a.equal(buzzes().length, 2, "and a buzz with sound off");
   a.deepEqual(buzzes()[1], [200, 100, 200], "the same pattern either way");
@@ -2430,27 +2431,27 @@ test("Silent stops the beep, not every way of telling you the rest is over", () 
 
 test("a silenced rest timer says so, and offers one tap to turn sound back on", () => {
   const x = app({ now: "2026-10-07" });
-  x.plan.quietTimer = true; x.bump();
+  x.plan.soundMode = "silent"; x.bump();
   x.startRest("squat", "Squat · set 2", 180, "Rest");
   x.showRest();
   a.equal(x.dom.made["rest-quiet"].hidden, false, "the tag is up while Silent is on");
 
-  x.plan.quietTimer = false; x.bump();
+  x.plan.soundMode = "duck"; x.bump();
   x.showRest();
   a.equal(x.dom.made["rest-quiet"].hidden, true, "and gone when it is not");
 
   // Tapping the tag turns sound back on, and the tag goes with it.
-  x.plan.quietTimer = true; x.bump();
+  x.plan.soundMode = "silent"; x.bump();
   x.startRest("squat", "Squat \u00b7 set 2", 180, "Rest");
   x.showRest();
   a.equal(x.dom.made["rest-quiet"].hidden, false);
   x.unquiet();
-  a.equal(x.plan.quietTimer, false, "sound is back on");
+  a.equal(x.quiet(), false, "sound is back on");
   a.equal(x.quiet(), false);
   a.equal(x.dom.made["rest-quiet"].hidden, true, "and the tag has gone");
 
   // Setup is honest about what Silent costs on an iPhone.
-  x.plan.quietTimer = true; x.bump();
+  x.plan.soundMode = "silent"; x.bump();
   const setup = x.vSetup();
   a.match(setup, /no way to vibrate/i, "it says Safari cannot vibrate");
   a.ok(!/the countdown, the vibration and the screen still work/i.test(setup),
@@ -3233,10 +3234,12 @@ test("a ramp set nudges by the lift's increment and the whole step follows", () 
 // Lets the resume's promise chain run: resume() is one microtask, beepTones' .then another.
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
-test("the rest beep goes out as a clip and as tones, and Silent stops only the sound", async () => {
+test("the rest beep shares the speaker by default and seizes it only if asked", async () => {
   const x = app({ now: "2026-10-19" });
+  a.equal(x.soundMode(), "duck", "sharing is the default");
   x.unlockAudio();
   await settle();                                  // the context resumes asynchronously
+  a.equal(navigator.audioSession.type, "transient", "which is the mixable category");
   x.audio.tones.length = 0; x.audio.plays.length = 0; x.buzzes.length = 0;
 
   const r = x.beep();
@@ -3244,11 +3247,22 @@ test("the rest beep goes out as a clip and as tones, and Silent stops only the s
   a.deepEqual(x.buzzes, [[200, 100, 200]]);
   a.equal(x.audio.tones.length, 3, "three tones through Web Audio");
   a.deepEqual(x.audio.tones.map((t) => t.hz), [880, 880, 1320]);
-  a.equal(x.audio.plays.length, 1, "and the same beep as a media clip, which iOS does not mute");
-  a.match(x.audio.plays[0], /^data:audio\/wav/);
+  a.equal(x.audio.plays.length, 0,
+    "and no media clip: playing one would take the speaker, which is what ducking avoids");
 
-  // Silent exists to keep your music. It takes the sound, not the buzz.
-  x.plan.quietTimer = true;
+  // Taking over adds the clip, because beating the ring switch means holding the channel.
+  x.setSoundMode("takeover");
+  await settle();
+  a.equal(navigator.audioSession.type, "playback");
+  x.audio.tones.length = 0; x.audio.plays.length = 0; x.buzzes.length = 0;
+  x.beep();
+  a.equal(x.audio.tones.length, 3);
+  a.equal(x.audio.plays.length, 1, "the clip goes out too");
+  a.match(x.audio.plays[0], /^data:audio\/wav/);
+  x.setSoundMode("duck");
+
+  // Silent takes the sound, not the buzz.
+  x.plan.soundMode = "silent";
   x.audio.tones.length = 0; x.audio.plays.length = 0; x.buzzes.length = 0;
   const q = x.beep();
   a.equal(q.vib, true, "a silent timer still buzzes, or it cannot tell you anything");
@@ -3277,12 +3291,38 @@ test("a suspended channel is resumed before the tones are scheduled against its 
     "spaced as a three-note beep");
 });
 
-test("the audio session asks for playback, which the iPhone ringer switch cannot silence", () => {
+test("the sound mode picks the audio session, and only three modes exist", () => {
   const x = app({ now: "2026-10-19" });
-  x.unlockAudio();
-  a.equal(navigator.audioSession.type, "playback",
-    "'transient' is ducking-and-mutable; an alert you cannot hear is the whole bug");
-  a.equal(x.beepDiag().session, "playback", "and the diagnostic reports it");
+  // iOS splits sessions into mixable and exclusive. That is the whole choice: a native
+  // app can ask for playback *and* mixWithOthers, the web cannot ask for both.
+  for (const [mode, want] of [["duck", "transient"], ["takeover", "playback"]]) {
+    a.equal(x.setSoundMode(mode), true);
+    x.unlockAudio();
+    a.equal(navigator.audioSession.type, want, `${mode} asks for ${want}`);
+    a.equal(x.beepDiag().session, want, "and the diagnostic reports it");
+    a.equal(x.beepDiag().mode, mode);
+  }
+  a.equal(x.setSoundMode("silent"), true);
+  a.equal(x.quiet(), true);
+  a.equal(x.setSoundMode("loud"), false, "there is no fourth mode");
+  a.equal(x.setSoundMode(""), false);
+  a.equal(x.soundMode(), "silent", "and a bad value changes nothing");
+});
+
+test("an older plan's Silent switch becomes the three-way choice", () => {
+  const x = app({ now: "2026-10-19" });
+  delete x.plan.soundMode;
+  x.plan.quietTimer = true; x.plan.schema = 5; x.outbox = {}; x.bump();
+  a.equal(x.soundMode(), "silent", "read correctly even before the migration runs");
+  a.equal(x.migrate(), true);
+  a.equal(x.plan.soundMode, "silent");
+  a.equal(x.plan.quietTimer, undefined, "the old flag is gone");
+
+  const y = app({ now: "2026-10-19" });
+  delete y.plan.soundMode;
+  y.plan.quietTimer = false; y.plan.schema = 5; y.bump();
+  y.migrate();
+  a.equal(y.plan.soundMode, "duck", "someone who had sound on now shares the speaker");
 });
 
 test("one rest ending makes exactly one noise", async () => {
@@ -3318,21 +3358,26 @@ test("the beep test reports what it found and says what to try", () => {
   a.ok(x.beepSeen, "the result is kept for the card");
   a.equal(x.beepSeen.silent, false);
   a.match(x.beepReport(), /beep test/);
-  a.match(x.beepReport(), /audio session: playback/);
+  a.match(x.beepReport(), /audio session: transient/);
   a.equal(x.audioState().silent, false, "and reading the state does not need a beep");
 
   // Silent is a setting, not a fault, and the advice says so first.
-  x.plan.quietTimer = true;
+  x.plan.soundMode = "silent";
   x.beepTest();
   a.match(x.beepAdvice(x.beepSeen)[0], /on purpose/);
 
   // An iPhone can never buzz, and that is worth saying rather than looking broken.
   const ip = { ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1",
-    silent: false, canVibrate: false, vibrated: false, media: "pending", tones: "running",
-    ctx: "running", session: "playback" };
+    mode: "duck", silent: false, canVibrate: false, vibrated: false, media: "skipped-duck",
+    tones: "running", ctx: "running", session: "transient" };
   const adv = x.beepAdvice(ip).join(" ");
   a.match(adv, /no way to vibrate/);
-  a.match(adv, /ringer switch/, "and points at the thing that actually silences it");
+  a.match(adv, /ring switch/, "and points at the thing that actually silences it");
+  a.match(adv, /always be audible/, "with the way out named, since ducking cannot beat it");
+
+  // On a phone set to take the speaker, that advice would be wrong and is not given.
+  const over = x.beepAdvice(Object.assign({}, ip, { mode: "takeover", session: "playback" })).join(" ");
+  a.doesNotMatch(over, /always be audible/);
 
   // A channel that never opened, and one the phone suspended, get their own advice.
   a.match(x.beepAdvice(Object.assign({}, ip, { ctx: "none" })).join(" "), /nothing has been tapped/);
@@ -3357,7 +3402,7 @@ test("the Sound card offers the beep test and shows the result", () => {
   a.match(after, /data-act="beepcopy"/, "with a way to send it on");
   a.match(after, /What the app saw/, "behind a disclosure");
   a.match(after, /channel (running|suspended)/, "with the raw facts in it");
-  a.match(after, /session playback/);
+  a.match(after, /session transient/);
 });
 
 test("the composed Operator week is exactly the week that used to be hardcoded", () => {
@@ -4138,4 +4183,39 @@ test("the Copenhagen plank is a core option, loaded by bodyweight", () => {
   a.match(x.accSlotRow(mon, "core"), /Copenhagen plank/);
   x.setLog(mon, "acc.sets.core", [{ r: 30 }]);
   a.match(x.accSlotRow(mon, "core"), /placeholder="bw"/, "weight reads as bodyweight");
+});
+
+test("a context another app interrupted is woken, not left asleep", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio();
+  await settle();
+  a.equal(x.audio.ctx.state, "running");
+
+  // What starting Spotify does on a phone: WebKit moves the page's context to a state
+  // of its own that is neither running nor suspended. Checking only for "suspended"
+  // left it there, and the beep went nowhere for the rest of the session.
+  x.audio.ctx.state = "interrupted";
+  x.audio.tones.length = 0;
+  const r = x.beep();
+  a.equal(r.tones, "resuming", "it is woken rather than written off");
+  a.equal(x.audio.tones.length, 0, "and nothing is scheduled against the stale clock");
+  await settle();
+  a.equal(x.audio.ctx.state, "running", "it comes back");
+  a.equal(x.audio.tones.length, 3, "and the beep goes out");
+
+  // The same for the check that runs when the app returns to the foreground.
+  x.audio.ctx.state = "interrupted";
+  a.equal(x.audioAwake(), true);
+  await settle();
+  a.equal(x.audio.ctx.state, "running");
+  a.equal(x.audioAwake(), true, "and an already-running context is simply fine");
+});
+
+test("the Silent tag hands back the speaker-sharing mode, not the seizing one", () => {
+  const x = app({ now: "2026-10-07" });
+  x.plan.soundMode = "silent"; x.bump();
+  x.startRest("squat", "Squat · set 2", 180, "Rest");
+  x.unquiet();
+  a.equal(x.soundMode(), "duck",
+    "the tap means 'let me hear it', not 'stop my music'");
 });

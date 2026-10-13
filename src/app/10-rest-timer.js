@@ -16,16 +16,55 @@ function say(text){
   if(quiet()||!plan.voice||!('speechSynthesis' in window)) return;
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1.05; u.pitch=1; speechSynthesis.speak(u) }catch(e){}
 }
-function quiet(){return !!plan.quietTimer}
+/* ---------- sharing the phone's speaker ----------
+iOS gives a web page one audio session, and the only lever is its category. The spec
+splits them in two: `playback`, `play-and-record` and `transient-solo` are *exclusive* —
+they take the speaker and stop whatever was playing — while `transient` and `ambient`
+*mix* with other audio but are silenced by the ring/silent switch.
+
+A native app gets both at once by asking for the playback category with a mixWithOthers
+option. The web API has no equivalent, so this is a real choice and not a missing
+feature on our side:
+
+  duck      transient. Your music keeps playing and the beep goes over it. Audible
+            whenever the ring switch is on. The default, because a gym timer that
+            silences your music every two minutes is worse than one you can't hear
+            with the switch off.
+  takeover  playback. Heard even on silent, at the price of pausing your music for
+            about a second. This is the only mode where the WAV clip is used too:
+            a media element is for beating the switch, which is the takeover case.
+  silent    no sound at all. Vibration still fires where the platform has it.
+
+1.79 set `playback` for everyone, which is how the music started stopping. */
+function soundMode(){
+  const m=plan.soundMode;
+  if(m==='duck'||m==='takeover'||m==='silent') return m;
+  return plan.quietTimer?'silent':'duck';          // pre-1.84 plans
+}
+function quiet(){return soundMode()==='silent'}
+// Changing it takes effect on the next beep, so the channel is re-asked for now rather
+// than at the end of a rest when it is too late to find out it was refused.
+function setSoundMode(v){
+  if(!['duck','takeover','silent'].includes(v)) return false;
+  mutatePlan(p=>{p.soundMode=v; delete p.quietTimer});
+  if(v!=='silent') unlockAudio();
+  return true;
+}
+// WebKit adds an 'interrupted' state of its own when another app takes the audio, so
+// "not running" is the question rather than "suspended" — checking only for suspended
+// left the context asleep whenever music had started since the last beep.
+function audioAwake(){
+  if(!audioCtx) return false;
+  if(audioCtx.state==='running') return true;
+  try{ audioCtx.resume(); return true }catch(e){ return false }
+}
 function unlockAudio(){
   if(quiet()) return;
   try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
-    // 'transient' ducks other audio and is silenced by the iPhone ringer switch.
-    // A rest alert you cannot hear is the bug, so this asks for playback instead.
-    if(navigator.audioSession) navigator.audioSession.type='playback';
+    if(navigator.audioSession) navigator.audioSession.type=soundMode()==='takeover'?'playback':'transient';
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') audioCtx.resume();
+    if(audioCtx.state!=='running') audioCtx.resume();
     const b=audioCtx.createBuffer(1,1,22050), s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0);
   }catch(e){}
 }
@@ -92,8 +131,10 @@ function beepTones(){
     const t0=audioCtx.currentTime;
     [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
   }catch(e){} };
-  // Scheduling against a suspended context's clock was bug 2: resume first, then read it.
-  if(audioCtx.state==='suspended'){
+  // Scheduling against a stopped context's clock was bug 2: resume first, then read it.
+  // 'interrupted' counts as stopped — WebKit moves the context there when another app
+  // starts playing, which on a phone with music on is most of the time.
+  if(audioCtx.state!=='running'){
     try{ const p=audioCtx.resume(); if(p&&p.then) p.then(go,()=>{}); else go(); }catch(e){ return 'resume-threw' }
     return 'resuming';
   }
@@ -107,7 +148,9 @@ function beep(){
   let vib=false;
   try{ vib=!!(navigator.vibrate&&navigator.vibrate([200,100,200])) }catch(e){}
   if(quiet()){ lastBeep='silent'; return {vib,media:'silent',tones:'silent'} }
-  const media=beepMedia(), tones=beepTones();
+  // The clip exists to beat the ring switch, and beating it means taking the speaker.
+  // In duck mode that would stop the music, which is the thing duck mode is for.
+  const media=soundMode()==='takeover'?beepMedia():'skipped-duck', tones=beepTones();
   lastBeep=lastBeep==='media'?lastBeep:(media+'/'+tones);
   return {vib,media,tones};
 }
@@ -117,6 +160,7 @@ let beepSeen=null;
 // because that one makes a noise, and an inspector with a side effect is a trap.
 function audioState(){
   return {
+    mode:soundMode(),
     silent:quiet(),
     canVibrate:typeof navigator!=='undefined'&&!!navigator.vibrate,
     ctx:audioCtx?audioCtx.state:'none',
@@ -134,10 +178,11 @@ function beepDiag(){
 // rather than printing a status code at someone standing in a gym.
 function beepAdvice(d){
   const out=[];
-  if(d.silent) out.push('Silent timers are on below, so the beep is turned off on purpose. The buzz and the notification still fire.');
+  if(d.silent) out.push('Sound is set to off below, on purpose. The buzz and the notification still fire.');
+  if(d.mode==='duck'&&/iPhone|iPad/i.test(d.ua)) out.push('Sound is set to share the speaker with your music, which is what you want \u2014 but iOS silences shared audio when the ring switch on the side of the phone is off. Check that switch first. If you need to be heard with it off, the price is your music pausing: choose \u201calways be audible\u201d below.');
   if(/iPhone|iPad/i.test(d.ua)){
     if(!d.canVibrate) out.push('This is an iPhone or iPad, and Safari gives a web app no way to vibrate at all. There will never be a buzz here \u2014 sound, screen and notifications are what you get.');
-    out.push('If you heard nothing: check the ringer switch on the side, and that the volume is up. The beep now also plays as a media clip, which the ringer switch does not silence, so this is the case that should have been fixed.');
+    out.push('If you heard nothing: check the ring switch on the side of the phone, and that the volume is up.');
   } else if(!d.canVibrate) out.push('This browser has no Vibration API, so there will be no buzz.');
   if(d.ctx==='none') out.push('No audio channel was opened. That usually means nothing has been tapped yet on this page \u2014 tap the button again.');
   if(d.ctx==='suspended') out.push('The audio channel is suspended, which is what happens after the phone locks. Tap the button again with the app on screen.');
@@ -150,7 +195,7 @@ function beepTest(){ beepSeen=beepDiag(); render(); }
 function beepReport(){
   const d=beepSeen; if(!d) return 'No beep test run yet.';
   const head='Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 beep test';
-  const rows=[['silent',d.silent],['can vibrate',d.canVibrate],['vibrated',d.vibrated],
+  const rows=[['mode',d.mode],['silent',d.silent],['can vibrate',d.canVibrate],['vibrated',d.vibrated],
     ['media clip',d.media],['web audio',d.tones],['audio channel',d.ctx],['audio session',d.session]];
   return head+'\n'+rows.map(r=>r[0]+': '+r[1]).join('\n')+'\n'+d.ua+'\n\n'+beepAdvice(d).join('\n');
 }
@@ -181,5 +226,5 @@ function syncScreen(){ holdScreen(wantScreen()) }
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible') return;
   syncScreen();
-  try{ if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume() }catch(e){}
+  try{ audioAwake() }catch(e){}
 });

@@ -81,7 +81,9 @@ function showRest(){
 // Turning the sound back on from the timer itself, where you noticed it was off.
 // A named function because the click handler cannot be reached from a test.
 function unquiet(){
-  setPlan('quietTimer',false);
+  // Back to sharing the speaker rather than seizing it: the tap means "let me hear it",
+  // not "stop my music".
+  setPlan('soundMode','duck');
   unlockAudio();
   showRest(); render();
 }

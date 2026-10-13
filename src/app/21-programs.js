@@ -325,16 +325,21 @@ function vSetup(){
     h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {
-    const q=!!plan.quietTimer;
-    h+=`<div class="card"><div class="lift-h"><h2>Sound</h2>${q?'<span class="chip">Silent</span>':'<span class="chip light">Beeps on</span>'}</div>
-    <p class="small muted" style="margin:0">On iPhone, a web app that makes any sound takes over the audio session and pauses whatever you were listening to. If the timer keeps stopping your music, this is why.</p>
-    <label class="check"><input type="checkbox" id="p-quiet" data-pbind="quietTimer" ${q?'checked':''}> Silent timers \u2014 keep my music playing</label>
-    <div class="small muted">Silent turns off the beeps and the spoken cues for rests and intervals. Vibration still fires, and rest alerts still arrive as notifications \u2014 neither touches your music. <b>On iPhone that leaves the screen and the notification only</b>, because Safari gives a web app no way to vibrate. If you want an audible rest beep on an iPhone, the price is your music pausing.</div>
-    ${q?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}</div>
+    const sm=soundMode(), SMN={duck:'Ducks music',takeover:'Takes over',silent:'Silent'};
+    h+=`<div class="card"><div class="lift-h"><h2>Sound</h2><span class="chip ${sm==='silent'?'':'light'}">${SMN[sm]}</span></div>
+    <p class="small muted" style="margin:0">iOS gives a web page one audio channel and one choice about it: share it with your music, or take it. There is no third option \u2014 a native app can ask for both at once, the web cannot.</p>
+    <div class="stack" style="gap:6px">
+      ${[['duck','Keep my music playing','The beep goes over the top and nothing pauses. Heard whenever the ring switch on the side of the phone is on \u2014 with the switch off, iOS silences it, and nothing a web app can do changes that.'],
+         ['takeover','Always be audible','Heard even with the ring switch off, at the price of pausing your music for about a second each time.'],
+         ['silent','No sound at all','Screen and vibration only. Rest alerts still arrive as notifications, which reach a paired Apple Watch as a tap.']]
+        .map(([v,t,d])=>`<button class="btn${sm===v?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="soundmode" data-v="${v}" aria-pressed="${sm===v}"><span><b>${sm===v?'\u2713 ':''}${t}</b><br><span class="small">${d}</span></span></button>`).join('')}
+    </div>
+    ${sm==='silent'?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
+    <div class="small muted">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
     <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
     ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
-      <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
+      <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['mode '+beepSeen.mode,'silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
       <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}`;
   }
   {

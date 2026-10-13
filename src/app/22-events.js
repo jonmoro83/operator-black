@@ -176,6 +176,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
+  if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='beeptest'){unlockAudio();beepTest();return}
   if(a==='beepcopy'){
     const text=beepReport();
