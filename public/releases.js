@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.93',date:'2026-10-13',title:'Plyos are a question now, not an assumption',items:[
+    'Welcome setup asks whether you want a plyometrics day at all, and which day to put it on. Until now the app simply gave you one on Thursdays and the only way to move it was a week at a time.',
+    'You can also turn them off entirely, which was not possible before. Nothing is lost by doing it \u2014 jumps you have already logged stay, and the day goes back to whatever else it had. Setup \u2192 Plyometrics has the same two choices afterwards.',
+    'It tells you what is already on the day you pick: that it is a lifting day and the barbell work would come second, that it is the only day the week has nothing on it, or that your conditioning is running and that is landing work of its own.',
+    'One warning it deliberately does not give: that the day before is a lifting day. In a week that alternates, every conditioning day follows one, so it would be true of almost every choice and tell you nothing.']},
   {v:'1.92',date:'2026-10-13',title:'American spelling throughout',items:[
     'The app had drifted into British spelling in about sixty places. All of it is American now, across the screens, the guide and these notes.',
     '<b>Grey Man</b> keeps its spelling: that is Tactical Barbell III\u2019s name for the template, not a color.',

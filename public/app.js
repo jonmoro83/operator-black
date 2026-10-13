@@ -290,6 +290,33 @@ function programWarnings(t,c,bb){
   return out;
 }
 
+// The seven roles a week would have under a given pairing, before anyone reorders it.
+// Used to answer "what else is on the day you want to put plyos on".
+function weekRolesFor(t,c,wk){
+  const T=STEMPL[t]||STEMPL.operator, P=CPROTO[c]||CPROTO.black, w=wk||{w:1};
+  const cs=(typeof P.sessions==='function'?P.sessions(w):P.sessions)||[];
+  return weekShape(P.noStrength?[]:tplSlots(T,w,tplDays(T,w)),cs);
+}
+/* What is already on the day you are about to put plyos on.
+
+   The app's own position, stated on every plyo card: they go first because they are a
+   nervous-system stimulus and want you fresh, with ten minutes before hard conditioning.
+   That makes a lifting day a real trade rather than a preference. The rest-day one is
+   arithmetic, and the impact one the app already says on the day itself.
+
+   Deliberately not warned about: landing on the day after a lifting day. In a week that
+   alternates, every conditioning day does, so it would fire on the default Thursday and
+   on most of the alternatives — a warning that is always true tells you nothing. The
+   pull-back rule it would have come from is on the plyo card, where it belongs. */
+function plyoWarnings(t,c,d,cardio){
+  // A day outside the week simply has no role, so nothing below matches it.
+  const out=[], roles=weekRolesFor(t,c), here=roles[d];
+  if(here==='S'||here==='SC') out.push({k:'lift',text:`${DAYN[d]} already lifts. Plyos go first because they want you fresh, so the barbell work is what takes the hit \u2014 which is backwards if strength is the point of the block.`});
+  if(here==='R'&&roles.filter(v=>v==='R').length===1) out.push({k:'rest',text:`${DAYN[d]} is the only day this week has nothing on it. Plyos are short, but it stops being a rest day.`});
+  if((here==='C'||here==='SC')&&['run','hill','ruck'].includes(cardio)) out.push({k:'impact',text:`Your conditioning is ${(MOD[cardio]||{}).name||cardio}, which is landing work of its own. On a day that also has plyos, keep the volume at the low end or ride instead.`});
+  return out;
+}
+
 function stemplOf(){ return STEMPL[plan.stempl]||STEMPL.operator }
 function stemplKey(){ return STEMPL[plan.stempl]?plan.stempl:'operator' }
 function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }
@@ -720,7 +747,7 @@ const PULLUP=[
    why:'From here it is ordinary strength work: the percentages apply to bodyweight plus the added weight.'}
 ];
 function pullupStage(reps){let i=0;for(let j=0;j<PULLUP.length;j++) if(reps>=PULLUP[j].at) i=j;return i}
-const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','Wednesday’s squat session was unusually heavy or left you sore into Thursday.'];
+const PLYO_PULLBACK=['Broad jump distance is down more than 5% from recent sessions before you have even started the work sets.','Achilles, patellar tendon or shin soreness you can feel while walking. Tendon complaints build quietly over weeks, then stop you for months.','Sleep has been short or broken for several nights running.','The lifting session before this one was unusually heavy, or left you sore into today.'];
 function libBody(e){return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
 function plyoEntry(id){const e=PLIB[id];if(!e)return '';return `<div class="plib">${[['Setup',e.setup],['Execution',e.exec],['Cues',e.cues],['Common errors',e.errors]].map(([t,x])=>`<p><b>${t}.</b> ${esc(x)}</p>`).join('')}${e.note?`<p class="plib-note">${esc(e.note)}</p>`:''}</div>`}
 // A week away from the barbell. Rep targets rather than percentages, so nothing here
@@ -758,7 +785,8 @@ const DEF={
   // Plyos ride on a weekday of their own rather than being welded to a session, so
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
-  plyoDow:3, plyoMove:{},
+  // plyoOn false drops them from the plan entirely; plyoDow is the usual weekday.
+  plyoOn:true, plyoDow:3, plyoMove:{},
   // Which program this is. Two independent choices, composed into a week by
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
@@ -1740,7 +1768,7 @@ function orderIssues(monday,ord){
 // Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
 // baked into a slot: a slot belongs to the arrangement of the week and gets shuffled by
 // the Move tool, and plyos should not be shuffled with it. 0 = Monday.
-function weekHasPlyo(wk){ return !!wk&&['cycle','deload','travel'].includes(wk.kind) }
+function weekHasPlyo(wk){ return plan.plyoOn!==false&&!!wk&&['cycle','deload','travel'].includes(wk.kind) }
 function plyoDow(monday){
   const o=(plan.plyoMove||{})[monday];
   const v=o!=null?+o:+plan.plyoDow;
@@ -3779,7 +3807,8 @@ function nextMonday(){const t=realToday();return dow(t)===0?t:addDays(mondayOf(t
 function wzNew(rerun){
   return {rerun:!!rerun,step:0,unit:plan.unit||'lb',bw:plan.bodyweight||'',l3:Object.assign({pull:true,ohp:false,wpu:false},rerun?(plan.l3||{}).on:{}),
     start:rerun?plan.startMonday:nextMonday(),mode:rerun&&!plan.bridge?'maxes':'bridge',rm:'1rm',maxes:rerun?clone(plan.maxes):{},cardio:defMod(),deload:rerun?(+plan.deloadEvery||0):0,test:rerun?(+plan.testEvery||0):3,
-    stempl:rerun?stemplKey():'operator',cproto:rerun?cprotoKey():'black',bb:false};
+    stempl:rerun?stemplKey():'operator',cproto:rerun?cprotoKey():'black',bb:false,
+    plyo:rerun?plan.plyoOn!==false:true,plyoDow:rerun?(+plan.plyoDow>=0?+plan.plyoDow:3):3};
 }
 const WZ_STEPS=['You','Program','Lift 3','Start','Conditioning','Deloads','Ready'];
 function vWelcome(){
@@ -3814,7 +3843,12 @@ function vWelcome(){
     if(w.rerun) h+=`<div class="banner warn"><div class="small">Changing the start week or bridge choice re-plans your whole calendar, locked weeks included.</div></div>`;
   } else if(w.step===4){
     h+=`<label class="f">Main conditioning tool<div class="seg">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<button class="segb${w.cardio===k?' on':''}" data-act="wzset" data-k="cardio" data-v="${k}">${x.name}</button>`).join('')}</div></label>
-    <div class="small muted">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
+    <div class="small muted">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>
+    <label class="check" style="margin-top:10px"><input type="checkbox" id="wz-plyo" data-act-change="wzplyo" ${w.plyo?'checked':''}> Schedule a <b>plyometrics</b> day</label>
+    <div class="small muted">Jumps and bounds, 15 to 20 minutes of real work once a week, in three-week phases. A nervous-system stimulus rather than a workout — quality of each rep matters far more than how many. Leave it off if you would rather not; you can turn it on later.</div>
+    ${w.plyo?`<label class="f">Which day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow===i?' primary':''}" data-act="wzset" data-k="plyoDow" data-v="${i}" aria-pressed="${w.plyoDow===i}">${nm}</button>`).join('')}</div></label>
+      <div class="small muted">They go first on whatever day you pick, and you can move them a week at a time from the Move… button on any day.</div>
+      ${wzPlyoWarn(w)}`:''}`;
   } else if(w.step===5){
     h+=`<p style="margin:0">How the block itself runs. Both of these apply to the whole program, not just one part of it.</p>
     <label class="f">Scheduled deload week<div class="seg">${DELOAD_OPTS.map(([v,l])=>`<button class="segb${w.deload===v?' on':''}" data-act="wzset" data-k="deload" data-v="${v}">${l}</button>`).join('')}</div></label>
@@ -3824,7 +3858,7 @@ function vWelcome(){
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
-    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
+    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?esc(DAYN[w.plyoDow]):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
     <div class="small muted">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
@@ -3833,6 +3867,11 @@ function vWelcome(){
 }
 // What the books say about the pairing you have picked. Shown while choosing and again
 // on the summary, because the summary is the last chance to notice.
+function wzPlyoWarn(w){
+  const ws=plyoWarnings(w.stempl,w.cproto,w.plyoDow,w.cardio);
+  if(!ws.length) return '';
+  return `<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
+}
 function wzWarnings(w){
   const ws=programWarnings(w.stempl,w.cproto,w.bb);
   if(!ws.length) return '';
@@ -3847,6 +3886,7 @@ function wzFinish(){
     p.cardio=Object.assign({},p.cardio||{},{def:w.cardio}); p.deloadEvery=w.deload; p.testEvery=w.test;
     p.startMonday=start; p.bridge=w.mode==='bridge';
     p.stempl=w.stempl; p.cproto=w.cproto;
+    p.plyoOn=!!w.plyo; if(w.plyo) p.plyoDow=+w.plyoDow;
     // Base Building goes after the bridge week when there is one: the bridge is what
     // gives Base Building's two strength days their numbers.
     if(w.bb){ const at=w.mode==='bridge'?addDays(start,7):start;
@@ -5468,6 +5508,21 @@ function halvesCard(){
   h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
+// Plyos: whether they are in the plan at all, and which day they usually fall on.
+// Moving them for a single week is the Move… sheet's job, not this one.
+function plyoCardSetup(){
+  const on=plan.plyoOn!==false, d=(+plan.plyoDow>=0&&+plan.plyoDow<=6)?+plan.plyoDow:3;
+  let h=`<div class="card"><div class="lift-h"><h2>Plyometrics</h2><span class="chip ${on?'light':''}">${on?esc(DAYN[d]):'Off'}</span></div>
+  <p class="small muted" style="margin:0">Jumps and bounds, 15 to 20 minutes of real work once a week, in three-week phases. They are not part of a session: they go first on whatever day they land on, with ten minutes before hard conditioning.</p>
+  <label class="check"><input type="checkbox" id="p-plyoon" data-pbind="plyoOn" ${on?'checked':''}> Schedule a plyometrics day</label>`;
+  if(on){
+    h+=`<label class="f">Usual day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d===i}">${nm}</button>`).join('')}</div></label>
+    <div class="small muted">To shift them for one week only, use <b>Move…</b> on any day of that week.</div>`;
+    const ws=plyoWarnings(stemplKey(),cprotoKey(),d,(plan.cardio||{}).def);
+    if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
+  } else h+=`<div class="small muted">Nothing is lost by turning them off \u2014 jump results you have already logged stay, and the day goes back to whatever else it had.</div>`;
+  return h+`</div>`;
+}
 // Which program you are running. Two choices, composed into a week — see 00b-templates.js.
 function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
@@ -5504,6 +5559,7 @@ function vSetup(){
   }
   h+=programsCard();
   h+=templateCard();
+  h+=plyoCardSetup();
   h+=`<div class="card"><h2>Program</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
   <div class="grid4"><label class="f">Units<select id="p-unit" data-pbind="unit"><option value="lb"${u()==='lb'?' selected':''}>lb</option><option value="kg"${u()==='kg'?' selected':''}>kg</option></select></label><label class="f">Bar weight${pIn('bar',plan.bar)}</label><label class="f">Bodyweight${pIn('bodyweight',plan.bodyweight)}</label><label class="f">Percent of<select id="p-basis" data-pbind="basis"><option value="1rm"${plan.basis!=='tm'?' selected':''}>True 1RM</option><option value="tm"${plan.basis==='tm'?' selected':''}>Training max</option></select></label></div>
@@ -6231,7 +6287,7 @@ document.addEventListener('change',e=>{ const t=e.target;
     render(); return;
   }
   if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
-document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ if(t0.dataset.actChange==='wzbb'){ if(wz){wz.bb=t0.checked; render()} return } setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
+document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ if(t0.dataset.actChange==='wzbb'){ if(wz){wz.bb=t0.checked; render()} return } if(t0.dataset.actChange==='wzplyo'){ if(wz){wz.plyo=t0.checked; render()} return } setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.trvday||t.dataset.np) render(); });
 // Top-level navigation: the tabs and the account menu. Remembers the tab across loads.
 function goView(v){view=v;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)}
@@ -6449,6 +6505,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
+  if(a==='plyodow'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow=v}); return}
   if(a==='half'){setHalf(b.dataset.k,b.dataset.v);return}
   if(a==='upset'){
     const i=+b.dataset.i,j=+b.dataset.j, L=(lg(sel).plyo||{}).up||{}, arr=[...((L[i])||[])];

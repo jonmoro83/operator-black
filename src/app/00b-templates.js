@@ -288,6 +288,33 @@ function programWarnings(t,c,bb){
   return out;
 }
 
+// The seven roles a week would have under a given pairing, before anyone reorders it.
+// Used to answer "what else is on the day you want to put plyos on".
+function weekRolesFor(t,c,wk){
+  const T=STEMPL[t]||STEMPL.operator, P=CPROTO[c]||CPROTO.black, w=wk||{w:1};
+  const cs=(typeof P.sessions==='function'?P.sessions(w):P.sessions)||[];
+  return weekShape(P.noStrength?[]:tplSlots(T,w,tplDays(T,w)),cs);
+}
+/* What is already on the day you are about to put plyos on.
+
+   The app's own position, stated on every plyo card: they go first because they are a
+   nervous-system stimulus and want you fresh, with ten minutes before hard conditioning.
+   That makes a lifting day a real trade rather than a preference. The rest-day one is
+   arithmetic, and the impact one the app already says on the day itself.
+
+   Deliberately not warned about: landing on the day after a lifting day. In a week that
+   alternates, every conditioning day does, so it would fire on the default Thursday and
+   on most of the alternatives — a warning that is always true tells you nothing. The
+   pull-back rule it would have come from is on the plyo card, where it belongs. */
+function plyoWarnings(t,c,d,cardio){
+  // A day outside the week simply has no role, so nothing below matches it.
+  const out=[], roles=weekRolesFor(t,c), here=roles[d];
+  if(here==='S'||here==='SC') out.push({k:'lift',text:`${DAYN[d]} already lifts. Plyos go first because they want you fresh, so the barbell work is what takes the hit \u2014 which is backwards if strength is the point of the block.`});
+  if(here==='R'&&roles.filter(v=>v==='R').length===1) out.push({k:'rest',text:`${DAYN[d]} is the only day this week has nothing on it. Plyos are short, but it stops being a rest day.`});
+  if((here==='C'||here==='SC')&&['run','hill','ruck'].includes(cardio)) out.push({k:'impact',text:`Your conditioning is ${(MOD[cardio]||{}).name||cardio}, which is landing work of its own. On a day that also has plyos, keep the volume at the low end or ride instead.`});
+  return out;
+}
+
 function stemplOf(){ return STEMPL[plan.stempl]||STEMPL.operator }
 function stemplKey(){ return STEMPL[plan.stempl]?plan.stempl:'operator' }
 function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }

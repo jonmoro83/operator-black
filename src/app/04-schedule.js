@@ -189,7 +189,7 @@ function orderIssues(monday,ord){
 // Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
 // baked into a slot: a slot belongs to the arrangement of the week and gets shuffled by
 // the Move tool, and plyos should not be shuffled with it. 0 = Monday.
-function weekHasPlyo(wk){ return !!wk&&['cycle','deload','travel'].includes(wk.kind) }
+function weekHasPlyo(wk){ return plan.plyoOn!==false&&!!wk&&['cycle','deload','travel'].includes(wk.kind) }
 function plyoDow(monday){
   const o=(plan.plyoMove||{})[monday];
   const v=o!=null?+o:+plan.plyoDow;

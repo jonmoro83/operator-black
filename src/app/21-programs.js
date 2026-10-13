@@ -289,6 +289,21 @@ function halvesCard(){
   h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
+// Plyos: whether they are in the plan at all, and which day they usually fall on.
+// Moving them for a single week is the Move… sheet's job, not this one.
+function plyoCardSetup(){
+  const on=plan.plyoOn!==false, d=(+plan.plyoDow>=0&&+plan.plyoDow<=6)?+plan.plyoDow:3;
+  let h=`<div class="card"><div class="lift-h"><h2>Plyometrics</h2><span class="chip ${on?'light':''}">${on?esc(DAYN[d]):'Off'}</span></div>
+  <p class="small muted" style="margin:0">Jumps and bounds, 15 to 20 minutes of real work once a week, in three-week phases. They are not part of a session: they go first on whatever day they land on, with ten minutes before hard conditioning.</p>
+  <label class="check"><input type="checkbox" id="p-plyoon" data-pbind="plyoOn" ${on?'checked':''}> Schedule a plyometrics day</label>`;
+  if(on){
+    h+=`<label class="f">Usual day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d===i}">${nm}</button>`).join('')}</div></label>
+    <div class="small muted">To shift them for one week only, use <b>Move…</b> on any day of that week.</div>`;
+    const ws=plyoWarnings(stemplKey(),cprotoKey(),d,(plan.cardio||{}).def);
+    if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
+  } else h+=`<div class="small muted">Nothing is lost by turning them off \u2014 jump results you have already logged stay, and the day goes back to whatever else it had.</div>`;
+  return h+`</div>`;
+}
 // Which program you are running. Two choices, composed into a week — see 00b-templates.js.
 function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
@@ -325,6 +340,7 @@ function vSetup(){
   }
   h+=programsCard();
   h+=templateCard();
+  h+=plyoCardSetup();
   h+=`<div class="card"><h2>Program</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
   <div class="grid4"><label class="f">Units<select id="p-unit" data-pbind="unit"><option value="lb"${u()==='lb'?' selected':''}>lb</option><option value="kg"${u()==='kg'?' selected':''}>kg</option></select></label><label class="f">Bar weight${pIn('bar',plan.bar)}</label><label class="f">Bodyweight${pIn('bodyweight',plan.bodyweight)}</label><label class="f">Percent of<select id="p-basis" data-pbind="basis"><option value="1rm"${plan.basis!=='tm'?' selected':''}>True 1RM</option><option value="tm"${plan.basis==='tm'?' selected':''}>Training max</option></select></label></div>

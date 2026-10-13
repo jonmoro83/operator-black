@@ -127,6 +127,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Plyos are a setup question, not an assumption (2026-10-13)**
+- `plan.plyoOn` — they could not be turned off at all before, only moved a week at a
+  time. `weekHasPlyo` honours it, so the whole plan loses them cleanly.
+- Welcome setup asks on the Conditioning step (still seven steps): on or off, and which
+  weekday. `plan.plyoDow` had no UI anywhere until now; it was reachable only as the
+  thing the per-week override defaulted to.
+- **`plyoWarnings(t,c,d,cardio)`** names what is already on the chosen day, from the
+  week the pairing would draw: it lifts (plyos go first, so the barbell work takes the
+  hit), it is the only rest day, or the conditioning is running and that is landing work
+  too — which the day card already said, now said before you commit.
+- **One warning deliberately left out.** "The day before is a lifting day" fired on the
+  default Thursday and on most alternatives, because an alternating week puts a lifting
+  day before every conditioning day. A warning that is true of nearly every option tells
+  you nothing; the pull-back rule it came from stays on the plyo card.
+- Fixed in passing: `PLYO_PULLBACK` still said "Wednesday's squat session... sore into
+  Thursday", hardcoding the arrangement that 1.74 made movable.
+- 250 → 252 tests. 11 mutants, all caught. Three survived first: the off-switch test
+  was checking a bridge week, which never has plyos anyway; the rest-day warning was
+  never checked against a week with days to spare; and a bounds guard was dead.
+
 **American spelling throughout (2026-10-13)**
 - The app had drifted into British spelling, most visibly in the Program step shipped
   hours earlier. ~60 occurrences across strings, release notes and markup. The word list

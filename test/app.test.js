@@ -4638,3 +4638,70 @@ test("the app is written in American English", () => {
   a.equal(x.mlibEntry("Knee-to-wall ankle mobilisation").name,
           x.mlibEntry("Knee-to-wall ankle mobilization").name, "to the same entry");
 });
+
+test("setup asks whether you want plyos at all, and which day", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false);
+  a.equal(x.wz.plyo, true, "on by default, as the program has always had them");
+  a.equal(x.wz.plyoDow, 3, "Thursday by default");
+
+  x.wz.step = 4;
+  const h = x.vWelcome();
+  a.match(h, /data-act-change="wzplyo"/, "it is a question, not an assumption");
+  for (let i = 0; i < 7; i++) a.match(h, new RegExp(`data-k="plyoDow" data-v="${i}"`), `day ${i} offered`);
+
+  // Turned off, the day picker goes with it.
+  x.wz.plyo = false;
+  a.doesNotMatch(x.vWelcome(), /data-k="plyoDow"/, "no day to pick when there are no plyos");
+  x.wz.step = 6;
+  a.match(x.vWelcome(), /<dt>Plyos<\/dt><dd>none<\/dd>/, "and the summary says so");
+
+  // And it is saved.
+  x.wz.plyo = false; x.wz.mode = "maxes"; x.wzFinish();
+  a.equal(x.plan.plyoOn, false);
+  // A cycle week, not the bridge week: a bridge week never has plyos anyway, so
+  // checking one proves nothing about the setting.
+  const cyc = x.weeks().find((k) => k.kind === "cycle");
+  a.ok(![0, 1, 2, 3, 4, 5, 6].some((d) => x.dayPlan(x.addDays(cyc.monday, d)).plyo),
+    "no plyo day anywhere in a cycle week");
+  x.plan.plyoOn = true; x.bump();
+  a.ok([0, 1, 2, 3, 4, 5, 6].some((d) => x.dayPlan(x.addDays(cyc.monday, d)).plyo),
+    "and turning it back on brings them back");
+
+  const y = app({ now: "2026-10-19" });
+  y.wz = y.wzNew(false); y.wz.plyo = true; y.wz.plyoDow = 5; y.wzFinish();
+  a.equal(y.plan.plyoOn, true);
+  a.equal(y.plan.plyoDow, 5);
+  a.equal(y.plyoDow(y.mondayOf("2026-10-19")), 5, "and that is where they land");
+});
+
+test("plyo placement warns about what is already on the day, and only then", () => {
+  const x = app({ now: "2026-10-19" });
+  const w = (d, cardio) => x.plyoWarnings("operator", "black", d, cardio || "echo").map((v) => v.k);
+
+  // Operator and Black alternate lift / conditioning, with Sunday off.
+  a.deepEqual(x.weekRolesFor("operator", "black"), ["S", "C", "S", "C", "S", "C", "R"]);
+  a.deepEqual(w(3), [], "Thursday, the default, is a conditioning day and warns nothing");
+  a.deepEqual(w(1), [], "nor any other conditioning day");
+  a.deepEqual(w(0), ["lift"], "Monday lifts");
+  a.deepEqual(w(6), ["rest"], "Sunday is the only rest day");
+  a.deepEqual(w(3, "run"), ["impact"], "running is landing work of its own");
+  a.deepEqual(w(0, "run"), ["lift"], "but that only matters on a conditioning day");
+  a.deepEqual(w(7), [], "a day outside the week warns nothing");
+
+  // Fighter and Black leave two days clear, so spending one on plyos costs no rest day.
+  a.deepEqual(x.weekRolesFor("fighter", "black"), ["S", "C", "R", "S", "C", "R", "C"]);
+  a.deepEqual(x.plyoWarnings("fighter", "black", 2, "echo").map((v) => v.k), [],
+    "a spare day is a fine place for them");
+
+  // A warning that would be true of every option is no warning at all: in an alternating
+  // week every conditioning day follows a lifting day, so that is left to the plyo card.
+  for (let d = 0; d < 7; d++) a.ok(!w(d).includes("after-lift"));
+
+  // Setup asks the same question and shows the same warnings.
+  x.view = "setup";
+  a.match(x.vSetup(), /data-act="plyodow" data-v="5"/);
+  a.match(x.vSetup(), /data-pbind="plyoOn"/);
+  x.plan.plyoDow = 0; x.bump();
+  a.match(x.vSetup(), /already lifts/, "and it says so when the day has lifting on it");
+});
