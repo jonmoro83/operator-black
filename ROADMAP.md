@@ -110,6 +110,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Supersets, bands, and three movements (2026-10-12)**
+- **Supersets** are stored as the *first* slot of each pair, per day
+  (`plan.accSuper.mon=['biceps']`), and `accGroups(day)` turns the day's jobs into runs.
+  Positional on purpose: storing both names means re-ordering or deleting a job can
+  leave a pair pointing at something gone. `accCanSuper` requires the *next* group to be
+  free as well — the first version let you pair a job and silently steal the first half
+  of a pair that already existed.
+- One step in session mode rather than two, done only when both halves are.
+  `lsAccBlock` pulls out the per-job markup so one step can draw two.
+- **Bands** are `plan.bands`, a list with a weight each, offered on any movement whose
+  `gear` mentions a band. No colour lookup: Rogue's own chart lists Red twice (18 lb and
+  115 lb), third-party charts for the same bands differ by 50%, and the published figure
+  is peak resistance at full stretch rather than anything felt at the bottom of a rep.
+  Seeding from the maker's chart converts to kg, which is the one place a unit
+  conversion is right — new data from a known unit, not a stored number rewritten.
+- Reverse hyper (`pchain`) and Cossack squat (`sleg`) added. **RDL was already there**,
+  as `rdl` and `slrdl`; said so rather than adding a duplicate.
+- **Pre-existing bug found by reading:** session mode's Done button had no branch for an
+  accessory step, so it fell through to the lifting branch and wrote
+  `lifts.undefined.sets` into the day. Anyone who tapped Done on an accessory without
+  logging sets has junk in that log.
+- 236 → 241 tests. 13 mutants, all caught.
+
 **Sound: share the speaker or take it, and you choose (2026-10-12)**
 - Fourth report on the beep, and the first one that got the question right: *keep my
   music playing and still beep*. Researched before touching anything, as asked.

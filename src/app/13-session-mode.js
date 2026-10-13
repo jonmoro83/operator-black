@@ -52,7 +52,7 @@ function lsSteps(date){
     for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
   const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
-  if(!dp.deload&&!heavy&&dp.acc) for(const sl of accSlots(dp.acc)) steps.push({type:'acc',slot:sl});
+  if(!dp.deload&&!heavy&&dp.acc) for(const g of accGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
   steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
@@ -61,7 +61,7 @@ function lsStepDone(st){
   const L=(lg(ls.date).lifts||{})[st.k]||{};
   if(st.type==='warm') return !!((wuListFor(ls.date,st.k)[st.j]||{}).done);
   if(st.type==='work') return !!((L.sets||[])[st.j]);
-  if(st.type==='acc') return accDone(ls.date,st.slot);
+  if(st.type==='acc') return [st.slot,st.pair].filter(Boolean).every(sl=>accDone(ls.date,sl));
   if(st.type==='test'){const t=((lg(ls.date).test||{})[st.k])||{};return t.w!=null&&t.w!==''}
   if(st.type==='pullups') return lg(ls.date).pullups!=null&&lg(ls.date).pullups!=='';
   return false;
@@ -141,21 +141,15 @@ function lsRender(){
         return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
-    const list=accFor(sl,id), all=accAll(), rest=+plan.accRest||90;
-    h+=`<div class="ls-card"><div class="ls-lift">${esc((ASLOT[sl]||{}).name||sl)}</div>
-      <div class="ls-kind">Accessory${accSwapped(ls.date,sl)?' \u00b7 swapped for today':''}${accDone(ls.date,sl)?' \u00b7 \u2713 done':''}</div>
-      <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>
-      ${sl==='pullup'?`<div class="small muted">${esc(pullupState(ls.date).st.work)}</div>`:''}
-      <div class="stack" style="gap:6px">${sets.map((x,i2)=>`<div class="wu-row"><span class="wu-lbl">${i2+1}</span>
-        <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i2}" data-lsacc="${esc(sl)}|${i2}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i2+1} weight">
-        <span class="wu-x">\u00d7</span>
-        <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i2}" data-lsacc="${esc(sl)}|${i2}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i2+1} reps">
-        <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i2}" aria-label="Remove set ${i2+1}">\u00d7</button></div>`).join('')}</div>
-      <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button>
-      <button class="btn sm" data-ls="accrest" data-slot="${esc(sl)}">Rest ${rest}s</button></div>
+    const pair=[st.slot,st.pair].filter(Boolean), rest=+plan.accRest||90;
+    const allDone=pair.every(sl=>accDone(ls.date,sl));
+    h+=`<div class="ls-card"><div class="ls-lift">${esc(pair.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
+      <div class="ls-kind">${pair.length>1?'Superset':'Accessory'}${pair.some(sl=>accSwapped(ls.date,sl))?' \u00b7 swapped for today':''}${allDone?' \u00b7 \u2713 done':''}</div>
+      ${pair.length>1?'<div class="small muted">A set of each, back to back, then rest.</div>':''}
+      ${pair.map(sl=>lsAccBlock(sl,pair.length>1)).join('')}
+      <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${rest}s</button></div>
     </div>
-    <button class="btn primary ls-done" data-ls="done">${accDone(ls.date,sl)?'Done \u2713 \u00b7 next':'Done'}</button>`;
+    <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
   } else if(st.test){
     const L=lg(ls.date), isRm5=dp.t==='rm5';
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
@@ -182,6 +176,20 @@ function lsHold(kind,i){
   const h=holdSecs(it.dose); if(!h) return false;
   startHold(it.name,h.s,h.sides,1);
   return true;
+}
+// One accessory job inside a step. A superset step draws two of these; the rest button
+// belongs to the step, not to each job, because you rest once at the end of the pair.
+function lsAccBlock(sl,inPair){
+  const id=accOn(ls.date,sl), sets=accSets(ls.date,sl), list=accFor(sl,id), all=accAll();
+  return `<div class="ls-accblk">${inPair?`<div class="acc-role">${esc((ASLOT[sl]||{}).name||sl)}</div>`:''}
+    <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>
+    ${sl==='pullup'?`<div class="small muted">${esc(pullupState(ls.date).st.work)}</div>`:''}
+    <div class="stack" style="gap:6px">${sets.map((x,i)=>`<div class="wu-row"><span class="wu-lbl">${i+1}</span>
+      <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i+1} weight">
+      <span class="wu-x">\u00d7</span>
+      <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i+1} reps">
+      <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button></div>`).join('')}</div>
+    <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button></div></div>`;
 }
 function lsMarkWarm(st){
   const W=wuListFor(ls.date,st.k).map(x=>x?Object.assign({},x):{});
@@ -241,6 +249,9 @@ function lsAct(a,b){
   if(a==='done'){
     if(lsStepDone(st)) return go(ls.i+1);
     if(st.type==='warm'){ lsMarkWarm(st); }
+    // An accessory step has no lift and no set index. Without this it fell through to
+    // the branch below and wrote lifts.undefined.sets into the day.
+    else if(st.type==='acc'){ for(const sl of [st.slot,st.pair].filter(Boolean)) setLog(ls.date,'acc.done.'+sl,true); }
     else { const L=(lg(ls.date).lifts||{})[st.k]||{}, arr=[...(L.sets||[])]; arr[st.j]=true; for(let j=0;j<arr.length;j++) if(arr[j]==null) arr[j]=false; setLog(ls.date,'lifts.'+st.k+'.sets',arr); }
     const next=lsSteps(ls.date)[ls.i+1];
     if(next&&(next.type==='warm'||next.type==='work'||next.type==='test')){

@@ -262,7 +262,12 @@ function accCard(wk,dp){
   let h=`<div class="card"><div class="lift-h"><h3>${title}</h3>${arx?`<span class="rx">${arx.s} \u00d7 ${arx.r} @ ${arx.p}%</span>`:''}<span class="small muted">${done} of ${slots.length} done</span></div>
   <p class="muted small" style="margin:0">${arx?`Every one of these, ${arx.s} sets of ${arx.r}. The percentage is of your own best for that movement \u2014 if you have never tested it, take ${arx.r} reps you could have done a couple more of.`:'Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.'}</p>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
-  for(const sl of slots) h+=accSlotRow(sel,sl);
+  for(const g of accGroups(day)){
+    if(g.length>1) h+=`<div class="acc-super"><div class="small" style="font-weight:650">Superset \u00b7 ${esc(g.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
+      <div class="small muted">A set of each, back to back, then rest. ${arx?'':'Two or three rounds.'}</div>
+      ${g.map(sl=>accSlotRow(sel,sl)).join('')}</div>`;
+    else h+=accSlotRow(sel,g[0]);
+  }
   return h+`</div>`;
 }
 
@@ -279,6 +284,9 @@ function accSlotRow(date,slot){
     h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
   }
   if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
+  // A band exercise with bands on file: pick the colour, get the number in the weight
+  // field. Still editable afterwards — the band is a shortcut, not a lock.
+  if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   for(let i=0;i<sets.length;i++){
     const x=sets[i]||{};
     h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}<span></span>${viewing?'<span></span>':`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;

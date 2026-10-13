@@ -94,9 +94,11 @@ const ALIB={
   lunge:   {slot:'sleg',  name:'Walking lunge',             gear:'Dumbbells'},
   revlunge:{slot:'sleg',  name:'Reverse lunge',             gear:'Dumbbells or barbell'},
   stepup:  {slot:'sleg',  name:'Step-up',                   gear:'Box + dumbbells'},
+  cossack: {slot:'sleg',  name:'Cossack squat',             gear:'Nothing, or a light weight'},
   slrdl:   {slot:'sleg',  name:'Single-leg Romanian deadlift', gear:'Dumbbell or kettlebell'},
 
   rdl:     {slot:'pchain',name:'Romanian deadlift',         gear:'Barbell or dumbbells'},
+  revhyper:{slot:'pchain',name:'Reverse hyper',             gear:'Reverse hyper, or a high bench'},
   backext: {slot:'pchain',name:'Back extension',            gear:'Bench or GHD'},
   hamcurl: {slot:'pchain',name:'Hamstring curl',            gear:'Machine'},
   goodmorn:{slot:'pchain',name:'Good morning',              gear:'Barbell'},
@@ -206,3 +208,87 @@ function accDone(date,slot){
   return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
+
+/* ---------------- bands ----------------
+A band has no number on it, only a colour, and the colour means different things by
+brand. Worse, it means different things within one brand: Rogue's own Monster chart
+lists Red twice, at 18 lb and at 115 lb, so a colour alone cannot identify a band.
+And the published figure is peak resistance at full stretch — the force at the bottom
+of a rep is a fraction of it.
+
+So the app does not pretend to a lookup. Your bands are a list you keep, each with the
+number you want it logged as, and the presets below are a starting point you can edit.
+They are Rogue's own published Monster Band figures; third-party charts for the same
+bands disagree by enough (Black at 65 lb or at 100 lb) that only the maker's is worth
+seeding from. */
+const BAND_PRESETS=[
+  {n:'#0 Orange',w:9},  {n:'#1 Red',w:18},   {n:'#2 Blue',w:30},  {n:'#3 Green',w:40},
+  {n:'#4 Black',w:65},  {n:'#5 Purple',w:95},{n:'#6 Red',w:115},  {n:'#7 Silver',w:225},
+];
+function bands(){
+  const b=plan.bands;
+  return Array.isArray(b)?b.filter(x=>x&&x.n&&+x.w>0).map(x=>({n:String(x.n),w:+x.w})):[];
+}
+// An exercise is banded if its gear says so. Data-driven, so a new band exercise needs
+// no second list to be added to.
+function isBandEx(id){ const e=accEx(id); return !!e&&/band/i.test(e.gear||'') }
+function bandAdd(n,w){
+  n=String(n||'').trim(); w=+w;
+  if(!n||!(w>0)) return false;
+  if(bands().some(b=>b.n.toLowerCase()===n.toLowerCase())) return false;
+  mutatePlan(p=>{p.bands=[...bands(),{n,w}]});
+  return true;
+}
+function bandRemove(n){
+  const next=bands().filter(b=>b.n!==n);
+  if(next.length===bands().length) return false;
+  mutatePlan(p=>{p.bands=next});
+  return true;
+}
+// Seeding converts, because the published chart is in pounds and your log is in whatever
+// you train in. This is new data being created from a known unit, not a stored number
+// being rewritten, so it is the one place a conversion belongs.
+function bandSeed(){
+  const kg=u()==='kg', have=new Set(bands().map(b=>b.n.toLowerCase()));
+  const add=BAND_PRESETS.filter(b=>!have.has(b.n.toLowerCase()))
+    .map(b=>({n:b.n,w:kg?Math.round(b.w*0.4536*2)/2:b.w}));
+  if(!add.length) return 0;
+  mutatePlan(p=>{p.bands=[...bands(),...add]});
+  return add.length;
+}
+
+/* ---------------- supersets ----------------
+Pairing two jobs means doing a set of each back to back and resting once, which is how
+most people run curls against pushdowns. Stored as the *first* slot of each pair, per
+day, because a pair is defined by where it starts: `accSuper.mon = ['biceps']` pairs
+biceps with whatever the day lists next.
+
+Keeping it positional rather than storing both names means re-ordering a day's jobs, or
+removing one, cannot leave a pair pointing at something that is no longer there. */
+function accSuperSet(day){ const a=(plan.accSuper||{})[day]; return Array.isArray(a)?a:[] }
+// The day's jobs grouped into runs: [[a,b],[c]] — a paired with b, then c on its own.
+function accGroups(day){
+  const slots=accSlots(day), on=new Set(accSuperSet(day)), out=[];
+  for(let i=0;i<slots.length;i++){
+    if(on.has(slots[i])&&i+1<slots.length){ out.push([slots[i],slots[i+1]]); i++ }
+    else out.push([slots[i]]);
+  }
+  return out;
+}
+function accIsSuper(day,slot){ return accGroups(day).some(g=>g.length>1&&g[0]===slot) }
+// Can only pair with something after it, and not with a job that is already the second
+// half of a pair — otherwise one movement ends up in two supersets at once.
+function accCanSuper(day,slot){
+  const g=accGroups(day);
+  const i=g.findIndex(x=>x[0]===slot);
+  // The one after it has to be free as well. Without this, pairing a job could take the
+  // first half of a pair that already existed and quietly re-draw someone else's.
+  return i>=0&&g[i].length===1&&i+1<g.length&&g[i+1].length===1;
+}
+function accSuperToggle(day,slot){
+  const cur=accSuperSet(day);
+  if(cur.includes(slot)){ mutatePlan(p=>{p.accSuper=Object.assign({},p.accSuper,{[day]:cur.filter(s=>s!==slot)})}); return true }
+  if(!accCanSuper(day,slot)) return false;
+  mutatePlan(p=>{p.accSuper=Object.assign({},p.accSuper,{[day]:[...cur,slot]})});
+  return true;
+}

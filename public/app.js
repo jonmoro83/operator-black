@@ -1102,9 +1102,11 @@ const ALIB={
   lunge:   {slot:'sleg',  name:'Walking lunge',             gear:'Dumbbells'},
   revlunge:{slot:'sleg',  name:'Reverse lunge',             gear:'Dumbbells or barbell'},
   stepup:  {slot:'sleg',  name:'Step-up',                   gear:'Box + dumbbells'},
+  cossack: {slot:'sleg',  name:'Cossack squat',             gear:'Nothing, or a light weight'},
   slrdl:   {slot:'sleg',  name:'Single-leg Romanian deadlift', gear:'Dumbbell or kettlebell'},
 
   rdl:     {slot:'pchain',name:'Romanian deadlift',         gear:'Barbell or dumbbells'},
+  revhyper:{slot:'pchain',name:'Reverse hyper',             gear:'Reverse hyper, or a high bench'},
   backext: {slot:'pchain',name:'Back extension',            gear:'Bench or GHD'},
   hamcurl: {slot:'pchain',name:'Hamstring curl',            gear:'Machine'},
   goodmorn:{slot:'pchain',name:'Good morning',              gear:'Barbell'},
@@ -1214,6 +1216,90 @@ function accDone(date,slot){
   return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
+
+/* ---------------- bands ----------------
+A band has no number on it, only a colour, and the colour means different things by
+brand. Worse, it means different things within one brand: Rogue's own Monster chart
+lists Red twice, at 18 lb and at 115 lb, so a colour alone cannot identify a band.
+And the published figure is peak resistance at full stretch — the force at the bottom
+of a rep is a fraction of it.
+
+So the app does not pretend to a lookup. Your bands are a list you keep, each with the
+number you want it logged as, and the presets below are a starting point you can edit.
+They are Rogue's own published Monster Band figures; third-party charts for the same
+bands disagree by enough (Black at 65 lb or at 100 lb) that only the maker's is worth
+seeding from. */
+const BAND_PRESETS=[
+  {n:'#0 Orange',w:9},  {n:'#1 Red',w:18},   {n:'#2 Blue',w:30},  {n:'#3 Green',w:40},
+  {n:'#4 Black',w:65},  {n:'#5 Purple',w:95},{n:'#6 Red',w:115},  {n:'#7 Silver',w:225},
+];
+function bands(){
+  const b=plan.bands;
+  return Array.isArray(b)?b.filter(x=>x&&x.n&&+x.w>0).map(x=>({n:String(x.n),w:+x.w})):[];
+}
+// An exercise is banded if its gear says so. Data-driven, so a new band exercise needs
+// no second list to be added to.
+function isBandEx(id){ const e=accEx(id); return !!e&&/band/i.test(e.gear||'') }
+function bandAdd(n,w){
+  n=String(n||'').trim(); w=+w;
+  if(!n||!(w>0)) return false;
+  if(bands().some(b=>b.n.toLowerCase()===n.toLowerCase())) return false;
+  mutatePlan(p=>{p.bands=[...bands(),{n,w}]});
+  return true;
+}
+function bandRemove(n){
+  const next=bands().filter(b=>b.n!==n);
+  if(next.length===bands().length) return false;
+  mutatePlan(p=>{p.bands=next});
+  return true;
+}
+// Seeding converts, because the published chart is in pounds and your log is in whatever
+// you train in. This is new data being created from a known unit, not a stored number
+// being rewritten, so it is the one place a conversion belongs.
+function bandSeed(){
+  const kg=u()==='kg', have=new Set(bands().map(b=>b.n.toLowerCase()));
+  const add=BAND_PRESETS.filter(b=>!have.has(b.n.toLowerCase()))
+    .map(b=>({n:b.n,w:kg?Math.round(b.w*0.4536*2)/2:b.w}));
+  if(!add.length) return 0;
+  mutatePlan(p=>{p.bands=[...bands(),...add]});
+  return add.length;
+}
+
+/* ---------------- supersets ----------------
+Pairing two jobs means doing a set of each back to back and resting once, which is how
+most people run curls against pushdowns. Stored as the *first* slot of each pair, per
+day, because a pair is defined by where it starts: `accSuper.mon = ['biceps']` pairs
+biceps with whatever the day lists next.
+
+Keeping it positional rather than storing both names means re-ordering a day's jobs, or
+removing one, cannot leave a pair pointing at something that is no longer there. */
+function accSuperSet(day){ const a=(plan.accSuper||{})[day]; return Array.isArray(a)?a:[] }
+// The day's jobs grouped into runs: [[a,b],[c]] — a paired with b, then c on its own.
+function accGroups(day){
+  const slots=accSlots(day), on=new Set(accSuperSet(day)), out=[];
+  for(let i=0;i<slots.length;i++){
+    if(on.has(slots[i])&&i+1<slots.length){ out.push([slots[i],slots[i+1]]); i++ }
+    else out.push([slots[i]]);
+  }
+  return out;
+}
+function accIsSuper(day,slot){ return accGroups(day).some(g=>g.length>1&&g[0]===slot) }
+// Can only pair with something after it, and not with a job that is already the second
+// half of a pair — otherwise one movement ends up in two supersets at once.
+function accCanSuper(day,slot){
+  const g=accGroups(day);
+  const i=g.findIndex(x=>x[0]===slot);
+  // The one after it has to be free as well. Without this, pairing a job could take the
+  // first half of a pair that already existed and quietly re-draw someone else's.
+  return i>=0&&g[i].length===1&&i+1<g.length&&g[i+1].length===1;
+}
+function accSuperToggle(day,slot){
+  const cur=accSuperSet(day);
+  if(cur.includes(slot)){ mutatePlan(p=>{p.accSuper=Object.assign({},p.accSuper,{[day]:cur.filter(s=>s!==slot)})}); return true }
+  if(!accCanSuper(day,slot)) return false;
+  mutatePlan(p=>{p.accSuper=Object.assign({},p.accSuper,{[day]:[...cur,slot]})});
+  return true;
+}
 
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
@@ -2683,7 +2769,12 @@ function accCard(wk,dp){
   let h=`<div class="card"><div class="lift-h"><h3>${title}</h3>${arx?`<span class="rx">${arx.s} \u00d7 ${arx.r} @ ${arx.p}%</span>`:''}<span class="small muted">${done} of ${slots.length} done</span></div>
   <p class="muted small" style="margin:0">${arx?`Every one of these, ${arx.s} sets of ${arx.r}. The percentage is of your own best for that movement \u2014 if you have never tested it, take ${arx.r} reps you could have done a couple more of.`:'Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.'}</p>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
-  for(const sl of slots) h+=accSlotRow(sel,sl);
+  for(const g of accGroups(day)){
+    if(g.length>1) h+=`<div class="acc-super"><div class="small" style="font-weight:650">Superset \u00b7 ${esc(g.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
+      <div class="small muted">A set of each, back to back, then rest. ${arx?'':'Two or three rounds.'}</div>
+      ${g.map(sl=>accSlotRow(sel,sl)).join('')}</div>`;
+    else h+=accSlotRow(sel,g[0]);
+  }
   return h+`</div>`;
 }
 
@@ -2700,6 +2791,9 @@ function accSlotRow(date,slot){
     h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
   }
   if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
+  // A band exercise with bands on file: pick the colour, get the number in the weight
+  // field. Still editable afterwards — the band is a shortcut, not a lock.
+  if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   for(let i=0;i<sets.length;i++){
     const x=sets[i]||{};
     h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}<span></span>${viewing?'<span></span>':`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
@@ -3773,7 +3867,7 @@ function lsSteps(date){
     for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
   const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
-  if(!dp.deload&&!heavy&&dp.acc) for(const sl of accSlots(dp.acc)) steps.push({type:'acc',slot:sl});
+  if(!dp.deload&&!heavy&&dp.acc) for(const g of accGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
   steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
@@ -3782,7 +3876,7 @@ function lsStepDone(st){
   const L=(lg(ls.date).lifts||{})[st.k]||{};
   if(st.type==='warm') return !!((wuListFor(ls.date,st.k)[st.j]||{}).done);
   if(st.type==='work') return !!((L.sets||[])[st.j]);
-  if(st.type==='acc') return accDone(ls.date,st.slot);
+  if(st.type==='acc') return [st.slot,st.pair].filter(Boolean).every(sl=>accDone(ls.date,sl));
   if(st.type==='test'){const t=((lg(ls.date).test||{})[st.k])||{};return t.w!=null&&t.w!==''}
   if(st.type==='pullups') return lg(ls.date).pullups!=null&&lg(ls.date).pullups!=='';
   return false;
@@ -3862,21 +3956,15 @@ function lsRender(){
         return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const sl=st.slot, id=accOn(ls.date,sl), e=accEx(id), sets=accSets(ls.date,sl);
-    const list=accFor(sl,id), all=accAll(), rest=+plan.accRest||90;
-    h+=`<div class="ls-card"><div class="ls-lift">${esc((ASLOT[sl]||{}).name||sl)}</div>
-      <div class="ls-kind">Accessory${accSwapped(ls.date,sl)?' \u00b7 swapped for today':''}${accDone(ls.date,sl)?' \u00b7 \u2713 done':''}</div>
-      <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>
-      ${sl==='pullup'?`<div class="small muted">${esc(pullupState(ls.date).st.work)}</div>`:''}
-      <div class="stack" style="gap:6px">${sets.map((x,i2)=>`<div class="wu-row"><span class="wu-lbl">${i2+1}</span>
-        <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i2}" data-lsacc="${esc(sl)}|${i2}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i2+1} weight">
-        <span class="wu-x">\u00d7</span>
-        <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i2}" data-lsacc="${esc(sl)}|${i2}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i2+1} reps">
-        <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i2}" aria-label="Remove set ${i2+1}">\u00d7</button></div>`).join('')}</div>
-      <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button>
-      <button class="btn sm" data-ls="accrest" data-slot="${esc(sl)}">Rest ${rest}s</button></div>
+    const pair=[st.slot,st.pair].filter(Boolean), rest=+plan.accRest||90;
+    const allDone=pair.every(sl=>accDone(ls.date,sl));
+    h+=`<div class="ls-card"><div class="ls-lift">${esc(pair.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
+      <div class="ls-kind">${pair.length>1?'Superset':'Accessory'}${pair.some(sl=>accSwapped(ls.date,sl))?' \u00b7 swapped for today':''}${allDone?' \u00b7 \u2713 done':''}</div>
+      ${pair.length>1?'<div class="small muted">A set of each, back to back, then rest.</div>':''}
+      ${pair.map(sl=>lsAccBlock(sl,pair.length>1)).join('')}
+      <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${rest}s</button></div>
     </div>
-    <button class="btn primary ls-done" data-ls="done">${accDone(ls.date,sl)?'Done \u2713 \u00b7 next':'Done'}</button>`;
+    <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
   } else if(st.test){
     const L=lg(ls.date), isRm5=dp.t==='rm5';
     const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
@@ -3903,6 +3991,20 @@ function lsHold(kind,i){
   const h=holdSecs(it.dose); if(!h) return false;
   startHold(it.name,h.s,h.sides,1);
   return true;
+}
+// One accessory job inside a step. A superset step draws two of these; the rest button
+// belongs to the step, not to each job, because you rest once at the end of the pair.
+function lsAccBlock(sl,inPair){
+  const id=accOn(ls.date,sl), sets=accSets(ls.date,sl), list=accFor(sl,id), all=accAll();
+  return `<div class="ls-accblk">${inPair?`<div class="acc-role">${esc((ASLOT[sl]||{}).name||sl)}</div>`:''}
+    <select id="ls-accex-${esc(sl)}" data-lsaccex="${esc(sl)}" aria-label="What is doing ${esc((ASLOT[sl]||{}).name||sl)} today">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>
+    ${sl==='pullup'?`<div class="small muted">${esc(pullupState(ls.date).st.work)}</div>`:''}
+    <div class="stack" style="gap:6px">${sets.map((x,i)=>`<div class="wu-row"><span class="wu-lbl">${i+1}</span>
+      <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i+1} weight">
+      <span class="wu-x">\u00d7</span>
+      <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i+1} reps">
+      <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button></div>`).join('')}</div>
+    <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button></div></div>`;
 }
 function lsMarkWarm(st){
   const W=wuListFor(ls.date,st.k).map(x=>x?Object.assign({},x):{});
@@ -3962,6 +4064,9 @@ function lsAct(a,b){
   if(a==='done'){
     if(lsStepDone(st)) return go(ls.i+1);
     if(st.type==='warm'){ lsMarkWarm(st); }
+    // An accessory step has no lift and no set index. Without this it fell through to
+    // the branch below and wrote lifts.undefined.sets into the day.
+    else if(st.type==='acc'){ for(const sl of [st.slot,st.pair].filter(Boolean)) setLog(ls.date,'acc.done.'+sl,true); }
     else { const L=(lg(ls.date).lifts||{})[st.k]||{}, arr=[...(L.sets||[])]; arr[st.j]=true; for(let j=0;j<arr.length;j++) if(arr[j]==null) arr[j]=false; setLog(ls.date,'lifts.'+st.k+'.sets',arr); }
     const next=lsSteps(ls.date)[ls.i+1];
     if(next&&(next.type==='warm'||next.type==='work'||next.type==='test')){
@@ -4967,6 +5072,21 @@ function syncCard(){
 // and next, and your own additions. The picks are per cycle on purpose \u2014 they are
 // programme choices, like the cluster lifts, not something to re-decide every session.
 let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
+let bandNew={n:'',w:''};
+// Your bands, with the number you want each logged as. See 01b-accessories.js for why
+// this is a list you keep rather than a colour chart the app pretends to know.
+function bandsCard(){
+  const list=bands();
+  let h=`<div class="card"><div class="lift-h"><h2>Bands</h2><span class="chip ${list.length?'light':''}">${list.length||'none'}</span></div>
+  <p class="small muted" style="margin:0">A band has a colour, not a number, and the colour means different things by brand \u2014 Rogue\u2019s own range lists Red twice, at 18 and 115 lb. So these are yours: give each band the weight you want it logged as, and it shows up on any band exercise.</p>`;
+  if(list.length) h+=`<div class="stack" style="gap:6px">${list.map(b=>`<div class="row between" style="gap:8px"><span class="acc-role">${esc(b.n)}</span><span class="mono small">${n(b.w)} ${esc(u())}</span><button class="btn sm ghost" data-act="bandrm" data-n="${esc(b.n)}">Remove</button></div>`).join('')}</div>`;
+  h+=`<div class="grid3"><label class="f">Colour or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
+  <label class="f">Counts as (${esc(u())})<input type="number" inputmode="decimal" step="any" id="band-w" data-bandnew="w" value="${esc(String(bandNew.w))}"></label>
+  <label class="f">&nbsp;<button class="btn" data-act="bandadd">Add band</button></label></div>`;
+  if(!list.length) h+=`<div class="row"><button class="btn ghost" data-act="bandseed">Start from Rogue\u2019s chart</button></div>
+  <div class="small muted">Eight Monster Bands at the figures Rogue publishes${u()==='kg'?', converted to kg':''}. Those are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less \u2014 edit them to whatever you want counted.</div>`;
+  return h+`</div>`;
+}
 function accSetupCard(){
   const cyc=accCycleOf(todayStr()), all=accAll();
   // One row per accessory list, not per day: Zulu and Grey Man both run the same list
@@ -4989,7 +5109,8 @@ function accSetupCard(){
     for(const k of sl){
       const pick=accPickFor(d,k,later?null:cyc), list=accFor(k,pick);
       h+=`<div style="margin-top:8px"><div class="row between" style="gap:8px"><span class="acc-role">${esc(ASLOT[k].name)}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>
-      <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></div>`;
+      <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select>
+      ${accIsSuper(d,k)||accCanSuper(d,k)?`<label class="check small"><input type="checkbox" data-act-super="${d}:${k}" ${accIsSuper(d,k)?'checked':''}> Superset with the next one</label>`:''}</div>`;
     }
     if(spare.length) h+=`<label class="f" style="margin-top:8px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`;
     h+=`</div>`;
@@ -5301,6 +5422,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=accSetupCard();
+  h+=bandsCard();
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
@@ -5894,6 +6016,7 @@ document.addEventListener('input',e=>{
   // and the caret survive it.
   if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
+  if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
@@ -5927,6 +6050,7 @@ document.addEventListener('change',e=>{ const t=e.target;
     mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:[...accSlots(d),k]})});
     return;
   }
+  if(t.dataset&&t.dataset.actSuper){ const [day,sl]=t.dataset.actSuper.split(':'); accSuperToggle(day,sl); return }
   if(t.dataset&&t.dataset.actAccpick){
     const [day,sl]=t.dataset.actAccpick.split(':'), cyc=accCycleOf(todayStr());
     if(accLater||cyc==null){ setPlan('accPick.'+day+'.'+sl,t.value); render(); return }
@@ -5934,6 +6058,16 @@ document.addEventListener('change',e=>{ const t=e.target;
       c[cyc]=Object.assign({},c[cyc]||{},{[day]:Object.assign({},(c[cyc]||{})[day]||{},{[sl]:t.value})});
       p.accCycle=c});
     return;
+  }
+  // Picking a band fills every empty set's weight for that slot, and leaves anything
+  // you already typed alone.
+  if(t.dataset&&t.dataset.actBand){
+    const sl=t.dataset.actBand, w=+t.value;
+    if(w>0){ const cur=accSets(sel,sl).slice();
+      if(!cur.length) cur.push({});
+      setLog(sel,'acc.sets.'+sl,cur.map(x=>x&&x.w!=null&&x.w!==''?x:Object.assign({},x,{w})));
+    }
+    t.value=''; render(); return;
   }
   if(t.dataset&&t.dataset.actAcc){
     const sl=t.dataset.actAcc, v=t.value;
@@ -6064,6 +6198,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alerttest'){testAlert();return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
+  if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
+  if(a==='bandrm'){ bandRemove(b.dataset.n); return }
+  if(a==='bandseed'){ bandSeed(); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
   if(a==='beepcopy'){
     const text=beepReport();

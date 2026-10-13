@@ -41,6 +41,21 @@ function syncCard(){
 // and next, and your own additions. The picks are per cycle on purpose \u2014 they are
 // programme choices, like the cluster lifts, not something to re-decide every session.
 let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
+let bandNew={n:'',w:''};
+// Your bands, with the number you want each logged as. See 01b-accessories.js for why
+// this is a list you keep rather than a colour chart the app pretends to know.
+function bandsCard(){
+  const list=bands();
+  let h=`<div class="card"><div class="lift-h"><h2>Bands</h2><span class="chip ${list.length?'light':''}">${list.length||'none'}</span></div>
+  <p class="small muted" style="margin:0">A band has a colour, not a number, and the colour means different things by brand \u2014 Rogue\u2019s own range lists Red twice, at 18 and 115 lb. So these are yours: give each band the weight you want it logged as, and it shows up on any band exercise.</p>`;
+  if(list.length) h+=`<div class="stack" style="gap:6px">${list.map(b=>`<div class="row between" style="gap:8px"><span class="acc-role">${esc(b.n)}</span><span class="mono small">${n(b.w)} ${esc(u())}</span><button class="btn sm ghost" data-act="bandrm" data-n="${esc(b.n)}">Remove</button></div>`).join('')}</div>`;
+  h+=`<div class="grid3"><label class="f">Colour or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
+  <label class="f">Counts as (${esc(u())})<input type="number" inputmode="decimal" step="any" id="band-w" data-bandnew="w" value="${esc(String(bandNew.w))}"></label>
+  <label class="f">&nbsp;<button class="btn" data-act="bandadd">Add band</button></label></div>`;
+  if(!list.length) h+=`<div class="row"><button class="btn ghost" data-act="bandseed">Start from Rogue\u2019s chart</button></div>
+  <div class="small muted">Eight Monster Bands at the figures Rogue publishes${u()==='kg'?', converted to kg':''}. Those are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less \u2014 edit them to whatever you want counted.</div>`;
+  return h+`</div>`;
+}
 function accSetupCard(){
   const cyc=accCycleOf(todayStr()), all=accAll();
   // One row per accessory list, not per day: Zulu and Grey Man both run the same list
@@ -63,7 +78,8 @@ function accSetupCard(){
     for(const k of sl){
       const pick=accPickFor(d,k,later?null:cyc), list=accFor(k,pick);
       h+=`<div style="margin-top:8px"><div class="row between" style="gap:8px"><span class="acc-role">${esc(ASLOT[k].name)}</span><button class="btn sm ghost" data-act="accslotrm" data-day="${d}" data-slot="${k}">Remove</button></div>
-      <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select></div>`;
+      <select data-act-accpick="${d}:${k}" aria-label="${esc(ASLOT[k].name)} on ${esc(label)}">${list.map(x=>`<option value="${x}"${x===pick?' selected':''}>${esc(all[x].name)}${all[x].gear?' \u00b7 '+esc(all[x].gear):''}</option>`).join('')}</select>
+      ${accIsSuper(d,k)||accCanSuper(d,k)?`<label class="check small"><input type="checkbox" data-act-super="${d}:${k}" ${accIsSuper(d,k)?'checked':''}> Superset with the next one</label>`:''}</div>`;
     }
     if(spare.length) h+=`<label class="f" style="margin-top:8px">Add a job<select data-act-accadd="${d}"><option value="">Choose\u2026</option>${spare.map(k=>`<option value="${k}">${esc(ASLOT[k].name)}</option>`).join('')}</select></label>`;
     h+=`</div>`;
@@ -375,6 +391,7 @@ function vSetup(){
   h+=`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=accSetupCard();
+  h+=bandsCard();
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>

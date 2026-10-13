@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.85',date:'2026-10-12',title:'Supersets, bands, and three movements',items:[
+    '<b>Supersets.</b> In Setup \u2192 Accessories, tick \u201csuperset with the next one\u201d on any job. The two then show as one block on the day and as a single step in session mode \u2014 a set of each, back to back, one rest at the end. A job can only pair with one that is free, so pairing something never quietly re-draws a pair you already had.',
+    '<b>Bands.</b> Setup \u2192 Bands is a list you keep: each band gets the weight you want it logged as, and it then shows up as a picker on any band movement. There is no colour chart, and deliberately so \u2014 Rogue\u2019s own range lists Red twice, at 18 lb and 115 lb, and third-party charts for the same bands disagree by 50%. You can start from Rogue\u2019s published figures in one tap and edit from there.',
+    '<b>Reverse hyper</b> added to the posterior-chain list and <b>Cossack squat</b> to single-leg. Romanian deadlift was already there, under both posterior chain and single-leg.',
+    'Fixed while in there: pressing Done on an accessory in session mode was writing a lift that does not exist into the day.']},
   {v:'1.84',date:'2026-10-12',title:'A beep that does not stop your music',items:[
     'Setup → Sound is now a three-way choice, and the default is <b>keep my music playing</b>. The beep goes over the top and nothing pauses.',
     'Here is the honest version of why this took three goes. iOS gives a web page one audio channel and one choice about it: share it with your music, or take it. A native app can ask for both at once — take the channel <i>and</i> mix — and that is how the apps you are comparing against do it. The web has no way to ask for that combination. So sharing means the ring switch on the side of the phone can silence you, and beating that switch means pausing your music for a second. You now get to pick which.',

@@ -7,6 +7,7 @@ document.addEventListener('input',e=>{
   // and the caret survive it.
   if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
+  if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
@@ -40,6 +41,7 @@ document.addEventListener('change',e=>{ const t=e.target;
     mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[d]:[...accSlots(d),k]})});
     return;
   }
+  if(t.dataset&&t.dataset.actSuper){ const [day,sl]=t.dataset.actSuper.split(':'); accSuperToggle(day,sl); return }
   if(t.dataset&&t.dataset.actAccpick){
     const [day,sl]=t.dataset.actAccpick.split(':'), cyc=accCycleOf(todayStr());
     if(accLater||cyc==null){ setPlan('accPick.'+day+'.'+sl,t.value); render(); return }
@@ -47,6 +49,16 @@ document.addEventListener('change',e=>{ const t=e.target;
       c[cyc]=Object.assign({},c[cyc]||{},{[day]:Object.assign({},(c[cyc]||{})[day]||{},{[sl]:t.value})});
       p.accCycle=c});
     return;
+  }
+  // Picking a band fills every empty set's weight for that slot, and leaves anything
+  // you already typed alone.
+  if(t.dataset&&t.dataset.actBand){
+    const sl=t.dataset.actBand, w=+t.value;
+    if(w>0){ const cur=accSets(sel,sl).slice();
+      if(!cur.length) cur.push({});
+      setLog(sel,'acc.sets.'+sl,cur.map(x=>x&&x.w!=null&&x.w!==''?x:Object.assign({},x,{w})));
+    }
+    t.value=''; render(); return;
   }
   if(t.dataset&&t.dataset.actAcc){
     const sl=t.dataset.actAcc, v=t.value;
@@ -177,6 +189,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alerttest'){testAlert();return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
+  if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
+  if(a==='bandrm'){ bandRemove(b.dataset.n); return }
+  if(a==='bandseed'){ bandSeed(); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
   if(a==='beepcopy'){
     const text=beepReport();

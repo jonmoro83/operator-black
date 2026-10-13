@@ -4219,3 +4219,128 @@ test("the Silent tag hands back the speaker-sharing mode, not the seizing one", 
   a.equal(x.soundMode(), "duck",
     "the tap means 'let me hear it', not 'stop my music'");
 });
+
+test("reverse hyper, Cossack squat and the RDL that was already there", () => {
+  const x = app({ now: "2026-10-19" });
+  a.equal(x.ALIB.revhyper.slot, "pchain", "reverse hyper is posterior-chain work");
+  a.equal(x.ALIB.cossack.slot, "sleg", "a Cossack squat is single-leg work");
+  a.equal(x.ALIB.rdl.slot, "pchain", "and the RDL was there all along");
+  a.equal(x.ALIB.slrdl.slot, "sleg", "single-leg version too");
+  for (const id of ["revhyper", "cossack", "rdl"]) {
+    a.ok(x.accFor(x.ALIB[id].slot).includes(id), `${id} is offered`);
+    a.ok(x.accAll()[id].gear, `${id} says what it needs`);
+  }
+});
+
+test("bands are a list you keep, because a colour is not a number", () => {
+  const x = app({ now: "2026-10-19" });
+  a.deepEqual(x.bands(), [], "nothing assumed to start with");
+
+  a.equal(x.bandAdd("Red", 35), true);
+  a.equal(x.bandAdd("Red", 40), false, "no two bands by the same name");
+  a.equal(x.bandAdd("", 35), false);
+  a.equal(x.bandAdd("Blue", 0), false, "and a band has to weigh something");
+  a.deepEqual(x.bands(), [{ n: "Red", w: 35 }]);
+  a.equal(x.bandRemove("Red"), true);
+  a.equal(x.bandRemove("Red"), false);
+
+  // Seeding uses the maker's own chart. Rogue lists Red twice, which is exactly why
+  // the number lives beside the colour rather than being looked up from it.
+  a.equal(x.bandSeed(), 8);
+  const reds = x.bands().filter((b) => /Red/.test(b.n));
+  a.equal(reds.length, 2, "two different Reds");
+  a.notEqual(reds[0].w, reds[1].w, "at very different weights");
+  a.equal(x.bandSeed(), 0, "seeding twice adds nothing");
+
+  // In kg the chart is converted, because it is published in pounds and this is new
+  // data being made, not a stored number being rewritten.
+  const k = app({ now: "2026-10-19" });
+  k.plan.unit = "kg"; k.bump();
+  k.bandSeed();
+  a.equal(k.bands()[0].w, Math.round(9 * 0.4536 * 2) / 2);
+  a.ok(k.bands()[7].w < 110, "and the heaviest is a kg number, not a pound one");
+});
+
+test("a band fills the weight on a band exercise, and leaves typed numbers alone", () => {
+  const x = app({ now: "2026-10-19" });
+  a.equal(x.isBandEx("pullapart"), true, "gear says Band");
+  a.equal(x.isBandEx("facepull"), true, "cable or band counts");
+  a.equal(x.isBandEx("bbcurl"), false);
+
+  x.bandAdd("Green", 40);
+  const mon = "2026-10-19";
+  x.setPlan("accPick.mon.rdelt", "pullapart"); x.bump();
+  x.sel = mon;
+  a.match(x.accSlotRow(mon, "rdelt"), /data-act-band="rdelt"/, "the picker is offered");
+  a.match(x.accSlotRow(mon, "rdelt"), /Green · 40/);
+
+  // Nothing offered where there are no bands on file, or the movement uses none.
+  x.setPlan("accPick.mon.biceps", "bbcurl"); x.bump();
+  a.doesNotMatch(x.accSlotRow(mon, "biceps"), /data-act-band/, "a barbell curl needs no band");
+});
+
+test("two accessory jobs can be supersetted, and only in ways that make sense", () => {
+  const x = app({ now: "2026-10-19" });
+  const day = "mon", slots = x.accSlots(day);
+  a.deepEqual(x.accGroups(day), slots.map((s) => [s]), "one at a time by default");
+
+  // Pair the last two.
+  const [a1, b1] = slots.slice(-2);
+  a.equal(x.accSuperToggle(day, a1), true);
+  a.deepEqual(x.accGroups(day).slice(-1), [[a1, b1]]);
+  a.equal(x.accIsSuper(day, a1), true);
+  a.equal(x.accIsSuper(day, b1), false, "the second half is not itself a pair");
+
+  // The last job has nothing after it, and a job already in a pair cannot start another.
+  a.equal(x.accCanSuper(day, b1), false);
+  a.equal(x.accSuperToggle(day, b1), false);
+  // Nor can the one before, because that would quietly steal the first half of a pair.
+  a.equal(x.accCanSuper(day, slots[slots.length - 3]), false);
+  a.equal(x.accSuperToggle(day, slots[slots.length - 3]), false);
+  a.deepEqual(x.accGroups(day).slice(-1), [[a1, b1]], "so the pair is untouched");
+
+  // Unpairing works and puts both back on their own.
+  a.equal(x.accSuperToggle(day, a1), true);
+  a.deepEqual(x.accGroups(day), slots.map((s) => [s]));
+
+  // Removing a job cannot leave a pair pointing at nothing: it is positional.
+  x.accSuperToggle(day, a1);
+  x.setPlan("accSlots.mon", slots.slice(0, -1)); x.bump();
+  a.ok(x.accGroups(day).every((g) => g.every(Boolean)), "no hole where the pair was");
+  a.deepEqual(x.accGroups(day).slice(-1), [[a1]], "and the survivor stands alone");
+});
+
+test("a superset is one step in session mode, finished when both jobs are", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  const mon = "2026-09-07", slots = x.accSlots("mon");
+  const [a1, b1] = slots.slice(-2);
+  x.accSuperToggle("mon", a1);
+  x.ls = { date: mon, i: 0, warm: false };
+
+  const steps = x.lsSteps(mon).filter((s) => s.type === "acc");
+  a.equal(steps.length, slots.length - 1, "the pair is one step, not two");
+  const pair = steps.find((s) => s.slot === a1);
+  a.equal(pair.pair, b1);
+
+  x.ls.i = x.lsSteps(mon).findIndex((s) => s.type === "acc" && s.slot === a1);
+  x.lsRender();
+  const h = x.dom.made["ls-in"].innerHTML;
+  a.match(h, /Superset/);
+  a.match(h, new RegExp(`data-lsaccex="${a1}"`), "both jobs on the one screen");
+  a.match(h, new RegExp(`data-lsaccex="${b1}"`));
+
+  // Not done until both are.
+  a.equal(x.lsStepDone(pair), false);
+  x.setLog(mon, "acc.done." + a1, true);
+  a.equal(x.lsStepDone(pair), false, "half a superset is not a superset");
+  x.setLog(mon, "acc.done." + b1, true);
+  a.equal(x.lsStepDone(pair), true);
+
+  // Done marks both, and writes nothing to the lifts.
+  x.setLog(mon, "acc.done." + a1, null); x.setLog(mon, "acc.done." + b1, null);
+  x.lsAct("done", { dataset: {} });
+  a.equal(x.accDone(mon, a1), true);
+  a.equal(x.accDone(mon, b1), true, "both, from one tap");
+  a.equal(((x.logs[mon].lifts || {}).undefined), undefined, "and no phantom lift was logged");
+});
