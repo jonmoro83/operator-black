@@ -2,9 +2,9 @@
 A subscribable .ics of the plan, for iPhone Calendar, Google Calendar or anything else
 that reads a URL.
 
-The schedule only exists in this file's neighbours -- weeks(), dayPlan(), rx() -- so the
+The schedule only exists in this file's neighbors -- weeks(), dayPlan(), rx() -- so the
 app generates the calendar and the Worker stores and serves the text verbatim. That keeps
-one implementation of the programme instead of a second one on the server that could
+one implementation of the program instead of a second one on the server that could
 drift. The cost is that the feed is as fresh as the last time the app was opened, which
 for a plan that changes a few times a cycle is no cost at all.
 

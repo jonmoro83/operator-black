@@ -35,7 +35,7 @@ Known gaps and things to verify. Fix or close these before starting new features
   - **There is no strength deload in the book.** Operator runs six weeks and retests; the
     recovery guidance is a full week or more off every 3–6 months, plus the easy
     conditioning week. Our `2×5 @ 60%` deload is an app addition — kept, because a
-    scheduled light week suits a civilian running this year-round, but labelled as ours.
+    scheduled light week suits a civilian running this year-round, but labeled as ours.
   - **Retest:** rest 2–3 days first, warm up, then ramp per lift to a 3–5RM and calculate;
     a true single is optional. 6 weeks is the minimum between tests, 6 or 12 recommended,
     and waiting longer is explicitly fine. The whole cluster is tested in one session.
@@ -127,10 +127,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
-**Onboarding picks the programme, and names the books' objections (2026-10-13)**
-- Welcome setup gains a **Programme** step (now seven): every template and protocol
+**American spelling throughout (2026-10-13)**
+- The app had drifted into British spelling, most visibly in the Program step shipped
+  hours earlier. ~60 occurrences across strings, release notes and markup. The word list
+  lives in the test rather than here, so there is one copy of it and it is enforced.
+- Two deliberate exceptions, both in the code: **Grey Man** is TB III's name for a
+  template rather than a color, and the pre-1.92 `'knee to wall ankle mobilisation'`
+  lookup alias stays so a mobility list edited before today still resolves to its entry.
+- The test scans `src/app/*.js`, `releases.js` and `index.html` rather than rendered
+  views — the first version rendered a handful of screens and a reintroduced
+  "Program" in the Plan tab walked straight past it. Comments are stripped before the
+  scan: they are written for whoever is building, and this is a test about what the app
+  says. Add to its word list rather than trusting anyone to remember.
+- 249 → 250 tests.
+
+**Onboarding picks the program, and names the books' objections (2026-10-13)**
+- Welcome setup gains a **Program** step (now seven): every template and protocol
   listed with its blurb, day count and source book, plus a **Base Building** tick.
-  Previously the only way to a non-default programme was finding the Setup dropdown.
+  Previously the only way to a non-default program was finding the Setup dropdown.
 - Base Building inserts after the bridge week when there is one, because its two
   strength days need maxes to work from, and at the start week when there is not.
 - **`programWarnings(t,c,bb)`** turns the books' own statements into checks, each
@@ -150,7 +164,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   summary, and in Setup where the pairing can also be changed.
 - 246 → 249 tests. 11 mutants, all caught.
 
-**Programme templates, stage 6: Mass and Gladiator (2026-10-13)**
+**Program templates, stage 6: Mass and Gladiator (2026-10-13)**
 - **Mass.** Days 1/3/5 are bench + squat + weighted pull-up, day 6 is the deadlift on
   its own numbers (4×5 where the others run 4×8). **Week three drops day 5 entirely** —
   the book's table leaves that cell empty — so `T.slots` can now be a function of the
@@ -179,7 +193,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   genuinely in question, follow the book. I had left Grey Man one over, reasoning that
   the S clusters are the part the book hands the lifter to choose and so trimming was
   theirs. That is a defensible argument and it was the wrong call — the book states a
-  cap, and a default that ignores it is the app overriding the programme. Where the app
+  cap, and a default that ignores it is the app overriding the program. Where the app
   does depart deliberately (the deload week, the accessory splits, the bridge week) it
   says so; silently exceeding a stated limit is not that.
 - The test asserts the range 4–6 rather than the number 6, so it states the book's rule
@@ -236,7 +250,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - One step in session mode rather than two, done only when both halves are.
   `lsAccBlock` pulls out the per-job markup so one step can draw two.
 - **Bands** are `plan.bands`, a list with a weight each, offered on any movement whose
-  `gear` mentions a band. No colour lookup: Rogue's own chart lists Red twice (18 lb and
+  `gear` mentions a band. No color lookup: Rogue's own chart lists Red twice (18 lb and
   115 lb), third-party charts for the same bands differ by 50%, and the published figure
   is peak resistance at full stretch rather than anything felt at the bottom of a rep.
   Seeding from the maker's chart converts to kg, which is the one place a unit
@@ -278,15 +292,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   off without taking the channel. The Apple Watch tap through the existing rest-alert
   notification is the answer there, and is deferred rather than unknown.
 
-**Programme templates, stage 5: two clusters, and Grey Man (2026-10-12)**
+**Program templates, stage 5: two clusters, and Grey Man (2026-10-12)**
 - **Days may vary by week.** `T.days` can be a function of the week, because Grey Man
   alternates A-B-A then B-A-B so the same weekday is a different session seven days
   later. `tplDays(T,wk)` is the one reader.
 - **A template may prescribe its supplementary work.** `T.accRx(wk)` gives the day's
   second cluster its own sets, reps and percentage, separate from the main lifts.
-  Operator's accessories stay what they were: deliberately unprogrammed, two or three
-  sets short of failure, skipped on heavy weeks. A programme that prescribes them
-  **overrides that skip** — dropping work the book programmed would be wrong.
+  Operator's accessories stay what they were: deliberately unprogramd, two or three
+  sets short of failure, skipped on heavy weeks. A program that prescribes them
+  **overrides that skip** — dropping work the book programd would be wrong.
   - The book's Grey Man tops out at 80%, which is `mid`, so nothing in TB III reaches
     the skip today. The wave is user-editable though, so the guard is reachable by
     anyone who pushes week 3 up, and the test gets there the same way rather than
@@ -304,7 +318,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   prescriptions, both of which exist — but its H cluster is large and user-defined.
   Then its Bridge Week, Base Building variant, and named conditioning sessions.
 
-**Programme templates, stage 4: per-day prescriptions, and Fighter HT (2026-10-12)**
+**Program templates, stage 4: per-day prescriptions, and Fighter HT (2026-10-12)**
 - First TB III template, and the enabling change it needed.
 - **`dayRx(wk,k,date)`.** Operator, Fighter and Zulu run one prescription a week, which
   is what the wave is. TB III's tables are per day and sometimes per lift: Fighter HT's
@@ -384,7 +398,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   later but never gains the `rx`/`tpl` stamp a hard freeze adds, so those weeks follow
   today's plan rather than what was trained. Visible in the affected account's `frozen`.
 
-**Programme templates, stage 3: Green (2026-10-12)**
+**Program templates, stage 3: Green (2026-10-12)**
 - TB II's other continuation protocol, both variants, as `CPROTO` entries. The protocol
   extension point built in stage 1 carried them: `t:'se'` and per-session `short`/`note`
   were already tested against a scratch protocol, so Green needed no new session plumbing.
@@ -414,7 +428,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - **Next:** TB III's templates (Mass, Grey Man, Gladiator, Fighter HT, Specificity A/B),
   which need a hypertrophy prescription model and have their own bridge week.
 
-**Programme templates, stage 2b: Zulu (2026-10-12)**
+**Program templates, stage 2b: Zulu (2026-10-12)**
 - Four lifting days, the cluster split in half, each half twice a week.
 - **Half-clusters.** `plan.halves` with `HALF_KEYS=['squat','bench','dead','l3']`, where
   `l3` is a token meaning whatever the Lift 3 rotation gives that day. `setHalf` refuses
@@ -441,7 +455,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - **Next:** TB II's Green protocol (E and SE sessions, which the protocol model already
   supports), then TB III's templates.
 
-**Programme templates, stage 2: Fighter (2026-10-12)**
+**Program templates, stage 2: Fighter (2026-10-12)**
 - The first second template, and the first real exercise of the stage-1 model.
 - **The books number the lifting days**, so that is data on the template (`slots`) rather
   than something `weekShape` infers: Operator is days 1/3/5, Fighter 1/4, Zulu 1/2/4/5.
@@ -455,7 +469,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   3–4 sets, not Operator's six. `plan.wave` became `plan.waves[template]` (migration 5),
   so switching across and back does not lose tuned numbers. `cycleWeeks()` derives the
   cycle length from the wave, which was hardcoded at 6 in two places.
-- **Frozen weeks are stamped with the programme they ran under**, so switching does not
+- **Frozen weeks are stamped with the program they ran under**, so switching does not
   redraw October as a thing you never did. The stamp goes on the *hard* freeze only: the
   week you are in is prescription, not history, and follows a switch the same way it
   follows a changed wave. A surviving mutant found that inconsistency — the first version
@@ -470,12 +484,12 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - **Next:** Zulu (needs the A/B half-cluster, which the lift model has no notion of, and
   the adjacency rule relaxed for it), then TB II's Green protocol, then TB III.
 
-**Programme templates, stage 1: the model (2026-10-12)**
+**Program templates, stage 1: the model (2026-10-12)**
 - Groundwork for building the rest of TB II's protocols and TB III's templates in. No
   user-visible change: 205 tests passed untouched across the refactor, and a new test
   deep-equals every composed slot against the literal array it replaced.
 - `dayPlanSlot` wrote each week out as a hardcoded seven-day array per `wk.kind`. That was
-  fine with one programme and does not survive a second: strength template × conditioning
+  fine with one program and does not survive a second: strength template × conditioning
   protocol multiplies, and hand-maintained grids drift apart.
 - Two independent axes instead, which is how the books present it — TB II's sample weeks
   are literally headed "Black + Zulu", "Black + Operator", "Black + Fighter".
@@ -588,7 +602,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 
 **Aims are Operator days only (2026-10-08)**
 - Every one of the eight questions is a lifting question: "complete every set as
-  programmed" means nothing on a bike. The card now shows on `t==='lift'` days only, and
+  programd" means nothing on a bike. The card now shows on `t==='lift'` days only, and
   not on bridge or retest days either — setting an intention about technique before a
   max is a different exercise.
 - The **note** is gated separately, on any training day. A conditioning note is worth
@@ -629,30 +643,30 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   The soft mark is dropped once the week has passed and it freezes properly.
   - Consequence worth knowing: a cadence change does not retro-fit a deload to a boundary
     already behind the frozen week. It acts on the next boundary it can reach.
-- Setup's locking note rewritten, since it had been promising the old behaviour.
+- Setup's locking note rewritten, since it had been promising the old behavior.
 - Five mutations all fail. 179 → 182 tests.
 
-**Swimming is always metres, and `fixedUnit` is real (2026-10-08)**
-- Swimming is measured in metres because a pool is, not because of a preference. Joined
+**Swimming is always meters, and `fixedUnit` is real (2026-10-08)**
+- Swimming is measured in meters because a pool is, not because of a preference. Joined
   the rower and ski erg under a new `fixedUnit` flag on the activity.
 - The flag was **inert when first written** — the mutation that ignored it passed. The
-  conversion only ran one way (`yd→m` on metric), so anything declared in metres was
+  conversion only ran one way (`yd→m` on metric), so anything declared in meters was
   stuck there anyway and the flag protected nothing. Documentation wearing the costume
   of a mechanism.
 - Fixed by making the conversion symmetric: metric converts `mi→km`/`yd→m`, imperial
   converts `km→mi`/`m→yd`. Now a distance can be declared in whichever unit is natural
   and still follow the setting, and `fixedUnit` genuinely opts out.
-- The imperial half had no caller, so a test adds a throwaway activity declared in metres
+- The imperial half had no caller, so a test adds a throwaway activity declared in meters
   and asserts it reads as yards on imperial. Otherwise it was untested dead code that
   happened to be correct.
 
 **Interval distances follow the unit setting (2026-10-08)**
-- On imperial you got run and trail LISS in miles but run and trail **HIC in metres**.
-  `metricFor` only ever converted `mi→km` and `yd→m`, so a distance written as metres
+- On imperial you got run and trail LISS in miles but run and trail **HIC in meters**.
+  `metricFor` only ever converted `mi→km` and `yd→m`, so a distance written as meters
   never moved. An omission, not a decision — swim already converted.
 - Fixed by declaring the self-measured distances in their imperial form (`yd`) so the
   existing conversion reaches them. No new rule.
-- **The rower and ski erg keep a hard `m` deliberately**, and the comment says so: metres
+- **The rower and ski erg keep a hard `m` deliberately**, and the comment says so: meters
   is what the machine's own display reads in either system, and relabelling it to yards
   would be telling the user something untrue.
 - Checked before relabelling: no run or trail distances were logged, so nothing already
@@ -663,7 +677,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 
 **Hill sprints as an activity (2026-10-08)**
 - Its own entry rather than a note under Run / sprints: the incline caps the top speed,
-  which changes both the risk and what the session is for. Distance in metres on a hard
+  which changes both the risk and what the session is for. Distance in meters on a hard
   day, elevation counted like trail, ruck and hike, and no LISS metric — a hill sprint
   session is not a steady one, so it asks for minutes instead of inventing a number.
 
@@ -692,7 +706,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   working sets, with the picker, weight and reps, and a rest timer.
 - Rest defaults to `plan.accRest` = **90 s**, against the two to five minutes the main
   lifts use. The global rest bar's ±30 s still applies.
-- Accessories now count towards the session's progress rather than sitting outside it.
+- Accessories now count toward the session's progress rather than sitting outside it.
 - Typing saves on every keystroke but re-renders only on blur: `lsRender` rebuilds the
   card and, unlike `renderMain`, does not restore focus. Writing on input and rendering
   on change avoids the caret problem rather than working around it.
@@ -913,7 +927,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   keep asking rather than be waved away once and forgotten.
 - Bands are deliberately wide (bodyweight 60–400 lb, lifts 0–1200 lb) so a genuinely
   strong or genuinely light person never sees one. They convert with the unit setting,
-  and measurements switch to centimetres, so kilograms are not all flagged.
+  and measurements switch to centimeters, so kilograms are not all flagged.
 - Covered: ordinary values stay silent, the roadmap's two cases are caught, blanks and
   non-numbers say nothing, fields with no sensible band are left alone, warm-up rows are
   excluded (too cramped for a note), and the unit conversion works both ways.
@@ -1141,7 +1155,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Trail run as its own activity rather than a flavour of Run: pace means nothing on uneven
   ground, so the hard efforts go by breathing, and the advice leads on the descents being
   what leaves you sore two days later. Elevation gain on trail runs and hikes, feet for
-  pounds and metres for kilos, in History beside the distance and in the sessions CSV.
+  pounds and meters for kilos, in History beside the distance and in the sessions CSV.
 - Rucking got the same field the same afternoon (1.38), next to the pack weight, which is the
   pairing that says what the session actually was.
 - Shipped as data only — nothing in the programming read it yet. Splitting it from 1.39 that
@@ -1159,7 +1173,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Lesson worth keeping: a released wake lock is indistinguishable from a held one unless you
   read `.released`, so every re-request was being skipped as redundant. Any API the platform
   can revoke under you needs a re-check on the way in, not a flag of your own.
-- The warm-up rest was labelled "Ramp rest", which reads like something off a bike test and
+- The warm-up rest was labeled "Ramp rest", which reads like something off a bike test and
   appeared on Operator days too, since every session has a warm-up. It says "Warm-up rest".
 
 **A timer for anything (2026-10-05)**
@@ -1264,7 +1278,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - `DEF.testEvery` 3 → **2** and `DEF.deloadEvery` 2 → **0**. TB1 runs six-week blocks back
   to back and retests after two of them; it has no deload week, and prescribes a full week
   or more off every 3–6 months instead.
-- The scheduled deload stays as an option, labelled in Setup and the Guide as our addition
+- The scheduled deload stays as an option, labeled in Setup and the Guide as our addition
   rather than the book's, because a light week suits running this year-round outside a unit.
 - A stored plan beats the defaults in `deepMerge(clone(DEF), saved)`, so existing users keep
   their cadence until they act. Hence the **Match the book** button: it runs through
@@ -1561,7 +1575,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   rounds, rest and cool-down — and the card says which it did. The current week is drawn
   hollow and left out of the four-week average, since it is still running.
 - **Adherence heatmap**: twelve weeks × seven days under the adherence percentages,
-  coloured by the same `sessState()` the week dots use, with the week label (C2W5, DL,
+  colored by the same `sessState()` the week dots use, with the week label (C2W5, DL,
   RT, Br, Tr) down the side. Weeks before the start are not drawn.
 - **Estimated 1RM from logged top sets** was in Ideas, and is a trap in this program:
   the working weight is computed *from* the max, so a set done exactly as prescribed
@@ -1585,7 +1599,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   keeps only versions.
 - The button doubles as the sync indicator. The brand row cannot hold the wordmark, the
   status text and the avatar at phone widths, so `#status` is hidden below 520px and a
-  coloured dot on the avatar carries the state, with the words inside the menu. The
+  colored dot on the avatar carries the state, with the words inside the menu. The
   wordmark steps down at 400/360/340px so the button always fits.
 - The two menu items shipped dead and were fixed the next morning (2026-10-01).
   Two gotchas behind it. The `data-act` click handler is bound to `#main`, so static markup
@@ -1603,13 +1617,13 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - The Extensive phase description now says what the word means.
 
 **Days say what they contain (2026-09-30)**
-- The bridge week's Saturday is labelled `5RM+Spin` when Lift 3 has two movements to
+- The bridge week's Saturday is labeled `5RM+Spin` when Lift 3 has two movements to
   test, and the note asked for 30–40 min of easy cardio, but the day rendered only the
   lift tests: nowhere to pick an activity, log the minutes or run the timer. The day plan
   now carries `cardio:true, fmt:'liss'` and the test branch renders `hicCard` under the
   lifts, so the ride is logged like any other LISS session (and reaches the CSV, the
   conditioning records and the day summary, which already keyed off `L.hic`).
-- The retest week's mobility-only Tuesday was also labelled `Easy`, which reads like a
+- The retest week's mobility-only Tuesday was also labeled `Easy`, which reads like a
   conditioning day; it is `Mobility` now. A test walks every scheduled day and fails if
   one whose label mentions conditioning has no card to log it on.
 
@@ -1657,7 +1671,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 
 **Smaller index.html (2026-09-30)**
 - Styles moved to `public/app.css` and the release notes to `public/releases.js`,
-  taking `index.html` from 3,148 to 2,728 lines with no build step and no behaviour
+  taking `index.html` from 3,148 to 2,728 lines with no build step and no behavior
   change. The service worker caches both and refreshes them in the background, so a
   style or notes change lands on the next load without bumping its VERSION.
 
@@ -1695,7 +1709,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   weigh-ins. Falls back to the latest single reading until the window has two.
 - Appearance in Setup, per device: Match device / Light / Dark, plus gym mode (bigger
   buttons and inputs, firmer borders). An explicit theme also moves the phone's status
-  bar colour.
+  bar color.
 - Session complete card on a finished day listing what was logged and what's still open;
   a tick animation on the set you just pressed; clearer empty states.
 

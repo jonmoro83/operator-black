@@ -118,7 +118,7 @@ async function catRemove(id) {
 function vCatalog() {
   const all = accAll();
   let h = `<div class="card"><div class="lift-h"><h2>Exercise list</h2><span class="small muted">${Object.keys(all).length} movements</span></div>
-  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's programme is rewritten mid-cycle.</p>`;
+  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's program is rewritten mid-cycle.</p>`;
   if (admin.catErr) h += `<div class="banner warn"><div>${esc(admin.catErr)}</div></div>`;
 
   for (const [slot, meta] of Object.entries(ASLOT)) {

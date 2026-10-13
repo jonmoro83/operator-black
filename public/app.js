@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-/* ---------------- programme templates ----------------
+/* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
 says how many lifting days you take and what is on each, and the conditioning protocol
@@ -69,12 +69,12 @@ function halfLifts(which,date){
 function halfOfDay(dp){ return dp&&dp.half||null }
 /* What the day's supplementary work is prescribed at, when the template says.
 
-   Operator's accessories are deliberately unprogrammed — a couple of sets short of
+   Operator's accessories are deliberately unprogramd — a couple of sets short of
    failure, skipped on heavy weeks, and that is the whole instruction. Tactical Barbell
    III's supplementary clusters are not like that: Grey Man gives them their own sets,
    reps and percentage, lighter and longer than the main lifts, and runs them every week
    including the heavy one. A template that prescribes them therefore also overrides the
-   skip rule, because skipping them is Operator's idea and not every programme's. */
+   skip rule, because skipping them is Operator's idea and not every program's. */
 function accRxFor(wk){
   const T=STEMPL[wk&&wk.tpl]||stemplOf();
   if(typeof T.accRx!=='function'||!wk||wk.kind!=='cycle') return null;
@@ -172,7 +172,7 @@ const STEMPL={
     },
     wave:[{s:4,sMax:5,r:8,p:70},{s:4,sMax:5,r:6,p:75},{s:4,sMax:5,r:3,p:80}],
     // The supplementary cluster runs its own numbers, lighter and longer than the main
-    // lifts, and it is programmed every week — including the heavy one.
+    // lifts, and it is programd every week — including the heavy one.
     accRx:wk=>[{s:4,r:12,p:55},{s:4,r:10,p:60},{s:4,r:8,p:65}][(((wk&&wk.w||1)-1)%3)],
   },
   fighterht:{
@@ -286,7 +286,7 @@ function programWarnings(t,c,bb){
   else if(t==='gladiator'&&c==='black') out.push({k:'glad-black',text:'Gladiator with Black is allowed, but the book asks for a training max or conservative 1RMs when you do it. You can set that under Percent of in Setup.'});
   else if(MASS_TEMPLATES.includes(t)&&c==='black') out.push({k:'mass-black-soft',text:`Mass Protocol pairs its mass templates with Green, not Black \u2014 Green is lower intensity and longer, and is there to aid recovery rather than compete with it. ${T.name} with Black will be a lot of hard work in one week.`});
   if(c==='green'&&days>2) out.push({k:'green-days',text:`Green asks for two strength sessions a week and ${T.name} runs ${days}. The week will still lay out, but endurance is meant to be the priority on Green and four lifting days is not that.`});
-  if(bb) out.push({k:'bb',text:'Base Building runs first and replaces the programme for eight weeks: strength-endurance circuits, easy aerobic work and two spartan strength days. Your template and protocol start when it finishes.'});
+  if(bb) out.push({k:'bb',text:'Base Building runs first and replaces the program for eight weeks: strength-endurance circuits, easy aerobic work and two spartan strength days. Your template and protocol start when it finishes.'});
   return out;
 }
 
@@ -296,7 +296,7 @@ function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }
 function cprotoKey(){ return CPROTO[plan.cproto]?plan.cproto:'black' }
 // The wave belongs to the template: Fighter's is a three-week block run twice, not
 // Operator's six. Yours, once you have edited it, lives under plan.waves by template,
-// so switching templates does not carry one programme's numbers into another.
+// so switching templates does not carry one program's numbers into another.
 function waveOf(tpl){
   const k=tpl&&STEMPL[tpl]?tpl:stemplKey();
   const w=(plan.waves||{})[k];
@@ -356,7 +356,7 @@ function weekShape(slots,sessions){
 // One slot of a composed week. `wk` carries the week number, `date` resolves Lift 3.
 function composeSlot(date,wk,d){
   // A week frozen in the past carries the template it was trained under, so changing
-  // programme now does not rewrite what you already did into something else.
+  // program now does not rewrite what you already did into something else.
   const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
   const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[];
   // A protocol may say there is no barbell work at all: Green's Progressive SE variation
@@ -417,8 +417,8 @@ const HIC={
 // conversion reaches it.
 //
 // `fixedUnit` opts out, for the cases where the unit is not a preference: the rower and
-// ski erg read metres on their own displays whatever you prefer, and a pool is measured
-// in metres. Relabelling either would be telling you something untrue about the number
+// ski erg read meters on their own displays whatever you prefer, and a pool is measured
+// in meters. Relabelling either would be telling you something untrue about the number
 // in front of you.
 const MOD={
   echo:{name:'Echo bike',hic:['cal','cal'],liss:['cal','cal'],wu:'5 min easy spin, then 3 × 15 s at HIC pace with 45 s easy between.'},
@@ -445,12 +445,12 @@ const PLIB={
     errors:'Bending the knees to create height, which turns it into a squat jump and removes the ankle stimulus. Landing flat-footed or heel-first. Letting the rhythm slow as the set goes on.',
     note:'The lowest-stress drill in the program, and the one that most directly builds the Achilles and calf stiffness everything else relies on.'},
   askip:{name:'Ankle skip',
-    setup:'Standing, ready to travel forward over about 20 metres.',
+    setup:'Standing, ready to travel forward over about 20 meters.',
     exec:'Skip forward driving off the ankle with a minimal knee bend, opposite arm swinging. Cover ground with quick, light contacts rather than big bounds.',
     cues:'Light and quick. Contacts should be barely audible.',
     errors:'Turning it into a powerful A-skip with high knee drive. That is a different drill and adds fatigue you do not want before the main sets.'},
   broad:{name:'Broad jump (single effort)',
-    setup:'Feet hip to shoulder width behind a line. Clear landing space of at least 3 metres. A flat, non-slip surface: grass or rubber gym flooring is ideal, concrete is the worst option.',
+    setup:'Feet hip to shoulder width behind a line. Clear landing space of at least 3 meters. A flat, non-slip surface: grass or rubber gym flooring is ideal, concrete is the worst option.',
     exec:'Hinge and load by dipping to roughly a quarter squat, swinging the arms back. Jump forward and slightly up, driving the arms forward and fully extending hips, knees and ankles. Land on both feet with hips back and knees tracking over toes, then absorb and stick: no extra hop, no stagger.',
     cues:'Reach, don’t fall. Drive the arms hard; they contribute more distance than most people expect. Land like you are catching yourself in a quarter squat, not a deep one.',
     errors:'Landing stiff-legged with straight knees (jarring and risky). Knees collapsing inward on landing. Piking at the waist in the air. Taking a step after landing. If you cannot stick it, you jumped past your current ability to absorb it.',
@@ -462,7 +462,7 @@ const PLIB={
     errors:'Dipping too deep or too slowly, which loses the stretch reflex. Taking a step in. Measuring the jump touch but forgetting the standing reach, which is the number you subtract.',
     note:'Jump height is the touch height minus your standing reach. Record the same way every time \u2014 same wall, same shoes, same arm \u2014 or the comparison is meaningless.'},
   triple:{name:'Standing triple jump',
-    setup:'A line to start behind and about 10 metres of flat, forgiving space. Grass or rubber flooring; do not test this on concrete. Warm up fully first: it is the highest-force test in the set.',
+    setup:'A line to start behind and about 10 meters of flat, forgiving space. Grass or rubber flooring; do not test this on concrete. Warm up fully first: it is the highest-force test in the set.',
     exec:'From a two-foot standstill, jump forward and land on one foot (the hop), immediately bound forward onto the opposite foot (the step), then jump off that foot and land on both feet (the jump). Three linked efforts, no pause between them. Measure from the line to your rearmost heel on the final landing.',
     cues:'Even, rhythmic, flowing. Aim for three jumps of similar length rather than an enormous first one that leaves you nothing to land on. Arms drive on every contact.',
     errors:'Attacking the hop so hard that the step and jump collapse. Pausing between contacts, which turns it into three standing jumps. Reaching for distance on the last landing and falling backwards \u2014 stick it or the attempt does not count.',
@@ -484,7 +484,7 @@ const PLIB={
     cues:'Land with the knee tracking over the middle of the foot and the hip taking the load. The two-second hold is the exercise: it trains deceleration and frontal-plane control.',
     errors:'Rushing the hold. Letting the knee cave inward. Landing on a stiff, straight leg. Bounding so far sideways you cannot control the landing. Distance is capped by your ability to stick it.'},
   slhop:{name:'Single-leg hop (straight line)',
-    setup:'Balance on one leg, hands free. Flat surface with several metres ahead.',
+    setup:'Balance on one leg, hands free. Flat surface with several meters ahead.',
     exec:'Hop forward on the same leg repeatedly, aiming for consistent distance and short contacts. Complete all reps on one leg, then switch.',
     cues:'Stay tall through the torso. Hips level: do not let the opposite hip drop on each landing.',
     errors:'Letting distance shrink through the set. Excessive side-to-side drift. Hunching forward at the waist.',
@@ -496,17 +496,17 @@ const PLIB={
     errors:'Knee caving inward as fatigue sets in: stop the set when you see it. Landing flat-footed.',
     note:'The highest frontal-plane demand in the program, and the most protective for ankles and knees.'},
   bdist:{name:'Bound for distance',
-    setup:'Space of 20 to 30 metres. Start with a few walking steps into the first bound rather than from a dead stop.',
+    setup:'Space of 20 to 30 meters. Start with a few walking steps into the first bound rather than from a dead stop.',
     exec:'Alternate legs in exaggerated running strides, driving off one leg and landing on the other, covering as much ground per contact as possible. Opposite arm drives forward with each bound.',
     cues:'Push the ground behind you and reach with the landing leg. Long, powerful, rhythmic.',
     errors:'Turning it into ordinary running. Landing heel-first. Leaning back to try to hang in the air.'},
   bheight:{name:'Bound for height',
     setup:'Same as bounding for distance, with the same run-in.',
-    exec:'Alternate-leg bounds emphasising vertical displacement rather than horizontal: drive the knee up and get as high as you can per contact, covering less ground.',
+    exec:'Alternate-leg bounds emphasizing vertical displacement rather than horizontal: drive the knee up and get as high as you can per contact, covering less ground.',
     cues:'Punch the knee up and the arms up. Think “up” on every contact.',
     errors:'Drifting back into distance bounding once you fatigue. Collapsing into a deep knee bend on landing.'},
   hurdle:{name:'Hurdle hop (low, continuous)',
-    setup:'Three to five low hurdles, cones, or 6 to 12 inch objects in a line, roughly a metre apart. Use objects that fall over harmlessly if clipped.',
+    setup:'Three to five low hurdles, cones, or 6 to 12 inch objects in a line, roughly a meter apart. Use objects that fall over harmlessly if clipped.',
     exec:'Hop over each with both feet, landing and immediately rebounding into the next with minimal ground contact. Complete the line, walk back, repeat.',
     cues:'Minimal time on the ground. Land on the balls of the feet, ankles stiff.',
     errors:'Hurdles too high, which forces a knee tuck and a long pause on each landing. Pausing between hurdles to re-set.',
@@ -518,7 +518,7 @@ const PLIB={
     errors:'Bending only at the arms. Rushing the reset so the set turns into conditioning. Using a bouncy ball, which takes the finish away from you.',
     note:'Intent is the whole exercise. If the ball is heavy enough to slow you down, it is too heavy.'},
   chestpass:{name:'Med ball chest pass',
-    setup:'A metre or two from a solid wall, ball at the sternum, athletic stance.',
+    setup:'A meter or two from a solid wall, ball at the sternum, athletic stance.',
     exec:'Push the ball into the wall as fast as you can, catch the rebound and reset. Feet stay planted.',
     cues:'Fast hands. Think of pushing the wall away rather than throwing at it.',
     errors:'Standing so close that the rebound arrives before you are set. Turning it into a rep count instead of a speed drill.'},
@@ -661,7 +661,7 @@ const MOB={
     ['Seated forward fold','45–60 sec']]},
   plyo:{name:'Ankles and calves',why:'Jumping loads the Achilles and calves hardest.',items:[
     ['Straight-leg calf stretch (gastroc)','45 sec per side'],['Bent-knee calf stretch (soleus)','45 sec per side'],
-    ['Knee-to-wall ankle mobilisation','10 reps per side'],['Foot / arch roll on a ball','60 sec per side'],
+    ['Knee-to-wall ankle mobilization','10 reps per side'],['Foot / arch roll on a ball','60 sec per side'],
     ['Couch stretch','60–90 sec per side']]},
   off:{name:'Full mobility',why:'No training today: the best day for the long holds.',items:[
     ['Couch stretch','90 sec per side'],['Frog stretch, gentle rocking','2 min'],
@@ -759,7 +759,7 @@ const DEF={
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
   plyoDow:3, plyoMove:{},
-  // Which programme this is. Two independent choices, composed into a week by
+  // Which program this is. Two independent choices, composed into a week by
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
   // Zulu's two halves of the cluster. Empty means the template's default.
@@ -899,7 +899,7 @@ const MIGRATIONS=[
   }},
   {to:5,note:'The wave moves under the template that owns it',run(d,p){
     // plan.wave was global because Operator was the only template. Fighter's wave is a
-    // different shape, so an edited wave belongs to the programme it was edited for.
+    // different shape, so an edited wave belongs to the program it was edited for.
     if(Array.isArray(p.wave)&&p.wave.length){
       p.waves=Object.assign({},p.waves,{[STEMPL[p.stempl]?p.stempl:'operator']:p.wave});
     }
@@ -1031,7 +1031,7 @@ const MLIB={
     exec:'Bend the back knee while keeping the heel down. The stretch drops lower, near the Achilles. Hold 45 seconds per side.',
     cues:'A small bend is enough. This one targets the soleus, which is what a plyo session beats up.',
     errors:'Bending so far the heel lifts. Skipping it because the straight-leg version felt like enough — they are different muscles.'},
-  kneewall:{name:'Knee-to-wall ankle mobilisation',
+  kneewall:{name:'Knee-to-wall ankle mobilization',
     setup:'Stand facing a wall, toes a few inches back from it, foot pointing straight at it.',
     exec:'Drive the knee forward over the middle of the foot until it touches the wall, keeping the heel down. Ten reps per side, moving the foot back as it improves.',
     cues:'Heel stays down and the knee tracks over the second toe, not inward.',
@@ -1064,7 +1064,7 @@ const MLIB={
     errors:'Checking your phone. Treating it as a stretch and pushing the hamstrings.',
     note:'The best-value two minutes on an off day: it is the one block that is purely about coming down.'}
 };
-// The names in WARMUP and MOB are editable text, so entries are matched by a normalised
+// The names in WARMUP and MOB are editable text, so entries are matched by a normalized
 // name through this table. A test asserts every built-in item still resolves.
 function mnorm(s){return String(s||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9/]+/g,' ').trim()}
 const MLIB_ALIAS={};
@@ -1083,7 +1083,11 @@ const MLIB_ALIAS={};
     ['standing forward fold soft knees','fold'],['supine hamstring stretch strap or doorway','hamstring'],
     ['standing quad stretch','quadstand'],['straight leg calf stretch against a wall','calfstraight'],
     ['straight leg calf stretch gastroc','calfstraight'],['bent knee calf stretch soleus','calfbent'],
-    ['knee to wall ankle mobilisation','kneewall'],['foot / arch roll on a ball','footroll'],
+    ['knee to wall ankle mobilization','kneewall'],
+    // The app said "mobilisation" until 1.92. Anyone who had edited their mobility list
+    // has that spelling saved in it, so it still has to resolve.
+    ['knee to wall ankle mobilisation','kneewall'],
+    ['foot / arch roll on a ball','footroll'],
     ['seated forward fold','seatedfold'],['pigeon or figure 4','pigeon'],
     ['thoracic extension over a foam roller','foamtspine'],
     ['diaphragmatic breathing legs up the wall','breathwall']
@@ -1322,9 +1326,9 @@ function accDone(date,slot){
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
 
 /* ---------------- bands ----------------
-A band has no number on it, only a colour, and the colour means different things by
+A band has no number on it, only a color, and the color means different things by
 brand. Worse, it means different things within one brand: Rogue's own Monster chart
-lists Red twice, at 18 lb and at 115 lb, so a colour alone cannot identify a band.
+lists Red twice, at 18 lb and at 115 lb, so a color alone cannot identify a band.
 And the published figure is peak resistance at full stretch — the force at the bottom
 of a rep is a fraction of it.
 
@@ -1869,7 +1873,7 @@ function metricFor(mod,fmt){
   if(!m)return null;
   let un=m[1];
   // Symmetric, so a distance can be declared in either system and still follow the
-  // setting. Without the imperial half, anything written in metres was simply stuck
+  // setting. Without the imperial half, anything written in meters was simply stuck
   // there and `fixedUnit` protected nothing.
   if(!M.fixedUnit){
     if(u()==='kg'){ if(un==='mi')un='km'; if(un==='yd')un='m' }
@@ -2884,7 +2888,7 @@ function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.len
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
   const v=wkRx(wk), arx=accRxFor(wk);
-  // A programme that prescribes its supplementary work means it, heavy week or not.
+  // A program that prescribes its supplementary work means it, heavy week or not.
   if(!arx&&wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const day=dp.acc; if(!day) return '';
   const slots=accSlots(day), done=accDoneCount(sel,day);
@@ -2914,7 +2918,7 @@ function accSlotRow(date,slot){
     h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
   }
   if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
-  // A band exercise with bands on file: pick the colour, get the number in the weight
+  // A band exercise with bands on file: pick the color, get the number in the weight
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   for(let i=0;i<sets.length;i++){
@@ -3117,7 +3121,7 @@ const AIM_MAX = 3;
 
 // check(date) -> {ok, detail} for an aim the app can score, or null for one only you can.
 const AIMS_LIFT = [
-  { id: 'sets', label: 'Complete every set as programmed', check(d) {
+  { id: 'sets', label: 'Complete every set as programd', check(d) {
       const dp = dayPlan(d), wk = weekOf(d);
       if (!wk || !(dp.lifts || []).length) return null;
       let want = 0, got = 0;
@@ -3777,7 +3781,7 @@ function wzNew(rerun){
     start:rerun?plan.startMonday:nextMonday(),mode:rerun&&!plan.bridge?'maxes':'bridge',rm:'1rm',maxes:rerun?clone(plan.maxes):{},cardio:defMod(),deload:rerun?(+plan.deloadEvery||0):0,test:rerun?(+plan.testEvery||0):3,
     stempl:rerun?stemplKey():'operator',cproto:rerun?cprotoKey():'black',bb:false};
 }
-const WZ_STEPS=['You','Programme','Lift 3','Start','Conditioning','Deloads','Ready'];
+const WZ_STEPS=['You','Program','Lift 3','Start','Conditioning','Deloads','Ready'];
 function vWelcome(){
   const w=wz, steps=WZ_STEPS.map((t,i)=>`<span class="chip${i===w.step?' blue':i<w.step?' light':''}">${i+1}. ${t}</span>`).join('');
   let h=`<div class="card"><div class="lift-h"><h2>${w.rerun?'Welcome setup':'Welcome to Operator + Black'}</h2>${w.rerun?'':'<button class="btn sm ghost" data-act="wzskip">Skip</button>'}</div><div class="row" style="gap:6px">${steps}</div>`;
@@ -3820,7 +3824,7 @@ function vWelcome(){
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
-    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Programme</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
+    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
     <div class="small muted">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
@@ -4156,7 +4160,7 @@ function lsMarkWarm(st){
   for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
   setLog(ls.date,'lifts.'+st.k+'.warmup',W);
 }
-// The whole of session mode's behaviour sits behind one click handler, which means none
+// The whole of session mode's behavior sits behind one click handler, which means none
 // of it is reachable from a test. Naming it makes every button's effect testable; the
 // listener's only job is to find which button was tapped.
 function lsAct(a,b){
@@ -5214,17 +5218,17 @@ function syncCard(){
 
 // Accessories in Setup: which jobs each day covers, what is doing each job this block
 // and next, and your own additions. The picks are per cycle on purpose \u2014 they are
-// programme choices, like the cluster lifts, not something to re-decide every session.
+// program choices, like the cluster lifts, not something to re-decide every session.
 let accNew={name:'',slot:'hpull',gear:''}, accLater=false;
 let bandNew={n:'',w:''};
 // Your bands, with the number you want each logged as. See 01b-accessories.js for why
-// this is a list you keep rather than a colour chart the app pretends to know.
+// this is a list you keep rather than a color chart the app pretends to know.
 function bandsCard(){
   const list=bands();
   let h=`<div class="card"><div class="lift-h"><h2>Bands</h2><span class="chip ${list.length?'light':''}">${list.length||'none'}</span></div>
-  <p class="small muted" style="margin:0">A band has a colour, not a number, and the colour means different things by brand \u2014 Rogue\u2019s own range lists Red twice, at 18 and 115 lb. So these are yours: give each band the weight you want it logged as, and it shows up on any band exercise.</p>`;
+  <p class="small muted" style="margin:0">A band has a color, not a number, and the color means different things by brand \u2014 Rogue\u2019s own range lists Red twice, at 18 and 115 lb. So these are yours: give each band the weight you want it logged as, and it shows up on any band exercise.</p>`;
   if(list.length) h+=`<div class="stack" style="gap:6px">${list.map(b=>`<div class="row between" style="gap:8px"><span class="acc-role">${esc(b.n)}</span><span class="mono small">${n(b.w)} ${esc(u())}</span><button class="btn sm ghost" data-act="bandrm" data-n="${esc(b.n)}">Remove</button></div>`).join('')}</div>`;
-  h+=`<div class="grid3"><label class="f">Colour or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
+  h+=`<div class="grid3"><label class="f">Color or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
   <label class="f">Counts as (${esc(u())})<input type="number" inputmode="decimal" step="any" id="band-w" data-bandnew="w" value="${esc(String(bandNew.w))}"></label>
   <label class="f">&nbsp;<button class="btn" data-act="bandadd">Add band</button></label></div>`;
   h+=`<details class="plain"><summary>Start from a maker\u2019s chart</summary><div class="stack" style="margin-top:8px">
@@ -5347,7 +5351,7 @@ function calCard(){
   const re=calRe&&!viewing;
   let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">‹</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">›</button></div>`;
   if(!viewing) h+=`<div class="row between"><button class="btn sm${re?' primary':''}" data-act="calre">${re?'✓ Rearranging':'Rearrange days'}</button>${calMonth!==t.slice(0,7)?`<button class="btn sm ghost" data-act="calm" data-v="0">This month</button>`:''}</div>`;
-  if(re) h+=`<div class="banner info"><div class="small">${calMove?(calMove.ord?`<b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'Session')}</b> moves to ${fmtD(calMove.to,true)}${calMove.moved>1?`, and ${calMove.moved-1} other day${calMove.moved>2?'s':''} shift`:' with no other changes'}. The preview is below.`:`Tap the day to move <b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'')}</b> to. Greyed days can’t take it without doubling up strength or hard conditioning.`):'Tap a session, then tap the day you want to do it on. The week keeps all seven sessions and never lands two strength days or two hard conditioning days together.'}</div>${calMove?`<div class="row">${calMove.ord?`<button class="btn sm primary" data-act="calapply">Apply</button>`:''}<button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
+  if(re) h+=`<div class="banner info"><div class="small">${calMove?(calMove.ord?`<b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'Session')}</b> moves to ${fmtD(calMove.to,true)}${calMove.moved>1?`, and ${calMove.moved-1} other day${calMove.moved>2?'s':''} shift`:' with no other changes'}. The preview is below.`:`Tap the day to move <b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'')}</b> to. Grayed days can’t take it without doubling up strength or hard conditioning.`):'Tap a session, then tap the day you want to do it on. The week keeps all seven sessions and never lands two strength days or two hard conditioning days together.'}</div>${calMove?`<div class="row">${calMove.ord?`<button class="btn sm primary" data-act="calapply">Apply</button>`:''}<button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
   h+=`<div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
   for(let r=0;r<rows;r++){
     const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null;
@@ -5464,11 +5468,11 @@ function halvesCard(){
   h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
-// Which programme you are running. Two choices, composed into a week — see 00b-templates.js.
+// Which program you are running. Two choices, composed into a week — see 00b-templates.js.
 function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
   const days=P.noStrength?0:T.days.length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
-  let h=`<div class="card"><div class="lift-h"><h2>Programme</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
+  let h=`<div class="card"><div class="lift-h"><h2>Program</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
   <p class="small muted" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
   if(keys.length>1){
     h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${STEMPL[k].days.length} day${STEMPL[k].days.length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
@@ -5482,7 +5486,7 @@ function templateCard(){
   else if(T.split) h+=halvesCard();
   const warn=programWarnings(stemplKey(),cprotoKey(),false);
   if(warn.length) h+=`<div class="banner info"><div class="small"><b>Worth knowing:</b>${warn.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
-  h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the programme they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
+  h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the program they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }
 function vSetup(){
@@ -5692,7 +5696,7 @@ function vGuide(){
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day (sprints, rower, cycling, ruck, swim and more).</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. Plyos come first on whichever day they land, so keep sprint volume low that day.</li></ul>
-  <p><b>Optional sets (Operator I/A).</b> K. Black's intermediate/advanced take on Operator hands you the volume decision: rather than a fixed three sets, you work somewhere in a range and choose on the day. Tap <b>+</b> at the end of the sets on any lift card and you get another one, for that lift on that day only — the program is not touched and tomorrow is back to normal. If you want the room there every week instead, give the week an <b>Up to</b> value in Setup. Either way the surplus sets show dashed, and nothing is counted as missed if you skip them. In <i>Ageless Athlete</i> Jim Madden calls this the part of I/A he considers essential, and a few extra sets on weighted pull-ups his favourite way to add upper-body size without derailing recovery. Deadlift has always worked this way here: one set required, up to three.</p>
+  <p><b>Optional sets (Operator I/A).</b> K. Black's intermediate/advanced take on Operator hands you the volume decision: rather than a fixed three sets, you work somewhere in a range and choose on the day. Tap <b>+</b> at the end of the sets on any lift card and you get another one, for that lift on that day only — the program is not touched and tomorrow is back to normal. If you want the room there every week instead, give the week an <b>Up to</b> value in Setup. Either way the surplus sets show dashed, and nothing is counted as missed if you skip them. In <i>Ageless Athlete</i> Jim Madden calls this the part of I/A he considers essential, and a few extra sets on weighted pull-ups his favorite way to add upper-body size without derailing recovery. Deadlift has always worked this way here: one set required, up to three.</p>
   <p><b>What this is not.</b> Full Operator I/A also floats your lifting days 48 to 72 hours apart, so the wave advances by session rather than by week. This app runs on a calendar, so it does not do that — and Madden says he mostly keeps a fixed three-sessions-a-week schedule himself, taking his variability in sets and intensity instead. That is the part you have here.</p>
   <p><b>What matters today.</b> Before a session you pick up to three things to pay attention to, and afterwards you get an account of them. Three is the cap on purpose: any more and none of them is a focus.</p>
   <p>The questions depend on the day. <b>Lifting days</b> ask about execution — finishing every set, a proper warm-up, keeping technique tight, stopping short of failure. <b>Conditioning days</b> ask about where the effort went, which is the thing that actually goes wrong on a bike: hitting the rounds, holding the pace, keeping the easy parts easy, finishing able to do one more. A question that cannot apply is not asked — a steady session is never asked about rounds. Test days and Base Building circuits set no aims at all.</p>
@@ -5708,26 +5712,26 @@ function vGuide(){
   <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
   <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
   <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Jump tests',['broad','vertj','triple']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
-  <div class="card guide"><h3>Programmes</h3><p>Your strength template and your conditioning protocol are separate choices, set in Setup \u2192 Programme, and the week is built from the two. That is how the books present it: Tactical Barbell II's sample weeks are headed \u201cBlack + Zulu\u201d, \u201cBlack + Operator\u201d, \u201cBlack + Fighter\u201d.</p>
+  <div class="card guide"><h3>Programs</h3><p>Your strength template and your conditioning protocol are separate choices, set in Setup \u2192 Program, and the week is built from the two. That is how the books present it: Tactical Barbell II's sample weeks are headed \u201cBlack + Zulu\u201d, \u201cBlack + Operator\u201d, \u201cBlack + Fighter\u201d.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${v.days.length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, keeping hard days apart. Easy aerobic days can sit next to anything, which is what Green's own template does.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
-  <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the programme they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
+  <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the program they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
   <ul class="tight"><li>Weeks 1–5 are endurance and strength-endurance dense, with no barbell work at all. That is deliberate: it frees the energy for the long sessions and gives tendons and joints a break before heavy lifting returns.</li><li>Weeks 6–8 taper the long work and bring back two strength days and the aerobic-leaning HIC sessions.</li><li>Every E session is a minimum of 30 minutes. Day 6 is the long one, with a recovery day before it and a rest day after, so push the duration there.</li><li>Recovery days are movement drills, mobility, an easy swim or bike, a walk, yoga, or nothing at all.</li><li>At least one completely free day a week. Walking and pick-up sport are fine.</li><li>Eat for it. The book asks for 1–2 g of protein per pound of bodyweight through the block and is firmly against going low-carb while the volume is up.</li><li><b>Strength-first</b> reverses it: lift for the first five weeks, strength-endurance for the last three. The book doesn't give rep numbers for those late SE weeks, so the app ramps 3×30, 3×40, 3×50.</li></ul></div>
   <div class="card guide"><h3>Strength-endurance circuits</h3><p>Five to eight exercises covering the whole body, done one after another. Do your reps, take a short rest, move to the next. After a full circuit, rest two minutes and go again. The shorter you can make the rests, the better — down to none if you can hold it together.</p>
-  <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that grey area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
+  <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that gray area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
   <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
   <div class="card guide"><h3>Accessories</h3>
-  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a programme decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
+  <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a program decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
   <p><b>In session mode.</b> Each job is its own step, after the lifts: it names what is doing it, lets you swap for that session, takes the sets, and has a rest timer of its own — 90 seconds by default, where the main lifts use your per-lift two to five minutes.</p>
   <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
-  <p><b>Missing a movement?</b> The list is shared and curated, so ask and it can be added for everyone. A movement that is retired stops being offered but stays with anyone who had already chosen it — nobody has their programme rewritten mid-cycle.</p>
+  <p><b>Missing a movement?</b> The list is shared and curated, so ask and it can be added for everyone. A movement that is retired stops being offered but stays with anyone who had already chosen it — nobody has their program rewritten mid-cycle.</p>
   <ul class="tight"><li>After the main lifts, never before. Two or three sets of each job, a couple of reps short of failure.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
   <div class="card guide"><h3>Deloads and retests</h3>
   <p><b>What the book does.</b> Operator runs six-week blocks back to back and retests after two of them — twelve weeks, which it calls the optimal length of a strength phase. Six weeks is the minimum between tests and suits experienced lifters; waiting longer is fine, and if the loads still feel heavy the advice is to keep your current numbers rather than test on schedule. There is no deload week: the recovery it prescribes is a full week or more off every three to six months. Rest two to three days before a test day, ramp up, and take a 3–5 rep max rather than a true single if you prefer — the calculator does the rest.</p>
@@ -5764,9 +5768,9 @@ function vGuide(){
 A subscribable .ics of the plan, for iPhone Calendar, Google Calendar or anything else
 that reads a URL.
 
-The schedule only exists in this file's neighbours -- weeks(), dayPlan(), rx() -- so the
+The schedule only exists in this file's neighbors -- weeks(), dayPlan(), rx() -- so the
 app generates the calendar and the Worker stores and serves the text verbatim. That keeps
-one implementation of the programme instead of a second one on the server that could
+one implementation of the program instead of a second one on the server that could
 drift. The cost is that the feed is as fresh as the last time the app was opened, which
 for a plan that changes a few times a cycle is no cost at all.
 
@@ -6088,7 +6092,7 @@ async function catRemove(id) {
 function vCatalog() {
   const all = accAll();
   let h = `<div class="card"><div class="lift-h"><h2>Exercise list</h2><span class="small muted">${Object.keys(all).length} movements</span></div>
-  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's programme is rewritten mid-cycle.</p>`;
+  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's program is rewritten mid-cycle.</p>`;
   if (admin.catErr) h += `<div class="banner warn"><div>${esc(admin.catErr)}</div></div>`;
 
   for (const [slot, meta] of Object.entries(ASLOT)) {

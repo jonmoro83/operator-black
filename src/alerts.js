@@ -58,7 +58,7 @@ export class RestAlerts extends DurableObject {
     if (op === "cancel") {
       await this.ctx.storage.deleteAlarm();
       await this.ctx.storage.delete("queue");
-      return json({ cancelled: true });
+      return json({ canceled: true });
     }
 
     // Everything this object holds, for a user being removed. Called only by the admin

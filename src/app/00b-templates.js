@@ -1,4 +1,4 @@
-/* ---------------- programme templates ----------------
+/* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
 says how many lifting days you take and what is on each, and the conditioning protocol
@@ -67,12 +67,12 @@ function halfLifts(which,date){
 function halfOfDay(dp){ return dp&&dp.half||null }
 /* What the day's supplementary work is prescribed at, when the template says.
 
-   Operator's accessories are deliberately unprogrammed — a couple of sets short of
+   Operator's accessories are deliberately unprogramd — a couple of sets short of
    failure, skipped on heavy weeks, and that is the whole instruction. Tactical Barbell
    III's supplementary clusters are not like that: Grey Man gives them their own sets,
    reps and percentage, lighter and longer than the main lifts, and runs them every week
    including the heavy one. A template that prescribes them therefore also overrides the
-   skip rule, because skipping them is Operator's idea and not every programme's. */
+   skip rule, because skipping them is Operator's idea and not every program's. */
 function accRxFor(wk){
   const T=STEMPL[wk&&wk.tpl]||stemplOf();
   if(typeof T.accRx!=='function'||!wk||wk.kind!=='cycle') return null;
@@ -170,7 +170,7 @@ const STEMPL={
     },
     wave:[{s:4,sMax:5,r:8,p:70},{s:4,sMax:5,r:6,p:75},{s:4,sMax:5,r:3,p:80}],
     // The supplementary cluster runs its own numbers, lighter and longer than the main
-    // lifts, and it is programmed every week — including the heavy one.
+    // lifts, and it is programd every week — including the heavy one.
     accRx:wk=>[{s:4,r:12,p:55},{s:4,r:10,p:60},{s:4,r:8,p:65}][(((wk&&wk.w||1)-1)%3)],
   },
   fighterht:{
@@ -284,7 +284,7 @@ function programWarnings(t,c,bb){
   else if(t==='gladiator'&&c==='black') out.push({k:'glad-black',text:'Gladiator with Black is allowed, but the book asks for a training max or conservative 1RMs when you do it. You can set that under Percent of in Setup.'});
   else if(MASS_TEMPLATES.includes(t)&&c==='black') out.push({k:'mass-black-soft',text:`Mass Protocol pairs its mass templates with Green, not Black \u2014 Green is lower intensity and longer, and is there to aid recovery rather than compete with it. ${T.name} with Black will be a lot of hard work in one week.`});
   if(c==='green'&&days>2) out.push({k:'green-days',text:`Green asks for two strength sessions a week and ${T.name} runs ${days}. The week will still lay out, but endurance is meant to be the priority on Green and four lifting days is not that.`});
-  if(bb) out.push({k:'bb',text:'Base Building runs first and replaces the programme for eight weeks: strength-endurance circuits, easy aerobic work and two spartan strength days. Your template and protocol start when it finishes.'});
+  if(bb) out.push({k:'bb',text:'Base Building runs first and replaces the program for eight weeks: strength-endurance circuits, easy aerobic work and two spartan strength days. Your template and protocol start when it finishes.'});
   return out;
 }
 
@@ -294,7 +294,7 @@ function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }
 function cprotoKey(){ return CPROTO[plan.cproto]?plan.cproto:'black' }
 // The wave belongs to the template: Fighter's is a three-week block run twice, not
 // Operator's six. Yours, once you have edited it, lives under plan.waves by template,
-// so switching templates does not carry one programme's numbers into another.
+// so switching templates does not carry one program's numbers into another.
 function waveOf(tpl){
   const k=tpl&&STEMPL[tpl]?tpl:stemplKey();
   const w=(plan.waves||{})[k];
@@ -354,7 +354,7 @@ function weekShape(slots,sessions){
 // One slot of a composed week. `wk` carries the week number, `date` resolves Lift 3.
 function composeSlot(date,wk,d){
   // A week frozen in the past carries the template it was trained under, so changing
-  // programme now does not rewrite what you already did into something else.
+  // program now does not rewrite what you already did into something else.
   const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
   const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[];
   // A protocol may say there is no barbell work at all: Green's Progressive SE variation

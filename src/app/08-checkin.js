@@ -254,7 +254,7 @@ function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.len
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
   const v=wkRx(wk), arx=accRxFor(wk);
-  // A programme that prescribes its supplementary work means it, heavy week or not.
+  // A program that prescribes its supplementary work means it, heavy week or not.
   if(!arx&&wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const day=dp.acc; if(!day) return '';
   const slots=accSlots(day), done=accDoneCount(sel,day);
@@ -284,7 +284,7 @@ function accSlotRow(date,slot){
     h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
   }
   if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
-  // A band exercise with bands on file: pick the colour, get the number in the weight
+  // A band exercise with bands on file: pick the color, get the number in the weight
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   for(let i=0;i<sets.length;i++){

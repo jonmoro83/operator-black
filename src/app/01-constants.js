@@ -20,8 +20,8 @@ const HIC={
 // conversion reaches it.
 //
 // `fixedUnit` opts out, for the cases where the unit is not a preference: the rower and
-// ski erg read metres on their own displays whatever you prefer, and a pool is measured
-// in metres. Relabelling either would be telling you something untrue about the number
+// ski erg read meters on their own displays whatever you prefer, and a pool is measured
+// in meters. Relabelling either would be telling you something untrue about the number
 // in front of you.
 const MOD={
   echo:{name:'Echo bike',hic:['cal','cal'],liss:['cal','cal'],wu:'5 min easy spin, then 3 × 15 s at HIC pace with 45 s easy between.'},
@@ -48,12 +48,12 @@ const PLIB={
     errors:'Bending the knees to create height, which turns it into a squat jump and removes the ankle stimulus. Landing flat-footed or heel-first. Letting the rhythm slow as the set goes on.',
     note:'The lowest-stress drill in the program, and the one that most directly builds the Achilles and calf stiffness everything else relies on.'},
   askip:{name:'Ankle skip',
-    setup:'Standing, ready to travel forward over about 20 metres.',
+    setup:'Standing, ready to travel forward over about 20 meters.',
     exec:'Skip forward driving off the ankle with a minimal knee bend, opposite arm swinging. Cover ground with quick, light contacts rather than big bounds.',
     cues:'Light and quick. Contacts should be barely audible.',
     errors:'Turning it into a powerful A-skip with high knee drive. That is a different drill and adds fatigue you do not want before the main sets.'},
   broad:{name:'Broad jump (single effort)',
-    setup:'Feet hip to shoulder width behind a line. Clear landing space of at least 3 metres. A flat, non-slip surface: grass or rubber gym flooring is ideal, concrete is the worst option.',
+    setup:'Feet hip to shoulder width behind a line. Clear landing space of at least 3 meters. A flat, non-slip surface: grass or rubber gym flooring is ideal, concrete is the worst option.',
     exec:'Hinge and load by dipping to roughly a quarter squat, swinging the arms back. Jump forward and slightly up, driving the arms forward and fully extending hips, knees and ankles. Land on both feet with hips back and knees tracking over toes, then absorb and stick: no extra hop, no stagger.',
     cues:'Reach, don’t fall. Drive the arms hard; they contribute more distance than most people expect. Land like you are catching yourself in a quarter squat, not a deep one.',
     errors:'Landing stiff-legged with straight knees (jarring and risky). Knees collapsing inward on landing. Piking at the waist in the air. Taking a step after landing. If you cannot stick it, you jumped past your current ability to absorb it.',
@@ -65,7 +65,7 @@ const PLIB={
     errors:'Dipping too deep or too slowly, which loses the stretch reflex. Taking a step in. Measuring the jump touch but forgetting the standing reach, which is the number you subtract.',
     note:'Jump height is the touch height minus your standing reach. Record the same way every time \u2014 same wall, same shoes, same arm \u2014 or the comparison is meaningless.'},
   triple:{name:'Standing triple jump',
-    setup:'A line to start behind and about 10 metres of flat, forgiving space. Grass or rubber flooring; do not test this on concrete. Warm up fully first: it is the highest-force test in the set.',
+    setup:'A line to start behind and about 10 meters of flat, forgiving space. Grass or rubber flooring; do not test this on concrete. Warm up fully first: it is the highest-force test in the set.',
     exec:'From a two-foot standstill, jump forward and land on one foot (the hop), immediately bound forward onto the opposite foot (the step), then jump off that foot and land on both feet (the jump). Three linked efforts, no pause between them. Measure from the line to your rearmost heel on the final landing.',
     cues:'Even, rhythmic, flowing. Aim for three jumps of similar length rather than an enormous first one that leaves you nothing to land on. Arms drive on every contact.',
     errors:'Attacking the hop so hard that the step and jump collapse. Pausing between contacts, which turns it into three standing jumps. Reaching for distance on the last landing and falling backwards \u2014 stick it or the attempt does not count.',
@@ -87,7 +87,7 @@ const PLIB={
     cues:'Land with the knee tracking over the middle of the foot and the hip taking the load. The two-second hold is the exercise: it trains deceleration and frontal-plane control.',
     errors:'Rushing the hold. Letting the knee cave inward. Landing on a stiff, straight leg. Bounding so far sideways you cannot control the landing. Distance is capped by your ability to stick it.'},
   slhop:{name:'Single-leg hop (straight line)',
-    setup:'Balance on one leg, hands free. Flat surface with several metres ahead.',
+    setup:'Balance on one leg, hands free. Flat surface with several meters ahead.',
     exec:'Hop forward on the same leg repeatedly, aiming for consistent distance and short contacts. Complete all reps on one leg, then switch.',
     cues:'Stay tall through the torso. Hips level: do not let the opposite hip drop on each landing.',
     errors:'Letting distance shrink through the set. Excessive side-to-side drift. Hunching forward at the waist.',
@@ -99,17 +99,17 @@ const PLIB={
     errors:'Knee caving inward as fatigue sets in: stop the set when you see it. Landing flat-footed.',
     note:'The highest frontal-plane demand in the program, and the most protective for ankles and knees.'},
   bdist:{name:'Bound for distance',
-    setup:'Space of 20 to 30 metres. Start with a few walking steps into the first bound rather than from a dead stop.',
+    setup:'Space of 20 to 30 meters. Start with a few walking steps into the first bound rather than from a dead stop.',
     exec:'Alternate legs in exaggerated running strides, driving off one leg and landing on the other, covering as much ground per contact as possible. Opposite arm drives forward with each bound.',
     cues:'Push the ground behind you and reach with the landing leg. Long, powerful, rhythmic.',
     errors:'Turning it into ordinary running. Landing heel-first. Leaning back to try to hang in the air.'},
   bheight:{name:'Bound for height',
     setup:'Same as bounding for distance, with the same run-in.',
-    exec:'Alternate-leg bounds emphasising vertical displacement rather than horizontal: drive the knee up and get as high as you can per contact, covering less ground.',
+    exec:'Alternate-leg bounds emphasizing vertical displacement rather than horizontal: drive the knee up and get as high as you can per contact, covering less ground.',
     cues:'Punch the knee up and the arms up. Think “up” on every contact.',
     errors:'Drifting back into distance bounding once you fatigue. Collapsing into a deep knee bend on landing.'},
   hurdle:{name:'Hurdle hop (low, continuous)',
-    setup:'Three to five low hurdles, cones, or 6 to 12 inch objects in a line, roughly a metre apart. Use objects that fall over harmlessly if clipped.',
+    setup:'Three to five low hurdles, cones, or 6 to 12 inch objects in a line, roughly a meter apart. Use objects that fall over harmlessly if clipped.',
     exec:'Hop over each with both feet, landing and immediately rebounding into the next with minimal ground contact. Complete the line, walk back, repeat.',
     cues:'Minimal time on the ground. Land on the balls of the feet, ankles stiff.',
     errors:'Hurdles too high, which forces a knee tuck and a long pause on each landing. Pausing between hurdles to re-set.',
@@ -121,7 +121,7 @@ const PLIB={
     errors:'Bending only at the arms. Rushing the reset so the set turns into conditioning. Using a bouncy ball, which takes the finish away from you.',
     note:'Intent is the whole exercise. If the ball is heavy enough to slow you down, it is too heavy.'},
   chestpass:{name:'Med ball chest pass',
-    setup:'A metre or two from a solid wall, ball at the sternum, athletic stance.',
+    setup:'A meter or two from a solid wall, ball at the sternum, athletic stance.',
     exec:'Push the ball into the wall as fast as you can, catch the rebound and reset. Feet stay planted.',
     cues:'Fast hands. Think of pushing the wall away rather than throwing at it.',
     errors:'Standing so close that the rebound arrives before you are set. Turning it into a rep count instead of a speed drill.'},
@@ -264,7 +264,7 @@ const MOB={
     ['Seated forward fold','45–60 sec']]},
   plyo:{name:'Ankles and calves',why:'Jumping loads the Achilles and calves hardest.',items:[
     ['Straight-leg calf stretch (gastroc)','45 sec per side'],['Bent-knee calf stretch (soleus)','45 sec per side'],
-    ['Knee-to-wall ankle mobilisation','10 reps per side'],['Foot / arch roll on a ball','60 sec per side'],
+    ['Knee-to-wall ankle mobilization','10 reps per side'],['Foot / arch roll on a ball','60 sec per side'],
     ['Couch stretch','60–90 sec per side']]},
   off:{name:'Full mobility',why:'No training today: the best day for the long holds.',items:[
     ['Couch stretch','90 sec per side'],['Frog stretch, gentle rocking','2 min'],
@@ -362,7 +362,7 @@ const DEF={
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
   plyoDow:3, plyoMove:{},
-  // Which programme this is. Two independent choices, composed into a week by
+  // Which program this is. Two independent choices, composed into a week by
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
   // Zulu's two halves of the cluster. Empty means the template's default.
@@ -502,7 +502,7 @@ const MIGRATIONS=[
   }},
   {to:5,note:'The wave moves under the template that owns it',run(d,p){
     // plan.wave was global because Operator was the only template. Fighter's wave is a
-    // different shape, so an edited wave belongs to the programme it was edited for.
+    // different shape, so an edited wave belongs to the program it was edited for.
     if(Array.isArray(p.wave)&&p.wave.length){
       p.waves=Object.assign({},p.waves,{[STEMPL[p.stempl]?p.stempl:'operator']:p.wave});
     }

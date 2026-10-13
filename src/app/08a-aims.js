@@ -15,7 +15,7 @@ const AIM_MAX = 3;
 
 // check(date) -> {ok, detail} for an aim the app can score, or null for one only you can.
 const AIMS_LIFT = [
-  { id: 'sets', label: 'Complete every set as programmed', check(d) {
+  { id: 'sets', label: 'Complete every set as programd', check(d) {
       const dp = dayPlan(d), wk = weekOf(d);
       if (!wk || !(dp.lifts || []).length) return null;
       let want = 0, got = 0;

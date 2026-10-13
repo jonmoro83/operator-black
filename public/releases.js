@@ -6,8 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
-  {v:'1.91',date:'2026-10-13',title:'Choose your programme when you set up',items:[
-    'Welcome setup has a <b>Programme</b> step. Every strength template and every conditioning protocol is listed with what it actually is \u2014 how many days, which book, who it suits \u2014 and you pick there rather than discovering later that Setup had a dropdown.',
+  {v:'1.92',date:'2026-10-13',title:'American spelling throughout',items:[
+    'The app had drifted into British spelling in about sixty places. All of it is American now, across the screens, the guide and these notes.',
+    '<b>Grey Man</b> keeps its spelling: that is Tactical Barbell III\u2019s name for the template, not a color.',
+    'If you had edited your mobility list before today, the knee-to-wall entry still finds its instructions under either spelling.']},
+  {v:'1.91',date:'2026-10-13',title:'Choose your program when you set up',items:[
+    'Welcome setup has a <b>Program</b> step. Every strength template and every conditioning protocol is listed with what it actually is \u2014 how many days, which book, who it suits \u2014 and you pick there rather than discovering later that Setup had a dropdown.',
     '<b>Base Building</b> is on offer at setup now too. Tick it and TB II\u2019s eight-week Block I runs first, with your template and protocol starting when it finishes. If you are also doing a bridge week, Base Building goes after it \u2014 its two strength days need numbers to work from.',
     'The app now tells you when the books object to a pairing, while you are choosing and again on the summary. Mass with Black, for instance: Tactical Barbell II says plainly that it does not recommend it, and why. Gladiator with Black is allowed but wants a training max. Green with a four-day template is more lifting than Green asks for.',
     'They are notes, not locks. The books are advice and you may have your reasons \u2014 the app\u2019s job is to tell you what the page says and then get out of the way.']},
@@ -24,7 +28,7 @@ const RELEASES=[
     'Zulu runs each half twice a week, so that is two sessions of it. Grey Man is now one supplementary exercise over the four-to-six the book suggests; those clusters are the part the book tells you to choose yourself, so trim whichever you like in Setup.',
     'Defaults only. If you have set your own jobs for those days, nothing moved.']},
   {v:'1.87',date:'2026-10-12',title:'Posterior chain on Operator 1',items:[
-    'Operator day 1 now covers posterior chain as well, first in the list, defaulting to the Romanian deadlift. Friday keeps its own, so the hamstrings get two days a week instead of one \u2014 which is nearer right for a programme that squats three times and deadlifts once.',
+    'Operator day 1 now covers posterior chain as well, first in the list, defaulting to the Romanian deadlift. Friday keeps its own, so the hamstrings get two days a week instead of one \u2014 which is nearer right for a program that squats three times and deadlifts once.',
     'If you have already set your own jobs for that day, nothing changed: this is the default list, and yours wins. Add it from Setup \u2192 Accessories if you want it.']},
   {v:'1.86',date:'2026-10-12',title:'elitefts and Westside bands',items:[
     'Both added alongside Rogue in Setup \u2192 Bands, each as a one-tap starting point you then edit.',
@@ -33,7 +37,7 @@ const RELEASES=[
     'Every band now carries its brand in the name, so two charts can sit in the list side by side without one Red meaning two things.']},
   {v:'1.85',date:'2026-10-12',title:'Supersets, bands, and three movements',items:[
     '<b>Supersets.</b> In Setup \u2192 Accessories, tick \u201csuperset with the next one\u201d on any job. The two then show as one block on the day and as a single step in session mode \u2014 a set of each, back to back, one rest at the end. A job can only pair with one that is free, so pairing something never quietly re-draws a pair you already had.',
-    '<b>Bands.</b> Setup \u2192 Bands is a list you keep: each band gets the weight you want it logged as, and it then shows up as a picker on any band movement. There is no colour chart, and deliberately so \u2014 Rogue\u2019s own range lists Red twice, at 18 lb and 115 lb, and third-party charts for the same bands disagree by 50%. You can start from Rogue\u2019s published figures in one tap and edit from there.',
+    '<b>Bands.</b> Setup \u2192 Bands is a list you keep: each band gets the weight you want it logged as, and it then shows up as a picker on any band movement. There is no color chart, and deliberately so \u2014 Rogue\u2019s own range lists Red twice, at 18 lb and 115 lb, and third-party charts for the same bands disagree by 50%. You can start from Rogue\u2019s published figures in one tap and edit from there.',
     '<b>Reverse hyper</b> added to the posterior-chain list and <b>Cossack squat</b> to single-leg. Romanian deadlift was already there, under both posterior chain and single-leg.',
     'Fixed while in there: pressing Done on an accessory in session mode was writing a lift that does not exist into the day.']},
   {v:'1.84',date:'2026-10-12',title:'A beep that does not stop your music',items:[
@@ -46,8 +50,8 @@ const RELEASES=[
     'Added to the core movements, so it turns up wherever a core job appears — on any template. Held against a bench, so it logs as bodyweight and asks for seconds rather than a weight.']},
   {v:'1.82',date:'2026-10-12',title:'Grey Man, and supplementary work with real numbers',items:[
     'Second template from Mass Protocol. <b>Grey Man</b> runs two main lifts a day — bench and squat against overhead press and deadlift — then supplementary work of your own choosing, and it swaps which pair opens the week every week. Four days clear for conditioning.',
-    'The supplementary cluster is programmed, not freeform: four sets of twelve at 55% in week one, climbing to four of eight at 65% in week three, while the main lifts run their own heavier numbers. Setup lets you choose what goes in each of the two clusters, as the book intends.',
-    'Because it is programmed, it is not skipped on a heavy week. That rule belongs to Operator’s accessories, which are deliberately unprogrammed, and it no longer applies to a programme that means it.',
+    'The supplementary cluster is programd, not freeform: four sets of twelve at 55% in week one, climbing to four of eight at 65% in week three, while the main lifts run their own heavier numbers. Setup lets you choose what goes in each of the two clusters, as the book intends.',
+    'Because it is programd, it is not skipped on a heavy week. That rule belongs to Operator’s accessories, which are deliberately unprogramd, and it no longer applies to a program that means it.',
     'The accessory editor now lists each cluster once rather than once per day — Zulu was showing both of its lists twice.']},
   {v:'1.81',date:'2026-10-12',title:'Fighter HT, and prescriptions that vary by day',items:[
     'First template from <b>Tactical Barbell III: Mass Protocol</b>. Fighter HT is mass building for the minimalist — squat and bench twice a week, deadlift on its own day, five sets of everything, in three-week blocks.',
@@ -56,7 +60,7 @@ const RELEASES=[
     'Blocks are as long as the template’s wave, so Fighter HT runs three weeks where Operator runs six.']},
   {v:'1.80',date:'2026-10-12',title:'The week you just finished stays finished',items:[
     'The week you are in is held loosely on purpose: it is still following your plan, so changing a max or a wave reaches it. Once it passed, the app was letting go of it without writing down what you had actually trained — so that week carried on following whatever the plan said afterwards.',
-    'It now gets stamped the moment it becomes history: the sets, reps and percentage you did it at, which programme it was, and which Lift 3 each session used. Change anything after that and the week stays what it was.',
+    'It now gets stamped the moment it becomes history: the sets, reps and percentage you did it at, which program it was, and which Lift 3 each session used. Change anything after that and the week stays what it was.',
     'Related: a cycle’s maxes lock when its last week is done, and “last week” now comes from that cycle’s own wave instead of always meaning week six. Fighter and Zulu both run six, but a shorter wave would never have locked.']},
   {v:'1.79',date:'2026-10-12',title:'A phone that is behind no longer wins',items:[
     'A real bug, found the hard way. When a release changes how your data is stored, the app brings your copy up to date on the way in. It was doing that to the phone’s cached copy <i>before</i> hearing from the server, and that counted as an unsent change — so a device that had not synced for a while would quietly upload its old copy over the newer one.',
@@ -66,16 +70,16 @@ const RELEASES=[
     'Tactical Barbell II’s endurance protocol, in both its forms. <b>Green</b> is easy aerobic work most days, one strength-endurance circuit a week, and a hard session every other week — for rucking, selection prep and long events. The book runs it beside two lifting days, so it sits best with Fighter.',
     '<b>Green · Progressive SE</b> is the no-equipment variation: three circuits and three easy sessions a week, climbing over a three-week block. It does no barbell work at all, which the book is explicit about, so it sets your strength template aside while it is running and hands it back when you switch off.',
     'The week layout learned the difference between a hard session and an easy one. Two easy aerobic days can now sit side by side — Green’s own template does exactly that — while hard days are still kept apart. A rest day survives in every combination.',
-    'The Guide has a Programmes section listing every template and protocol, and how the week gets built from the two.']},
+    'The Guide has a Programs section listing every template and protocol, and how the week gets built from the two.']},
   {v:'1.77',date:'2026-10-12',title:'Zulu',items:[
     'TB1’s four-day template. The cluster splits in two and each half runs twice a week, which is why Zulu’s lifting days sit back to back — they work different lifts, so that pairing is the template rather than a mistake. The app knows the difference now and only warns when the same half would land twice running.',
-    'Which lifts go in which half is yours to set, in Setup → Programme. It starts on the book’s suggestion — squat and bench against deadlift and your Lift 3 — and neither half can be left empty.',
+    'Which lifts go in which half is yours to set, in Setup → Program. It starts on the book’s suggestion — squat and bench against deadlift and your Lift 3 — and neither half can be left empty.',
     'Four lifting days plus three conditioning sessions does not fit in seven days, so the third one rides along after the barbell work on day 1 instead of taking your rest day. That is exactly what Tactical Barbell II’s own “Black + Zulu” week does, and the day gets a full conditioning card under the lifts.']},
-  {v:'1.76',date:'2026-10-12',title:'Fighter, and a programme you choose',items:[
-    'Setup → Programme now lets you pick your strength template and your conditioning protocol separately, which is how the books put it — Tactical Barbell II’s sample weeks are headed “Black + Zulu”, “Black + Operator”, “Black + Fighter”. The week gets built from the two.',
+  {v:'1.76',date:'2026-10-12',title:'Fighter, and a program you choose',items:[
+    'Setup → Program now lets you pick your strength template and your conditioning protocol separately, which is how the books put it — Tactical Barbell II’s sample weeks are headed “Black + Zulu”, “Black + Operator”, “Black + Fighter”. The week gets built from the two.',
     'First new one is <b>Fighter</b>: TB1’s two-day template, on days 1 and 4 where the book puts them, with its own wave (3–4 sets, a three-week block run twice) and its own accessory jobs, since two days have to cover what three did.',
     'Each template keeps its own wave, so you can switch across and back without losing numbers you have tuned.',
-    'Weeks you have already trained keep the programme they were done under. Switching now changes this week and the ones ahead, and leaves your history as what you actually did.',
+    'Weeks you have already trained keep the program they were done under. Switching now changes this week and the ones ahead, and leaves your history as what you actually did.',
     'More templates and the Green protocol are next. Nothing changes unless you go and change it — Operator and Black are still the default.']},
   {v:'1.75',date:'2026-10-09',title:'Nudge the ramp, and a beep you can test',items:[
     'Warm-up sets now have − and + beside them in session mode, stepping by that lift’s rounding increment. The bar does not come in every weight a percentage asks for, and what you set is written to that warm-up row, so the plates and the “Next” line follow it.',
@@ -97,18 +101,18 @@ const RELEASES=[
     'The note you leave still carries forward from any session, conditioning included \u2014 that part was never lifting-specific.']},
   {v:'1.71',date:'2026-10-08',title:'One shared exercise list',items:[
     'The accessory movements everyone can choose from are now a single shared list, curated from the Admin tab rather than added privately by each person. If something you do is missing, it gets added for everyone.',
-    'A movement can be retired rather than deleted. It stops being offered to anyone choosing fresh, but stays with whoever had already picked it until they change it themselves \u2014 your programme does not get rewritten in the middle of a cycle because a list changed.',
+    'A movement can be retired rather than deleted. It stops being offered to anyone choosing fresh, but stays with whoever had already picked it until they change it themselves \u2014 your program does not get rewritten in the middle of a cycle because a list changed.',
     'Anything you added yourself before this still works wherever you had chosen it, and Setup says so.']},
   {v:'1.70',date:'2026-10-08',title:'Three fixes to the calendar',items:[
     'Moving days around in a Base Building week could put the two circuits on consecutive days, which is the one arrangement that block is built to avoid. It will not any more.',
     'A retest week with a big cluster was testing four lifts on the Saturday while the Friday sat empty. It now splits them across Thursday, Friday and Saturday, the same way the bridge week does \u2014 tired singles measure fatigue, not strength.',
     'Changing your deload or retest spacing mid-week could turn the week you were halfway through into a different kind of week. It now takes effect from next week. Your wave and maxes still apply from this week, as before.']},
-  {v:'1.69',date:'2026-10-08',title:'Swimming stays in metres',items:[
-    'Swim distances are always in metres now, whichever units the app is set to \u2014 a pool is measured in metres and that is not a matter of preference. Same for the rower and ski erg, which read metres on their own displays.',
+  {v:'1.69',date:'2026-10-08',title:'Swimming stays in meters',items:[
+    'Swim distances are always in meters now, whichever units the app is set to \u2014 a pool is measured in meters and that is not a matter of preference. Same for the rower and ski erg, which read meters on their own displays.',
     'Everything you measure yourself \u2014 running, trail, hill sprints, rucks, hikes \u2014 still follows your setting.']},
   {v:'1.68',date:'2026-10-08',title:'Distances in your own units',items:[
-    'Interval distances for running, trail running and hill sprints were always shown in metres, even with the app set to pounds and miles. They now follow your unit setting like everything else \u2014 yards on imperial, metres on metric.',
-    'The rower and ski erg still read in metres whichever setting you use, because that is what the machine in front of you says.']},
+    'Interval distances for running, trail running and hill sprints were always shown in meters, even with the app set to pounds and miles. They now follow your unit setting like everything else \u2014 yards on imperial, meters on metric.',
+    'The rower and ski erg still read in meters whichever setting you use, because that is what the machine in front of you says.']},
   {v:'1.67',date:'2026-10-08',title:'Hill sprints',items:[
     'Hill sprints are their own activity now, rather than something to write into the Other box. Pick them on any hard conditioning day and log the distance, with elevation counted the way it is for trail runs, rucks and hikes.',
     'The card carries the warm-up and the thing worth knowing: the incline caps your top speed, which takes most of the hamstring risk out of sprinting, but they are hard on calves and Achilles and they are a true anaerobic effort. Walk down slowly, and stop when your times start slipping.']},
@@ -120,7 +124,7 @@ const RELEASES=[
   {v:'1.65',date:'2026-10-08',title:'Accessories in session mode',items:[
     'Session mode used to hand you the accessories as one list of tick boxes. Each job is its own step now, after the lifts: it says what is doing it, you can swap it for that session if the bar is taken, and you log the weight and reps as you go.',
     'Each one has its own rest timer, 90 seconds by default rather than the two to five minutes the main lifts use. The \u00b130s buttons on the timer still work if that is wrong for a given movement.',
-    'They also count towards the session progress bar now, instead of being invisible to it.']},
+    'They also count toward the session progress bar now, instead of being invisible to it.']},
   {v:'1.64',date:'2026-10-07',title:'A silent timer says it is silent',items:[
     'If you have Silent timers on, the rest timer now shows a <b>Silent</b> tag you can tap to turn sound back on. It was off the whole time and nothing said so, which reads exactly like a broken beep.',
     'Silent was also suppressing the vibration, which it had no business doing \u2014 vibrating does not interrupt your music. It buzzes now whatever the sound setting says. (iPhones cannot vibrate from a web app at all, so there it really is screen and notifications only, and Setup now says that instead of claiming otherwise.)']},
@@ -170,7 +174,7 @@ const RELEASES=[
     'Behind the scenes: restore, the calendar feed and the data routes all have proper tests now. A day that cannot exist, like the 31st of February, is no longer accepted by either.']},
   {v:'1.51',date:'2026-10-07',title:'A second look at odd numbers',items:[
     'Type a bodyweight of 2050 or a 4000 lb squat and the app now says so underneath the box. It still keeps exactly what you typed \u2014 it is a second look, not a rule.',
-    'The ranges are wide on purpose, so a heavy squat or a light bodyweight never gets questioned. They follow your units too, so kilograms and centimetres are judged on their own terms.',
+    'The ranges are wide on purpose, so a heavy squat or a light bodyweight never gets questioned. They follow your units too, so kilograms and centimeters are judged on their own terms.',
     'The reason it matters: one slipped weigh-in feeds your 7-day average, your protein target, your weighted pull-up load and your burn estimate for a fortnight before it washes out.']},
   {v:'1.50',date:'2026-10-07',title:'If it breaks, it tells you',items:[
     'If the app ever hits a bug while drawing a screen, you now get a short explanation, a Reload button and a Copy details button \u2014 instead of a blank page halfway through a session, which is what used to happen.',
@@ -230,11 +234,11 @@ const RELEASES=[
     "Trail run is in the activity list now, next to Run / sprints. It warms up and advises differently: pace means nothing on uneven ground, so the hard efforts go by breathing, and the downhills are the part that leaves you sore two days later.",
     "Trail runs and hikes have an elevation gain box. Five miles with 100 feet of climbing isn\u2019t five miles with 3,000, and now the log says which one you did.",
     "It shows up in History next to the distance and in the sessions CSV. Nothing in the programming uses it yet, it\u2019s there to be looked at.",
-    "Feet if you train in pounds, metres if you train in kilos."]},
+    "Feet if you train in pounds, meters if you train in kilos."]},
   {v:'1.36',date:'2026-10-06',title:"The screen stays on, and the beep comes back",items:[
     "The screen now stays awake for the whole session, not just while a rest is counting. Before, it let go the moment a rest hit zero, so it would go dark while you were actually lifting.",
     "That was also why the rest between working sets often didn\u2019t beep. Once the screen had slept, iOS had muted the app\u2019s audio and the app never woke it back up. It does now, every time you come back to it.",
-    "The rest between warm-up sets used to be labelled \u201cRamp rest\u201d, which reads like something off a bike test. It says \u201cWarm-up rest\u201d.",
+    "The rest between warm-up sets used to be labeled \u201cRamp rest\u201d, which reads like something off a bike test. It says \u201cWarm-up rest\u201d.",
     "The screen is held while session mode or a guided warm-up is open, and while any timer is running. A paused timer lets it sleep."]},
   {v:'1.35',date:'2026-10-05',title:"A timer for anything",items:[
     "There\u2019s a \u23f1 at the end of the tab row now. Tap it and you get a countdown or a stopwatch, on any tab, with no session started and nothing logged.",
@@ -264,7 +268,7 @@ const RELEASES=[
     "Movements are named, along with the swaps the book allows. Dumbbells instead of kettlebells, a push-press instead of the snatch, and rowing, skipping, cycling or stairs instead of running."]},
   {v:'1.30',date:'2026-10-02',title:"Run it by the book",items:[
     "The default cadence is the book\u2019s now: two six-week cycles, then a retest. That\u2019s twelve weeks between tests, which it calls the best length for a strength phase. Six weeks is the minimum if you\u2019d rather test often, and waiting longer is fine too. If the loads still feel heavy, keep your numbers and test when they feel solid.",
-    "No scheduled deload by default. Operator doesn\u2019t have one. It runs cycles back to back and retests, and the recovery it asks for is a full week or more off every three to six months, which you add from the Plan tab. The scheduled light week is still there if you want it, labelled as ours rather than the book\u2019s.",
+    "No scheduled deload by default. Operator doesn\u2019t have one. It runs cycles back to back and retests, and the recovery it asks for is a full week or more off every three to six months, which you add from the Plan tab. The scheduled light week is still there if you want it, labeled as ours rather than the book\u2019s.",
     "Setup tells you whether your cadence matches, with a <b>Match the book</b> button that sets both at once and says what it moved. Nothing changes until you tap it."]},
   {v:'1.29',date:'2026-10-02',title:"Checked against the books",items:[
     "Conditioning eases off on the weeks your lifting is heaviest. Weeks 3 and 6 of every cycle are the 90% and 95% weeks, so conditioning drops to fewer rounds and a shorter steady session and the heavy lifting gets the energy. The day says so, so an easy week doesn\u2019t read like one you let slip.",
@@ -351,7 +355,7 @@ const RELEASES=[
     "Optional upper-body power on Thursdays. Each phase gives you movement slots (a total-body throw, a push, rotation, a pull) and you fill each one from whatever you\u2019ve got: slams, scoop tosses and wall throws with a med ball, plyo push-ups and explosive pull-ups with nothing, DB snatches, high pulls and speed presses with a bar, or band rows and rotational punches on the road. Every movement has a full entry in the Guide. Off by default, five minutes, and the first block to cut when you\u2019re pulling back.",
     "An account button in the top right with your initials. Tap it for the address you\u2019re signed in as, Profile and settings, What\u2019s new, and a plain Sign out, which used to be one small link near the bottom of Setup. The button carries a sync dot too: green saved, amber saving, red offline or signed out. Setup opens with an Account card saying the same thing.",
     "\u201cPlyo: Extensive\u201d no longer sits on the week header every day of a cycle week. It shows on the plyo day, where it carries the contact target as well (\u201cPlyo: Extensive \u00b7 ~60 contacts\u201d, halved when you halve the session), and the phase description says what extensive means: volume over intensity, plenty of contacts, none of them all-out.",
-    "The bridge week\u2019s 5RM+Spin Saturday has the spin on it now: an activity picker, somewhere to log the minutes, and the interval timer, under the lifts. The label promised easy cardio and the card only had the lifts. The retest week\u2019s mobility-only Tuesday is labelled Mobility instead of Easy for the same reason.",
+    "The bridge week\u2019s 5RM+Spin Saturday has the spin on it now: an activity picker, somewhere to log the minutes, and the interval timer, under the lifts. The label promised easy cardio and the card only had the lifts. The retest week\u2019s mobility-only Tuesday is labeled Mobility instead of Easy for the same reason.",
     "Jump tests warm you up first. The bridge week\u2019s jump day showed the three fields and nothing else. It now has the warm-up and the pogo/skip/submaximal-jump drills above them, like every retest week does. The vertical and the standing triple jump finally have library entries, so the \u24d8 on each field tells you how to perform it and, more to the point, how to measure it the same way every time.",
     "Travel week: add one from the Plan tab and the cycle pauses for a week of dumbbell and bodyweight work. Nothing touches your maxes and it stays out of the end-of-cycle review.",
     "Launch screens on iPhone instead of a white flash.",
@@ -397,9 +401,9 @@ const RELEASES=[
     "Weekly backups, and conditioning on more than the Echo bike."]},
   {v:'1.0',date:'2026-09-29',title:"First release",items:[
     "Operator and Black on a rolling calendar: bridge week, six-week cycles, deloads and retests, with no end date.",
-    "Working weights, plate maths, ramp sets and set tracking.",
+    "Working weights, plate math, ramp sets and set tracking.",
     "A daily check-in that scores readiness and adjusts the day\u2019s advice.",
     "A Status dashboard for cycle position, adherence and trends.",
     "An offline home-screen app with a per-lift rest timer.",
-    "Lift 3 variants, including weighted pull-up maths."]},
+    "Lift 3 variants, including weighted pull-up math."]},
 ];

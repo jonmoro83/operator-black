@@ -227,9 +227,9 @@ function accDone(date,slot){
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
 
 /* ---------------- bands ----------------
-A band has no number on it, only a colour, and the colour means different things by
+A band has no number on it, only a color, and the color means different things by
 brand. Worse, it means different things within one brand: Rogue's own Monster chart
-lists Red twice, at 18 lb and at 115 lb, so a colour alone cannot identify a band.
+lists Red twice, at 18 lb and at 115 lb, so a color alone cannot identify a band.
 And the published figure is peak resistance at full stretch — the force at the bottom
 of a rep is a fraction of it.
 

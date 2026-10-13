@@ -4594,3 +4594,47 @@ test("onboarding can start you on Base Building, after the bridge week if there 
   z.wz = z.wzNew(false); z.wz.start = "2026-10-26"; z.wzFinish();
   a.deepEqual(Object.values(z.plan.inserts), []);
 });
+
+test("the app is written in American English", () => {
+  const x = app({ now: "2026-10-19" });
+  // Everything a person actually reads: the views, the guide, the release notes.
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  // The rendered views only reach the screens this test happens to draw, so the source
+  // itself is what gets scanned: every string the app can ever show, plus the release
+  // notes and the markup.
+  const src = fs.readdirSync(path.join(__dirname, "..", "src", "app"))
+    .filter((f) => f.endsWith(".js"))
+    .map((f) => fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8"))
+    .join("\n")
+    // Comments are written for whoever is building, not shown to anyone training, so
+    // they are stripped: this is a test about what the app says, not about prose.
+    .replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ")
+    // One deliberate exception in the code itself: the pre-1.92 spelling is kept as a
+    // lookup alias so a mobility list edited before then still resolves. Never shown.
+    .replace(/'knee to wall ankle mobilisation'/g, "''");
+  const seen = [src, fs.readFileSync(path.join(__dirname, "..", "public", "releases.js"), "utf8"),
+    fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8")].join(" ");
+
+  const british = [
+    [/\bprogramme/i, "programme"], [/\bcolour/i, "colour"], [/\bbehaviour/i, "behaviour"],
+    [/\bfavour/i, "favour"], [/\bmetres?\b/i, "metre"], [/\bcentres?\b/i, "centre"],
+    [/\bcancelled/i, "cancelled"], [/\blabelled/i, "labelled"], [/\bwhilst/i, "whilst"],
+    [/\bamongst/i, "amongst"], [/\btowards\b/i, "towards"], [/\bneighbour/i, "neighbour"],
+    [/\bmobilisation/i, "mobilisation"], [/\bemphasis(e|ing)\b/i, "emphasise"],
+    [/\bmaths\b/i, "maths"], [/\bgreyed/i, "greyed"],
+  ];
+  for (const [re, word] of british) {
+    const m = seen.match(re);
+    a.equal(m, null, m ? `"${word}" found: ${seen.slice(Math.max(0, seen.indexOf(m[0]) - 50), seen.indexOf(m[0]) + 40)}` : "");
+  }
+
+  // Grey Man is the book's name for a template, not a colour, so it stays.
+  a.equal(x.STEMPL.greyman.name, "Grey Man");
+  a.match(x.vSetup(), /Grey Man/);
+
+  // Someone who edited their mobility list before 1.92 has the old spelling saved in it,
+  // and it still has to find the movement it names.
+  a.ok(x.mlibEntry("Knee-to-wall ankle mobilisation"), "the old spelling still resolves");
+  a.equal(x.mlibEntry("Knee-to-wall ankle mobilisation").name,
+          x.mlibEntry("Knee-to-wall ankle mobilization").name, "to the same entry");
+});

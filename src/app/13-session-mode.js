@@ -197,7 +197,7 @@ function lsMarkWarm(st){
   for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
   setLog(ls.date,'lifts.'+st.k+'.warmup',W);
 }
-// The whole of session mode's behaviour sits behind one click handler, which means none
+// The whole of session mode's behavior sits behind one click handler, which means none
 // of it is reachable from a test. Naming it makes every button's effect testable; the
 // listener's only job is to find which button was tapped.
 function lsAct(a,b){

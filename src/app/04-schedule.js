@@ -322,7 +322,7 @@ function metricFor(mod,fmt){
   if(!m)return null;
   let un=m[1];
   // Symmetric, so a distance can be declared in either system and still follow the
-  // setting. Without the imperial half, anything written in metres was simply stuck
+  // setting. Without the imperial half, anything written in meters was simply stuck
   // there and `fixedUnit` protected nothing.
   if(!M.fixedUnit){
     if(u()==='kg'){ if(un==='mi')un='km'; if(un==='yd')un='m' }

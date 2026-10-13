@@ -116,7 +116,7 @@ const MLIB={
     exec:'Bend the back knee while keeping the heel down. The stretch drops lower, near the Achilles. Hold 45 seconds per side.',
     cues:'A small bend is enough. This one targets the soleus, which is what a plyo session beats up.',
     errors:'Bending so far the heel lifts. Skipping it because the straight-leg version felt like enough — they are different muscles.'},
-  kneewall:{name:'Knee-to-wall ankle mobilisation',
+  kneewall:{name:'Knee-to-wall ankle mobilization',
     setup:'Stand facing a wall, toes a few inches back from it, foot pointing straight at it.',
     exec:'Drive the knee forward over the middle of the foot until it touches the wall, keeping the heel down. Ten reps per side, moving the foot back as it improves.',
     cues:'Heel stays down and the knee tracks over the second toe, not inward.',
@@ -149,7 +149,7 @@ const MLIB={
     errors:'Checking your phone. Treating it as a stretch and pushing the hamstrings.',
     note:'The best-value two minutes on an off day: it is the one block that is purely about coming down.'}
 };
-// The names in WARMUP and MOB are editable text, so entries are matched by a normalised
+// The names in WARMUP and MOB are editable text, so entries are matched by a normalized
 // name through this table. A test asserts every built-in item still resolves.
 function mnorm(s){return String(s||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9/]+/g,' ').trim()}
 const MLIB_ALIAS={};
@@ -168,7 +168,11 @@ const MLIB_ALIAS={};
     ['standing forward fold soft knees','fold'],['supine hamstring stretch strap or doorway','hamstring'],
     ['standing quad stretch','quadstand'],['straight leg calf stretch against a wall','calfstraight'],
     ['straight leg calf stretch gastroc','calfstraight'],['bent knee calf stretch soleus','calfbent'],
-    ['knee to wall ankle mobilisation','kneewall'],['foot / arch roll on a ball','footroll'],
+    ['knee to wall ankle mobilization','kneewall'],
+    // The app said "mobilisation" until 1.92. Anyone who had edited their mobility list
+    // has that spelling saved in it, so it still has to resolve.
+    ['knee to wall ankle mobilisation','kneewall'],
+    ['foot / arch roll on a ball','footroll'],
     ['seated forward fold','seatedfold'],['pigeon or figure 4','pigeon'],
     ['thoracic extension over a foam roller','foamtspine'],
     ['diaphragmatic breathing legs up the wall','breathwall']
