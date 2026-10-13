@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-12.
+Update it as things ship. Last updated 2026-10-13.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -11,14 +11,18 @@ Setup → About this app → What's new.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **The rest beep: instrumented, not yet confirmed.** Reported broken three times
-  (latest 2026-10-09). 1.75 fixed two real defects and added a second audio route, but
-  **nothing has been heard on a phone yet**, so this stays open until it has. Next report
-  should come with Setup → Sound → **Test the beep** → *Copy for a bug report*, which
-  names which of the causes is in play instead of leaving it to guesswork.
-  - If `channel suspended` or `media-blocked`: a gesture problem, look at `unlockAudio`.
-  - If everything reads fine and it is still silent on an iPhone: the ringer switch /
-    `audioSession` theory was wrong, and the remaining lead is a notification-only alert.
+- **The rest beep: explained and rebuilt, still unconfirmed on a phone.** Four reports,
+  the last of which asked the right question — *keep my music playing and still beep*.
+  1.84 settled the why (iOS sessions are exclusive or mixable, never both; the web has
+  no `mixWithOthers`), made it a three-way choice defaulting to ducking, undid the
+  `playback` regression 1.79 introduced, and fixed a genuine fault where an
+  `interrupted` AudioContext was never woken. **None of it has been heard on a phone
+  yet**, so it stays open.
+  - Expected on a device with the ring switch **on**: music keeps playing, beep audible.
+  - With the switch **off**: silent, and no web app can change that. The answer there is
+    the Apple Watch tap through the existing rest-alert push — deferred, not unknown.
+  - If it is silent with the switch on, Setup → Sound → **Test the beep** →
+    *Copy for a bug report* names the mode, the session type and the channel state.
 - **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
   stays awake for a whole session, and the interval timer on the bike. Confirmed so far:
   home-screen install, Access login in the installed app, the update banner, rest alerts
@@ -49,12 +53,25 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
+- **Finish Tactical Barbell III.** Five templates in (Operator, Fighter, Zulu,
+  Fighter HT, Grey Man) against three protocols (Black, Green, Green Progressive SE),
+  which is fifteen combinations and a matrix test over all of them.
+  Still to come: **Mass**, **Gladiator**, **Specificity Alpha** and **Specificity
+  Bravo**. Specificity needs nothing new in principle — per-day lift sets and per-day
+  prescriptions both exist — but its H cluster is large and user-defined. After the
+  templates: TB III's own Bridge Week, its Base Building variant (6 weeks, SE + E), and
+  its named conditioning sessions (Ruck, Endurance Predator, Anabolic Sprints,
+  RESET-20, Hill Sprints, FOBBITs — several of which the app already has).
+- **Hear the rest beep on a phone**, with music playing and the ring switch on. The one
+  open item that cannot be settled from here.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
-  cycle: the first review appears Fri 2026-11-13. Then check whether the grinder /
+  cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
+  **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
   missed-set / heavy-week-RPE thresholds suggested sensible next maxes, and adjust
   `recommend()` if they did not.
-
-Nothing else is committed. Pull from Ideas below, or from whatever the gym turns up.
+- **Zulu's A/B pairs and `orderIssues`.** Closed by 1.77's `strengthA`/`strengthB`, but
+  worth a look once Zulu has actually been run: the Move tool's warnings are the part
+  most likely to read oddly on a four-day template.
 
 ## Ideas
 
@@ -187,6 +204,11 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   `lifts.undefined.sets` into the day. Anyone who tapped Done on an accessory without
   logging sets has junk in that log.
 - 236 → 241 tests. 13 mutants, all caught.
+
+**Copenhagen planks (2026-10-12)**
+- Added to `ALIB` under `core`, so it is offered on every template rather than one, and
+  listed in `isBWAcc` so the set row asks for seconds instead of a weight.
+- Missed its roadmap entry when it shipped; written up on 2026-10-13 during an audit.
 
 **Sound: share the speaker or take it, and you choose (2026-10-12)**
 - Fourth report on the beep, and the first one that got the question right: *keep my
