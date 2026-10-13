@@ -129,13 +129,19 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   f1:['spress','hpull','core','biceps','triceps'], f2:['sleg','pchain','pullup','delts','carry'],
   // Zulu's halves run twice each, so the same two lists cover four days. The book says
   // Zulu leaves the most room for assistance work, so these are the fullest.
-  z1:['spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
+  // Zulu's A day is squat and bench with no hinge in it, and B already deadlifts, so
+  // the posterior chain goes on A — which Zulu runs twice a week anyway.
+  z1:['pchain','spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
   // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
   // anything more means you picked the wrong template.
   h1:['pullup','biceps','triceps'], h2:['core','rdelt'],
   // Grey Man's two supplementary clusters. The book says four to six exercises, split
   // in two, and that what goes in them is yours — these are a starting split.
-  gm1:['spress','triceps','sleg'], gm2:['hpull','biceps','core'] };
+  // Same reasoning for Grey Man's A day. That makes seven supplementary exercises
+  // against the book's "no more than four to six" — one over, and left that way on
+  // purpose: the S clusters are the part the book hands you outright, so trimming one
+  // is your call rather than ours.
+  gm1:['pchain','spress','triceps','sleg'], gm2:['hpull','biceps','core'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

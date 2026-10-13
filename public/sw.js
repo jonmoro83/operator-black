@@ -8,7 +8,7 @@
 
 // Stamped by build.js from the contents of SHELL below. Do not edit by hand: it moves
 // when one of those files does, which is what drops the old cache after a deploy.
-const VERSION = "ob-6150a2d01d";
+const VERSION = "ob-d1d8c6b977";
 const SHELL = ["/", "/app.css", "/app.js", "/releases.js", "/icon-32.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 

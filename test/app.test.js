@@ -4374,3 +4374,30 @@ test("a superset is one step in session mode, finished when both jobs are", () =
   a.equal(x.accDone(mon, b1), true, "both, from one tap");
   a.equal(((x.logs[mon].lifts || {}).undefined), undefined, "and no phantom lift was logged");
 });
+
+test("every template reaches the posterior chain somewhere in its week", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  for (const t of Object.keys(x.STEMPL)) {
+    x.plan.stempl = t; x.bump();
+    const days = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d))
+      .filter((p) => p.t === "lift");
+    const jobs = new Set();
+    for (const p of days) for (const sl of (p.acc ? x.accSlots(p.acc) : [])) jobs.add(sl);
+    const lifts = new Set(days.flatMap((p) => p.lifts || []));
+    // Either a hamstring job, or the deadlift itself — Fighter HT gives the deadlift a
+    // session of its own, which is the same need met a different way.
+    a.ok(jobs.has("pchain") || lifts.has("dead"),
+      `${t} trains the posterior chain: jobs ${[...jobs]}, lifts ${[...lifts]}`);
+  }
+
+  // The two that had neither now have the job, on the day that lacks a hinge.
+  a.ok(x.accSlots("z1").includes("pchain"), "Zulu's squat-and-bench day");
+  a.ok(!x.accSlots("z2").includes("pchain"), "and not the day that already deadlifts");
+  a.ok(x.accSlots("gm1").includes("pchain"), "Grey Man's bench-and-squat day");
+  a.ok(!x.accSlots("gm2").includes("pchain"), "and not its overhead-and-deadlift day");
+
+  // Grey Man's supplementary clusters stay close to the book's four-to-six.
+  a.equal(x.accSlots("gm1").length + x.accSlots("gm2").length, 7,
+    "one over, which the book treats as yours to trim");
+});

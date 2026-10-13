@@ -110,6 +110,18 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Posterior chain on Zulu and Grey Man (2026-10-12)**
+- Both had none anywhere in the week. Added to `z1` and `gm1`, the squat-and-bench days,
+  rather than the days that already deadlift. Zulu runs each half twice, so that is two
+  sessions of it.
+- Grey Man goes to seven supplementary exercises against the book's "no more than four
+  to six". Left one over on purpose: the S clusters are the part TB III hands the lifter
+  outright, so trimming one is theirs to do, and removing something they might be using
+  is worse than adding one they can delete.
+- Fighter HT left alone: it gives the deadlift a session of its own, which meets the
+  same need a different way. The new test accepts either.
+- 241 → 242 tests, 3 mutants, all caught.
+
 **Posterior chain on Operator day 1 (2026-10-12)**
 - `ACC_DAYS.mon` gains `pchain`, first in the list. Operator squats three times a week
   and deadlifts once, so one hamstring job on Friday was the thinnest part of the split.

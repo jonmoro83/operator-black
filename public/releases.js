@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.88',date:'2026-10-12',title:'Posterior chain on Zulu and Grey Man',items:[
+    'Neither had a hamstring job anywhere in the week. Both now carry one on their A day \u2014 the squat-and-bench one, which has no hinge in it \u2014 rather than on the day that already deadlifts.',
+    'Zulu runs each half twice a week, so that is two sessions of it. Grey Man is now one supplementary exercise over the four-to-six the book suggests; those clusters are the part the book tells you to choose yourself, so trim whichever you like in Setup.',
+    'Defaults only. If you have set your own jobs for those days, nothing moved.']},
   {v:'1.87',date:'2026-10-12',title:'Posterior chain on Operator 1',items:[
     'Operator day 1 now covers posterior chain as well, first in the list, defaulting to the Romanian deadlift. Friday keeps its own, so the hamstrings get two days a week instead of one \u2014 which is nearer right for a programme that squats three times and deadlifts once.',
     'If you have already set your own jobs for that day, nothing changed: this is the default list, and yours wins. Add it from Setup \u2192 Accessories if you want it.']},
