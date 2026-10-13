@@ -305,6 +305,8 @@ function templateCard(){
   }
   if(P.noStrength) h+=`<div class="banner info"><div class="small">${esc(P.name)} does no barbell work at all \u2014 the book is explicit about it \u2014 so your strength template is set aside while this protocol is running. It comes back the moment you switch off it.</div></div>`;
   else if(T.split) h+=halvesCard();
+  const warn=programWarnings(stemplKey(),cprotoKey(),false);
+  if(warn.length) h+=`<div class="banner info"><div class="small"><b>Worth knowing:</b>${warn.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
   h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the programme they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }

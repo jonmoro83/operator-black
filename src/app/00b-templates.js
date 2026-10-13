@@ -259,6 +259,35 @@ const CPROTO={
 const GREEN_SE=[[30,35],[40,45],[50,50]];
 function greenSeReps(wk){ return GREEN_SE[(((wk&&wk.w||1)-1)%3)][0] }
 
+/* ---------------- pairings the books have an opinion about ----------------
+Not every template goes with every protocol, and where the books say so they say it
+plainly. These are their words turned into checks, each one traceable to a page:
+
+  TB II, Black variations:  "I don't recommend using TB Mass template here. Mass is a
+                             specialist template that requires a reduction in
+                             conditioning... no more than 2 HIC sessions per week. No E
+                             at all." And: "Gladiator template can be used, but I
+                             recommend using a training max/conservative 1rm numbers."
+  TB III, Conditioning:     "Green is used alongside General Mass (Mass Template,
+                             Gladiator, Fighter HT)... Black is used during Specificity."
+  TB II, Green guidelines:  two strength sessions a week.
+
+A warning is not a block. The books are advice, people have reasons, and the app's job
+is to say what the book says and then get out of the way. */
+const MASS_TEMPLATES=['mass','gladiator','fighterht','greyman'];
+function programWarnings(t,c,bb){
+  const T=STEMPL[t], P=CPROTO[c], out=[];
+  if(!T||!P) return out;
+  const days=tplDays(T,{w:1}).length;
+  if(P.noStrength) out.push({k:'nostrength',text:`${P.name} does no barbell work at all \u2014 the book is explicit \u2014 so ${T.name} is set aside for as long as you run it. It comes back the moment you switch off.`});
+  if(t==='mass'&&c==='black') out.push({k:'mass-black',text:'Tactical Barbell II advises against Mass with Black: Mass is a specialist template that needs conditioning cut back, no more than two hard sessions a week and no endurance work at all. Green is what Mass Protocol pairs it with.'});
+  else if(t==='gladiator'&&c==='black') out.push({k:'glad-black',text:'Gladiator with Black is allowed, but the book asks for a training max or conservative 1RMs when you do it. You can set that under Percent of in Setup.'});
+  else if(MASS_TEMPLATES.includes(t)&&c==='black') out.push({k:'mass-black-soft',text:`Mass Protocol pairs its mass templates with Green, not Black \u2014 Green is lower intensity and longer, and is there to aid recovery rather than compete with it. ${T.name} with Black will be a lot of hard work in one week.`});
+  if(c==='green'&&days>2) out.push({k:'green-days',text:`Green asks for two strength sessions a week and ${T.name} runs ${days}. The week will still lay out, but endurance is meant to be the priority on Green and four lifting days is not that.`});
+  if(bb) out.push({k:'bb',text:'Base Building runs first and replaces the programme for eight weeks: strength-endurance circuits, easy aerobic work and two spartan strength days. Your template and protocol start when it finishes.'});
+  return out;
+}
+
 function stemplOf(){ return STEMPL[plan.stempl]||STEMPL.operator }
 function stemplKey(){ return STEMPL[plan.stempl]?plan.stempl:'operator' }
 function cprotoOf(){ return CPROTO[plan.cproto]||CPROTO.black }

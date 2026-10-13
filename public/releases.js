@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.91',date:'2026-10-13',title:'Choose your programme when you set up',items:[
+    'Welcome setup has a <b>Programme</b> step. Every strength template and every conditioning protocol is listed with what it actually is \u2014 how many days, which book, who it suits \u2014 and you pick there rather than discovering later that Setup had a dropdown.',
+    '<b>Base Building</b> is on offer at setup now too. Tick it and TB II\u2019s eight-week Block I runs first, with your template and protocol starting when it finishes. If you are also doing a bridge week, Base Building goes after it \u2014 its two strength days need numbers to work from.',
+    'The app now tells you when the books object to a pairing, while you are choosing and again on the summary. Mass with Black, for instance: Tactical Barbell II says plainly that it does not recommend it, and why. Gladiator with Black is allowed but wants a training max. Green with a four-day template is more lifting than Green asks for.',
+    'They are notes, not locks. The books are advice and you may have your reasons \u2014 the app\u2019s job is to tell you what the page says and then get out of the way.']},
   {v:'1.90',date:'2026-10-13',title:'Mass and Gladiator',items:[
     '<b>Mass</b> is Tactical Barbell III\u2019s headline template and Operator\u2019s forefather. Bench, squat and the weighted pull-up three times a week on alternate days, with the deadlift on a day of its own running its own numbers. Week three drops the third session and peaks instead \u2014 the book\u2019s table leaves that cell empty, so the app does too.',
     'If you can do twelve bodyweight pull-ups, Mass wants weighted ones. If your Lift 3 does not include them it substitutes a pulldown or row, which is what the book says to do \u2014 never the overhead press, because every substitute it names is a pull.',

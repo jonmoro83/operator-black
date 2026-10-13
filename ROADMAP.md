@@ -127,6 +127,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Onboarding picks the programme, and names the books' objections (2026-10-13)**
+- Welcome setup gains a **Programme** step (now seven): every template and protocol
+  listed with its blurb, day count and source book, plus a **Base Building** tick.
+  Previously the only way to a non-default programme was finding the Setup dropdown.
+- Base Building inserts after the bridge week when there is one, because its two
+  strength days need maxes to work from, and at the start week when there is not.
+- **`programWarnings(t,c,bb)`** turns the books' own statements into checks, each
+  traceable to a page rather than invented:
+  - *TB II, Black variations:* "I don't recommend using TB Mass template here… no more
+    than 2 HIC sessions per week. No E at all."
+  - *TB II, same page:* "Gladiator template can be used, but I recommend using a
+    training max/conservative 1rm numbers." — which maps onto the existing `basis` setting.
+  - *TB III, Conditioning:* "Green is used alongside General Mass… Black is used during
+    Specificity."
+  - *TB II, Green guidelines:* two strength sessions a week, so a 3+ day template is more
+    lifting than Green asks for.
+  - Plus the two the app knows itself: a `noStrength` protocol sets the template aside,
+    and Base Building displaces both for eight weeks.
+- **Warnings, not locks.** The books are advice and people have reasons; the app says
+  what the page says and then gets out of the way. Shown while choosing, again on the
+  summary, and in Setup where the pairing can also be changed.
+- 246 → 249 tests. 11 mutants, all caught.
+
 **Programme templates, stage 6: Mass and Gladiator (2026-10-13)**
 - **Mass.** Days 1/3/5 are bench + squat + weighted pull-up, day 6 is the deadlift on
   its own numbers (4×5 where the others run 4×8). **Week three drops day 5 entirely** —

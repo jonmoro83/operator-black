@@ -4504,3 +4504,93 @@ test("Gladiator runs two pairs twice a week and peaks each lift once", () => {
   // The deadlift is a programmed lift here, not Operator's one-to-three-set afterthought.
   a.equal(r(cyc[0], 1, "dead").s, 4);
 });
+
+test("onboarding describes every template and protocol and lets you pick", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false);
+  x.wz.step = 1;
+  const h = x.vWelcome();
+
+  // Every one of them is offered, named, and described rather than listed as a code.
+  for (const [k, T] of Object.entries(x.STEMPL)) {
+    a.match(h, new RegExp(`data-k="stempl" data-v="${k}"`), `${k} can be chosen`);
+    a.ok(h.includes(x.esc(T.name)) && h.includes(x.esc(T.blurb)), `${k} is described`);
+  }
+  for (const [k, P] of Object.entries(x.CPROTO)) {
+    a.match(h, new RegExp(`data-k="cproto" data-v="${k}"`), `${k} can be chosen`);
+    a.ok(h.includes(x.esc(P.blurb)), `${k} is described`);
+  }
+  a.match(h, /Base Building/, "and Base Building is on offer at onboarding");
+  a.match(h, /data-act-change="wzbb"/);
+
+  // Seven steps, each reachable and none blank.
+  a.equal(x.WZ_STEPS.length, 7);
+  for (let i = 0; i < 7; i++) { x.wz.step = i; a.ok(x.vWelcome().length > 400, `step ${i} draws`) }
+});
+
+test("the books' own objections to a pairing are shown before you commit to it", () => {
+  const x = app({ now: "2026-10-19" });
+  const t = (st, cp, bb) => x.programWarnings(st, cp, bb).map((w) => w.k);
+
+  a.deepEqual(t("operator", "black", false), [], "the default pairing has nothing to say");
+  // TB II: "I don't recommend using TB Mass template here... no more than 2 HIC per week."
+  a.deepEqual(t("mass", "black", false), ["mass-black"]);
+  // TB II: "Gladiator template can be used, but I recommend using a training max."
+  a.deepEqual(t("gladiator", "black", false), ["glad-black"]);
+  // TB III: "Green is used alongside General Mass... Black is used during Specificity."
+  a.deepEqual(t("fighterht", "black", false), ["mass-black-soft"]);
+  a.deepEqual(t("greyman", "black", false), ["mass-black-soft"]);
+  // TB II's Green guidelines ask for two strength sessions a week.
+  a.deepEqual(t("zulu", "green", false), ["green-days"]);
+  a.deepEqual(t("fighter", "green", false), [], "Fighter's two days are what Green asks for");
+  // A protocol that does no barbell work at all, against any template.
+  a.deepEqual(t("operator", "greense", false), ["nostrength"]);
+  a.ok(t("operator", "black", true).includes("bb"), "and Base Building says what it displaces");
+
+  // Text, not codes: every warning reads as a sentence and names the thing it is about.
+  for (const w of x.programWarnings("mass", "black", true)) {
+    a.ok(w.text.length > 60 && /\.$/.test(w.text.trim()), `${w.k} is a sentence`);
+  }
+  a.equal(x.programWarnings("nope", "black", false).length, 0, "an unknown template warns nothing");
+
+  // Shown while choosing, and again on the summary, which is the last chance to notice.
+  x.wz = x.wzNew(false); x.wz.stempl = "mass"; x.wz.cproto = "black";
+  x.wz.step = 1; a.match(x.vWelcome(), /advises against Mass with Black/);
+  x.wz.step = 6; a.match(x.vWelcome(), /advises against Mass with Black/);
+  // And in Setup, because the pairing can be changed there too.
+  x.plan.stempl = "mass"; x.plan.cproto = "black"; x.view = "setup"; x.bump();
+  a.match(x.vSetup(), /advises against Mass with Black/);
+});
+
+test("onboarding can start you on Base Building, after the bridge week if there is one", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false);
+  x.wz.start = "2026-10-26"; x.wz.mode = "bridge"; x.wz.bb = true;
+  x.wz.stempl = "fighter"; x.wz.cproto = "green";
+  x.wzFinish();
+
+  a.equal(x.plan.stempl, "fighter", "the template is saved");
+  a.equal(x.plan.cproto, "green");
+  a.equal(x.plan.bridge, true);
+  // Base Building needs numbers for its two strength days, so it follows the bridge.
+  a.equal(x.plan.inserts["2026-10-26"], undefined, "not on the bridge week");
+  a.equal(x.plan.inserts["2026-11-02"], "bb", "the week after it");
+  const wks = x.weeks();
+  a.equal(wks.find((w) => w.monday === "2026-10-26").kind, "bridge");
+  a.equal(wks.find((w) => w.monday === "2026-11-02").kind, "bb");
+  a.equal(wks.filter((w) => w.kind === "bb").length, 8, "eight weeks of it");
+
+  // With maxes already known there is no bridge, so it starts straight away.
+  const y = app({ now: "2026-10-19" });
+  y.wz = y.wzNew(false);
+  y.wz.start = "2026-10-26"; y.wz.mode = "maxes"; y.wz.bb = true;
+  y.wz.maxes = { squat: 300, bench: 200, dead: 400, pull: 180 };
+  y.wzFinish();
+  a.equal(y.plan.inserts["2026-10-26"], "bb");
+  a.equal(y.weekOf("2026-10-26").kind, "bb");
+
+  // Not asked for, not inserted.
+  const z = app({ now: "2026-10-19" });
+  z.wz = z.wzNew(false); z.wz.start = "2026-10-26"; z.wzFinish();
+  a.deepEqual(Object.values(z.plan.inserts), []);
+});
