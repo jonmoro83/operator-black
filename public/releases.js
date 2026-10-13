@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.96',date:'2026-10-13',title:'Plyo days actually look chosen',items:[
+    'Tapping a day in the setup wizard did nothing visible. The button sent the day as text and the screen compared it against a number, so no day ever matched and none of them lit up. Fixed, and fixed in a way that cannot happen again to the next field that holds a number.',
+    'The two days are one row now instead of two separate pickers, and <b>both chosen days stay lit</b>, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.',
+    'Setup uses the identical control, and the sessions are numbered by weekday now \u2014 Plyo 1 is always the earlier one, whichever order you picked them in.']},
   {v:'1.95',date:'2026-10-13',title:'Plyos go where the rest of the settings are',items:[
     'Yesterday\u2019s separate Plyos tab is gone. It did not belong next to Today and Plan \u2014 these are settings, and settings live in Setup like every other part of the program.',
     'Welcome setup now has a <b>Plyos</b> step of its own rather than tucking the question into Conditioning: on or off, one session or two, and which day or days.',

@@ -289,6 +289,15 @@ function halvesCard(){
   h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
+// One row of seven, with every chosen day lit and numbered when there are two. `act` is
+// the click action to fire, so the wizard and Setup draw the identical control.
+function plyoDayRow(days,per,act){
+  const order=days.slice().sort((a,b)=>a-b);
+  return `<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>{
+    const at=order.indexOf(i), on=at>=0;
+    return `<button class="btn sm${on?' primary':''}" data-act="${act}" data-v="${i}" aria-pressed="${on}">${nm}${on&&per===2?` <small>${at+1}</small>`:''}</button>`;
+  }).join('')}</div>`;
+}
 // Plyos: everything about them that is a setting, in one card like every other part of
 // the program. Moving a session for a single week is the Move… sheet's job, not this
 // one, and the phases and exercises are in the Guide where the rest of the reference is.
@@ -300,8 +309,8 @@ function plyoCardSetup(){
   if(on){
     h+=`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${plyoPerWeek()===v?' on':''}" data-act="plyoper" data-v="${v}" aria-pressed="${plyoPerWeek()===v}">${l}</button>`).join('')}</div></label>
     <div class="small muted">${two?'The week\u2019s contacts are split across the two rather than doubled, so this is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between them.':'One session carrying the whole phase target.'} How much volume a week is the app\u2019s own call \u2014 published figures disagree enough that keeping the week\u2019s total fixed is the honest reading.</div>
-    <label class="f">${two?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d===i}">${nm}</button>`).join('')}</div></label>`;
-    if(two) h+=`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${plyoDow2()===i?' primary':''}" data-act="plyodow2" data-v="${i}" aria-pressed="${plyoDow2()===i}">${nm}</button>`).join('')}</div></label>`;
+    <label class="f">${two?'Which two days':'Which day'}${plyoDayRow(two?[d,plyoDow2()]:[d],plyoPerWeek(),'plyodow')}</label>
+    ${two?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}`;
     const ws=plyoWarnings(stemplKey(),cprotoKey(),d,(plan.cardio||{}).def);
     if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
     h+=`<div class="small muted">To shift a session for one week only, use <b>Move\u2026</b> on any day of that week. The phases, the exercises and the pull-back rules are in the Guide.</div>`;

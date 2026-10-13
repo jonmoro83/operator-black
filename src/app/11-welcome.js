@@ -51,8 +51,8 @@ function vWelcome(){
     <div class="small muted">Leave it off if you would rather not; you can turn it on later in Setup.</div>
     ${w.plyo?`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${w.plyoPer===v?' on':''}" data-act="wzset" data-k="plyoPer" data-v="${v}">${l}</button>`).join('')}</div></label>
       <div class="small muted">${w.plyoPer===2?'The week\u2019s contacts split across the two rather than doubling, so it is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between.':'One session with the whole phase target in it.'}</div>
-      <label class="f">${w.plyoPer===2?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow===i?' primary':''}" data-act="wzset" data-k="plyoDow" data-v="${i}" aria-pressed="${w.plyoDow===i}">${nm}</button>`).join('')}</div></label>
-      ${w.plyoPer===2?`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow2===i?' primary':''}" data-act="wzset" data-k="plyoDow2" data-v="${i}" aria-pressed="${w.plyoDow2===i}">${nm}</button>`).join('')}</div></label>`:''}
+      <label class="f">${w.plyoPer===2?'Which two days':'Which day'}${plyoDayRow(w.plyoPer===2?[w.plyoDow,w.plyoDow2]:[w.plyoDow],w.plyoPer,'wzplyoday')}</label>
+      ${w.plyoPer===2?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
       <div class="small muted">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
       ${wzPlyoWarn(w)}`:''}`;
   } else if(w.step===6){
@@ -73,6 +73,18 @@ function vWelcome(){
 }
 // What the books say about the pairing you have picked. Shown while choosing and again
 // on the summary, because the summary is the last chance to notice.
+/* Setting one wizard field from a tapped button.
+
+   A dataset value is always a string, and several of these fields are compared against
+   numbers to decide what looks selected. Which keys were numeric used to be a hardcoded
+   pair, so every numeric field added afterwards was stored as a string and never looked
+   chosen — which is what happened to the plyo day. The field's own starting type is the
+   answer, and it cannot be forgotten. */
+function wzSet(k,v){
+  if(!wz) return false;
+  wz[k]=typeof wz[k]==='number'?+v:v;
+  return true;
+}
 function wzPlyoWarn(w){
   const ws=plyoWarnings(w.stempl,w.cproto,w.plyoDow,w.cardio,w.plyoPer===2?w.plyoDow2:null);
   if(!ws.length) return '';

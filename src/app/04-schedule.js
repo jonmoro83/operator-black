@@ -222,7 +222,19 @@ function plyoDowDefault(){ const v=+plan.plyoDow; return (v>=0&&v<=6)?v:3 }
 function plyoDows(monday){
   const a=[plyoDow(monday)];
   if(plyoPerWeek()===2&&plyoDow2()!==a[0]) a.push(plyoDow2());
-  return a;
+  return a.sort((x,y)=>x-y);
+}
+/* Picking plyo days from one row of seven.
+
+   Both chosen days stay lit, numbered in the order the week runs them. Tapping a day
+   that is already chosen does nothing — you cannot have fewer sessions than you asked
+   for — and tapping a new one replaces whichever you picked longer ago, so the pair
+   slides along rather than needing a "which one am I setting" control. */
+function plyoPick(days,per,d){
+  const cur=days.filter(v=>v>=0&&v<=6);
+  if(cur.includes(d)) return cur.slice();
+  if(per!==2) return [d];
+  return cur.length<2?[...cur,d]:[cur[1],d];
 }
 // Plyos are not part of a session, so they move on their own. Picking a day for one week
 // overrides the usual day for that week only; picking the usual day again clears it.

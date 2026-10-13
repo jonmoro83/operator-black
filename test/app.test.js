@@ -4649,11 +4649,11 @@ test("setup asks whether you want plyos at all, and which day", () => {
   x.wz.step = 5;
   const h = x.vWelcome();
   a.match(h, /data-act-change="wzplyo"/, "it is a question, not an assumption");
-  for (let i = 0; i < 7; i++) a.match(h, new RegExp(`data-k="plyoDow" data-v="${i}"`), `day ${i} offered`);
+  for (let i = 0; i < 7; i++) a.match(h, new RegExp(`data-act="wzplyoday" data-v="${i}"`), `day ${i} offered`);
 
   // Turned off, the day picker goes with it.
   x.wz.plyo = false;
-  a.doesNotMatch(x.vWelcome(), /data-k="plyoDow"/, "no day to pick when there are no plyos");
+  a.doesNotMatch(x.vWelcome(), /data-act="wzplyoday"/, "no day to pick when there are no plyos");
   x.wz.step = 7;
   a.match(x.vWelcome(), /<dt>Plyos<\/dt><dd>none<\/dd>/, "and the summary says so");
 
@@ -4790,10 +4790,11 @@ test("plyo settings live in Setup, with the rest of the program", () => {
   a.match(x.vGuide(), /Every rep maximal/);
   a.doesNotMatch(h, /Every rep maximal/, "Setup is settings, not a second copy of the Guide");
 
-  // The second day only appears once there is a second session.
-  a.doesNotMatch(h, /data-act="plyodow2"/);
-  x.plan.plyoPerWeek = 2; x.bump();
-  a.match(x.vSetup(), /data-act="plyodow2"/);
+  // One row of days, with every chosen one lit.
+  const lit = (html) => [...html.matchAll(/data-act="plyodow" data-v="(\d)" aria-pressed="true"/g)].map((m) => +m[1]);
+  a.deepEqual(lit(h), [3], "one session, one day lit");
+  x.plan.plyoPerWeek = 2; x.plan.plyoDow = 3; x.plan.plyoDow2 = 6; x.bump();
+  a.deepEqual(lit(x.vSetup()), [3, 6], "two sessions, both lit");
 
   // Off, and the schedule goes with it.
   x.plan.plyoOn = false; x.bump();
@@ -4809,10 +4810,11 @@ test("the wizard's plyo step carries both sessions through to the plan", () => {
   a.equal(x.wz.plyoDow2, 6, "with the second day three days on if it is turned on");
 
   x.wz.step = 5;
-  a.doesNotMatch(x.vWelcome(), /data-k="plyoDow2"/, "no second day until there is a second session");
+  const lit = () => [...x.vWelcome().matchAll(/data-act="wzplyoday" data-v="(\d)" aria-pressed="true"/g)]
+    .map((m) => +m[1]);
+  a.deepEqual(lit(), [3], "one session, one day lit");
   x.wz.plyoPer = 2;
-  const h = x.vWelcome();
-  for (let i = 0; i < 7; i++) a.match(h, new RegExp(`data-k="plyoDow2" data-v="${i}"`), `day ${i}`);
+  a.deepEqual(lit(), [3, 6], "two sessions, both lit at once");
 
   // It warns off its own unsaved choices, not off whatever the plan happens to hold.
   x.plan.plyoPerWeek = 1; x.plan.plyoDow2 = null; x.bump();
@@ -4836,4 +4838,54 @@ test("the wizard's plyo step carries both sessions through to the plan", () => {
   y.wz = y.wzNew(false); y.wz.plyo = false; y.wz.mode = "maxes"; y.wzFinish();
   a.equal(y.plan.plyoOn, false);
   a.equal(y.plan.plyoDow, 1, "your old day is still there if you turn them back on");
+});
+
+test("a day you tap in the wizard actually looks chosen", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false); x.wz.step = 5;
+  const lit = () => [...x.vWelcome().matchAll(/data-act="wzplyoday" data-v="(\d)" aria-pressed="true"/g)]
+    .map((m) => +m[1]);
+
+  a.deepEqual(lit(), [3], "Thursday starts chosen");
+
+  // A dataset value is a string, and the comparison is against a number. This is the
+  // bug: tapping set plyoDow to "5" and "5" === 5 is false, so nothing ever lit up.
+  x.wzSet("plyoDow", "5");
+  a.strictEqual(x.wz.plyoDow, 5, "stored as a number, not a string");
+  a.deepEqual(lit(), [5], "and the day you tapped is the one that looks chosen");
+
+  // The string keys must stay strings.
+  x.wzSet("unit", "kg");
+  a.strictEqual(x.wz.unit, "kg");
+  x.wzSet("deload", "4");
+  a.strictEqual(x.wz.deload, 4, "the numeric ones that already worked still do");
+});
+
+test("with two sessions both days stay lit, and a third replaces the older", () => {
+  const x = app({ now: "2026-10-19" });
+
+  // One session: a tap simply moves it.
+  a.deepEqual(x.plyoPick([3], 1, 5), [5]);
+  a.deepEqual(x.plyoPick([3], 1, 3), [3], "tapping the chosen day changes nothing");
+
+  // Two: the pair slides, oldest out.
+  a.deepEqual(x.plyoPick([3, 6], 2, 0), [6, 0], "Thursday drops, Sunday and Monday remain");
+  a.deepEqual(x.plyoPick([6, 0], 2, 2), [0, 2]);
+  a.deepEqual(x.plyoPick([3, 6], 2, 3), [3, 6], "tapping a chosen day leaves the pair alone");
+  a.deepEqual(x.plyoPick([3], 2, 6), [3, 6], "and a half-set pair just fills up");
+
+  // The week runs them in weekday order whichever order they were picked.
+  x.plan.plyoPerWeek = 2; x.plan.plyoDow = 6; x.plan.plyoDow2 = 2; x.bump();
+  a.deepEqual(x.plyoDows("2026-10-19"), [2, 6], "sorted, so Plyo 1 is the earlier one");
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const days = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlan(x.addDays("2026-10-19", d)))
+    .filter((p) => p.plyo);
+  a.deepEqual(days.map((p) => p.plyoN), [1, 2], "numbered in the order you meet them");
+
+  // Tapping through Setup writes both days back.
+  x.plan.plyoDow = 3; x.plan.plyoDow2 = 6; x.bump();
+  x.view = "setup";
+  const lit = () => [...x.vSetup().matchAll(/data-act="plyodow" data-v="(\d)" aria-pressed="true"/g)]
+    .map((m) => +m[1]);
+  a.deepEqual(lit(), [3, 6]);
 });

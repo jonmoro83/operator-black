@@ -203,7 +203,12 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='restorecancel'){restoreState.file=null;render();return}
   if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
   if(a==='lsstart'){lsStart();return}
-  if(a==='wzset'){const k=b.dataset.k,v=b.dataset.v;wz[k]=(k==='deload'||k==='test')?+v:v;render();return}
+  if(a==='wzset'){wzSet(b.dataset.k,b.dataset.v);render();return}
+  if(a==='wzplyoday'){
+    const v=+b.dataset.v; if(!(v>=0&&v<=6)||!wz) return;
+    const next=plyoPick(wz.plyoPer===2?[wz.plyoDow,wz.plyoDow2]:[wz.plyoDow],wz.plyoPer,v);
+    wz.plyoDow=next[0]; if(wz.plyoPer===2&&next[1]!=null) wz.plyoDow2=next[1];
+    render(); return}
   if(a==='wzl3'){const k=b.dataset.v;wz.l3[k]=!wz.l3[k];if(!L3K.some(x=>wz.l3[x]))wz.l3.pull=true;render();return}
   if(a==='wznext'){wz.step=Math.min(WZ_STEPS.length-1,wz.step+1);render();window.scrollTo(0,0);return}
   if(a==='wzback'){wz.step=Math.max(0,wz.step-1);render();return}
@@ -285,8 +290,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
-  if(a==='plyodow'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow=v}); return}
-  if(a==='plyodow2'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow2=v}); return}
+  if(a==='plyodow'){
+    const v=+b.dataset.v; if(!(v>=0&&v<=6)) return;
+    const per=plyoPerWeek(), next=plyoPick(per===2?[plyoDowDefault(),plyoDow2()]:[plyoDowDefault()],per,v);
+    mutatePlan(p=>{p.plyoDow=next[0]; if(per===2) p.plyoDow2=next[1]!=null?next[1]:next[0]});
+    return}
   if(a==='plyoper'){const v=+b.dataset.v===2?2:1; mutatePlan(p=>{p.plyoPerWeek=v}); return}
   if(a==='plyoon'){mutatePlan(p=>{p.plyoOn=true}); return}
   if(a==='half'){setHalf(b.dataset.k,b.dataset.v);return}

@@ -127,6 +127,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Plyo days did not look chosen (2026-10-13)**
+- Reported: tapping a day in the wizard highlighted nothing. `wzset` coerced to a number
+  for `deload` and `test` and nothing else — an allowlist — so `plyoDow` was stored as
+  `"3"` and compared against `3`. Every numeric field added after that pair was broken
+  the same way the moment it was added.
+- `wzSet(k,v)` now reads the field's own starting type: `typeof wz[k]==='number'`. It is
+  also extracted from the click handler, which is where the bug was hiding and where
+  nothing was reachable from a test.
+- **Both days lit.** One row of seven instead of two pickers, every chosen day lit and
+  numbered. `plyoPick` slides the pair: tapping a chosen day does nothing, tapping a new
+  one drops whichever was picked longer ago. The wizard and Setup draw the same control
+  from `plyoDayRow`.
+- `plyoDows` sorts, so Plyo 1 is the earlier session in the week whatever order the days
+  were picked in.
+- 256 → 258 tests. 7 mutants, all caught, including a reconstruction of the reported bug.
+- **Worth keeping:** an allowlist of "the fields that are numbers" is a bug waiting on
+  the next field. Derive it from the data.
+
 **Plyo settings move to Setup, and get a wizard step (2026-10-13)**
 - Correcting 1.94. "Plyos should be their own tab" meant a step in the setup wizard, not
   a seventh entry in the main nav; I built the wrong thing and shipped it. The nav tab

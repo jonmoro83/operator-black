@@ -1811,7 +1811,19 @@ function plyoDowDefault(){ const v=+plan.plyoDow; return (v>=0&&v<=6)?v:3 }
 function plyoDows(monday){
   const a=[plyoDow(monday)];
   if(plyoPerWeek()===2&&plyoDow2()!==a[0]) a.push(plyoDow2());
-  return a;
+  return a.sort((x,y)=>x-y);
+}
+/* Picking plyo days from one row of seven.
+
+   Both chosen days stay lit, numbered in the order the week runs them. Tapping a day
+   that is already chosen does nothing — you cannot have fewer sessions than you asked
+   for — and tapping a new one replaces whichever you picked longer ago, so the pair
+   slides along rather than needing a "which one am I setting" control. */
+function plyoPick(days,per,d){
+  const cur=days.filter(v=>v>=0&&v<=6);
+  if(cur.includes(d)) return cur.slice();
+  if(per!==2) return [d];
+  return cur.length<2?[...cur,d]:[cur[1],d];
 }
 // Plyos are not part of a session, so they move on their own. Picking a day for one week
 // overrides the usual day for that week only; picking the usual day again clears it.
@@ -3892,8 +3904,8 @@ function vWelcome(){
     <div class="small muted">Leave it off if you would rather not; you can turn it on later in Setup.</div>
     ${w.plyo?`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${w.plyoPer===v?' on':''}" data-act="wzset" data-k="plyoPer" data-v="${v}">${l}</button>`).join('')}</div></label>
       <div class="small muted">${w.plyoPer===2?'The week\u2019s contacts split across the two rather than doubling, so it is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between.':'One session with the whole phase target in it.'}</div>
-      <label class="f">${w.plyoPer===2?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow===i?' primary':''}" data-act="wzset" data-k="plyoDow" data-v="${i}" aria-pressed="${w.plyoDow===i}">${nm}</button>`).join('')}</div></label>
-      ${w.plyoPer===2?`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow2===i?' primary':''}" data-act="wzset" data-k="plyoDow2" data-v="${i}" aria-pressed="${w.plyoDow2===i}">${nm}</button>`).join('')}</div></label>`:''}
+      <label class="f">${w.plyoPer===2?'Which two days':'Which day'}${plyoDayRow(w.plyoPer===2?[w.plyoDow,w.plyoDow2]:[w.plyoDow],w.plyoPer,'wzplyoday')}</label>
+      ${w.plyoPer===2?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
       <div class="small muted">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
       ${wzPlyoWarn(w)}`:''}`;
   } else if(w.step===6){
@@ -3914,6 +3926,18 @@ function vWelcome(){
 }
 // What the books say about the pairing you have picked. Shown while choosing and again
 // on the summary, because the summary is the last chance to notice.
+/* Setting one wizard field from a tapped button.
+
+   A dataset value is always a string, and several of these fields are compared against
+   numbers to decide what looks selected. Which keys were numeric used to be a hardcoded
+   pair, so every numeric field added afterwards was stored as a string and never looked
+   chosen — which is what happened to the plyo day. The field's own starting type is the
+   answer, and it cannot be forgotten. */
+function wzSet(k,v){
+  if(!wz) return false;
+  wz[k]=typeof wz[k]==='number'?+v:v;
+  return true;
+}
 function wzPlyoWarn(w){
   const ws=plyoWarnings(w.stempl,w.cproto,w.plyoDow,w.cardio,w.plyoPer===2?w.plyoDow2:null);
   if(!ws.length) return '';
@@ -5556,6 +5580,15 @@ function halvesCard(){
   h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
+// One row of seven, with every chosen day lit and numbered when there are two. `act` is
+// the click action to fire, so the wizard and Setup draw the identical control.
+function plyoDayRow(days,per,act){
+  const order=days.slice().sort((a,b)=>a-b);
+  return `<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>{
+    const at=order.indexOf(i), on=at>=0;
+    return `<button class="btn sm${on?' primary':''}" data-act="${act}" data-v="${i}" aria-pressed="${on}">${nm}${on&&per===2?` <small>${at+1}</small>`:''}</button>`;
+  }).join('')}</div>`;
+}
 // Plyos: everything about them that is a setting, in one card like every other part of
 // the program. Moving a session for a single week is the Move… sheet's job, not this
 // one, and the phases and exercises are in the Guide where the rest of the reference is.
@@ -5567,8 +5600,8 @@ function plyoCardSetup(){
   if(on){
     h+=`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${plyoPerWeek()===v?' on':''}" data-act="plyoper" data-v="${v}" aria-pressed="${plyoPerWeek()===v}">${l}</button>`).join('')}</div></label>
     <div class="small muted">${two?'The week\u2019s contacts are split across the two rather than doubled, so this is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between them.':'One session carrying the whole phase target.'} How much volume a week is the app\u2019s own call \u2014 published figures disagree enough that keeping the week\u2019s total fixed is the honest reading.</div>
-    <label class="f">${two?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d===i}">${nm}</button>`).join('')}</div></label>`;
-    if(two) h+=`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${plyoDow2()===i?' primary':''}" data-act="plyodow2" data-v="${i}" aria-pressed="${plyoDow2()===i}">${nm}</button>`).join('')}</div></label>`;
+    <label class="f">${two?'Which two days':'Which day'}${plyoDayRow(two?[d,plyoDow2()]:[d],plyoPerWeek(),'plyodow')}</label>
+    ${two?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}`;
     const ws=plyoWarnings(stemplKey(),cprotoKey(),d,(plan.cardio||{}).def);
     if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
     h+=`<div class="small muted">To shift a session for one week only, use <b>Move\u2026</b> on any day of that week. The phases, the exercises and the pull-back rules are in the Guide.</div>`;
@@ -6475,7 +6508,12 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='restorecancel'){restoreState.file=null;render();return}
   if(a==='backupnow'){backups.busy=true;render();api('POST','/backups').then(()=>{backups.busy=false;backups.list=null;loadBackups()}).catch(()=>{backups.busy=false;backups.err='Backup failed. Check your connection and try again.';render()});return}
   if(a==='lsstart'){lsStart();return}
-  if(a==='wzset'){const k=b.dataset.k,v=b.dataset.v;wz[k]=(k==='deload'||k==='test')?+v:v;render();return}
+  if(a==='wzset'){wzSet(b.dataset.k,b.dataset.v);render();return}
+  if(a==='wzplyoday'){
+    const v=+b.dataset.v; if(!(v>=0&&v<=6)||!wz) return;
+    const next=plyoPick(wz.plyoPer===2?[wz.plyoDow,wz.plyoDow2]:[wz.plyoDow],wz.plyoPer,v);
+    wz.plyoDow=next[0]; if(wz.plyoPer===2&&next[1]!=null) wz.plyoDow2=next[1];
+    render(); return}
   if(a==='wzl3'){const k=b.dataset.v;wz.l3[k]=!wz.l3[k];if(!L3K.some(x=>wz.l3[x]))wz.l3.pull=true;render();return}
   if(a==='wznext'){wz.step=Math.min(WZ_STEPS.length-1,wz.step+1);render();window.scrollTo(0,0);return}
   if(a==='wzback'){wz.step=Math.max(0,wz.step-1);render();return}
@@ -6557,8 +6595,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
-  if(a==='plyodow'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow=v}); return}
-  if(a==='plyodow2'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow2=v}); return}
+  if(a==='plyodow'){
+    const v=+b.dataset.v; if(!(v>=0&&v<=6)) return;
+    const per=plyoPerWeek(), next=plyoPick(per===2?[plyoDowDefault(),plyoDow2()]:[plyoDowDefault()],per,v);
+    mutatePlan(p=>{p.plyoDow=next[0]; if(per===2) p.plyoDow2=next[1]!=null?next[1]:next[0]});
+    return}
   if(a==='plyoper'){const v=+b.dataset.v===2?2:1; mutatePlan(p=>{p.plyoPerWeek=v}); return}
   if(a==='plyoon'){mutatePlan(p=>{p.plyoOn=true}); return}
   if(a==='half'){setHalf(b.dataset.k,b.dataset.v);return}
