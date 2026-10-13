@@ -7,9 +7,10 @@ function wzNew(rerun){
   return {rerun:!!rerun,step:0,unit:plan.unit||'lb',bw:plan.bodyweight||'',l3:Object.assign({pull:true,ohp:false,wpu:false},rerun?(plan.l3||{}).on:{}),
     start:rerun?plan.startMonday:nextMonday(),mode:rerun&&!plan.bridge?'maxes':'bridge',rm:'1rm',maxes:rerun?clone(plan.maxes):{},cardio:defMod(),deload:rerun?(+plan.deloadEvery||0):0,test:rerun?(+plan.testEvery||0):3,
     stempl:rerun?stemplKey():'operator',cproto:rerun?cprotoKey():'black',bb:false,
-    plyo:rerun?plan.plyoOn!==false:true,plyoDow:rerun?(+plan.plyoDow>=0?+plan.plyoDow:3):3};
+    plyo:rerun?plan.plyoOn!==false:true,plyoDow:rerun?plyoDowDefault():3,
+    plyoPer:rerun?plyoPerWeek():1,plyoDow2:rerun?plyoDow2():6};
 }
-const WZ_STEPS=['You','Program','Lift 3','Start','Conditioning','Deloads','Ready'];
+const WZ_STEPS=['You','Program','Lift 3','Start','Conditioning','Plyos','Deloads','Ready'];
 function vWelcome(){
   const w=wz, steps=WZ_STEPS.map((t,i)=>`<span class="chip${i===w.step?' blue':i<w.step?' light':''}">${i+1}. ${t}</span>`).join('');
   let h=`<div class="card"><div class="lift-h"><h2>${w.rerun?'Welcome setup':'Welcome to Operator + Black'}</h2>${w.rerun?'':'<button class="btn sm ghost" data-act="wzskip">Skip</button>'}</div><div class="row" style="gap:6px">${steps}</div>`;
@@ -42,13 +43,19 @@ function vWelcome(){
     if(w.rerun) h+=`<div class="banner warn"><div class="small">Changing the start week or bridge choice re-plans your whole calendar, locked weeks included.</div></div>`;
   } else if(w.step===4){
     h+=`<label class="f">Main conditioning tool<div class="seg">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<button class="segb${w.cardio===k?' on':''}" data-act="wzset" data-k="cardio" data-v="${k}">${x.name}</button>`).join('')}</div></label>
-    <div class="small muted">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>
-    <label class="check" style="margin-top:10px"><input type="checkbox" id="wz-plyo" data-act-change="wzplyo" ${w.plyo?'checked':''}> Schedule a <b>plyometrics</b> day</label>
-    <div class="small muted">Jumps and bounds, 15 to 20 minutes of real work once a week, in three-week phases. A nervous-system stimulus rather than a workout — quality of each rep matters far more than how many. Leave it off if you would rather not; you can turn it on later.</div>
-    ${w.plyo?`<label class="f">Which day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow===i?' primary':''}" data-act="wzset" data-k="plyoDow" data-v="${i}" aria-pressed="${w.plyoDow===i}">${nm}</button>`).join('')}</div></label>
-      <div class="small muted">They go first on whatever day you pick, and you can move them a week at a time from the Move… button on any day.</div>
-      ${wzPlyoWarn(w)}`:''}`;
+    <div class="small muted">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
+
   } else if(w.step===5){
+    h+=`<p style="margin:0">Jumps and bounds, 15 to 20 minutes of real work, in three-week phases. A nervous-system stimulus rather than a workout — quality of each rep matters far more than how many.</p>
+    <label class="check"><input type="checkbox" id="wz-plyo" data-act-change="wzplyo" ${w.plyo?'checked':''}> Schedule plyometrics</label>
+    <div class="small muted">Leave it off if you would rather not; you can turn it on later in Setup.</div>
+    ${w.plyo?`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${w.plyoPer===v?' on':''}" data-act="wzset" data-k="plyoPer" data-v="${v}">${l}</button>`).join('')}</div></label>
+      <div class="small muted">${w.plyoPer===2?'The week\u2019s contacts split across the two rather than doubling, so it is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between.':'One session with the whole phase target in it.'}</div>
+      <label class="f">${w.plyoPer===2?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow===i?' primary':''}" data-act="wzset" data-k="plyoDow" data-v="${i}" aria-pressed="${w.plyoDow===i}">${nm}</button>`).join('')}</div></label>
+      ${w.plyoPer===2?`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${w.plyoDow2===i?' primary':''}" data-act="wzset" data-k="plyoDow2" data-v="${i}" aria-pressed="${w.plyoDow2===i}">${nm}</button>`).join('')}</div></label>`:''}
+      <div class="small muted">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
+      ${wzPlyoWarn(w)}`:''}`;
+  } else if(w.step===6){
     h+=`<p style="margin:0">How the block itself runs. Both of these apply to the whole program, not just one part of it.</p>
     <label class="f">Scheduled deload week<div class="seg">${DELOAD_OPTS.map(([v,l])=>`<button class="segb${w.deload===v?' on':''}" data-act="wzset" data-k="deload" data-v="${v}">${l}</button>`).join('')}</div></label>
     <div class="small muted">A deload week drops to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}%, swaps conditioning to easy steady work, halves plyos and skips accessories. <b>As needed</b> schedules none: the app still offers one when your check-ins show low readiness or repeated hard sessions, and you can add one from the Plan tab any time. Tactical Barbell doesn’t mandate a fixed deload, so this is your call.</div>
@@ -57,17 +64,17 @@ function vWelcome(){
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
-    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?esc(DAYN[w.plyoDow]):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
+    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
     <div class="small muted">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
-  h+=`<div class="row">${w.step>0?'<button class="btn" data-act="wzback">‹ Back</button>':''}${w.step<6?'<button class="btn primary" data-act="wznext">Next ›</button>':`<button class="btn primary" data-act="wzdone">${w.rerun?'Save':'Start my program'}</button>`}${w.rerun?'<button class="btn ghost" data-act="wzcancel">Cancel</button>':''}</div></div>`;
+  h+=`<div class="row">${w.step>0?'<button class="btn" data-act="wzback">‹ Back</button>':''}${w.step<7?'<button class="btn primary" data-act="wznext">Next ›</button>':`<button class="btn primary" data-act="wzdone">${w.rerun?'Save':'Start my program'}</button>`}${w.rerun?'<button class="btn ghost" data-act="wzcancel">Cancel</button>':''}</div></div>`;
   return h;
 }
 // What the books say about the pairing you have picked. Shown while choosing and again
 // on the summary, because the summary is the last chance to notice.
 function wzPlyoWarn(w){
-  const ws=plyoWarnings(w.stempl,w.cproto,w.plyoDow,w.cardio);
+  const ws=plyoWarnings(w.stempl,w.cproto,w.plyoDow,w.cardio,w.plyoPer===2?w.plyoDow2:null);
   if(!ws.length) return '';
   return `<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
 }
@@ -85,7 +92,8 @@ function wzFinish(){
     p.cardio=Object.assign({},p.cardio||{},{def:w.cardio}); p.deloadEvery=w.deload; p.testEvery=w.test;
     p.startMonday=start; p.bridge=w.mode==='bridge';
     p.stempl=w.stempl; p.cproto=w.cproto;
-    p.plyoOn=!!w.plyo; if(w.plyo) p.plyoDow=+w.plyoDow;
+    p.plyoOn=!!w.plyo;
+    if(w.plyo){ p.plyoDow=+w.plyoDow; p.plyoPerWeek=+w.plyoPer===2?2:1; p.plyoDow2=+w.plyoDow2 }
     // Base Building goes after the bridge week when there is one: the bridge is what
     // gives Base Building's two strength days their numbers.
     if(w.bb){ const at=w.mode==='bridge'?addDays(start,7):start;

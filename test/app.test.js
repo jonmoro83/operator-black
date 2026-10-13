@@ -2311,8 +2311,7 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   a.match(nav, /data-view="admin"[^>]*hidden/, "it ships hidden, not absent");
   a.ok(!/data-act=/.test(nav), "the header navigates by view, never by action");
   const tabs = [...nav.matchAll(/data-view="([a-z]+)"/g)].map((m) => m[1]);
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "plyo", "setup", "guide", "admin"],
-    "admin is last, and plyos sit with the training tabs rather than the settings ones");
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "guide", "admin"], "admin is last");
 
   // Every tab the nav offers has a view behind it.
   x.view = "admin"; x.amAdmin = true; x.loaded = true;
@@ -4525,8 +4524,9 @@ test("onboarding describes every template and protocol and lets you pick", () =>
   a.match(h, /data-act-change="wzbb"/);
 
   // Seven steps, each reachable and none blank.
-  a.equal(x.WZ_STEPS.length, 7);
-  for (let i = 0; i < 7; i++) { x.wz.step = i; a.ok(x.vWelcome().length > 400, `step ${i} draws`) }
+  a.equal(x.WZ_STEPS.length, 8);
+  a.ok(x.WZ_STEPS.includes("Plyos"), "plyos get a step of their own");
+  for (let i = 0; i < 8; i++) { x.wz.step = i; a.ok(x.vWelcome().length > 400, `step ${i} draws`) }
 });
 
 test("the books' own objections to a pairing are shown before you commit to it", () => {
@@ -4557,7 +4557,7 @@ test("the books' own objections to a pairing are shown before you commit to it",
   // Shown while choosing, and again on the summary, which is the last chance to notice.
   x.wz = x.wzNew(false); x.wz.stempl = "mass"; x.wz.cproto = "black";
   x.wz.step = 1; a.match(x.vWelcome(), /advises against Mass with Black/);
-  x.wz.step = 6; a.match(x.vWelcome(), /advises against Mass with Black/);
+  x.wz.step = 7; a.match(x.vWelcome(), /advises against Mass with Black/);
   // And in Setup, because the pairing can be changed there too.
   x.plan.stempl = "mass"; x.plan.cproto = "black"; x.view = "setup"; x.bump();
   a.match(x.vSetup(), /advises against Mass with Black/);
@@ -4646,7 +4646,7 @@ test("setup asks whether you want plyos at all, and which day", () => {
   a.equal(x.wz.plyo, true, "on by default, as the program has always had them");
   a.equal(x.wz.plyoDow, 3, "Thursday by default");
 
-  x.wz.step = 4;
+  x.wz.step = 5;
   const h = x.vWelcome();
   a.match(h, /data-act-change="wzplyo"/, "it is a question, not an assumption");
   for (let i = 0; i < 7; i++) a.match(h, new RegExp(`data-k="plyoDow" data-v="${i}"`), `day ${i} offered`);
@@ -4654,7 +4654,7 @@ test("setup asks whether you want plyos at all, and which day", () => {
   // Turned off, the day picker goes with it.
   x.wz.plyo = false;
   a.doesNotMatch(x.vWelcome(), /data-k="plyoDow"/, "no day to pick when there are no plyos");
-  x.wz.step = 6;
+  x.wz.step = 7;
   a.match(x.vWelcome(), /<dt>Plyos<\/dt><dd>none<\/dd>/, "and the summary says so");
 
   // And it is saved.
@@ -4774,36 +4774,66 @@ test("a second plyo session is warned about when it is too close to the first", 
   a.equal(x.plyoDow2(), 6);
 });
 
-test("the plyo tab shows the phase, the days, the jumps and the rules", () => {
+test("plyo settings live in Setup, with the rest of the program", () => {
   const x = app({ now: "2026-10-19" });
-  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.view = "plyo"; x.bump();
-  const wk = x.weekOf("2026-10-19"), ph = x.plyoPhase(wk);
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.view = "setup"; x.bump();
 
-  const h = x.vPlyo();
-  a.match(h, new RegExp(x.esc(ph.name)), "which phase you are in");
-  a.match(h, new RegExp("~" + ph.target + " a week"), "and what it asks for");
-  a.match(h, /data-act="plyodow" data-v="3"/, "the days are set here");
-  a.match(h, /data-act="plyoper" data-v="2"/, "as is one session or two");
-  a.match(h, /Every rep is maximal/, "the rules are on it");
-  a.match(h, /Broad jump/, "and the jump record");
-  for (const e of ph.ex) a.ok(h.includes(x.esc(e.label)), `${e.label} is listed`);
+  const h = x.vSetup();
+  a.match(h, /<h2>Plyometrics<\/h2>/, "a card of its own in Setup");
+  a.match(h, /data-pbind="plyoOn"/, "on or off");
+  a.match(h, /data-act="plyoper" data-v="2"/, "one session or two");
+  a.match(h, /data-act="plyodow" data-v="3"/, "and which day");
 
-  // Turned off, it says so and offers the way back rather than showing an empty phase.
-  x.plan.plyoOn = false; x.bump();
-  const off = x.vPlyo();
-  a.match(off, /data-act="plyoon"/);
-  a.doesNotMatch(off, /data-act="plyoper"/, "no schedule to set when there is none");
-  a.match(off, /Every rep is maximal/, "but the rules are still readable");
+  // The reference material is not duplicated here: the Guide has the phases, the
+  // exercises and the pull-back rules, and Status has the jump trend.
+  a.match(x.vGuide(), /Plyometrics/);
+  a.match(x.vGuide(), /Every rep maximal/);
+  a.doesNotMatch(h, /Every rep maximal/, "Setup is settings, not a second copy of the Guide");
 
-  // The tab is reachable by its nav button, not only by calling the function.
-  x.plan.plyoOn = true; x.view = "plyo"; x.bump();
-  x.render();
-  a.match(x.dom.made.main.innerHTML, /Plyometrics/, "render routes the plyo view");
-  a.match(x.dom.made.main.innerHTML, /data-act="plyoper"/);
-
-  // The second day picker only exists when there is a second session.
-  x.plan.plyoOn = true; x.plan.plyoPerWeek = 1; x.bump();
-  a.doesNotMatch(x.vPlyo(), /data-act="plyodow2"/);
+  // The second day only appears once there is a second session.
+  a.doesNotMatch(h, /data-act="plyodow2"/);
   x.plan.plyoPerWeek = 2; x.bump();
-  a.match(x.vPlyo(), /data-act="plyodow2"/);
+  a.match(x.vSetup(), /data-act="plyodow2"/);
+
+  // Off, and the schedule goes with it.
+  x.plan.plyoOn = false; x.bump();
+  const off = x.vSetup();
+  a.match(off, /data-pbind="plyoOn"/, "still togglable");
+  a.doesNotMatch(off, /data-act="plyoper"/, "nothing to schedule when there is none");
+});
+
+test("the wizard's plyo step carries both sessions through to the plan", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false);
+  a.equal(x.wz.plyoPer, 1, "one a week to start");
+  a.equal(x.wz.plyoDow2, 6, "with the second day three days on if it is turned on");
+
+  x.wz.step = 5;
+  a.doesNotMatch(x.vWelcome(), /data-k="plyoDow2"/, "no second day until there is a second session");
+  x.wz.plyoPer = 2;
+  const h = x.vWelcome();
+  for (let i = 0; i < 7; i++) a.match(h, new RegExp(`data-k="plyoDow2" data-v="${i}"`), `day ${i}`);
+
+  // It warns off its own unsaved choices, not off whatever the plan happens to hold.
+  x.plan.plyoPerWeek = 1; x.plan.plyoDow2 = null; x.bump();
+  x.wz.plyoDow = 3; x.wz.plyoDow2 = 4;
+  a.match(x.vWelcome(), /back to back/, "the wizard asks about what you just picked");
+  x.wz.plyoDow2 = 6;
+  a.doesNotMatch(x.vWelcome(), /back to back/);
+
+  // Saved, both of them.
+  x.wz.mode = "maxes"; x.wzFinish();
+  a.equal(x.plan.plyoOn, true);
+  a.equal(x.plan.plyoPerWeek, 2);
+  a.equal(x.plan.plyoDow, 3);
+  a.equal(x.plan.plyoDow2, 6);
+  const cyc = x.weeks().find((k) => k.kind === "cycle");
+  a.deepEqual(x.plyoDows(cyc.monday), [3, 6], "and the week runs both");
+
+  // Turned off, neither day nor count is written over what was there.
+  const y = app({ now: "2026-10-19" });
+  y.plan.plyoPerWeek = 2; y.plan.plyoDow = 1; y.bump();
+  y.wz = y.wzNew(false); y.wz.plyo = false; y.wz.mode = "maxes"; y.wzFinish();
+  a.equal(y.plan.plyoOn, false);
+  a.equal(y.plan.plyoDow, 1, "your old day is still there if you turn them back on");
 });

@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.95',date:'2026-10-13',title:'Plyos go where the rest of the settings are',items:[
+    'Yesterday\u2019s separate Plyos tab is gone. It did not belong next to Today and Plan \u2014 these are settings, and settings live in Setup like every other part of the program.',
+    'Welcome setup now has a <b>Plyos</b> step of its own rather than tucking the question into Conditioning: on or off, one session or two, and which day or days.',
+    'Setup \u2192 Plyometrics holds the same four choices afterwards. The phases, the exercises and the pull-back rules stay in the Guide with the rest of the reference, and your broad jump stays on Status with the other trends \u2014 no second copy of any of it.']},
   {v:'1.94',date:'2026-10-13',title:'Plyos get a tab, and can run twice a week',items:[
     'Plyometrics have their own tab now. Which phase you are in and what it asks for, which days they fall on, your broad jump over time, this phase\u2019s exercises with their setup and cues, and the three rules. Logging still happens on the day\u2019s card \u2014 this is the screen for understanding it rather than filling it in.',
     '<b>Two shorter sessions a week</b> is now an option. The week\u2019s contacts are split across the two rather than doubled, so it is the same work with fresher reps in it \u2014 fatigue builds inside a session long before it builds across a week. Two a week is the usual recommendation in the wider plyometrics literature, and the default second day is three days after the first, which is the 48-to-72 hours those sources ask for.',

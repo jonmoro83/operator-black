@@ -127,6 +127,23 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Plyo settings move to Setup, and get a wizard step (2026-10-13)**
+- Correcting 1.94. "Plyos should be their own tab" meant a step in the setup wizard, not
+  a seventh entry in the main nav; I built the wrong thing and shipped it. The nav tab
+  and `vPlyo` are gone.
+- The wizard has a **Plyos** step (eight now), lifted out of Conditioning where 1.93 had
+  tucked it: on or off, one session or two, and the day or days.
+- **Setup → Plyometrics** carries the same four choices. Nothing else moved there: the
+  phases, exercises and pull-back rules stay in the Guide, and the broad-jump trend
+  stays on Status. The tab had duplicated all three, which is the clearest sign it
+  should not have existed.
+- `plyoWarnings` takes an optional second day, so the wizard can warn about choices it
+  has not saved yet rather than reading the live plan.
+- 255 → 256 tests. 5 mutants, all caught.
+- **Worth keeping:** a feature that duplicates three screens it does not own is usually
+  the wrong shape, and that was visible while building it. Ask what the thing *is*
+  before deciding where it goes.
+
 **A plyometrics tab, and two sessions a week (2026-10-13)**
 - **Its own tab**, between History and Setup: phase and target, the days, the broad-jump
   trend, this phase's exercises with their library entries, and the three rules. Logging

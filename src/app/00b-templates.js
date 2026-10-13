@@ -306,7 +306,7 @@ function weekRolesFor(t,c,wk){
    alternates, every conditioning day does, so it would fire on the default Thursday and
    on most of the alternatives — a warning that is always true tells you nothing. The
    pull-back rule it would have come from is on the plyo card, where it belongs. */
-function plyoWarnings(t,c,d,cardio){
+function plyoWarnings(t,c,d,cardio,d2){
   // A day outside the week simply has no role, so nothing below matches it.
   const out=[], roles=weekRolesFor(t,c), here=roles[d];
   if(here==='S'||here==='SC') out.push({k:'lift',text:`${DAYN[d]} already lifts. Plyos go first because they want you fresh, so the barbell work is what takes the hit \u2014 which is backwards if strength is the point of the block.`});
@@ -314,10 +314,11 @@ function plyoWarnings(t,c,d,cardio){
   // Two sessions a week is the common recommendation and is often called the optimal
   // number for a moderately trained athlete, but the same sources ask for 48 to 72 hours
   // between them. Two days apart on the loop is the least that buys.
-  if(plyoPerWeek()===2){
-    const g=plyoGap(d,plyoDow2());
+  const second=d2!=null?+d2:(plyoPerWeek()===2?plyoDow2():null);
+  if(second!=null&&second>=0&&second<=6){
+    const g=plyoGap(d,second);
     if(g===0) out.push({k:'same',text:'Both sessions are on the same day, which makes it one session. Pick a different day for the second.'});
-    else if(g<2) out.push({k:'gap',text:`${DAYN[d]} and ${DAYN[plyoDow2()]} are back to back. Plyometric work is usually given 48 to 72 hours to recover from, so three or four days apart suits it better \u2014 the app's own suggestion is ${DAYN[(d+3)%7]}.`});
+    else if(g<2) out.push({k:'gap',text:`${DAYN[d]} and ${DAYN[second]} are back to back. Plyometric work is usually given 48 to 72 hours to recover from, so three or four days apart suits it better \u2014 the app's own suggestion is ${DAYN[(d+3)%7]}.`});
   }
   if((here==='C'||here==='SC')&&['run','hill','ruck'].includes(cardio)) out.push({k:'impact',text:`Your conditioning is ${(MOD[cardio]||{}).name||cardio}, which is landing work of its own. On a day that also has plyos, keep the volume at the low end or ride instead.`});
   return out;

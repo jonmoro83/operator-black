@@ -289,19 +289,23 @@ function halvesCard(){
   h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
-// Plyos: whether they are in the plan at all, and which day they usually fall on.
-// Moving them for a single week is the Move… sheet's job, not this one.
+// Plyos: everything about them that is a setting, in one card like every other part of
+// the program. Moving a session for a single week is the Move… sheet's job, not this
+// one, and the phases and exercises are in the Guide where the rest of the reference is.
 function plyoCardSetup(){
-  const on=plan.plyoOn!==false, d=(+plan.plyoDow>=0&&+plan.plyoDow<=6)?+plan.plyoDow:3;
-  let h=`<div class="card"><div class="lift-h"><h2>Plyometrics</h2><span class="chip ${on?'light':''}">${on?esc(DAYN[d]):'Off'}</span></div>
-  <p class="small muted" style="margin:0">Jumps and bounds, 15 to 20 minutes of real work once a week, in three-week phases. They are not part of a session: they go first on whatever day they land on, with ten minutes before hard conditioning.</p>
-  <label class="check"><input type="checkbox" id="p-plyoon" data-pbind="plyoOn" ${on?'checked':''}> Schedule a plyometrics day</label>`;
+  const on=plan.plyoOn!==false, d=plyoDowDefault(), two=plyoPerWeek()===2;
+  let h=`<div class="card"><div class="lift-h"><h2>Plyometrics</h2><span class="chip ${on?'light':''}">${on?(two?esc(DAYN[d])+' and '+esc(DAYN[plyoDow2()]):esc(DAYN[d])):'Off'}</span></div>
+  <p class="small muted" style="margin:0">Jumps and bounds, in three-week phases. They are not part of a session: they go first on whatever day they land on, with ten minutes before hard conditioning.</p>
+  <label class="check"><input type="checkbox" id="p-plyoon" data-pbind="plyoOn" ${on?'checked':''}> Schedule plyometrics</label>`;
   if(on){
-    h+=`<label class="f">Usual day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d===i}">${nm}</button>`).join('')}</div></label>
-    <div class="small muted">To shift them for one week only, use <b>Move…</b> on any day of that week.</div>`;
+    h+=`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${plyoPerWeek()===v?' on':''}" data-act="plyoper" data-v="${v}" aria-pressed="${plyoPerWeek()===v}">${l}</button>`).join('')}</div></label>
+    <div class="small muted">${two?'The week\u2019s contacts are split across the two rather than doubled, so this is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between them.':'One session carrying the whole phase target.'} How much volume a week is the app\u2019s own call \u2014 published figures disagree enough that keeping the week\u2019s total fixed is the honest reading.</div>
+    <label class="f">${two?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d===i}">${nm}</button>`).join('')}</div></label>`;
+    if(two) h+=`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${plyoDow2()===i?' primary':''}" data-act="plyodow2" data-v="${i}" aria-pressed="${plyoDow2()===i}">${nm}</button>`).join('')}</div></label>`;
     const ws=plyoWarnings(stemplKey(),cprotoKey(),d,(plan.cardio||{}).def);
     if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
-  } else h+=`<div class="small muted">Nothing is lost by turning them off \u2014 jump results you have already logged stay, and the day goes back to whatever else it had.</div>`;
+    h+=`<div class="small muted">To shift a session for one week only, use <b>Move\u2026</b> on any day of that week. The phases, the exercises and the pull-back rules are in the Guide.</div>`;
+  } else h+=`<div class="small muted">Nothing is lost by leaving them off \u2014 jumps you have already logged stay, and the day goes back to whatever else it had.</div>`;
   return h+`</div>`;
 }
 // Which program you are running. Two choices, composed into a week — see 00b-templates.js.
