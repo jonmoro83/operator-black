@@ -385,6 +385,8 @@ const DEF={
   se:{cluster:'bw',custom:[],rest:60},
   bbVer:{},
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
+  // A day's session moved onto another day in the same week. See 04-schedule.js.
+  stack:{},
   cycleMaxes:{}, inserts:{}, skips:{}
 };
 

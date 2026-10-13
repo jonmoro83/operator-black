@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.97',date:'2026-10-13',title:'Two sessions on one day, when you need to',items:[
+    'You can now move a day\u2019s session onto another day in the same week and do both. Open <b>Move\u2026</b> on the day you lost, and under <b>Two in one day</b> pick where it should go. The day it came from reads as moved rather than missed, and the day it lands on runs the lifting first with the conditioning after.',
+    'Swapping days was all the app offered before, which is no help when you have lost a day to illness and want to catch it up rather than shuffle the rest of the week around it.',
+    'Tactical Barbell II allows this outright \u2014 it says you can do conditioning on the same days as your strength work, and asks only that the strength work comes first. That is the order the merged day is drawn in.',
+    'It will not stack two lifting days, which is a different program rather than a rearranged week, and it says so rather than hiding the option. The note on the picker is honest about the rest: worth it to rescue a session, not worth planning every week.']},
   {v:'1.96',date:'2026-10-13',title:'Plyo days actually look chosen',items:[
     'Tapping a day in the setup wizard did nothing visible. The button sent the day as text and the screen compared it against a number, so no day ever matched and none of them lit up. Fixed, and fixed in a way that cannot happen again to the next field that holds a number.',
     'The two days are one row now instead of two separate pickers, and <b>both chosen days stay lit</b>, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.',

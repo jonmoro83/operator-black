@@ -77,6 +77,30 @@ function bestOrder(mon,fixDay,fixSlot){
   })(0,prevK,0);
   return best?{ord:best,moved:bestCost}:null;
 }
+/* Doing this day's session on another day, on top of what is already there.
+
+   Swapping keeps one session per day, which is no use when you have lost a day and want
+   to catch it up rather than shuffle the week. Tactical Barbell II allows the stack and
+   asks only that the lifting comes first, which is how the merged day is drawn. */
+function stackPicker(date){
+  const mon=mondayOf(date), away=stackTo(date), came=stackFrom(date);
+  let h=`<div class="divider">Two in one day</div>`;
+  if(away) return h+`<div class="small muted">This session is being done on <b>${esc(DAYN[dow(away)])}</b>, after whatever that day already had.</div>
+    <div><button class="btn sm ghost" data-act="unstack" data-from="${esc(date)}">Put it back on ${esc(DAYN[dow(date)])}</button></div>`;
+  if(came) return h+`<div class="small muted"><b>${esc(DAYN[dow(came)])}</b>’s session has been moved onto this day. Lift first, then the conditioning.</div>
+    <div><button class="btn sm ghost" data-act="unstack" data-from="${esc(came)}">Put it back on ${esc(DAYN[dow(came)])}</button></div>`;
+  const opts=[];
+  for(let i=0;i<7;i++){
+    const to=addDays(mon,i); if(to===date) continue;
+    const why=stackWhyNot(date,to);
+    opts.push({to,i,why});
+  }
+  if(!opts.some(o=>!o.why)) return '';
+  h+=`<p class="small muted" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
+  <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||'')}">${esc(DAYN[o.i])}</button>`).join('')}</div>
+  <div class="small muted">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
+  return h;
+}
 let moveOpen=false;
 function moveCard(){
   const mon=mondayOf(sel), ord=dayOrder(mon), me=dow(sel), mine=ord[me];
@@ -99,6 +123,7 @@ function moveCard(){
     h+=`</div>`;
   }
   if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
+  h+=stackPicker(sel);
   h+=plyoMovePicker(mon);
   return h+`</div>`;
 }

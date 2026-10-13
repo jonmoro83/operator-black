@@ -290,6 +290,8 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
+  if(a==='stack'){ if(setStack(b.dataset.from,b.dataset.to)){moveOpen=false;render()} return }
+  if(a==='unstack'){ clearStack(b.dataset.from); return }
   if(a==='plyodow'){
     const v=+b.dataset.v; if(!(v>=0&&v<=6)) return;
     const per=plyoPerWeek(), next=plyoPick(per===2?[plyoDowDefault(),plyoDow2()]:[plyoDowDefault()],per,v);

@@ -256,9 +256,84 @@ function setPlyoDay(monday,d){
   });
   return true;
 }
+/* ---------------- doing two sessions on one day ----------------
+The week arranges one session per day and the Move sheet swaps them around, which cannot
+express "I missed Thursday, so I will do it after Friday's lift". Tactical Barbell II is
+explicit that you may: "You can also do your conditioning sessions on the same days as
+your strength work. If you're doing them during the same session, do your strength work
+first, and conditioning afterward."
+
+So: `plan.stack[from] = to` moves one day's session onto another in the same week. The
+day it came from reads as moved rather than missed, and the day it lands on runs the
+lifting first with the conditioning after it — the order the book asks for, and the one
+the ride-along already draws for Zulu + Black.
+
+Same week only. Crossing a Monday would mean reaching into a week that may be frozen,
+and the thing this is for is rescuing a session a day or two late. */
+function stackMap(){ const m=plan.stack; return m&&typeof m==='object'?m:{} }
+function stackTo(date){ const v=stackMap()[date]; return typeof v==='string'?v:null }
+function stackFrom(date){ for(const [f,t] of Object.entries(stackMap())) if(t===date&&f!==date) return f; return null }
+// What a day holds before any stacking, which is what gets moved.
+function bareDay(date){ return dayPlanSlot(date,slotOf(date)) }
+function stackKindOf(dp){
+  const k=sessKind(dp);
+  if(/^strength/.test(k)) return 'lift';
+  if(k==='hic'||k==='easy'||dp.t==='se') return 'cond';
+  return 'rest';
+}
+/* Whether these two can share a day, and why not when they cannot. Returns null when
+   they can. A lift and a conditioning session is the pairing the book describes; moving
+   anything onto an empty day is just rescheduling; two lifting days in one is the one
+   combination that is a different programme rather than a rearranged week. */
+function stackWhyNot(from,to){
+  if(!from||!to||from===to) return 'A day cannot be moved onto itself.';
+  if(mondayOf(from)!==mondayOf(to)) return 'Both days have to be in the same week.';
+  if(idxOf(from)<0||idxOf(to)<0) return 'That week is not part of the program.';
+  if(stackTo(to)||stackFrom(to)) return `${DAYN[dow(to)]} already has a session moved onto it.`;
+  if(stackFrom(from)) return `${DAYN[dow(from)]} already has another session on it.`;
+  const a=stackKindOf(bareDay(from)), b=stackKindOf(bareDay(to));
+  if(a==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
+  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a different program, not a rearranged week. Swap the days instead.';
+  return null;
+}
+function canStack(from,to){ return stackWhyNot(from,to)===null }
+function setStack(from,to){
+  if(!canStack(from,to)) return false;
+  mutatePlan(p=>{ p.stack=Object.assign({},stackMap(),{[from]:to}) });
+  return true;
+}
+function clearStack(from){
+  if(!stackMap()[from]) return false;
+  mutatePlan(p=>{ const m=Object.assign({},stackMap()); delete m[from]; p.stack=m });
+  return true;
+}
+// The two merged, strength first. Whichever of them lifts is the base and the
+// conditioning rides along on it, which is both the book's order and the shape the
+// day view already knows how to draw.
+function stackMerge(base,moved,from){
+  const bk=stackKindOf(base), mk=stackKindOf(moved);
+  const lift=bk==='lift'?base:mk==='lift'?moved:null;
+  const cond=bk==='cond'?base:mk==='cond'?moved:null;
+  const tag=` + ${DAYN[dow(from)]}’s`;
+  if(lift&&cond){
+    const o=Object.assign({},lift,{stacked:from,short:(lift.short||'Lift')+tag});
+    if(cond.t==='se'){ o.ride='se'; o.circuits=cond.circuits; o.reps=cond.reps }
+    else { o.ride='hic'; o.cardio=true; o.fmt=cond.fmt; if(cond.note) o.condNote=cond.note }
+    return o;
+  }
+  // One of them was a rest day, so the other simply happens here.
+  const only=bk==='rest'?moved:base;
+  return Object.assign({},only,{stacked:from,short:(only.short||'Session')+(bk==='rest'?'':tag)});
+}
+
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
-  const dp=dayPlanSlot(date,slotOf(date));
+  const away=stackTo(date);
+  if(away) return {t:'off',movedTo:away,short:'Moved',
+    note:`This session is being done on ${DAYN[dow(away)]} instead.`};
+  let dp=dayPlanSlot(date,slotOf(date));
+  const came=stackFrom(date);
+  if(came) dp=stackMerge(dp,bareDay(came),came);
   const pn=weekHasPlyo(wk)?plyoDows(mondayOf(date)).indexOf(dow(date)):-1;
   if(pn>=0){
     // A deload halves the contacts, as the week it sits in does to everything else.

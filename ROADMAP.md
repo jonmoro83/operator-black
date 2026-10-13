@@ -127,6 +127,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Stacking two sessions on one day (2026-10-13)**
+- Reported from a real week: ill on a conditioning day, wanted to do it after the next
+  day's lift. The app could only *swap* days, so the week had one session per day and no
+  way to say "both, here".
+- **The guardrail was wrong, and the book says so.** TB II: "You can also do your
+  conditioning sessions on the same days as your strength work. If you're doing them
+  during the same session, do your strength work first, and conditioning afterward."
+  Its own Black + Zulu sample week does exactly this. The caution the book attaches is
+  about total weekly volume, not about combining days.
+- `plan.stack[from]=to`, same week only. The source day reads as moved rather than
+  missed; the target merges via the ride-along the Zulu work already built, so the
+  lifting is always the base and the conditioning rides on it — whichever of the two was
+  the one moved. That order is the book's.
+- Refused: two lifting days in one (a different program), moving an empty day, moving
+  onto a day that has already taken one, and crossing a Monday. Refused options stay
+  visible and disabled with the reason in the title, rather than vanishing.
+- 258 → 261 tests. 12 mutants, all caught. The survivor was the mirror case — a lift
+  moved onto a conditioning day — which the first set of tests never tried.
+
 **Plyo days did not look chosen (2026-10-13)**
 - Reported: tapping a day in the wizard highlighted nothing. `wzset` coerced to a number
   for `deload` and `test` and nothing else — an allowlist — so `plyoDow` was stored as
