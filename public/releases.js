@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.94',date:'2026-10-13',title:'Plyos get a tab, and can run twice a week',items:[
+    'Plyometrics have their own tab now. Which phase you are in and what it asks for, which days they fall on, your broad jump over time, this phase\u2019s exercises with their setup and cues, and the three rules. Logging still happens on the day\u2019s card \u2014 this is the screen for understanding it rather than filling it in.',
+    '<b>Two shorter sessions a week</b> is now an option. The week\u2019s contacts are split across the two rather than doubled, so it is the same work with fresher reps in it \u2014 fatigue builds inside a session long before it builds across a week. Two a week is the usual recommendation in the wider plyometrics literature, and the default second day is three days after the first, which is the 48-to-72 hours those sources ask for.',
+    'It warns if the two days end up back to back, counting the week as a loop \u2014 Monday and Sunday are next to each other.',
+    'On volume the app is making its own call and says so: the published per-session and per-week numbers vary enough between sources that keeping the week\u2019s total fixed is the honest reading.']},
   {v:'1.93',date:'2026-10-13',title:'Plyos are a question now, not an assumption',items:[
     'Welcome setup asks whether you want a plyometrics day at all, and which day to put it on. Until now the app simply gave you one on Thursdays and the only way to move it was a week at a time.',
     'You can also turn them off entirely, which was not possible before. Nothing is lost by doing it \u2014 jumps you have already logged stay, and the day goes back to whatever else it had. Setup \u2192 Plyometrics has the same two choices afterwards.',

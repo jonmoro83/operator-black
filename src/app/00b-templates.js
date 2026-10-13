@@ -311,6 +311,14 @@ function plyoWarnings(t,c,d,cardio){
   const out=[], roles=weekRolesFor(t,c), here=roles[d];
   if(here==='S'||here==='SC') out.push({k:'lift',text:`${DAYN[d]} already lifts. Plyos go first because they want you fresh, so the barbell work is what takes the hit \u2014 which is backwards if strength is the point of the block.`});
   if(here==='R'&&roles.filter(v=>v==='R').length===1) out.push({k:'rest',text:`${DAYN[d]} is the only day this week has nothing on it. Plyos are short, but it stops being a rest day.`});
+  // Two sessions a week is the common recommendation and is often called the optimal
+  // number for a moderately trained athlete, but the same sources ask for 48 to 72 hours
+  // between them. Two days apart on the loop is the least that buys.
+  if(plyoPerWeek()===2){
+    const g=plyoGap(d,plyoDow2());
+    if(g===0) out.push({k:'same',text:'Both sessions are on the same day, which makes it one session. Pick a different day for the second.'});
+    else if(g<2) out.push({k:'gap',text:`${DAYN[d]} and ${DAYN[plyoDow2()]} are back to back. Plyometric work is usually given 48 to 72 hours to recover from, so three or four days apart suits it better \u2014 the app's own suggestion is ${DAYN[(d+3)%7]}.`});
+  }
   if((here==='C'||here==='SC')&&['run','hill','ruck'].includes(cardio)) out.push({k:'impact',text:`Your conditioning is ${(MOD[cardio]||{}).name||cardio}, which is landing work of its own. On a day that also has plyos, keep the volume at the low end or ride instead.`});
   return out;
 }

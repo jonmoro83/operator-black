@@ -286,6 +286,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
   if(a==='plyodow'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow=v}); return}
+  if(a==='plyodow2'){const v=+b.dataset.v; if(v>=0&&v<=6) mutatePlan(p=>{p.plyoDow2=v}); return}
+  if(a==='plyoper'){const v=+b.dataset.v===2?2:1; mutatePlan(p=>{p.plyoPerWeek=v}); return}
+  if(a==='plyoon'){mutatePlan(p=>{p.plyoOn=true}); return}
   if(a==='half'){setHalf(b.dataset.k,b.dataset.v);return}
   if(a==='upset'){
     const i=+b.dataset.i,j=+b.dataset.j, L=(lg(sel).plyo||{}).up||{}, arr=[...((L[i])||[])];

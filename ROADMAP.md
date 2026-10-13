@@ -127,6 +127,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A plyometrics tab, and two sessions a week (2026-10-13)**
+- **Its own tab**, between History and Setup: phase and target, the days, the broad-jump
+  trend, this phase's exercises with their library entries, and the three rules. Logging
+  stays on the day card — the tab is for understanding it, not filling it in.
+- **`plyoPerWeek` 1 or 2.** Two **splits** the phase's contacts rather than doubling
+  them: `plyoShare()` halves both the target and `plyoSets`. Second day defaults to three
+  days on, and `plyoGap` measures across a seven-day loop so Monday and Sunday count as
+  adjacent.
+- Permission given to look beyond the plyo PDF for this one, so it was: two sessions a
+  week is the common recommendation and often called optimal for a moderately trained
+  athlete, with 48–72 hours between. The volume numbers in those sources conflict badly
+  — per-session and per-week figures are quoted interchangeably — so keeping the week's
+  total fixed is the app's own call, and the tab says so rather than implying a source.
+- **Bug found by reading the output rather than the test:** `+null` is `0`, so an unset
+  `plyoDow2` silently made Monday the default second day instead of three days on.
+  `plyoDow2()` now checks for absence before coercing.
+- 252 → 255 tests. 13 mutants, all caught. Three survived first, all of them tests not
+  reaching far enough: the gap was never tested across the week boundary, the same-day
+  case never checked that the day is listed once, and the tab was only ever called
+  directly rather than through the view router.
+
 **Plyos are a setup question, not an assumption (2026-10-13)**
 - `plan.plyoOn` — they could not be turned off at all before, only moved a week at a
   time. `weekHasPlyo` honours it, so the whole plan loses them cleanly.

@@ -354,7 +354,7 @@ function hicCard(dp,note){
 }
 const openPx=new Set();
 let popKey=null;
-function plyoSets(ex,cut){return cut?Math.ceil(ex.s/2):ex.s}
+function plyoSets(ex,cut){return Math.max(1,Math.round(ex.s*plyoShare()/(cut?2:1)))}
 function plyoContactsDone(ph,L,cut){let c=0;ph.ex.forEach((e,i)=>{const t=((L.sets||[])[i]||[]).filter(Boolean).length;c+=t*e.c/e.s});return Math.round(c)}
 function plyoPullback(date){
   const c=ci(date), out=[];
@@ -399,7 +399,7 @@ function plyoUpperCard(wk,cut,pullback){
 }
 function plyoCard(wk,dp){
   const ph=plyoPhase(wk), L=lg(sel).plyo||{}, cut=!!(dp.plyoCut||L.cut);
-  const done=plyoContactsDone(ph,L,cut), target=cut?Math.round(ph.target/2):ph.target;
+  const done=plyoContactsDone(ph,L,cut), target=Math.round(ph.target*plyoShare()/(cut?2:1));
   // Plyos move independently of the week's sessions, so what comes after them varies.
   const after=dp.t==='hic'?' before the conditioning':dp.t==='lift'||dp.t==='rm5'||dp.t==='test'?' before you lift':'';
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">Plyos · ${ph.name}</span><span class="rx">~${target} contacts</span></div><div class="small muted">${esc(ph.desc)} 15–20 min of actual work${after}.</div>`;

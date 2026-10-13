@@ -196,6 +196,34 @@ function plyoDow(monday){
   return (v>=0&&v<=6)?v:3;
 }
 function plyoMoved(monday){ return (plan.plyoMove||{})[monday]!=null }
+/* One session a week or two.
+
+   The plyo program this app follows says once a week, so two is the app's own addition
+   and labelled as such wherever it appears. The case for it: the governing rule of the
+   whole thing is that every rep is near-maximal, and fatigue builds inside a session
+   long before it builds across a week. Half the contacts twice over is the same weekly
+   work with fresher reps in it.
+
+   The case against is tendon load, which is what the pull-back list is really about, and
+   two landing days a week is two days of it. So the split halves the volume rather than
+   doubling it — the week's contact target is unchanged and each session carries half. */
+function plyoPerWeek(){ return +plan.plyoPerWeek===2?2:1 }
+function plyoShare(){ return plyoPerWeek()===2?0.5:1 }
+function plyoDow2(){
+  const raw=plan.plyoDow2;
+  if(raw==null||raw==='') return (plyoDowDefault()+3)%7;   // 72 hours on from the first
+  const v=+raw; return (v>=0&&v<=6)?v:(plyoDowDefault()+3)%7;
+}
+// How far apart two days are on a seven-day loop, which is what decides whether the
+// second session has had time to recover from the first.
+function plyoGap(a,b){ const d=Math.abs(a-b); return Math.min(d,7-d) }
+function plyoDowDefault(){ const v=+plan.plyoDow; return (v>=0&&v<=6)?v:3 }
+// Every weekday this week has plyos on, first session first.
+function plyoDows(monday){
+  const a=[plyoDow(monday)];
+  if(plyoPerWeek()===2&&plyoDow2()!==a[0]) a.push(plyoDow2());
+  return a;
+}
 // Plyos are not part of a session, so they move on their own. Picking a day for one week
 // overrides the usual day for that week only; picking the usual day again clears it.
 // Weeks that have gone by are left alone, and so are days already past in this week.
@@ -219,13 +247,15 @@ function setPlyoDay(monday,d){
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
   const dp=dayPlanSlot(date,slotOf(date));
-  if(weekHasPlyo(wk)&&dow(date)===plyoDow(mondayOf(date))){
+  const pn=weekHasPlyo(wk)?plyoDows(mondayOf(date)).indexOf(dow(date)):-1;
+  if(pn>=0){
     // A deload halves the contacts, as the week it sits in does to everything else.
     // The label carries them too, so the week strip, the calendar feed and the CSV all
     // say which day has plyos without anyone having to open it.
     const bare=['off','pre'].includes(dp.t);
-    return Object.assign({},dp,{plyo:true,plyoCut:dp.plyoCut||wk.kind==='deload',
-      short:bare?'Plyo':'Plyo+'+(dp.short||'Session')});
+    const two=plyoDows(mondayOf(date)).length>1, nm=two?'Plyo '+(pn+1):'Plyo';
+    return Object.assign({},dp,{plyo:true,plyoN:pn+1,plyoCut:dp.plyoCut||wk.kind==='deload',
+      short:bare?nm:nm+'+'+(dp.short||'Session')});
   }
   return dp;
 }

@@ -362,7 +362,8 @@ const DEF={
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
   // plyoOn false drops them from the plan entirely; plyoDow is the usual weekday.
-  plyoOn:true, plyoDow:3, plyoMove:{},
+  // plyoPerWeek 2 splits the phase's contacts across two days rather than doubling them.
+  plyoOn:true, plyoDow:3, plyoPerWeek:1, plyoDow2:null, plyoMove:{},
   // Which program this is. Two independent choices, composed into a week by
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',

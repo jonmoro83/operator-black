@@ -2311,7 +2311,8 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   a.match(nav, /data-view="admin"[^>]*hidden/, "it ships hidden, not absent");
   a.ok(!/data-act=/.test(nav), "the header navigates by view, never by action");
   const tabs = [...nav.matchAll(/data-view="([a-z]+)"/g)].map((m) => m[1]);
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "guide", "admin"], "admin is last");
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "plyo", "setup", "guide", "admin"],
+    "admin is last, and plyos sit with the training tabs rather than the settings ones");
 
   // Every tab the nav offers has a view behind it.
   x.view = "admin"; x.amAdmin = true; x.loaded = true;
@@ -4704,4 +4705,105 @@ test("plyo placement warns about what is already on the day, and only then", () 
   a.match(x.vSetup(), /data-pbind="plyoOn"/);
   x.plan.plyoDow = 0; x.bump();
   a.match(x.vSetup(), /already lifts/, "and it says so when the day has lifting on it");
+});
+
+test("plyos can run twice a week, splitting the week's contacts rather than doubling them", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-10-19", wk = x.weekOf(mon);
+  const ph = x.plyoPhase(wk);
+
+  a.equal(x.plyoPerWeek(), 1, "one a week unless asked");
+  a.deepEqual(x.plyoDows(mon), [3], "Thursday");
+  const oneSets = ph.ex.map((e) => x.plyoSets(e, false));
+
+  x.plan.plyoPerWeek = 2; x.bump();
+  a.deepEqual(x.plyoDows(mon), [3, 6], "and the second falls 72 hours later by default");
+  a.equal(x.plyoGap(3, 6), 3);
+
+  // The week's work is the same, split in two. Not two full sessions.
+  const twoSets = ph.ex.map((e) => x.plyoSets(e, false));
+  for (let i = 0; i < oneSets.length; i++) {
+    a.ok(twoSets[i] <= Math.ceil(oneSets[i] / 2) && twoSets[i] >= 1,
+      `${ph.ex[i].label}: ${twoSets[i]} is about half of ${oneSets[i]}, never more`);
+  }
+
+  // Both days carry plyos, numbered, and say which session they are.
+  const days = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlan(x.addDays(mon, d))).filter((p) => p.plyo);
+  a.equal(days.length, 2);
+  a.deepEqual(days.map((p) => p.plyoN), [1, 2]);
+  a.ok(days.every((p) => /Plyo [12]/.test(p.short)), "and are labelled apart");
+
+  // Back to one and the labels lose the number again.
+  x.plan.plyoPerWeek = 1; x.bump();
+  a.ok(/Plyo(\+|$)/.test(x.dayPlan(x.addDays(mon, 3)).short));
+});
+
+test("a second plyo session is warned about when it is too close to the first", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.plyoPerWeek = 2; x.plan.plyoDow = 3; x.bump();
+  const k = (d2) => { x.plan.plyoDow2 = d2; x.bump();
+    return x.plyoWarnings("operator", "black", 3, "echo").map((w) => w.k) };
+
+  a.deepEqual(k(6), [], "three days apart is fine");
+  a.deepEqual(k(1), [], "and so is the other way round");
+  a.deepEqual(k(4), ["gap"], "back to back is not");
+  a.deepEqual(k(2), ["gap"], "in either direction");
+  a.deepEqual(k(3), ["same"], "and the same day is not two sessions at all");
+
+  // With one session a week there is nothing to space out.
+  x.plan.plyoPerWeek = 1; x.plan.plyoDow2 = 4; x.bump();
+  a.deepEqual(x.plyoWarnings("operator", "black", 3, "echo").map((w) => w.k), []);
+
+  // The week is a loop: Monday and Sunday are next to each other.
+  x.plan.plyoPerWeek = 2; x.plan.plyoDow = 0; x.plan.plyoDow2 = 6; x.bump();
+  a.equal(x.plyoGap(0, 6), 1, "one day apart, across the week boundary");
+  a.deepEqual(x.plyoWarnings("operator", "black", 0, "echo").map((w) => w.k).filter((v) => v === "gap"),
+    ["gap"], "and it is flagged as back to back");
+
+  // Both sessions on one day is one session, so only one day carries them.
+  x.plan.plyoDow = 3; x.plan.plyoDow2 = 3; x.bump();
+  a.deepEqual(x.plyoDows("2026-10-19"), [3], "listed once, not twice");
+  a.equal([0, 1, 2, 3, 4, 5, 6].filter((d) => x.dayPlan(x.addDays("2026-10-19", d)).plyo).length, 1);
+
+  x.plan.plyoDow = 3;
+  // plyoDow2 unset must not read as Monday: `+null` is 0, which it once did.
+  x.plan.plyoPerWeek = 2; x.plan.plyoDow2 = null; x.bump();
+  a.equal(x.plyoDow2(), 6, "unset means three days on from the first, not day zero");
+  x.plan.plyoDow2 = ""; x.bump();
+  a.equal(x.plyoDow2(), 6);
+});
+
+test("the plyo tab shows the phase, the days, the jumps and the rules", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.view = "plyo"; x.bump();
+  const wk = x.weekOf("2026-10-19"), ph = x.plyoPhase(wk);
+
+  const h = x.vPlyo();
+  a.match(h, new RegExp(x.esc(ph.name)), "which phase you are in");
+  a.match(h, new RegExp("~" + ph.target + " a week"), "and what it asks for");
+  a.match(h, /data-act="plyodow" data-v="3"/, "the days are set here");
+  a.match(h, /data-act="plyoper" data-v="2"/, "as is one session or two");
+  a.match(h, /Every rep is maximal/, "the rules are on it");
+  a.match(h, /Broad jump/, "and the jump record");
+  for (const e of ph.ex) a.ok(h.includes(x.esc(e.label)), `${e.label} is listed`);
+
+  // Turned off, it says so and offers the way back rather than showing an empty phase.
+  x.plan.plyoOn = false; x.bump();
+  const off = x.vPlyo();
+  a.match(off, /data-act="plyoon"/);
+  a.doesNotMatch(off, /data-act="plyoper"/, "no schedule to set when there is none");
+  a.match(off, /Every rep is maximal/, "but the rules are still readable");
+
+  // The tab is reachable by its nav button, not only by calling the function.
+  x.plan.plyoOn = true; x.view = "plyo"; x.bump();
+  x.render();
+  a.match(x.dom.made.main.innerHTML, /Plyometrics/, "render routes the plyo view");
+  a.match(x.dom.made.main.innerHTML, /data-act="plyoper"/);
+
+  // The second day picker only exists when there is a second session.
+  x.plan.plyoOn = true; x.plan.plyoPerWeek = 1; x.bump();
+  a.doesNotMatch(x.vPlyo(), /data-act="plyodow2"/);
+  x.plan.plyoPerWeek = 2; x.bump();
+  a.match(x.vPlyo(), /data-act="plyodow2"/);
 });

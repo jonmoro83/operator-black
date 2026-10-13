@@ -20,7 +20,7 @@ function renderMain(){
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
   if(wz&&!viewing){m.innerHTML=vWelcome();if(aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})}return}
-  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,guide:vGuide,admin:vAdmin}[view]||vToday)();
+  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,guide:vGuide,admin:vAdmin,plyo:vPlyo}[view]||vToday)();
   if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
   showToast();
 }
@@ -352,4 +352,72 @@ function warmupLog(k,sug,basis){
     const ew=x.w!=null&&x.w!==''?+x.w:s&&s.w, pl=isBarbell(k)&&ew?platesShort(ew):'';
     body+=`<div class="wu-row"><span class="wu-lbl">${s?s.lbl:'+'+(i+1)}</span>${numIn(`lifts.${k}.warmup.${i}.w`,x.w,s?n(s.w):u(),`aria-label="Warm-up ${i+1} weight"`)}<span class="wu-x">×</span>${numIn(`lifts.${k}.warmup.${i}.r`,x.r,s?String(s.r):'reps',`aria-label="Warm-up ${i+1} reps"`)}<button class="wu-chk${x.done?' on':''}" data-act="wu" data-lift="${k}" data-i="${i}" aria-pressed="${!!x.done}" aria-label="Warm-up ${i+1} done">✓</button>${s?'<span></span>':`<button class="wu-rm" data-act="wurm" data-lift="${k}" data-i="${i}" aria-label="Remove warm-up ${i+1}">×</button>`}${pl?`<span class="wu-pl">${pl}</span>`:''}</div>`}
   return `<details class="wu" data-lift="${k}"${open?' open':''}><summary><span class="wu-t">Warm-up${rows?` ${done}/${rows}`:''}</span>${chips||'<span class="muted">none logged</span>'}</summary><div class="wu-body">${sug.length?`<div class="small muted">${basis?basis+' ':''}Tap ✓ to log a set as suggested, or type what you actually used.</div>`:'<div class="small muted">Enter a target weight above to get calculated warm-ups.</div>'}${viewing?'':`<div class="restsel"><span>Rest between warm-ups</span><div class="seg">${WARM_RESTS.map(v=>`<button class="segb${warmRestSecs(k)===v?' on':''}" data-act="warmrest" data-lift="${k}" data-v="${v}" aria-pressed="${warmRestSecs(k)===v}">${warmRestLabel(v)}</button>`).join('')}</div></div>`}${body}<div><button class="btn sm ghost" data-act="wuadd" data-lift="${k}">+ Add warm-up set</button></div></div></details>`;
+}
+
+/* ---------------- the plyometrics tab ----------------
+Plyos are not part of a session and never were, which is why they move on their own and
+why they now have their own screen: where they are in the phase rotation, which days
+they fall on, what the jumps say, and the rules that decide whether to pull back.
+
+Logging still happens on the day's card. This is the place you come to to understand it
+rather than to fill it in. */
+function vPlyo(){
+  const on=plan.plyoOn!==false;
+  let h=`<div class="card"><div class="lift-h"><h2>Plyometrics</h2>${on?`<span class="chip light">${plyoPerWeek()===2?'Twice a week':'Once a week'}</span>`:'<span class="chip">Off</span>'}</div>`;
+  if(!on){
+    h+=`<p class="small muted" style="margin:0">Turned off, so nothing is scheduled. Jumps you logged before are still in the record below.</p>
+    <div class="row"><button class="btn primary" data-act="plyoon" data-v="1">Turn plyometrics on</button></div></div>`;
+    return h+plyoJumpCard()+plyoRulesCard();
+  }
+  const wk=weekOf(sel)||weekOf(todayStr()), mon=mondayOf(sel);
+  const ph=wk?plyoPhase(wk):PLYO[0], days=plyoDows(mon);
+  const share=plyoShare(), per=Math.round(ph.target*share);
+  h+=`<p class="small muted" style="margin:0">${esc(ph.desc)}</p>
+  <dl class="kv"><dt>Phase</dt><dd>${esc(ph.name)}</dd><dt>Contacts</dt><dd>~${ph.target} a week${plyoPerWeek()===2?` · ~${per} a session`:''}</dd><dt>Days</dt><dd>${days.map(d=>esc(DAYN[d])).join(' and ')}</dd></dl>`;
+  if(wk&&weekHasPlyo(wk)){
+    const next=days.map(d=>addDays(mon,d)).filter(x=>x>=todayStr())[0];
+    if(next) h+=`<div class="row"><button class="btn" data-act="go" data-date="${next}">Open ${next===todayStr()?'today':esc(fmtD(next,true))}’s session ›</button></div>`;
+  } else h+=`<div class="small muted">No plyos this week — ${wk?esc(weekTitle(wk).t).toLowerCase():'the program has not started'} does not run them.</div>`;
+  h+=`</div>`;
+  h+=plyoSchedCard()+plyoJumpCard()+plyoPhaseCard(ph)+plyoRulesCard();
+  return h;
+}
+// Which days, how many sessions. The same settings as Setup, where you would look first.
+function plyoSchedCard(){
+  const d1=plyoDowDefault(), two=plyoPerWeek()===2;
+  let h=`<div class="card"><h3>When</h3>
+  <label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${plyoPerWeek()===v?' on':''}" data-act="plyoper" data-v="${v}" aria-pressed="${plyoPerWeek()===v}">${l}</button>`).join('')}</div></label>
+  <div class="small muted">${two?`The week’s contacts are split across the two rather than doubled, so this is the same work with fresher reps in it. Two sessions a week is the usual recommendation, with 48 to 72 hours between them.`:`One session, the whole phase target in it.`} Plyometric volume is the app’s own call here — the sources disagree enough that the safe reading is to keep the week’s total fixed.</div>
+  <label class="f">${two?'First day':'Day'}<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${d1===i?' primary':''}" data-act="plyodow" data-v="${i}" aria-pressed="${d1===i}">${nm}</button>`).join('')}</div></label>`;
+  if(two) h+=`<label class="f">Second day<div class="row wrap" style="gap:6px">${DAYN.map((nm,i)=>`<button class="btn sm${plyoDow2()===i?' primary':''}" data-act="plyodow2" data-v="${i}" aria-pressed="${plyoDow2()===i}">${nm}</button>`).join('')}</div></label>`;
+  const ws=plyoWarnings(stemplKey(),cprotoKey(),d1,(plan.cardio||{}).def);
+  if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
+  h+=`<div class="small muted">To shift a session for one week only, use <b>Move…</b> on any day of that week.</div>`;
+  return h+`</div>`;
+}
+// What the jumps say. The broad jump is the progress marker from phase two on.
+function plyoJumpCard(){
+  const xs=progLogs().filter(([d,L])=>(L.plyo&&(L.plyo.best||L.plyo.mark))||(L.jumps&&L.jumps.broad))
+    .map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark)))})).filter(x=>x.v>0).sort((a,b)=>a.d<b.d?-1:1);
+  let h=`<div class="card"><div class="lift-h"><h3>Broad jump</h3>${xs.length?`<span class="rx">${r1(Math.max(...xs.map(x=>x.v)))} in best</span>`:''}</div>`;
+  if(!xs.length) return h+`<div class="small muted">Nothing logged yet. From the second phase on, log your first and best broad jump every session — it is the number that tells you whether this is working, and the one the 5% stop rule reads.</div></div>`;
+  h+=lineChart(xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1});
+  const last=xs[xs.length-1], first=xs[0];
+  if(xs.length>1) h+=`<div class="small muted">${r1(last.v-first.v)>0?'Up':'Down'} ${esc(String(r1(Math.abs(last.v-first.v))))} in since ${esc(fmtD(first.d,true))}.</div>`;
+  return h+`</div>`;
+}
+// The phase's own exercises, so you can read what is coming without leaving the tab.
+function plyoPhaseCard(ph){
+  return `<div class="card"><h3>${esc(ph.name)} · the session</h3>
+  <div class="tbl-wrap"><table><thead><tr><th>Exercise</th><th class="n">Sets × reps</th><th class="n">Rest</th></tr></thead><tbody>${ph.ex.map(e=>`<tr><td>${esc(e.label)}${e.low?' <span class="chip">low intensity</span>':''}</td><td class="mono small n">${plyoSets(e,false)} × ${esc(e.r)}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')}</tbody></table></div>
+  <div class="small muted">Sets shown are for one session at your current setting. The phases rotate every three training weeks.</div>
+  <div class="stack" style="gap:6px;margin-top:8px">${ph.ex.map(e=>`<details class="px"><summary><span>${esc(PLIB[e.id]?PLIB[e.id].name:e.label)}</span></summary>${plyoEntry(e.id)}</details>`).join('')}</div></div>`;
+}
+function plyoRulesCard(){
+  return `<div class="card"><h3>The three rules</h3><div class="stack small">
+  <div><b>1. Watch your distance, not your set count.</b> If any jump drops more than about 5% off your first broad jump, the session is over, even with sets remaining.</div>
+  <div><b>2. Every rep is maximal or near it.</b> Rest fully between sets. If you are breathing hard, you are doing conditioning, not plyometrics.</div>
+  <div><b>3. Cut, don’t skip.</b> After an unusually hard lifting week, halve the contacts rather than dropping the session.</div>
+  <div><b>Cut the session in half, or do the warm-up only, if:</b><ul class="tight" style="margin-top:4px">${PLYO_PULLBACK.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+  </div></div>`;
 }
