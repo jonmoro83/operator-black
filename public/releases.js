@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.98',date:'2026-10-13',title:'Stair machine',items:[
+    'Added as a conditioning activity, on hard sessions and easy ones. It logs <b>floors</b> rather than a distance, which is what the console actually counts.',
+    'The note on it: hands off the rails. Leaning takes a large share of the work off your legs and makes the number meaningless next to a session where you did not. A floor is not the same on every machine either, so results only mean something against the same one \u2014 which is how the app compares conditioning anyway.']},
   {v:'1.97',date:'2026-10-13',title:'Two sessions on one day, when you need to',items:[
     'You can now move a day\u2019s session onto another day in the same week and do both. Open <b>Move\u2026</b> on the day you lost, and under <b>Two in one day</b> pick where it should go. The day it came from reads as moved rather than missed, and the day it lands on runs the lifting first with the conditioning after.',
     'Swapping days was all the app offered before, which is no help when you have lost a day to illness and want to catch it up rather than shuffle the rest of the week around it.',

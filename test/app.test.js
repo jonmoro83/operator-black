@@ -4992,3 +4992,39 @@ test("the move sheet offers the stack, with the warning the book's caution is ab
   a.match(onto, /has been moved onto this day/);
   a.match(onto, /data-act="unstack"/);
 });
+
+test("the stair machine logs floors, and floors are not a distance", () => {
+  const x = app({ now: "2026-10-13" });
+  a.equal(x.MOD.stair.name, "Stair machine");
+  a.deepEqual(x.metricFor("stair", "map"), ["floors", "floors"], "hard sessions count floors");
+  a.deepEqual(x.metricFor("stair", "liss"), ["floors", "floors"], "and so does easy work");
+  a.equal(x.metricLabel(x.metricFor("stair", "map")), "Floors",
+    "labelled as floors, not as 'Distance (floors)'");
+
+  // A floor is a floor in both unit systems — nothing to convert.
+  x.plan.unit = "kg"; x.bump();
+  a.deepEqual(x.metricFor("stair", "map"), ["floors", "floors"]);
+  x.plan.unit = "lb"; x.bump();
+
+  // It is a conditioning machine, so it carries no load or elevation fields and is not
+  // treated as impact work the way running and rucking are.
+  a.ok(!x.MOD.stair.load && !x.MOD.stair.elev);
+  a.deepEqual(x.plyoWarnings("operator", "black", 3, "stair").map((w) => w.k), [],
+    "no landing-work warning: it is low impact");
+  a.deepEqual(x.plyoWarnings("operator", "black", 3, "run").map((w) => w.k), ["impact"]);
+
+  // It shows up everywhere activities are offered, without being listed by hand.
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
+  const hicDay = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays("2026-10-12", d))
+    .find((dt) => x.dayPlan(dt).t === "hic");
+  x.sel = hicDay;
+  a.match(x.hicCard(x.dayPlan(hicDay), ""), /data-act="mod" data-v="stair"/);
+  x.wz = x.wzNew(false); x.wz.step = 4;
+  a.match(x.vWelcome(), /data-v="stair"/, "and in the setup wizard");
+
+  // Logging one reads back as floors.
+  x.setLog(hicDay, "hic.mod", "stair");
+  x.setLog(hicDay, "hic.floors", 42);
+  a.equal(x.modOf(hicDay), "stair");
+  a.match(x.hicCard(x.dayPlan(hicDay), ""), /value="42"/);
+});

@@ -460,6 +460,9 @@ const MOD={
   echo:{name:'Echo bike',hic:['cal','cal'],liss:['cal','cal'],wu:'5 min easy spin, then 3 × 15 s at HIC pace with 45 s easy between.'},
   rower:{name:'Rower',hic:['cal','cal'],liss:['dist','m'],fixedUnit:true,wu:'5 min easy row, then 3 × 15 s at HIC pace with 45 s easy between.'},
   ski:{name:'Ski erg',hic:['cal','cal'],liss:['dist','m'],fixedUnit:true,wu:'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'},
+  stair:{name:'Stair machine',hic:['floors','floors'],liss:['floors','floors'],
+    wu:'5 min at an easy pace, then 3 \u00d7 15 s at HIC pace with 45 s easy between.',
+    tip:'Hands off the rails. Leaning takes a large share of the work off your legs and makes the number meaningless next to a session where you did not \u2014 if you need them to hold the pace, the pace is too high. A floor is not the same distance on every machine either, so results only mean something against the same one.'},
   run:{name:'Run / sprints',hic:['dist','yd'],liss:['dist','mi'],wu:'5 min jog, leg swings, then 3–4 strides building up to HIC pace.',tip:'Running adds impact. Keep hard efforts smooth (about 90%) on MAP, threshold and long intervals, and save true sprints for anaerobic days. Hills are easier on the legs than flat sprints.'},
   cycle:{name:'Cycling',hic:['watts','avg W'],liss:['dist','mi'],wu:'10 min easy spin, then 3 × 15 s at HIC pace.'},
   trail:{name:'Trail run',hic:['dist','yd'],liss:['dist','mi'],elev:true,wu:'10 min easy jog on flat ground, then 3 × 20 s hard uphill with an easy jog back down.',tip:'Uneven ground makes pace meaningless, so run the hard efforts by breathing rather than by watch. Downhills are where the damage is: that is eccentric load, and it turns up as sore quads two days later, so take them easy before a squat day.'},
@@ -2038,7 +2041,7 @@ function metricFor(mod,fmt){
   }
   return [m[0],un];
 }
-function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
+function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':met[0]==='floors'?'Floors':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
 // Distance plus what the climbing was worth, for sessions logged in miles or km.

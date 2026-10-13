@@ -447,7 +447,7 @@ function metricFor(mod,fmt){
   }
   return [m[0],un];
 }
-function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':'Distance ('+met[1]+')'}
+function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':met[0]==='floors'?'Floors':'Distance ('+met[1]+')'}
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
 // Distance plus what the climbing was worth, for sessions logged in miles or km.

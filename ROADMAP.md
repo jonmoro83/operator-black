@@ -127,6 +127,15 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Stair machine (2026-10-13)**
+- A `MOD` entry measuring `floors` on both HIC and LISS, which needed a case in
+  `metricLabel` — without one a new field falls through to "Distance (floors)".
+- Floors need no unit conversion, and `metricFor` only rewrites mi/yd/km/m, so no
+  `fixedUnit` flag: adding one would have implied a conversion that cannot happen.
+- Not in the impact list that `plyoWarnings` checks, which is right — it is the
+  low-impact option, not another way to land on your feet.
+- 261 → 262 tests, 3 mutants, all caught.
+
 **Stacking two sessions on one day (2026-10-13)**
 - Reported from a real week: ill on a conditioning day, wanted to do it after the next
   day's lift. The app could only *swap* days, so the week had one session per day and no
