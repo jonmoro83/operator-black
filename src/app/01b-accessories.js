@@ -141,7 +141,15 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // book caps the supplementary clusters at "no more than four to six" exercises, and
   // six is what these are. Squat is already on this day, so single-leg was the most
   // redundant of the four.
-  gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'] };
+  gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'],
+  // Mass is spare on purpose: the book says weighted pull-ups cover the arms well
+  // enough that you need not train them separately, and the deadlift day is its own
+  // posterior chain. These are the app's, as every accessory split here is.
+  ms1:['core','triceps'], ms2:['sleg','carry'],
+  // Gladiator is high volume and high frequency and the book says use it sparingly, so
+  // there is little room for anything else. Two jobs a day, and the deadlift day covers
+  // the posterior chain on its own.
+  gl1:['core','triceps'], gl2:['biceps','carry'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

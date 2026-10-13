@@ -21,8 +21,16 @@ const LIFTSET={
   A:date=>halfLifts('a',date),                 // Zulu's two halves of the cluster
   B:date=>halfLifts('b',date),
   SB:()=>['squat','bench'],
+  // Mass works bench, squat and the weighted pull-up three times a week. The book wants
+  // WPUs if you can do twelve bodyweight ones and names a pull as the substitute if not,
+  // which is the choice Lift 3 already models — so it takes the WPU when you have one
+  // and a pulldown or row when you do not. Never the overhead press: every substitute
+  // the book names is a pull.
+  MASS:()=>['bench','squat',l3On().includes('wpu')?'wpu':'pull'],
   D:()=>['dead'],
   GMA:()=>['bench','squat'],                   // Grey Man's two halves of the main cluster
+  GLA:()=>['squat','ohp'],                     // Gladiator's, which the book pairs differently
+  GLB:()=>['bench','dead'],
   GMB:()=>['ohp','dead'],
 };
 // A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
@@ -30,6 +38,12 @@ const LIFTSET={
 function tplDays(T,wk){
   const d=typeof T.days==='function'?T.days(wk||{w:1}):T.days;
   return Array.isArray(d)?d:[];
+}
+// And so may the days it uses. Mass drops its third session in week three, tapering
+// into the peak week, so the week has four lifting days and then three.
+function tplSlots(T,wk,sd){
+  const v=typeof T.slots==='function'?T.slots(wk||{w:1}):T.slots;
+  return Array.isArray(v)?v:(sd||[]).map((_,i)=>i*2);
 }
 
 /* Zulu runs half the cluster at a time, twice each per week. The book's suggested split
@@ -101,6 +115,50 @@ const STEMPL={
     ],
     // TB1's Zulu table, one prescription per week across all four lifting days.
     wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:4,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:4,r:3,p:90}],
+  },
+  gladiator:{
+    name:'Gladiator', book:'TB3', slots:[0,1,3,4], split:true,
+    blurb:'A specialist, not a staple \u2014 the book says use it sparingly. Four sessions a week over two pairs of lifts, high frequency and high volume, finishing on a peak set of each.',
+    // The book names day 1 outright: "squat for 4 to 5 sets of 8 using 60%. Do the same
+    // with the overhead press." Its week-3 table then peaks squat on day 1, bench on
+    // day 2, overhead press on day 4 and deadlift on day 5, which pins the other three.
+    days:[
+      {lifts:'GLA',half:'a',acc:'gl1',short:'Glad A',label:'Gladiator A \u00b7 squat + overhead press'},
+      {lifts:'GLB',half:'b',acc:'gl2',short:'Glad B',label:'Gladiator B \u00b7 bench + deadlift'},
+      {lifts:'GLA',half:'a',acc:'gl1',short:'Glad A'},
+      {lifts:'GLB',half:'b',acc:'gl2',short:'Glad B'},
+    ],
+    wave:[{s:4,sMax:5,r:8,p:60},{s:4,sMax:5,r:6,p:70},{s:4,r:3,p:80}],
+    rx(wk,day,k){
+      const w=((wk.w||1)-1)%3;
+      const base=[{s:4,sMax:5,r:8,p:60},{s:4,sMax:5,r:6,p:70},{s:4,r:3,p:80}][w];
+      // One lift peaks per session in week three, and each of the four gets a turn.
+      if(w===2&&k==={1:'squat',2:'bench',3:'ohp',4:'dead'}[day]) return Object.assign({},base,{amrap:true});
+      return base;
+    },
+  },
+  mass:{
+    name:'Mass', book:'TB3',
+    blurb:'Tactical Barbell III\u2019s headline template, and Operator\u2019s forefather. Bench, squat and the weighted pull-up three times a week on alternate days; the deadlift gets a day of its own at the end. Hypertrophy first, strength alongside it.',
+    // Days 1, 3 and 5 plus a deadlift day — except in week three, where the third
+    // session comes out and the week tapers into the peak.
+    slots:wk=>((wk&&wk.w||1)-1)%3===2?[0,2,5]:[0,2,4,5],
+    days:wk=>{
+      const main=i=>({lifts:'MASS',acc:'ms1',short:'Mass '+i,label:'Mass '+i});
+      const dl={lifts:'D',acc:'ms2',short:'Mass DL',label:'Mass deadlift'};
+      return ((wk&&wk.w||1)-1)%3===2?[main(1),main(2),dl]:[main(1),main(2),main(3),dl];
+    },
+    wave:[{s:4,r:8,p:65},{s:4,r:6,p:75},{s:4,r:3,p:80}],
+    rx(wk,day,k){
+      const w=((wk.w||1)-1)%3, last=tplDays(STEMPL.mass,wk).length;   // the deadlift day
+      if(day===last) return [{s:4,r:5,p:65},{s:4,r:5,p:75},
+        {s:1,r:3,p:80,note:'Then a heavier single, or as many reps as you have in you on the last set.'}][w];
+      const base=[{s:4,r:8,p:65},{s:4,r:6,p:75},{s:4,r:3,p:80}][w];
+      // Week three peaks one lift per session: squat on the first day, bench on the
+      // second. Either work up above the prescribed weight, or take the last set out.
+      if(w===2&&k===(day===1?'squat':'bench')) return Object.assign({},base,{amrap:true});
+      return base;
+    },
   },
   greyman:{
     name:'Grey Man', book:'TB3', slots:[0,2,4],
@@ -276,7 +334,7 @@ function composeSlot(date,wk,d){
   // exists for having no equipment, and the book is explicit that you do none. Dropping
   // the slots is enough — with no 'S' roles the template's days are never reached.
   const sd=tplDays(T,wk);
-  const shape=weekShape(P.noStrength?[]:(T.slots||sd.map((_,i)=>i*2)),cs);
+  const shape=weekShape(P.noStrength?[]:tplSlots(T,wk,sd),cs);
   let si=0, ci=0;
   for(let i=0;i<7;i++){
     const role=shape[i];
@@ -1149,7 +1207,15 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // book caps the supplementary clusters at "no more than four to six" exercises, and
   // six is what these are. Squat is already on this day, so single-leg was the most
   // redundant of the four.
-  gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'] };
+  gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'],
+  // Mass is spare on purpose: the book says weighted pull-ups cover the arms well
+  // enough that you need not train them separately, and the deadlift day is its own
+  // posterior chain. These are the app's, as every accessory split here is.
+  ms1:['core','triceps'], ms2:['sleg','carry'],
+  // Gladiator is high volume and high frequency and the book says use it sparingly, so
+  // there is little room for anything else. Two jobs a day, and the deadlift day covers
+  // the posterior chain on its own.
+  gl1:['core','triceps'], gl2:['biceps','carry'] };
 const ACC_DEF={ hpull:'csrow', rdelt:'facepull', core:'pallof', biceps:'bbcurl', triceps:'pushdown',
   spress:'dbohp', delts:'latraise', pullup:'pu_prog', sleg:'rfess', pchain:'rdl', carry:'farmer' };
 

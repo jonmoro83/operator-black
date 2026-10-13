@@ -4403,3 +4403,104 @@ test("every template reaches the posterior chain somewhere in its week", () => {
   a.ok(gm >= 4 && gm <= 6, `Grey Man runs ${gm} supplementary exercises, the book says 4 to 6`);
   a.ok(!x.accSlots("gm1").includes("sleg"), "single-leg gave way to it: Grey Man squats that day");
 });
+
+test("Mass runs three sessions and a deadlift day, and drops one in the peak week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.l3 = { on: { pull: true, ohp: true, wpu: true }, primary: "pull" };
+  x.plan.maxes.wpu = 45;
+  x.plan.stempl = "mass"; x.bump();
+  const cyc = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1);
+  a.equal(cyc.length, 3);
+  const lifts = (wk) => [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(wk.monday, d), d))
+    .filter((p) => p.t === "lift");
+
+  // Bench, squat and the weighted pull-up three times a week; the deadlift on its own.
+  a.equal(lifts(cyc[0]).length, 4, "four lifting days");
+  a.deepEqual(lifts(cyc[0])[0].lifts, ["bench", "squat", "wpu"]);
+  a.deepEqual(lifts(cyc[0])[3].lifts, ["dead"], "the deadlift gets a day to itself");
+
+  // Week three drops the third session: the book's table leaves that cell empty.
+  a.equal(lifts(cyc[2]).length, 3, "three in the peak week");
+  a.deepEqual(lifts(cyc[2]).map((p) => p.short), ["Mass 1", "Mass 2", "Mass DL"]);
+
+  const got = (wk, n, k) => {
+    const day = lifts(wk)[n - 1];
+    const date = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(wk.monday, d))
+      .find((dt) => x.dayPlanSlot(dt, x.slotOf(dt)).short === day.short);
+    const r = x.rx(wk, k, date);
+    return r.s + "x" + r.r + "@" + r.p + (r.amrap ? "+" : "");
+  };
+  a.equal(got(cyc[0], 1, "squat"), "4x8@65");
+  a.equal(got(cyc[0], 4, "dead"), "4x5@65", "the deadlift day runs fives, not eights");
+  a.equal(got(cyc[1], 4, "dead"), "4x5@75");
+  a.equal(got(cyc[2], 1, "squat"), "4x3@80+", "squat peaks on day one");
+  a.equal(got(cyc[2], 1, "bench"), "4x3@80", "and only the squat");
+  a.equal(got(cyc[2], 2, "bench"), "4x3@80+", "bench on day two");
+  a.equal(got(cyc[2], 3, "dead"), "1x3@80");
+});
+
+test("Mass takes the weighted pull-up when you have one and a pull when you do not", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "mass";
+  // The book: weighted pull-ups if you can do twelve bodyweight, otherwise a row, an
+  // RDL "or some other pull". Never the overhead press — every substitute it names pulls.
+  x.plan.l3 = { on: { pull: true, ohp: true, wpu: false }, primary: "ohp" };
+  x.bump();
+  a.deepEqual(x.dayPlanSlot("2026-10-19", 0).lifts, ["bench", "squat", "pull"],
+    "no weighted pull-up on file, so a pull stands in");
+
+  x.plan.l3 = { on: { pull: false, ohp: false, wpu: true }, primary: "wpu" };
+  x.bump();
+  a.deepEqual(x.dayPlanSlot("2026-10-19", 0).lifts, ["bench", "squat", "wpu"]);
+});
+
+test("a template's lifting days can move week to week, not just what is on them", () => {
+  const x = app({ now: "2026-10-19" });
+  // Fixed slots stay fixed, however the week is numbered.
+  a.deepEqual(x.tplSlots(x.STEMPL.operator, { w: 1 }), [0, 2, 4]);
+  a.deepEqual(x.tplSlots(x.STEMPL.operator, { w: 3 }), [0, 2, 4]);
+  // Mass's move, and the count matches the days it offers that week.
+  a.deepEqual(x.tplSlots(x.STEMPL.mass, { w: 1 }), [0, 2, 4, 5]);
+  a.deepEqual(x.tplSlots(x.STEMPL.mass, { w: 3 }), [0, 2, 5]);
+  for (const w of [1, 2, 3, 4, 5, 6]) {
+    const wk = { w };
+    a.equal(x.tplSlots(x.STEMPL.mass, wk).length, x.tplDays(x.STEMPL.mass, wk).length,
+      `week ${w}: a slot for every day`);
+  }
+  // A template that declares neither gets evenly spaced days rather than nothing.
+  a.deepEqual(x.tplSlots({ days: [1, 2, 3] }, { w: 1 }, [1, 2, 3]), [0, 2, 4]);
+});
+
+test("Gladiator runs two pairs twice a week and peaks each lift once", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "gladiator"; x.bump();
+  const cyc = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === 1);
+  const days = (wk) => [0, 1, 2, 3, 4, 5, 6].map((d) => ({ d, p: x.dayPlanSlot(x.addDays(wk.monday, d), d) }))
+    .filter((o) => o.p.t === "lift");
+
+  a.deepEqual(days(cyc[0]).map((o) => o.d), [0, 1, 3, 4], "the book's days 1, 2, 4 and 5");
+  // Day 1 is the one the book names outright: squat and overhead press.
+  a.deepEqual(days(cyc[0])[0].p.lifts, ["squat", "ohp"]);
+  a.deepEqual(days(cyc[0])[1].p.lifts, ["bench", "dead"]);
+  a.deepEqual(days(cyc[0])[2].p.lifts, ["squat", "ohp"], "each pair runs twice");
+  a.deepEqual(days(cyc[0])[3].p.lifts, ["bench", "dead"]);
+
+  // 4-5 sets in the build weeks, a flat 4 in the peak week.
+  const r = (wk, i, k) => x.rx(wk, k, x.addDays(wk.monday, days(wk)[i].d));
+  a.equal(r(cyc[0], 0, "squat").sMax, 5);
+  a.equal(r(cyc[2], 0, "squat").sMax, 4, "no optional fifth set in the peak week");
+  a.deepEqual(cyc.map((wk) => r(wk, 0, "squat").p), [60, 70, 80]);
+
+  // Week three peaks one lift a session, and every lift in the cluster gets a turn.
+  const peaked = [];
+  for (let i = 0; i < 4; i++) for (const k of days(cyc[2])[i].p.lifts) {
+    if (r(cyc[2], i, k).amrap) peaked.push(k);
+  }
+  a.deepEqual(peaked, ["squat", "bench", "ohp", "dead"], "one each, in the book's order");
+
+  // Its paired days are the template, as Zulu's are, so the week reads clean.
+  a.deepEqual(x.orderIssues(cyc[0].monday, [0, 1, 2, 3, 4, 5, 6]), []);
+
+  // The deadlift is a programmed lift here, not Operator's one-to-three-set afterthought.
+  a.equal(r(cyc[0], 1, "dead").s, 4);
+});

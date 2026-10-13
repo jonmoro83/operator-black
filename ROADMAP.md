@@ -53,12 +53,12 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
-- **Finish Tactical Barbell III.** Five templates in (Operator, Fighter, Zulu,
-  Fighter HT, Grey Man) against three protocols (Black, Green, Green Progressive SE),
-  which is fifteen combinations and a matrix test over all of them.
-  Still to come: **Mass**, **Gladiator**, **Specificity Alpha** and **Specificity
-  Bravo**. Specificity needs nothing new in principle — per-day lift sets and per-day
-  prescriptions both exist — but its H cluster is large and user-defined. After the
+- **Finish Tactical Barbell III.** Seven templates in (Operator, Fighter, Zulu,
+  Fighter HT, Grey Man, Mass, Gladiator) against three protocols (Black, Green, Green
+  Progressive SE), which is twenty-one combinations and a matrix test over all of them.
+  Still to come: **Specificity Alpha** and **Specificity Bravo**. Specificity needs
+  nothing new in principle — per-day lift sets and per-day prescriptions both exist —
+  but its H cluster is large and user-defined. After the
   templates: TB III's own Bridge Week, its Base Building variant (6 weeks, SE + E), and
   its named conditioning sessions (Ruck, Endurance Predator, Anabolic Sprints,
   RESET-20, Hill Sprints, FOBBITs — several of which the app already has).
@@ -126,6 +126,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Programme templates, stage 6: Mass and Gladiator (2026-10-13)**
+- **Mass.** Days 1/3/5 are bench + squat + weighted pull-up, day 6 is the deadlift on
+  its own numbers (4×5 where the others run 4×8). **Week three drops day 5 entirely** —
+  the book's table leaves that cell empty — so `T.slots` can now be a function of the
+  week as well as `T.days`, via `tplSlots`.
+- Mass takes `wpu` when Lift 3 has it and `pull` when it does not. The book wants
+  weighted pull-ups if you can do twelve bodyweight and names a row or RDL as the
+  substitute; never the overhead press, because every substitute it names is a pull.
+- **Gladiator.** Days 1/2/4/5, two pairs run twice, reusing the `half` mechanism Zulu
+  introduced so the paired days do not read as a clash. 4–5 sets in the build weeks and
+  a flat 4 in the peak week.
+  - The book names day 1 outright ("squat for 4 to 5 sets of 8 using 60%. Do the same
+    with the overhead press") and its week-3 table peaks squat, bench, overhead press
+    and deadlift on days 1, 2, 4 and 5. **The pairing of the other three days is
+    inferred from those two facts** — it is the only arrangement where a four-lift
+    cluster covers four days two at a time and each lift peaks once. Flagged here
+    because it is the one thing in these two templates not read straight off a page.
+- 242 → 246 tests. 13 mutants, all caught.
+- **Seven templates, three books:** Operator, Fighter, Zulu (TB1); Mass, Grey Man,
+  Gladiator, Fighter HT (TB III).
 
 **Grey Man back inside the book's cap (2026-10-13)**
 - Single-leg off `gm1`, so the supplementary clusters are six exercises again — TB III's

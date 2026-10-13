@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.90',date:'2026-10-13',title:'Mass and Gladiator',items:[
+    '<b>Mass</b> is Tactical Barbell III\u2019s headline template and Operator\u2019s forefather. Bench, squat and the weighted pull-up three times a week on alternate days, with the deadlift on a day of its own running its own numbers. Week three drops the third session and peaks instead \u2014 the book\u2019s table leaves that cell empty, so the app does too.',
+    'If you can do twelve bodyweight pull-ups, Mass wants weighted ones. If your Lift 3 does not include them it substitutes a pulldown or row, which is what the book says to do \u2014 never the overhead press, because every substitute it names is a pull.',
+    '<b>Gladiator</b> is four sessions a week over two pairs: squat and overhead press against bench and deadlift, each pair twice. Week three peaks one lift a session so all four get a turn. The book calls it a specialist and says to use it sparingly, and the Guide says so too.',
+    'Seven strength templates now, across all three books.']},
   {v:'1.89',date:'2026-10-13',title:'Grey Man back inside the book\u2019s cap',items:[
     'Single-leg comes off Grey Man\u2019s A day, putting its supplementary clusters back to six exercises \u2014 the ceiling the book sets. Squat is already on that day, so single-leg was the most redundant of the four.',
     'Add it back from Setup \u2192 Accessories if you want it; going over the cap is a choice the book leaves to you, it just is not the default.']},
