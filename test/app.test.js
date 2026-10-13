@@ -4235,6 +4235,10 @@ test("reverse hyper, Cossack squat and the RDL that was already there", () => {
 test("bands are a list you keep, because a colour is not a number", () => {
   const x = app({ now: "2026-10-19" });
   a.deepEqual(x.bands(), [], "nothing assumed to start with");
+  // A brand that is not on file adds nothing, rather than quietly seeding some other.
+  a.equal(x.bandSeed("nope"), 0);
+  a.equal(x.bandSeed(), 0);
+  a.deepEqual(x.bands(), [], "still nothing");
 
   a.equal(x.bandAdd("Red", 35), true);
   a.equal(x.bandAdd("Red", 40), false, "no two bands by the same name");
@@ -4244,19 +4248,37 @@ test("bands are a list you keep, because a colour is not a number", () => {
   a.equal(x.bandRemove("Red"), true);
   a.equal(x.bandRemove("Red"), false);
 
-  // Seeding uses the maker's own chart. Rogue lists Red twice, which is exactly why
-  // the number lives beside the colour rather than being looked up from it.
-  a.equal(x.bandSeed(), 8);
+  // Seeding uses a maker's own chart. Rogue lists Red twice, which is exactly why the
+  // number lives beside the colour rather than being looked up from it.
+  a.equal(x.bandSeed("rogue"), 8);
   const reds = x.bands().filter((b) => /Red/.test(b.n));
   a.equal(reds.length, 2, "two different Reds");
   a.notEqual(reds[0].w, reds[1].w, "at very different weights");
-  a.equal(x.bandSeed(), 0, "seeding twice adds nothing");
+  a.equal(x.bandSeed("rogue"), 0, "seeding twice adds nothing");
+
+  // Three makers, and every band names its brand so two charts can live side by side.
+  a.deepEqual(Object.keys(x.BAND_PRESETS), ["rogue", "elitefts", "westside"]);
+  a.equal(x.bandSeed("elitefts") > 0, true);
+  a.equal(x.bandSeed("westside") > 0, true);
+  const names = x.bands().map((b) => b.n);
+  a.equal(new Set(names).size, names.length, "no two bands share a name across brands");
+  for (const want of ["Rogue", "elitefts", "Westside"]) {
+    a.ok(names.some((v) => v.startsWith(want)), `${want} bands are labelled as theirs`);
+  }
+
+  // elitefts and Westside publish ranges, not figures. A range is not a log entry, so
+  // the midpoint is seeded and the range is what the card shows.
+  const mini = x.BAND_PRESETS.westside.bands.find((b) => b.n === "Westside Mini");
+  a.equal(mini.w, undefined, "no single published figure");
+  a.equal(x.bandPresetW(mini), 50, "the middle of 30 to 70");
+  a.equal(x.bandPresetLabel(mini), "30\u201370", "and the range is what is shown");
+  a.equal(x.bandPresetLabel(x.BAND_PRESETS.rogue.bands[0]), "9", "Rogue's is a figure");
 
   // In kg the chart is converted, because it is published in pounds and this is new
   // data being made, not a stored number being rewritten.
   const k = app({ now: "2026-10-19" });
   k.plan.unit = "kg"; k.bump();
-  k.bandSeed();
+  k.bandSeed("rogue");
   a.equal(k.bands()[0].w, Math.round(9 * 0.4536 * 2) / 2);
   a.ok(k.bands()[7].w < 110, "and the heaviest is a kg number, not a pound one");
 });

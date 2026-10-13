@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'1.86',date:'2026-10-12',title:'elitefts and Westside bands',items:[
+    'Both added alongside Rogue in Setup \u2192 Bands, each as a one-tap starting point you then edit.',
+    'A difference worth knowing: Rogue publish one figure per band, while elitefts and Westside publish a <i>range</i>. A range cannot be a log entry, so these seed at the midpoint and the card shows you the range they came from.',
+    'They also disagree with themselves. elitefts list the Pro Mini at 25\u201354 lb on one page and 5\u201335 lb on another; Westside\u2019s articles quote higher numbers than their product pages, because a band choked round a rack is not the same band doubled over a bar. The figures here are the product-page ranges, and they are a place to start rather than a measurement of your band.',
+    'Every band now carries its brand in the name, so two charts can sit in the list side by side without one Red meaning two things.']},
   {v:'1.85',date:'2026-10-12',title:'Supersets, bands, and three movements',items:[
     '<b>Supersets.</b> In Setup \u2192 Accessories, tick \u201csuperset with the next one\u201d on any job. The two then show as one block on the day and as a single step in session mode \u2014 a set of each, back to back, one rest at the end. A job can only pair with one that is free, so pairing something never quietly re-draws a pair you already had.',
     '<b>Bands.</b> Setup \u2192 Bands is a list you keep: each band gets the weight you want it logged as, and it then shows up as a picker on any band movement. There is no colour chart, and deliberately so \u2014 Rogue\u2019s own range lists Red twice, at 18 lb and 115 lb, and third-party charts for the same bands disagree by 50%. You can start from Rogue\u2019s published figures in one tap and edit from there.',

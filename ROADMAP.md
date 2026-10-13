@@ -110,6 +110,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**elitefts and Westside band presets (2026-10-12)**
+- `BAND_PRESETS` is keyed by brand. Rogue publish a single peak figure per band;
+  elitefts and Westside publish ranges, so those seed at the midpoint (`bandPresetW`)
+  and the card shows the range (`bandPresetLabel`).
+- Both brands contradict themselves in their own published material: elitefts list the
+  Pro Mini at 25–54 lb and at 5–35 lb on different pages; Westside's articles quote
+  higher figures than their product pages because the number depends on whether the band
+  is choked, doubled or anchored, and on the lifter's height. Product-page ranges used,
+  and the card says plainly that they are a starting point.
+- Westside has no Average on its product pages, so there is none here. Not inventing one
+  was the point of the whole design.
+- Names carry the brand, so two charts coexist without one Red meaning two things.
+- 241 tests held; 4 mutants, all caught after one survivor (an unknown brand falling
+  back to Rogue) that only showed up once the test ran against an empty list first.
+
 **Supersets, bands, and three movements (2026-10-12)**
 - **Supersets** are stored as the *first* slot of each pair, per day
   (`plan.accSuper.mon=['biceps']`), and `accGroups(day)` turns the day's jobs into runs.

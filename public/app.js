@@ -1229,10 +1229,28 @@ number you want it logged as, and the presets below are a starting point you can
 They are Rogue's own published Monster Band figures; third-party charts for the same
 bands disagree by enough (Black at 65 lb or at 100 lb) that only the maker's is worth
 seeding from. */
-const BAND_PRESETS=[
-  {n:'#0 Orange',w:9},  {n:'#1 Red',w:18},   {n:'#2 Blue',w:30},  {n:'#3 Green',w:40},
-  {n:'#4 Black',w:65},  {n:'#5 Purple',w:95},{n:'#6 Red',w:115},  {n:'#7 Silver',w:225},
-];
+const BAND_PRESETS={
+  rogue:{name:'Rogue Monster',
+    note:'Rogue publish one figure per band, their peak resistance at full stretch.',
+    bands:[{n:'Rogue #0 Orange',w:9},{n:'Rogue #1 Red',w:18},{n:'Rogue #2 Blue',w:30},
+           {n:'Rogue #3 Green',w:40},{n:'Rogue #4 Black',w:65},{n:'Rogue #5 Purple',w:95},
+           {n:'Rogue #6 Red',w:115},{n:'Rogue #7 Silver',w:225}]},
+  elitefts:{name:'elitefts Pro',
+    note:'elitefts publish a range per band, and their own pages do not agree with each other \u2014 the Pro Mini is listed at 25\u201354 lb in one place and 5\u201335 lb in another. These are the midpoints of the higher, more consistent set. Treat them as a starting point and nothing more.',
+    bands:[{n:'elitefts Micro',lo:13.8,hi:29.2},{n:'elitefts Mini',lo:25.5,hi:53.8},
+           {n:'elitefts Monster Mini',lo:39.4,hi:91.5},{n:'elitefts Light',lo:56.8,hi:124.9},
+           {n:'elitefts Average',lo:86.9,hi:192.5},{n:'elitefts Strong',lo:122.9,hi:275.1}]},
+  westside:{name:'Westside Barbell',
+    note:'Westside publish a range per band, and their own articles quote higher numbers again depending on whether the band is choked, doubled or anchored, and on how tall you are. These are the midpoints of the product-page ranges. There is no Average here because the product pages do not list one.',
+    bands:[{n:'Westside Mini',lo:30,hi:70},{n:'Westside Monster Mini',lo:65,hi:105},
+           {n:'Westside Light',lo:70,hi:130},{n:'Westside Strong',lo:180,hi:290}]},
+};
+// The number a preset seeds with: the published figure where there is one, the middle of
+// the range where there is not. A range cannot be a log entry, and the midpoint is the
+// least wrong single number to start from.
+function bandPresetW(b){ return b.w!=null?b.w:Math.round((b.lo+b.hi)/2) }
+function bandPresetLabel(b){ return b.w!=null?String(b.w):Math.round(b.lo)+'\u2013'+Math.round(b.hi) }
+
 function bands(){
   const b=plan.bands;
   return Array.isArray(b)?b.filter(x=>x&&x.n&&+x.w>0).map(x=>({n:String(x.n),w:+x.w})):[];
@@ -1256,10 +1274,11 @@ function bandRemove(n){
 // Seeding converts, because the published chart is in pounds and your log is in whatever
 // you train in. This is new data being created from a known unit, not a stored number
 // being rewritten, so it is the one place a conversion belongs.
-function bandSeed(){
+function bandSeed(brand){
+  const set=BAND_PRESETS[brand]; if(!set) return 0;
   const kg=u()==='kg', have=new Set(bands().map(b=>b.n.toLowerCase()));
-  const add=BAND_PRESETS.filter(b=>!have.has(b.n.toLowerCase()))
-    .map(b=>({n:b.n,w:kg?Math.round(b.w*0.4536*2)/2:b.w}));
+  const add=set.bands.filter(b=>!have.has(b.n.toLowerCase()))
+    .map(b=>{const w=bandPresetW(b); return {n:b.n,w:kg?Math.round(w*0.4536*2)/2:w}});
   if(!add.length) return 0;
   mutatePlan(p=>{p.bands=[...bands(),...add]});
   return add.length;
@@ -5083,8 +5102,13 @@ function bandsCard(){
   h+=`<div class="grid3"><label class="f">Colour or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
   <label class="f">Counts as (${esc(u())})<input type="number" inputmode="decimal" step="any" id="band-w" data-bandnew="w" value="${esc(String(bandNew.w))}"></label>
   <label class="f">&nbsp;<button class="btn" data-act="bandadd">Add band</button></label></div>`;
-  if(!list.length) h+=`<div class="row"><button class="btn ghost" data-act="bandseed">Start from Rogue\u2019s chart</button></div>
-  <div class="small muted">Eight Monster Bands at the figures Rogue publishes${u()==='kg'?', converted to kg':''}. Those are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less \u2014 edit them to whatever you want counted.</div>`;
+  h+=`<details class="plain"><summary>Start from a maker\u2019s chart</summary><div class="stack" style="margin-top:8px">
+  <div class="small muted">Published figures${u()==='kg'?', converted to kg':''}, added to your list so you can edit them. They are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less than the number.</div>
+  ${Object.entries(BAND_PRESETS).map(([k,set])=>`<div style="border-top:1px solid var(--line);padding-top:8px">
+    <div class="row between" style="gap:8px"><span class="acc-role">${esc(set.name)}</span><button class="btn sm" data-act="bandseed" data-v="${k}">Add these</button></div>
+    <div class="small muted">${esc(set.note)}</div>
+    <div class="mono small" style="word-break:break-word">${set.bands.map(b=>esc(b.n.replace(/^\S+\s/,''))+' '+esc(bandPresetLabel(b))).join(' \u00b7 ')} lb</div></div>`).join('')}
+  </div></details>`;
   return h+`</div>`;
 }
 function accSetupCard(){
@@ -6200,7 +6224,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
-  if(a==='bandseed'){ bandSeed(); return }
+  if(a==='bandseed'){ bandSeed(b.dataset.v); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
   if(a==='beepcopy'){
     const text=beepReport();

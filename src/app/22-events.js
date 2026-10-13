@@ -191,7 +191,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
-  if(a==='bandseed'){ bandSeed(); return }
+  if(a==='bandseed'){ bandSeed(b.dataset.v); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
   if(a==='beepcopy'){
     const text=beepReport();

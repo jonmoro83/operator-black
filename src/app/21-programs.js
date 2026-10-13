@@ -52,8 +52,13 @@ function bandsCard(){
   h+=`<div class="grid3"><label class="f">Colour or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
   <label class="f">Counts as (${esc(u())})<input type="number" inputmode="decimal" step="any" id="band-w" data-bandnew="w" value="${esc(String(bandNew.w))}"></label>
   <label class="f">&nbsp;<button class="btn" data-act="bandadd">Add band</button></label></div>`;
-  if(!list.length) h+=`<div class="row"><button class="btn ghost" data-act="bandseed">Start from Rogue\u2019s chart</button></div>
-  <div class="small muted">Eight Monster Bands at the figures Rogue publishes${u()==='kg'?', converted to kg':''}. Those are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less \u2014 edit them to whatever you want counted.</div>`;
+  h+=`<details class="plain"><summary>Start from a maker\u2019s chart</summary><div class="stack" style="margin-top:8px">
+  <div class="small muted">Published figures${u()==='kg'?', converted to kg':''}, added to your list so you can edit them. They are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less than the number.</div>
+  ${Object.entries(BAND_PRESETS).map(([k,set])=>`<div style="border-top:1px solid var(--line);padding-top:8px">
+    <div class="row between" style="gap:8px"><span class="acc-role">${esc(set.name)}</span><button class="btn sm" data-act="bandseed" data-v="${k}">Add these</button></div>
+    <div class="small muted">${esc(set.note)}</div>
+    <div class="mono small" style="word-break:break-word">${set.bands.map(b=>esc(b.n.replace(/^\S+\s/,''))+' '+esc(bandPresetLabel(b))).join(' \u00b7 ')} lb</div></div>`).join('')}
+  </div></details>`;
   return h+`</div>`;
 }
 function accSetupCard(){
