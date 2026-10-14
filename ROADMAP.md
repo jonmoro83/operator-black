@@ -127,6 +127,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Sandbag over the shoulder (2026-10-14)**
+- A fourth sandbag FOBBIT, and the first thing added since the model was generalised:
+  one entry, one movement, no other code touched. That is the test of whether the
+  generalisation was worth doing.
+- One movement rather than a pair, because each rep is already the whole chain — ground
+  to shoulder, keep going, release behind you, turn round and pick it up again.
+- The four sandbag entries are now the easiest pair in the catalog to let collapse into
+  each other, so the test asserts they prescribe four different things rather than
+  merely existing.
+- Provenance was being asserted entry by entry, which would not have caught a new one
+  claiming a book it did not come from. It is pinned as a set now: exactly six entries
+  have a source, and anything added is ours until somebody checks a book.
+- 269 tests, 3 mutants, one survivor (the provenance hole above), fixed.
+
 **A FOBBIT is a shape, not a session (2026-10-14)**
 - Asked whether the catalog came from the books, and it mostly did not. The books name
   one FOBBIT (TB2 HIC #9) and Mass Protocol gives a second; the other five shipped in

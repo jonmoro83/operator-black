@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.3',date:'2026-10-14',title:'Sandbag over the shoulder',items:[
+    'Ground to shoulder, then keep it going and throw the bag over that shoulder behind you. Turn round, pick it up off the floor, do the other side. Ten of those between each block of base.',
+    'It is one movement rather than a pair because each rep is already the whole chain, hip to shoulder to release. Check what is behind you before the first one, and let the bag land rather than trying to guide it down. Same warning as the over-the-bar version: it is explosive hip extension, so if the bag is only going up because your back is rounding, the bout is over.']},
   {v:'2.2',date:'2026-10-14',title:'Every FOBBIT in the books, and the ones the author published after',items:[
     'A FOBBIT was one session with a pairing you picked. It is actually a shape \u2014 hold an easy aerobic base, step off it every so often for a bout of work \u2014 and the sources fill that shape in very differently. So now the app does too.',
     '<b>From the books.</b> The Tactical Barbell II original (two minutes, swings, snatches) and the shorter Mass Protocol one.',

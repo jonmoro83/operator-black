@@ -5260,8 +5260,17 @@ test("FOBBITs are a catalog of whole sessions, not one hardcoded pair", () => {
   const ids = Object.keys(x.FOBBIT);
   a.ok(ids.length >= 10, "several to choose from");
   a.ok(ids.includes("kb"), "the kettlebell one the app already had");
-  a.ok(ids.filter((k) => /sandbag/.test(k)).length >= 3, "and several sandbag ones");
+  // Four sandbag sessions that are genuinely four sessions. Shouldering it, carrying it,
+  // throwing it over a bar and throwing it over your shoulder are different movements,
+  // and the easiest mistake here would be to let them collapse into each other.
+  const bags = ids.filter((k) => /sandbag/.test(k));
+  a.ok(bags.length >= 4, "several sandbag ones");
+  a.equal(new Set(bags.map((k) => x.fobLine(k))).size, bags.length, "each prescribing something different");
   a.match(x.fobLine("sandbagbar"), /over the bar/);
+  a.match(x.fobLine("sandbagtoss"), /Over-the-shoulder toss/);
+  a.ok(!/over the bar/.test(x.fobLine("sandbagtoss")), "the toss is not the over-the-bar one");
+  a.equal(x.fobBouts("sandbagtoss", false).length, 1, "the toss is the whole chain, so it stands alone");
+  a.equal(x.fobBouts("sandbagtoss", true)[0].reps, "5", "and halves like any other rep count");
 
   // Every entry is a distinct session: a catalog of one rotation repeated is not one.
   const lines = ids.filter((k) => x.fobDef(k)).map((k) => x.fobLine(k) + "|" + x.fobEveryLabel(k));
@@ -5294,6 +5303,11 @@ test("FOBBITs are a catalog of whole sessions, not one hardcoded pair", () => {
   a.equal(x.fobSrcLabel("massfob"), "Mass Protocol");
   a.equal(x.fobSrcLabel("sandbagbar"), "Ours");
   a.equal(x.fobSrcLabel("nope"), "Ours", "an unknown one is not credited to a book");
+  // The whole point of recording a source is that it cannot drift. Anything added from
+  // here is ours until somebody has actually found it in a book.
+  a.deepEqual(Object.keys(x.FOBBIT).filter((k) => x.FOBBIT[k].src !== "ours").sort(),
+    ["combat", "kb", "massfob", "maxstrength", "se", "seamrap"],
+    "exactly these six come from a source");
   for (const k of ["maxstrength", "se", "seamrap", "combat"]) a.match(x.fobSrcLabel(k), /^TB article, Mod #[123]$/, k);
 });
 test("a FOBBIT is chosen per session, over a default, like the activity is", () => {
