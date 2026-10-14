@@ -8,7 +8,7 @@
 const RELEASES=[
   {v:'1.99',date:'2026-10-14',title:'A catalog of FOBBITs',items:[
     'There was only ever one \u2014 kettlebell swings and snatches \u2014 and the movements were a text box you filled in yourself. Now it is a list you pick from, and the day tells you what the two movements are instead of asking.',
-    '<b>Two sandbag versions.</b> The standard one is shouldering it ten times alternating, then fifteen bear-hug squats. The heavy one is six ground-to-shoulder per side, then a thirty-metre front carry \u2014 the carry is the rest, so do not put the bag down during it.',
+    '<b>Two sandbag versions.</b> The standard one is shouldering it ten times alternating, then fifteen bear-hug squats. The heavy one is six ground-to-shoulder per side, then a thirty-meter front carry \u2014 the carry is the rest, so do not put the bag down during it.',
     'Also kettlebell (unchanged), bodyweight for a hotel room, dumbbells, and <b>Something else</b> if you want to type your own pair.',
     'Set a default in Setup and swap it on any single session from that day\u2019s card, the same way the conditioning activity already works. The Guide lists them all with the kit each needs.']},
   {v:'1.98',date:'2026-10-13',title:'Stair machine',items:[
