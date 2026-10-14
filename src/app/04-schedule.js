@@ -5,12 +5,24 @@
 function* ruleSeq(p,from){
   let c=1,w=1,ruleFirst=false;
   if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
+  // Ageless Athlete's 3-1-3-1: a recovery week after every third training week, so a
+  // six-week block takes eight. "Notice that it now takes eight weeks to complete what
+  // was normally a six-week Operator/Zulu block. That's not a worry because we are in
+  // no hurry on the journey to lifelong excellence."
+  const r313=!!p.recovery313;
   for(;;c++,w=1){
-    if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++) yield {kind:'cycle',cycle:c,w};
+    if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++){
+      yield {kind:'cycle',cycle:c,w};
+      // No `after` on a recovery week: it sits inside the cycle, so replaying a frozen
+      // one must not advance the resume point to the next cycle.
+      if(r313&&w%3===0) yield {kind:'recovery',cycle:c,afterW:w};
+    }
     ruleFirst=false;
     const t=+p.testEvery>0&&c%+p.testEvery===0, d=+p.deloadEvery>0&&c%+p.deloadEvery===0;
     if(t&&!p.skips['test@'+c]) yield {kind:'test',after:c,rule:'test@'+c};
-    else if(d&&!p.skips['deload@'+c]) yield {kind:'deload',after:c,rule:'deload@'+c};
+    // The recovery weeks are the back-off, so a rule deload on top of them is the one
+    // thing the book is arguing against.
+    else if(d&&!r313&&!p.skips['deload@'+c]) yield {kind:'deload',after:c,rule:'deload@'+c};
   }
 }
 let wcache={v:-1,list:[]};
@@ -152,7 +164,10 @@ function rx(wk,k,date){
   sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
   const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
   return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null,
-    amrap:!!v.amrap,note:v.note||null};
+    amrap:!!v.amrap,note:v.note||null,
+    // Back "Break" works up to a best set for the day rather than off a percentage,
+    // and its down sets are a percentage of that set, not of a 1RM.
+    top:!!v.top,down:v.down||null,downPct:v.downPct||null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
@@ -392,6 +407,21 @@ function dayPlanSlot(date,d){
 
      Not to be confused with the app's own bridge week above, which is a calibration
      week at the very start and is ours, not the book's. */
+  /* Ageless Athlete's recovery week, the "1" in 3-1-3-1. The book is specific about
+     what it is: "I do stay entirely away from barbells and HIC during recovery weeks.
+     That is the key to recharging the CNS, joints, hormones, etc." Not an off week
+     though -- "no more than two workouts that week, plus any other activities you
+     might have, and remember to keep the workouts easy", plus as much mobility as you
+     like. Two easy sessions, spread out, and nothing else scheduled. */
+  if(wk.kind==='recovery'){
+    const easy=n0=>({t:'hic',fmt:'liss',recovery:true,short:'Easy',note:n0});
+    const a='One of your two sessions this week, and it is meant to be easy. An LSS session, a grip circuit, core work, strength-endurance, general conditioning — something you do not normally get to. No barbells and no HIC: staying off those is the whole point of the week.';
+    const b='The second and last session. Easy again. Anything you already do — a class, a roll, a game — counts on top of these two and does not need to come out.';
+    const off=n0=>({t:'off',recovery:true,short:'Recovery',note:n0});
+    const rest='Nothing scheduled. Mobility and stretching as much as you like, and that is the best use of this week beyond the two easy sessions.';
+    return [easy(a),off(rest),off(rest),easy(b),off(rest),off(rest),
+      {t:'off',recovery:true,short:'Off',note:'Complete rest. Next week the barbells come back.'}][d];
+  }
   if(wk.kind==='bridge3'){
     const ease='Light activity only. Walking, hiking, an easy swim, yoga, stretching, an easy bodyweight circuit. No weights, no HIC, no E — this week is for recovering, which is when the work you have already done actually lands.';
     const light=()=>({t:'off',bridge3:true,short:'Light',note:ease});
@@ -434,6 +464,20 @@ function bbRow(wk){
   const r=BB_SF_SE[Math.min(Math.max((wk.w||6)-6,0),BB_SF_SE.length-1)];
   return base.map((x,i)=>x[0]==='se'?['ms']:x[0]==='ms'?['se',i===0?r[0]:2,r[1]]:x);
 }
+/* Ageless Athlete's alternative to a test week: "Consider testing within the block by
+   doing either a heavy-ish single > 95% or a rep max on the last day of your strength
+   block before a recovery week." True only on the last lifting day of a training week
+   that a recovery week follows. */
+function inBlockCheck(date){
+  if(!plan.recovery313) return false;
+  const wk=weekOf(date);
+  if(!wk||wk.kind!=='cycle') return false;
+  const next=weekOf(addDays(wk.monday,7));
+  if(!next||next.kind!=='recovery') return false;
+  let last=-1;
+  for(let i=0;i<7;i++){ const p=dayPlanSlot(addDays(wk.monday,i),i); if(p.t==='lift'&&(p.lifts||[]).length) last=i }
+  return last>=0&&addDays(wk.monday,last)===date;
+}
 function weekTitle(wk){
   if(!wk) return 'Before start';
   if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
@@ -445,6 +489,7 @@ function weekTitle(wk){
   }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
   if(wk.kind==='bridge3') return {t:'Bridge week · TB III',chip:'A week off',cls:'light'};
+  if(wk.kind==='recovery') return {t:'Recovery week',chip:'No barbells, no HIC',cls:'light'};
   if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};
 }

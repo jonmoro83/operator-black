@@ -375,6 +375,9 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
+  // The Ageless Athlete preset writes real settings rather than layering a hidden mode
+  // over them, so every one of them stays visible and individually reversible.
+  if(a==='ageless'){replan('Ageless Athlete settings applied',agelessPreset);return}
   if(a==='insert'){replan(({deload:'Deload',test:'Retest',bridge3:'Bridge',travel:'Travel'}[b.dataset.kind]||'Off')+' week added',p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
   if(a==='uninsert'){replan('Week removed',p=>{delete p.inserts[b.dataset.monday]});return}
   if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}

@@ -36,6 +36,10 @@ const LIFTSET={
   // A hypertrophy day has no barbell prescription at all: the whole session is the
   // cluster you built, which the app already models as supplementary work.
   NONE:()=>[],
+  // Back "Break": upper body only, then the one lower-body lift on the last day.
+  BBU:date=>['bench',...l3On()].slice(0,2),
+  BBS:date=>['bench',...l3On()].slice(0,2).concat(['squat']),
+  BBD:date=>['bench',...l3On()].slice(0,2).concat(['dead']),
 };
 // A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
 // and B-A-B the next, so the same weekday is a different session a week later.
@@ -96,6 +100,27 @@ function setHalf(k,to){
   return true;
 }
 
+/* Old Warhorse's four blocks, straight off the book's table. Volume falls and the set
+   range tightens as the weights get heavier; blocks 1 and 2 run Operator I/A's flexible
+   sets, 3 and 4 run Standard Operator's fixed ones. */
+/* Back "Break"'s three-week progression, run twice per block. The squat version allows
+   one to three down sets, the deadlift version one to two -- the book cuts the volume
+   "just a bit" for the pull. The down-set percentage is of the best set you just did,
+   not of a 1RM, which is why these carry `top` instead of `p`. */
+const BB_TOP={
+  squat:[{s:1,r:6,top:true,down:3,downPct:80},{s:1,r:5,top:true,down:3,downPct:85},{s:1,r:3,top:true,down:3,downPct:90}],
+  dead: [{s:1,r:5,top:true,down:2,downPct:80},{s:1,r:4,top:true,down:2,downPct:85},{s:1,r:3,top:true,down:2,downPct:90}],
+};
+const OW_BLOCKS=[
+  {s:5,sMax:10,ia:true, test:'No test this block.',
+   note:'Block 1 of 4 · high volume, 5 to 10 sets. Open at about 80% of the best you hit in your last continuation phase — deliberately light, so take the sets. Up to three HIC a week, pushing the reps and intensity. No test.'},
+  {s:4,sMax:8, ia:true, test:'Testing is your choice this block.',
+   note:'Block 2 of 4 · moderate volume, 4 to 8 sets. Add 2 to 5% to the last block’s training max, and you can be a bit aggressive here. Up to three HIC a week. Test or do not, as you like.'},
+  {s:4,sMax:5, ia:false,test:'Test within the block.',
+   note:'Block 3 of 4 · moderate volume, 4 to 5 sets, and Standard Operator rather than I/A now the weights are heavier. Another 2 to 5% on the training max. Up to two HIC a week. Test within the block — a heavy single above 95%, or a rep max, on the last day before a recovery week.'},
+  {s:3,sMax:4, ia:false,test:'Finish on a 3-rep max at 100 to 107% of your training max.',
+   note:'Block 4 of 4 · low volume, 3 to 4 sets and minimal reps. Add 2 to 5% or more depending on how block 3 tested. One easy HIC and up to two LSS sessions of 20 to 30 minutes — the lifting is the load now. Finish on a 3-rep max at 100 to 107% of your training max, and that number opens the next four blocks.'},
+];
 const STEMPL={
   operator:{
     name:'Operator', book:'TB1', slots:[0,2,4],   // the book's days 1, 3, 5
@@ -211,6 +236,72 @@ const STEMPL={
     accRx(wk,day){
       const w=((wk&&wk.w||1)-1)%3, late=(+day||1)>=3;
       return [{s:4,sMax:5,r:12,p:late?55:50},{s:4,sMax:5,r:10,p:late?65:60},{s:4,sMax:5,r:8,p:late?75:70}][w];
+    },
+  },
+  /* Ageless Athlete's Old Warhorse, from the book's four-block table (p.143). For
+     advanced lifters who find 90%+ expensive: open the block at a deliberately low
+     training max and force progression from block to block instead of testing.
+
+     The programmable part is the volume band and whether the block runs Operator I/A's
+     set ranges or Standard Operator's fixed sets. The training-max step between blocks
+     is "2-5% addition (you can be a bit aggressive here)" -- a judgment call rather
+     than a formula, so the app prompts for it at the start of each block instead of
+     inventing a number. Same for the test column: it says No, then your choice, then
+     test within the block, then a 3-rep max at 100-107%. */
+  warhorse:{
+    name:'Old Warhorse', book:'Ageless Athlete', slots:[0,2,4],
+    blurb:'Four blocks that start deliberately light and force the numbers up rather than testing for them. Operator’s three days a week, but the volume falls and the sets tighten block by block: high and flexible at the start, low and fixed by the end. For experienced lifters who find heavy singles expensive to recover from.',
+    days:[
+      {lifts:'SBP',acc:'mon',short:'OW 1',label:'Old Warhorse 1'},
+      {lifts:'SBP',acc:'wed',short:'OW 2',label:'Old Warhorse 2'},
+      {lifts:'SBD',acc:'fri',short:'OW 3',label:'Old Warhorse 3'},
+    ],
+    // Operator's wave, unchanged -- the book says to use Operator's percentages.
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+    rx(wk,day,k){
+      const base=STEMPL.operator.wave[((wk.w||1)-1)%6];
+      const b=OW_BLOCKS[(((wk.cycle||1)-1)%4)];
+      return Object.assign({},base,{s:b.s,sMax:b.sMax,note:b.note});
+    },
+  },
+  /* Ageless Athlete's Back "Break" templates (ch. 12). For a block when the spine
+     wants a rest: one lower-body barbell lift, once a week, on the last day. Upper body
+     proceeds per Operator as usual. You work up to a best set for that day rather than
+     off a percentage, then take optional down sets at a percentage of that set.
+
+     "This is not the best way to progress your squat or deadlift, but it might be
+     exactly the breather you need to stay in the game."
+
+     Two waves of the three-week progression per block, to line up with Operator's six.
+     The book gives the Operator layout for deadlift-only and the Zulu layout for both;
+     for squat-only on Operator it gives the rule rather than a table -- upper body as
+     usual, squat on the last day of the week -- which is what this follows. */
+  backsquat:{
+    name:'Back Break · squat only', book:'Ageless Athlete', slots:[0,2,4],
+    blurb:'A block that gives your back a rest without giving up lower-body work. Bench and the pull-up run as usual; you squat once a week, on the last day, working up to your best set for that day. Deadlift-style accessories carry the posterior chain on the other two days.',
+    days:[
+      {lifts:'BBU',half:'a',acc:'bb1',short:'BB 1',label:'Back Break 1 · upper'},
+      {lifts:'BBU',half:'a',acc:'bb1',short:'BB 2',label:'Back Break 2 · upper'},
+      {lifts:'BBS',half:'b',acc:'bb2',short:'BB SQ',label:'Back Break 3 · upper + squat'},
+    ],
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+    rx(wk,day,k){
+      if(k!=='squat') return null;                       // upper body runs Operator's wave
+      return BB_TOP.squat[(((wk.w||1)-1)%3)];
+    },
+  },
+  backdead:{
+    name:'Back Break · deadlift only', book:'Ageless Athlete', slots:[0,2,4],
+    blurb:'The same idea for the pull. Bench and the pull-up as usual, one deadlift day a week worked up to your best set, and goblet squats, double-kettlebell front squats or pistols on the other two days to keep the legs honest.',
+    days:[
+      {lifts:'BBU',half:'a',acc:'bb3',short:'BB 1',label:'Back Break 1 · upper'},
+      {lifts:'BBU',half:'a',acc:'bb3',short:'BB 2',label:'Back Break 2 · upper'},
+      {lifts:'BBD',half:'b',acc:'bb4',short:'BB DL',label:'Back Break 3 · upper + deadlift'},
+    ],
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+    rx(wk,day,k){
+      if(k!=='dead') return null;
+      return BB_TOP.dead[(((wk.w||1)-1)%3)];
     },
   },
   greyman:{

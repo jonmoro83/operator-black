@@ -560,7 +560,7 @@ const DEF={
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   // A day's session moved onto another day in the same week. See 04-schedule.js.
   stack:{},
-  cycleMaxes:{}, inserts:{}, skips:{}
+  cycleMaxes:{}, inserts:{}, skips:{}, recovery313:false
 };
 
 // Where a complaint plausibly comes from. Used to attach it to the right lifts in the

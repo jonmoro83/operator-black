@@ -147,6 +147,12 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // goes in them entirely to you and gives sample clusters; this is a starting split,
   // and like every accessory split here it is the app's, not the book's.
   sp1:['pchain','spress','rdelt','core','biceps','triceps'], sp2:['hpull','delts','pullup','sleg','carry','core'],
+  // Back Break. Squat-only carries the posterior chain on the two non-squat days with
+  // the deadlift-style work the book names (farmer carries, swings, plank and shank);
+  // deadlift-only does the reverse with squat-pattern work. Which slots they map to is
+  // the app's, as every accessory split here is.
+  bb1:['pchain','carry','core'], bb2:['delts','biceps','triceps'],
+  bb3:['sleg','core','delts'],   bb4:['hpull','biceps','triceps'],
   // Mass is spare on purpose: the book says weighted pull-ups cover the arms well
   // enough that you need not train them separately, and the deadlift day is its own
   // posterior chain. These are the app's, as every accessory split here is.

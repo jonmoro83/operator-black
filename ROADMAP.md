@@ -53,11 +53,11 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
-- **TB book coverage is done.** Nine templates (Operator, Fighter, Zulu, Fighter HT,
-  Grey Man, Mass, Gladiator, Specificity Alpha, Specificity Bravo) against five
-  protocols, which is forty-five combinations and a matrix test over all of them. Three
-  Base Building variants, two bridge weeks, and TB III's named conditioning sessions.
-  Whatever comes next is new ground rather than catching up with the books.
+- **TB book coverage is done**, Ageless Athlete included. Twelve templates against five
+  protocols, which is sixty combinations and a matrix test over all of them; three Base
+  Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
+  conditioning sessions. The only book content left out is AA's Base Building, declined
+  by request, and I/A's floating schedule. Whatever comes next is new ground.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -120,6 +120,34 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Ageless Athlete (2026-10-14)**
+- The book I had wrongly called covered. Five pieces, all read off the pages.
+- **3-1-3-1 recovery weeks.** A `recovery` week after every third training week, so a
+  six-week cycle takes eight — which the book says is the point. No barbells, no HIC,
+  two easy sessions and nothing else; no plyos either, since `weekHasPlyo` never
+  included the kind. Turning it on suppresses the scheduled deload, because the
+  recovery weeks *are* the back-off.
+- **The in-block check.** On the last lifting day of a week a recovery week follows,
+  offer a heavy single above 95% or a rep max instead of a whole test week. Tied to the
+  recovery weeks, so it is silent without them.
+- **Old Warhorse.** Four blocks over Operator's percentages, with the volume band and
+  the set flexibility moving block to block (5-10 / 4-8 / 4-5 / 3-4). The table on page
+  143 was marked unverified in `AGELESS-AND-MASS.md`; it reads cleanly and is now the
+  source. The training-max step between blocks is "2-5% (you can be a bit aggressive
+  here)" — a judgment call, so the app prompts rather than inventing a number.
+- **Back "Break", squat-only and deadlift-only.** One lower-body lift a week on the
+  last day. These needed a prescription type the app did not have: `top`, where you work
+  up to the best set of the day and the down sets are a percentage of *that* rather than
+  of a 1RM. `rx` carries `top`/`down`/`downPct` and `liftCard` drops the percentage from
+  the header when they are set.
+- **The Ageless preset** writes three real settings (recovery weeks, training max at
+  90%, no scheduled deload) instead of layering a hidden mode over them, so each stays
+  visible in Setup and individually reversible. A training max already below 90% is left
+  alone.
+- Still not built, and not an oversight: AA's Base Building (declined) and I/A's 48-72h
+  floating schedule (deliberately out).
+- 284 tests, 12 mutants, all caught.
 
 **TB III's named conditioning sessions (2026-10-14)**
 - The last item on the list. Ruck, Recovery Run, Endurance Predator, Anabolic Sprints,

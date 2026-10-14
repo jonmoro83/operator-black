@@ -4118,6 +4118,142 @@ test("Tactical Barbell III's Base Building is six weeks of SE and E, and nothing
   a.equal(x.weeks()[6].kind, "cycle", "week seven is the program again");
 });
 
+test("3-1-3-1 puts a recovery week after every third training week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.plan.testEvery = 0; x.bump();
+  const shape = () => x.weeks().slice(0, 8).map((w) => w.kind === "cycle" ? "w" + w.w : w.kind);
+
+  a.deepEqual(shape(), ["w1", "w2", "w3", "w4", "w5", "w6", "w1", "w2"], "off by default");
+  x.plan.recovery313 = true; x.bump();
+  a.deepEqual(shape(), ["w1", "w2", "w3", "recovery", "w4", "w5", "w6", "recovery"],
+    "six training weeks now take eight, which the book says is the point");
+  a.equal(x.weeks()[8].kind, "cycle", "and then the next block starts");
+  a.equal(x.weeks()[8].w, 1);
+
+  // The recovery weeks are the back-off, so a scheduled deload on top is suppressed.
+  x.plan.deloadEvery = 1; x.bump();
+  a.equal(x.weeks().filter((w) => w.kind === "deload").length, 0, "no deload while this is on");
+  x.plan.recovery313 = false; x.bump();
+  a.ok(x.weeks().filter((w) => w.kind === "deload").length > 0, "and it comes back when this is off");
+  x.plan.recovery313 = true; x.plan.deloadEvery = 0; x.bump();
+
+  // What a recovery week is: no barbells, no HIC, two easy sessions, nothing else.
+  const r = x.weeks().find((w) => w.kind === "recovery");
+  a.equal(x.weekTitle(r).chip, "No barbells, no HIC");
+  const ds = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(r.monday, d), d));
+  a.ok(!ds.some((p) => p.t === "lift"), "no barbells");
+  const cond = ds.filter((p) => p.t === "hic");
+  a.equal(cond.length, 2, "two sessions, which is the book's cap");
+  a.ok(cond.every((p) => p.fmt === "liss"), "and no HIC among them");
+  a.ok(ds.every((p) => p.recovery), "every day knows what week it is in");
+  a.ok(!x.weekHasPlyo(r), "and no plyos either, since the point is to recharge the CNS");
+});
+
+test("the in-block check is offered only where the book puts it", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.testEvery = 0; x.plan.recovery313 = true; x.bump();
+
+  const flagged = [];
+  for (const wk of x.weeks().filter((w) => w.kind === "cycle").slice(0, 6))
+    for (let i = 0; i < 7; i++) { const d = x.addDays(wk.monday, i); if (x.inBlockCheck(d)) flagged.push([wk.w, i]) }
+  a.deepEqual(flagged, [[3, 4], [6, 4]], "the last lifting day of the weeks a recovery week follows");
+
+  // It is tied to the recovery weeks, so it is silent without them.
+  x.plan.recovery313 = false; x.bump();
+  a.equal(x.weeks().filter((w) => w.kind === "cycle").slice(0, 6)
+    .some((wk) => [0, 1, 2, 3, 4, 5, 6].some((i) => x.inBlockCheck(x.addDays(wk.monday, i)))), false);
+
+  x.plan.recovery313 = true; x.bump();
+  const wk3 = x.weeks().filter((w) => w.kind === "cycle")[2];
+  const d = x.addDays(wk3.monday, 4); x.sel = d; x.bump();
+  const h = x.banners(wk3, x.dayPlanSlot(d, 4));
+  a.match(h, /Last lifting day before a recovery week/);
+  a.match(h, /heavy-ish single above 95%, or a rep max/);
+});
+
+test("Old Warhorse walks its four blocks down the book's volume table", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.stempl = "warhorse"; x.plan.testEvery = 0; x.bump();
+
+  a.equal(x.STEMPL.warhorse.book, "Ageless Athlete");
+  a.deepEqual(x.OW_BLOCKS.map((b) => [b.s, b.sMax]), [[5, 10], [4, 8], [4, 5], [3, 4]],
+    "high, moderate, moderate, low");
+  a.deepEqual(x.OW_BLOCKS.map((b) => b.ia), [true, true, false, false],
+    "I/A for the light blocks, Standard Operator once it gets heavy");
+
+  // The percentages stay Operator's; only the volume moves block to block.
+  const first = (c) => { const wk = x.weeks().filter((w) => w.kind === "cycle" && w.cycle === c)[0];
+    return x.rx(wk, "squat", x.addDays(wk.monday, 0)) };
+  for (let c = 1; c <= 4; c++) {
+    const r = first(c), b = x.OW_BLOCKS[c - 1];
+    a.equal(r.p, x.STEMPL.operator.wave[0].p, `block ${c} keeps Operator's percentage`);
+    a.equal(r.s, b.s, `block ${c} sets`);
+    a.equal(r.sMax, b.sMax, `block ${c} ceiling`);
+    a.match(r.note, new RegExp("Block " + c + " of 4"), `block ${c} says where you are`);
+  }
+  a.equal(first(5).sMax, 10, "and block five starts the four over");
+  // The training-max step is a judgment call in the book, so the app prompts rather
+  // than inventing a number.
+  a.match(first(2).note, /2 to 5%/);
+  a.match(first(4).note, /3-rep max at 100 to 107%/);
+});
+
+test("Back Break works up to a best set rather than off a percentage", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+
+  for (const [t, k, reps, down] of [["backsquat", "squat", [6, 5, 3], 3], ["backdead", "dead", [5, 4, 3], 2]]) {
+    x.plan.stempl = t; x.bump();
+    const wks = x.weeks().filter((w) => w.kind === "cycle");
+    const lift = [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlanSlot(x.addDays(wks[0].monday, i), i)).filter((p) => p.t === "lift");
+    a.equal(lift.length, 3, t + ": three days, Operator's");
+    a.equal(lift.filter((p) => p.lifts.includes(k)).length, 1, t + ": the lower-body lift runs once a week");
+    a.ok(lift[2].lifts.includes(k), t + ": on the last day of the week");
+
+    // Three weeks of top sets, run twice over the six-week block.
+    for (let w = 0; w < 6; w++) {
+      const wk = wks[w], d = x.addDays(wk.monday, 4), r = x.rx(wk, k, d);
+      a.equal(r.top, true, `${t} week ${w + 1} is a top set`);
+      a.equal(r.r, reps[w % 3], `${t} week ${w + 1} reps`);
+      a.equal(r.down, down, `${t} down sets`);
+      a.equal(r.downPct, [80, 85, 90][w % 3], `${t} week ${w + 1} down-set percentage`);
+      // Upper body is untouched: it runs Operator's wave as the book says.
+      a.equal(x.rx(wk, "bench", d).p, x.STEMPL.operator.wave[w].p, `${t} week ${w + 1} bench`);
+      a.ok(!x.rx(wk, "bench", d).top, "and the bench is not a top-set lift");
+    }
+
+    // The card has to say so, because there is no percentage to work from.
+    const wk = wks[0], d = x.addDays(wk.monday, 4); x.sel = d; x.bump();
+    const card = x.liftCard(wk, k, x.dayPlanSlot(d, 4));
+    a.match(card, new RegExp("Best " + reps[0] + " of the day"), t + ": the header");
+    a.match(card, new RegExp("Work up to your best " + reps[0] + " for today"), t + ": the instruction");
+    a.match(card, new RegExp("at 80% of what you just lifted"), t + ": the down sets are off today's set");
+    a.ok(!/@ \d+%/.test(card.split("</span></div>")[0]), t + ": and no percentage of a 1RM in the header");
+  }
+});
+
+test("the Ageless Athlete preset writes settings rather than hiding a mode", () => {
+  const x = app({ now: "2026-10-19" });
+  a.equal(x.agelessOn(), false);
+  x.mutatePlan(x.agelessPreset); x.bump();
+  a.equal(x.agelessOn(), true);
+  a.equal(x.plan.recovery313, true, "recovery weeks on");
+  a.equal(x.plan.basis, "tm", "training max rather than a true 1RM");
+  a.equal(x.plan.tmPct, 90);
+  a.equal(+x.plan.deloadEvery, 0, "and no scheduled deload, because the recovery weeks are it");
+
+  // Every one of them is an ordinary setting, so undoing one undoes the preset.
+  x.plan.recovery313 = false; x.bump();
+  a.equal(x.agelessOn(), false, "nothing is locked in");
+  a.match(x.vSetup(), /Set all three/, "and Setup offers it again");
+
+  // A training max already lower than 90% is not raised to it.
+  x.plan.tmPct = 85; x.mutatePlan(x.agelessPreset); x.bump();
+  a.equal(x.plan.tmPct, 85, "a more conservative setting of your own survives");
+});
+
 test("TB III's named conditioning sessions are the ones the book provides", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.plan.cproto = "massgreen"; x.bump();

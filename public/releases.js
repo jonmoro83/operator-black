@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.7',date:'2026-10-14',title:'Ageless Athlete',items:[
+    'The fourth book, and the one still missing. It does not add a different program for older athletes \u2014 it asks that outright and answers no. What changes is the dosing.',
+    '<b>Recovery weeks, 3-1-3-1.</b> One after every third training week, so a six-week cycle takes eight. No barbells and no HIC: that is what recharges the nervous system, joints and hormones. Not an off week either \u2014 two easy sessions, kept easy, plus anything you already do and as much mobility as you like. Turning it on suspends the scheduled deload, because these are the back-off.',
+    '<b>The in-block check.</b> On the last lifting day before a recovery week, the app offers a heavy single above 95% or a rep max, instead of giving up a whole week to testing. Only if there is something you expect to learn.',
+    '<b>Old Warhorse</b>, a four-block template that starts deliberately light and forces the numbers up rather than testing for them. Operator\u2019s percentages throughout; the volume falls block by block, from 5 to 10 sets down to 3 or 4, and the sets stop being flexible once the weights get heavy.',
+    '<b>Back \u201cBreak\u201d</b>, for a block when your spine wants a rest. Squat only or deadlift only: one lower-body lift a week, on the last day, worked up to the best set you have that day rather than off a percentage \u2014 then optional down sets at a share of what you just lifted.',
+    'There is an <b>Ageless Athlete preset</b> in Setup that turns on the three settings together. It writes them as ordinary settings you can see and undo one at a time, rather than switching the app into a mode.']},
   {v:'2.6',date:'2026-10-14',title:'Tactical Barbell III\u2019s own conditioning',items:[
     'The book does not want you using TB II\u2019s Green and Black while you are building mass \u2014 it provides its own sessions, picked so they support hypertrophy instead of working against it. Both are protocols now, in Setup next to the others.',
     '<b>Green \u00b7 TB III</b> is three easy sessions a week, and goes with Mass, Gladiator and Fighter HT. A ruck of 30 to 60 minutes, a 20 to 30 minute recovery run, and <b>Endurance Predator</b> \u2014 a long walk where every five to ten minutes you break into an all-out sprint.',

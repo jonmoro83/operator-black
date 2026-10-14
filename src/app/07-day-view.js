@@ -177,6 +177,7 @@ function banners(wk,dp){
   let h='';
   const needMax=dp.t==='lift'&&(dp.lifts||[]).some(k=>!maxFor(wk.kind==='cycle'?wk.cycle:wk.refCycle)[k]);
   if(needMax) h+=`<div class="banner warn"><div><b>Some maxes are missing.</b> Working weights need a 1RM for every lift. Finish the bridge week tests or enter maxes in Setup.</div><div><button class="btn sm" data-act="view" data-view="setup">Open Setup</button></div></div>`;
+  if(inBlockCheck(sel)) h+=`<div class="banner info"><div><b>Last lifting day before a recovery week.</b> If you want to know where a lift stands, this is the day to find out — the book prefers it to a whole test week. Take one heavy-ish single above 95%, or a rep max, on one lift at the end of the session. Only if there is something you actually expect to learn.</div></div>`;
   if(wk.kind==='bridge'&&dp.t!=='convert') h+=`<div class="banner info"><div><b>Bridge week.</b> Testing and calibration, not training. Leave two reps in reserve on every test set. Sunday turns your 5RMs into maxes.</div></div>`;
   const hol=holidayOn(sel);
   if(hol&&(dp.t==='lift'||dp.t==='test')){const alt={0:'Sun or Tue',2:'Tue or Thu',3:'Wed or Fri',4:'Thu or Sat',5:'Fri or Sun'}[dow(sel)]||'an adjacent day';h+=`<div class="banner warn"><div><b>${hol}.</b> Shift this session to ${alt} if the gym is closed.</div></div>`}
@@ -333,9 +334,12 @@ function liftCard(wk,k,dp){
   const setLbl=r.sMax>r.s?r.s+'–'+r.sMax:String(r.s);
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}</span></div>`;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${r.top?'Best '+r.r+' of the day':`${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}`}</span></div>`;
   // Tactical Barbell III finishes some weeks on an all-out set, and some of its days
   // carry a note of their own. Both come off the prescription, not off the day type.
+  /* A Back "Break" day has no percentage to work from: you climb to the best set you
+     have today, and the down sets are a share of that rather than of a 1RM. */
+  if(r.top) h+=`<div class="banner info"><div class="small"><b>Work up to your best ${r.r} for today.</b> Warm up, then climb in sets of ${r.r} until you reach the heaviest one you can do with absolutely perfect form. It may take a few attempts to find it, and it is a best for <i>today</i>, not a record to chase.${r.down?` Then, <b>optional</b>: ${r.down===1?'one set':'one to '+({2:'two',3:'three'}[r.down]||r.down)+' sets'} of ${r.r} at ${r.downPct}% of what you just lifted. Only if you are feeling good — the down sets are not the hill to die on.`:''}</div></div>`;
   if(r.amrap) h+=`<div class="banner info"><div class="small"><b>Last set: as many reps as you can.</b> Keep the same weight and keep going past ${r.r}. Stop with something left — this is not a grinder.</div></div>`;
   if(r.note) h+=`<div class="small muted">${esc(r.note)}</div>`;
   if(VARS[k]&&!viewing){

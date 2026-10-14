@@ -38,6 +38,10 @@ const LIFTSET={
   // A hypertrophy day has no barbell prescription at all: the whole session is the
   // cluster you built, which the app already models as supplementary work.
   NONE:()=>[],
+  // Back "Break": upper body only, then the one lower-body lift on the last day.
+  BBU:date=>['bench',...l3On()].slice(0,2),
+  BBS:date=>['bench',...l3On()].slice(0,2).concat(['squat']),
+  BBD:date=>['bench',...l3On()].slice(0,2).concat(['dead']),
 };
 // A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
 // and B-A-B the next, so the same weekday is a different session a week later.
@@ -98,6 +102,27 @@ function setHalf(k,to){
   return true;
 }
 
+/* Old Warhorse's four blocks, straight off the book's table. Volume falls and the set
+   range tightens as the weights get heavier; blocks 1 and 2 run Operator I/A's flexible
+   sets, 3 and 4 run Standard Operator's fixed ones. */
+/* Back "Break"'s three-week progression, run twice per block. The squat version allows
+   one to three down sets, the deadlift version one to two -- the book cuts the volume
+   "just a bit" for the pull. The down-set percentage is of the best set you just did,
+   not of a 1RM, which is why these carry `top` instead of `p`. */
+const BB_TOP={
+  squat:[{s:1,r:6,top:true,down:3,downPct:80},{s:1,r:5,top:true,down:3,downPct:85},{s:1,r:3,top:true,down:3,downPct:90}],
+  dead: [{s:1,r:5,top:true,down:2,downPct:80},{s:1,r:4,top:true,down:2,downPct:85},{s:1,r:3,top:true,down:2,downPct:90}],
+};
+const OW_BLOCKS=[
+  {s:5,sMax:10,ia:true, test:'No test this block.',
+   note:'Block 1 of 4 · high volume, 5 to 10 sets. Open at about 80% of the best you hit in your last continuation phase — deliberately light, so take the sets. Up to three HIC a week, pushing the reps and intensity. No test.'},
+  {s:4,sMax:8, ia:true, test:'Testing is your choice this block.',
+   note:'Block 2 of 4 · moderate volume, 4 to 8 sets. Add 2 to 5% to the last block’s training max, and you can be a bit aggressive here. Up to three HIC a week. Test or do not, as you like.'},
+  {s:4,sMax:5, ia:false,test:'Test within the block.',
+   note:'Block 3 of 4 · moderate volume, 4 to 5 sets, and Standard Operator rather than I/A now the weights are heavier. Another 2 to 5% on the training max. Up to two HIC a week. Test within the block — a heavy single above 95%, or a rep max, on the last day before a recovery week.'},
+  {s:3,sMax:4, ia:false,test:'Finish on a 3-rep max at 100 to 107% of your training max.',
+   note:'Block 4 of 4 · low volume, 3 to 4 sets and minimal reps. Add 2 to 5% or more depending on how block 3 tested. One easy HIC and up to two LSS sessions of 20 to 30 minutes — the lifting is the load now. Finish on a 3-rep max at 100 to 107% of your training max, and that number opens the next four blocks.'},
+];
 const STEMPL={
   operator:{
     name:'Operator', book:'TB1', slots:[0,2,4],   // the book's days 1, 3, 5
@@ -213,6 +238,72 @@ const STEMPL={
     accRx(wk,day){
       const w=((wk&&wk.w||1)-1)%3, late=(+day||1)>=3;
       return [{s:4,sMax:5,r:12,p:late?55:50},{s:4,sMax:5,r:10,p:late?65:60},{s:4,sMax:5,r:8,p:late?75:70}][w];
+    },
+  },
+  /* Ageless Athlete's Old Warhorse, from the book's four-block table (p.143). For
+     advanced lifters who find 90%+ expensive: open the block at a deliberately low
+     training max and force progression from block to block instead of testing.
+
+     The programmable part is the volume band and whether the block runs Operator I/A's
+     set ranges or Standard Operator's fixed sets. The training-max step between blocks
+     is "2-5% addition (you can be a bit aggressive here)" -- a judgment call rather
+     than a formula, so the app prompts for it at the start of each block instead of
+     inventing a number. Same for the test column: it says No, then your choice, then
+     test within the block, then a 3-rep max at 100-107%. */
+  warhorse:{
+    name:'Old Warhorse', book:'Ageless Athlete', slots:[0,2,4],
+    blurb:'Four blocks that start deliberately light and force the numbers up rather than testing for them. Operator’s three days a week, but the volume falls and the sets tighten block by block: high and flexible at the start, low and fixed by the end. For experienced lifters who find heavy singles expensive to recover from.',
+    days:[
+      {lifts:'SBP',acc:'mon',short:'OW 1',label:'Old Warhorse 1'},
+      {lifts:'SBP',acc:'wed',short:'OW 2',label:'Old Warhorse 2'},
+      {lifts:'SBD',acc:'fri',short:'OW 3',label:'Old Warhorse 3'},
+    ],
+    // Operator's wave, unchanged -- the book says to use Operator's percentages.
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+    rx(wk,day,k){
+      const base=STEMPL.operator.wave[((wk.w||1)-1)%6];
+      const b=OW_BLOCKS[(((wk.cycle||1)-1)%4)];
+      return Object.assign({},base,{s:b.s,sMax:b.sMax,note:b.note});
+    },
+  },
+  /* Ageless Athlete's Back "Break" templates (ch. 12). For a block when the spine
+     wants a rest: one lower-body barbell lift, once a week, on the last day. Upper body
+     proceeds per Operator as usual. You work up to a best set for that day rather than
+     off a percentage, then take optional down sets at a percentage of that set.
+
+     "This is not the best way to progress your squat or deadlift, but it might be
+     exactly the breather you need to stay in the game."
+
+     Two waves of the three-week progression per block, to line up with Operator's six.
+     The book gives the Operator layout for deadlift-only and the Zulu layout for both;
+     for squat-only on Operator it gives the rule rather than a table -- upper body as
+     usual, squat on the last day of the week -- which is what this follows. */
+  backsquat:{
+    name:'Back Break · squat only', book:'Ageless Athlete', slots:[0,2,4],
+    blurb:'A block that gives your back a rest without giving up lower-body work. Bench and the pull-up run as usual; you squat once a week, on the last day, working up to your best set for that day. Deadlift-style accessories carry the posterior chain on the other two days.',
+    days:[
+      {lifts:'BBU',half:'a',acc:'bb1',short:'BB 1',label:'Back Break 1 · upper'},
+      {lifts:'BBU',half:'a',acc:'bb1',short:'BB 2',label:'Back Break 2 · upper'},
+      {lifts:'BBS',half:'b',acc:'bb2',short:'BB SQ',label:'Back Break 3 · upper + squat'},
+    ],
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+    rx(wk,day,k){
+      if(k!=='squat') return null;                       // upper body runs Operator's wave
+      return BB_TOP.squat[(((wk.w||1)-1)%3)];
+    },
+  },
+  backdead:{
+    name:'Back Break · deadlift only', book:'Ageless Athlete', slots:[0,2,4],
+    blurb:'The same idea for the pull. Bench and the pull-up as usual, one deadlift day a week worked up to your best set, and goblet squats, double-kettlebell front squats or pistols on the other two days to keep the legs honest.',
+    days:[
+      {lifts:'BBU',half:'a',acc:'bb3',short:'BB 1',label:'Back Break 1 · upper'},
+      {lifts:'BBU',half:'a',acc:'bb3',short:'BB 2',label:'Back Break 2 · upper'},
+      {lifts:'BBD',half:'b',acc:'bb4',short:'BB DL',label:'Back Break 3 · upper + deadlift'},
+    ],
+    wave:[{s:3,r:5,p:70},{s:3,r:5,p:80},{s:3,r:3,p:90},{s:3,r:5,p:75},{s:3,r:5,p:85},{s:3,r:2,p:95}],
+    rx(wk,day,k){
+      if(k!=='dead') return null;
+      return BB_TOP.dead[(((wk.w||1)-1)%3)];
     },
   },
   greyman:{
@@ -1088,7 +1179,7 @@ const DEF={
   plates:{lb:[45,35,25,10,5,2.5],kg:[25,20,15,10,5,2.5,1.25]},
   // A day's session moved onto another day in the same week. See 04-schedule.js.
   stack:{},
-  cycleMaxes:{}, inserts:{}, skips:{}
+  cycleMaxes:{}, inserts:{}, skips:{}, recovery313:false
 };
 
 // Where a complaint plausibly comes from. Used to attach it to the right lifts in the
@@ -1572,6 +1663,12 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // goes in them entirely to you and gives sample clusters; this is a starting split,
   // and like every accessory split here it is the app's, not the book's.
   sp1:['pchain','spress','rdelt','core','biceps','triceps'], sp2:['hpull','delts','pullup','sleg','carry','core'],
+  // Back Break. Squat-only carries the posterior chain on the two non-squat days with
+  // the deadlift-style work the book names (farmer carries, swings, plank and shank);
+  // deadlift-only does the reverse with squat-pattern work. Which slots they map to is
+  // the app's, as every accessory split here is.
+  bb1:['pchain','carry','core'], bb2:['delts','biceps','triceps'],
+  bb3:['sleg','core','delts'],   bb4:['hpull','biceps','triceps'],
   // Mass is spare on purpose: the book says weighted pull-ups cover the arms well
   // enough that you need not train them separately, and the deadlift day is its own
   // posterior chain. These are the app's, as every accessory split here is.
@@ -1887,12 +1984,24 @@ function u(){return plan.unit||'lb'}
 function* ruleSeq(p,from){
   let c=1,w=1,ruleFirst=false;
   if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
+  // Ageless Athlete's 3-1-3-1: a recovery week after every third training week, so a
+  // six-week block takes eight. "Notice that it now takes eight weeks to complete what
+  // was normally a six-week Operator/Zulu block. That's not a worry because we are in
+  // no hurry on the journey to lifelong excellence."
+  const r313=!!p.recovery313;
   for(;;c++,w=1){
-    if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++) yield {kind:'cycle',cycle:c,w};
+    if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++){
+      yield {kind:'cycle',cycle:c,w};
+      // No `after` on a recovery week: it sits inside the cycle, so replaying a frozen
+      // one must not advance the resume point to the next cycle.
+      if(r313&&w%3===0) yield {kind:'recovery',cycle:c,afterW:w};
+    }
     ruleFirst=false;
     const t=+p.testEvery>0&&c%+p.testEvery===0, d=+p.deloadEvery>0&&c%+p.deloadEvery===0;
     if(t&&!p.skips['test@'+c]) yield {kind:'test',after:c,rule:'test@'+c};
-    else if(d&&!p.skips['deload@'+c]) yield {kind:'deload',after:c,rule:'deload@'+c};
+    // The recovery weeks are the back-off, so a rule deload on top of them is the one
+    // thing the book is arguing against.
+    else if(d&&!r313&&!p.skips['deload@'+c]) yield {kind:'deload',after:c,rule:'deload@'+c};
   }
 }
 let wcache={v:-1,list:[]};
@@ -2034,7 +2143,10 @@ function rx(wk,k,date){
   sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
   const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
   return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null,
-    amrap:!!v.amrap,note:v.note||null};
+    amrap:!!v.amrap,note:v.note||null,
+    // Back "Break" works up to a best set for the day rather than off a percentage,
+    // and its down sets are a percentage of that set, not of a 1RM.
+    top:!!v.top,down:v.down||null,downPct:v.downPct||null};
 }
 // A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
@@ -2274,6 +2386,21 @@ function dayPlanSlot(date,d){
 
      Not to be confused with the app's own bridge week above, which is a calibration
      week at the very start and is ours, not the book's. */
+  /* Ageless Athlete's recovery week, the "1" in 3-1-3-1. The book is specific about
+     what it is: "I do stay entirely away from barbells and HIC during recovery weeks.
+     That is the key to recharging the CNS, joints, hormones, etc." Not an off week
+     though -- "no more than two workouts that week, plus any other activities you
+     might have, and remember to keep the workouts easy", plus as much mobility as you
+     like. Two easy sessions, spread out, and nothing else scheduled. */
+  if(wk.kind==='recovery'){
+    const easy=n0=>({t:'hic',fmt:'liss',recovery:true,short:'Easy',note:n0});
+    const a='One of your two sessions this week, and it is meant to be easy. An LSS session, a grip circuit, core work, strength-endurance, general conditioning — something you do not normally get to. No barbells and no HIC: staying off those is the whole point of the week.';
+    const b='The second and last session. Easy again. Anything you already do — a class, a roll, a game — counts on top of these two and does not need to come out.';
+    const off=n0=>({t:'off',recovery:true,short:'Recovery',note:n0});
+    const rest='Nothing scheduled. Mobility and stretching as much as you like, and that is the best use of this week beyond the two easy sessions.';
+    return [easy(a),off(rest),off(rest),easy(b),off(rest),off(rest),
+      {t:'off',recovery:true,short:'Off',note:'Complete rest. Next week the barbells come back.'}][d];
+  }
   if(wk.kind==='bridge3'){
     const ease='Light activity only. Walking, hiking, an easy swim, yoga, stretching, an easy bodyweight circuit. No weights, no HIC, no E — this week is for recovering, which is when the work you have already done actually lands.';
     const light=()=>({t:'off',bridge3:true,short:'Light',note:ease});
@@ -2316,6 +2443,20 @@ function bbRow(wk){
   const r=BB_SF_SE[Math.min(Math.max((wk.w||6)-6,0),BB_SF_SE.length-1)];
   return base.map((x,i)=>x[0]==='se'?['ms']:x[0]==='ms'?['se',i===0?r[0]:2,r[1]]:x);
 }
+/* Ageless Athlete's alternative to a test week: "Consider testing within the block by
+   doing either a heavy-ish single > 95% or a rep max on the last day of your strength
+   block before a recovery week." True only on the last lifting day of a training week
+   that a recovery week follows. */
+function inBlockCheck(date){
+  if(!plan.recovery313) return false;
+  const wk=weekOf(date);
+  if(!wk||wk.kind!=='cycle') return false;
+  const next=weekOf(addDays(wk.monday,7));
+  if(!next||next.kind!=='recovery') return false;
+  let last=-1;
+  for(let i=0;i<7;i++){ const p=dayPlanSlot(addDays(wk.monday,i),i); if(p.t==='lift'&&(p.lifts||[]).length) last=i }
+  return last>=0&&addDays(wk.monday,last)===date;
+}
 function weekTitle(wk){
   if(!wk) return 'Before start';
   if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
@@ -2327,6 +2468,7 @@ function weekTitle(wk){
   }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
   if(wk.kind==='bridge3') return {t:'Bridge week · TB III',chip:'A week off',cls:'light'};
+  if(wk.kind==='recovery') return {t:'Recovery week',chip:'No barbells, no HIC',cls:'light'};
   if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};
 }
@@ -2930,6 +3072,7 @@ function banners(wk,dp){
   let h='';
   const needMax=dp.t==='lift'&&(dp.lifts||[]).some(k=>!maxFor(wk.kind==='cycle'?wk.cycle:wk.refCycle)[k]);
   if(needMax) h+=`<div class="banner warn"><div><b>Some maxes are missing.</b> Working weights need a 1RM for every lift. Finish the bridge week tests or enter maxes in Setup.</div><div><button class="btn sm" data-act="view" data-view="setup">Open Setup</button></div></div>`;
+  if(inBlockCheck(sel)) h+=`<div class="banner info"><div><b>Last lifting day before a recovery week.</b> If you want to know where a lift stands, this is the day to find out — the book prefers it to a whole test week. Take one heavy-ish single above 95%, or a rep max, on one lift at the end of the session. Only if there is something you actually expect to learn.</div></div>`;
   if(wk.kind==='bridge'&&dp.t!=='convert') h+=`<div class="banner info"><div><b>Bridge week.</b> Testing and calibration, not training. Leave two reps in reserve on every test set. Sunday turns your 5RMs into maxes.</div></div>`;
   const hol=holidayOn(sel);
   if(hol&&(dp.t==='lift'||dp.t==='test')){const alt={0:'Sun or Tue',2:'Tue or Thu',3:'Wed or Fri',4:'Thu or Sat',5:'Fri or Sun'}[dow(sel)]||'an adjacent day';h+=`<div class="banner warn"><div><b>${hol}.</b> Shift this session to ${alt} if the gym is closed.</div></div>`}
@@ -3086,9 +3229,12 @@ function liftCard(wk,k,dp){
   const setLbl=r.sMax>r.s?r.s+'–'+r.sMax:String(r.s);
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}</span></div>`;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${r.top?'Best '+r.r+' of the day':`${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}`}</span></div>`;
   // Tactical Barbell III finishes some weeks on an all-out set, and some of its days
   // carry a note of their own. Both come off the prescription, not off the day type.
+  /* A Back "Break" day has no percentage to work from: you climb to the best set you
+     have today, and the down sets are a share of that rather than of a 1RM. */
+  if(r.top) h+=`<div class="banner info"><div class="small"><b>Work up to your best ${r.r} for today.</b> Warm up, then climb in sets of ${r.r} until you reach the heaviest one you can do with absolutely perfect form. It may take a few attempts to find it, and it is a best for <i>today</i>, not a record to chase.${r.down?` Then, <b>optional</b>: ${r.down===1?'one set':'one to '+({2:'two',3:'three'}[r.down]||r.down)+' sets'} of ${r.r} at ${r.downPct}% of what you just lifted. Only if you are feeling good — the down sets are not the hill to die on.`:''}</div></div>`;
   if(r.amrap) h+=`<div class="banner info"><div class="small"><b>Last set: as many reps as you can.</b> Keep the same weight and keep going past ${r.r}. Stop with something left — this is not a grinder.</div></div>`;
   if(r.note) h+=`<div class="small muted">${esc(r.note)}</div>`;
   if(VARS[k]&&!viewing){
@@ -6110,6 +6256,18 @@ function templateCard(){
   h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the program they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }
+/* The Ageless Athlete preset. It writes three real settings rather than layering a
+   hidden mode over them, so each one stays visible in Setup and individually
+   reversible. `agelessOn()` is what the card checks to know it has been applied. */
+function agelessPreset(p){
+  p.recovery313=true;
+  p.basis='tm';
+  if(!(+p.tmPct)||+p.tmPct>90) p.tmPct=90;
+  p.deloadEvery=0;
+}
+function agelessOn(){
+  return !!plan.recovery313&&plan.basis==='tm'&&(+plan.tmPct||90)<=90&&!(+plan.deloadEvery);
+}
 function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
   <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
@@ -6246,6 +6404,9 @@ function vSetup(){
   }
   h+=`
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Added to the max each new cycle</div><div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}${pIn('inc.'+k,plan.inc[k])}</label>`).join('')}</div></div>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Ageless Athlete <span style="font-weight:400">· a preset, not a mode</span></div><p class="small muted" style="margin:0 0 2px">The book’s answer to whether an older athlete needs a different strength program is <b>no</b> — what changes is the dosing and the scaffolding around it. So this is not a separate program, it is three settings you could set yourself: recovery weeks every fourth week, training off a <b>training max</b> at 90% rather than a true 1RM, and no scheduled deload because the recovery weeks are the back-off. It sets them and tells you what it set; undo any of them individually afterwards.</p>
+  ${agelessOn()?`<div class="small">✓ All three are set.</div>`:`<button class="btn sm" data-act="ageless">Set all three</button>`}</div>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Recovery weeks <span style="font-weight:400">· Ageless Athlete</span></div><p class="small muted" style="margin:0 0 2px">A recovery week after every third training week, so a six-week cycle takes eight. The book's words for it: stay <b>entirely away from barbells and HIC</b> — that is what recharges the nervous system, joints and hormones. Not an off week: two easy sessions, kept easy, plus whatever you already do and as much mobility as you like. It is aimed at trainees past forty, and it replaces the scheduled deload rather than sitting alongside it.</p><label class="check"><input type="checkbox" id="p-rec313" data-pbind="recovery313" ${plan.recovery313?'checked':''}> Take a recovery week every fourth week</label>${plan.recovery313?`<div class="small muted">On. The scheduled deload below is suspended while this is — the recovery weeks are the back-off.</div>`:''}</div>
   <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Scheduled deload week <span style="font-weight:400">\u00b7 not in the book</span></div><p class="small muted" style="margin:0 0 2px">Operator runs its cycles back to back and retests; there is no deload week in it. What the book does prescribe is a full week or more off every three to six months \u2014 add that from the Plan tab when you want it. A scheduled light week is our addition, off by default, and worth having if you are running this year-round.</p><div class="seg">${[[0,'As needed'],[1,'After every cycle'],[2,'After every 2 cycles']].map(([v,l])=>`<button class="segb${(+plan.deloadEvery||0)===v?' on':''}" data-act="deloadevery" data-v="${v}" aria-pressed="${(+plan.deloadEvery||0)===v}">${l}</button>`).join('')}${[0,1,2].includes(+plan.deloadEvery||0)?'':`<button class="segb on" aria-pressed="true">Every ${+plan.deloadEvery} cycles</button>`}</div><div class="small muted">${nextScheduled('deload')}${(+plan.deloadEvery||0)===0?' The app still offers a one-tap deload when readiness is low or sessions run hard, and you can add one from Plan anytime.':''}</div>
   <label class="check"><input type="checkbox" id="p-askdl" data-pbind="askDeload" ${plan.askDeload!==false?'checked':''}> Ask me to confirm this every 2 cycles (weeks 5–6 of cycles 2, 4, 6…)</label></div>
   <label class="f" style="max-width:260px">Retest after every N cycles (0 = never)${pIn('testEvery',plan.testEvery)}</label>
@@ -6351,6 +6512,10 @@ function vGuide(){
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>
   <li><b>Tactical Barbell III brings its own conditioning.</b> The book is blunt about it — use these sessions, not TB II's Green and Black — because while mass is the objective, conditioning is there to keep you operational rather than to build an elite base. <b>Green · TB III</b> is three easy sessions a week (a ruck, a recovery run, and Endurance Predator) and goes with the General Mass templates. <b>Black · TB III</b> is two short maximal ones (Anabolic Sprints, then RESET-20 and Hill Sprints alternating) and goes with Specificity. Both numbers are the book's caps, and the app schedules the cap.</li>
   <li><b>Black sessions stay off lifting days</b>, which the book asks for outright. Green ones may go on either.</li>
+  <li><b>Ageless Athlete does not add a different program</b> — the book asks outright whether an older athlete needs one and answers no. What changes is the dosing: train off a training max, take a recovery week every fourth week, and test only when you expect to learn something. Setup has those as a preset. It does add two templates of its own, below.</li>
+  <li><b>Old Warhorse</b> is four blocks that start deliberately light and force the numbers up rather than testing for them. Operator's three days and percentages throughout; what moves is the volume — 5 to 10 sets in block 1, then 4 to 8, then 4 to 5, then 3 to 4 — and whether the sets are flexible (I/A) or fixed. Between blocks you add 2 to 5% to the training max, which the book leaves to your judgment, so the app tells you rather than deciding. Block 4 finishes on a 3-rep max at 100 to 107%.</li>
+  <li><b>Back “Break”</b> is for a block when your spine wants a rest. One lower-body lift, once a week, on the last day: <b>squat only</b> or <b>deadlift only</b>. You do not work off a percentage — you climb to the best set you have that day, then take optional down sets at 80, 85 or 90% of it depending on the week. Upper body runs Operator as usual, and the other two days carry accessories from the opposite pattern. The book is clear that it is not the best way to progress a squat or deadlift, but it might be the breather that keeps you training.</li>
+  <li><b>The recovery week</b> that 3-1-3-1 inserts is not an off week. No barbells and no HIC — that is what recharges the nervous system, joints and hormones — but two easy sessions, kept easy, plus anything you already do and as much mobility as you like. On the last lifting day before one, the app offers the in-block check: one heavy single above 95%, or a rep max, instead of a whole test week.</li>
   <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the program they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
@@ -7179,6 +7344,9 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
+  // The Ageless Athlete preset writes real settings rather than layering a hidden mode
+  // over them, so every one of them stays visible and individually reversible.
+  if(a==='ageless'){replan('Ageless Athlete settings applied',agelessPreset);return}
   if(a==='insert'){replan(({deload:'Deload',test:'Retest',bridge3:'Bridge',travel:'Travel'}[b.dataset.kind]||'Off')+' week added',p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
   if(a==='uninsert'){replan('Week removed',p=>{delete p.inserts[b.dataset.monday]});return}
   if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}
