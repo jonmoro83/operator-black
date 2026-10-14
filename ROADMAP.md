@@ -155,6 +155,18 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The bout count, where you can see it (2026-10-14)**
+- A placeholder in a field is easy to miss, and it was the only place the number
+  appeared. Now it is in three, all off the one source (`specRounds`):
+  - **The headline**, which for a base-then-bout session was showing the format's
+    generic description ("An easy base, broken by bouts of work") when the app knew the
+    actual prescription. It reads "10 bouts · 2 min of base between" now.
+  - **A one-tap fill** next to the existing "Use 20 min", on the same pattern and with
+    the same rule: it only appears while nothing is logged.
+  - The placeholder, as before.
+- Non-lead formats are untouched: MAP keeps its own description and grows no button.
+- 284 tests, 5 mutants, all caught.
+
 **Two things wrong on the FOBBIT card (2026-10-14)**
 - Reported after using it. Both were introduced by the catalog work and neither was
   caught, because the tests checked that the prescription was right without looking at

@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.9',date:'2026-10-14',title:'The bout count, where you can see it',items:[
+    'The number of bouts a session is was only ever a grey placeholder in the field, which is easy to miss. It is in three places now, all the same number: the big line at the top of the card, a <b>Use 10 bouts</b> button next to the one for minutes, and the placeholder.',
+    'That top line used to describe the format in general \u2014 \u201can easy base, broken by bouts of work\u201d \u2014 even though the app knew exactly what today was. It now reads <b>10 bouts \u00b7 2 min of base between</b>, and follows whichever FOBBIT and length you have picked.']},
   {v:'2.8',date:'2026-10-14',title:'Two fixes on the FOBBIT card',items:[
     'The <b>bouts done</b> field was empty. The app already knows how many bouts the session is \u2014 it is what the timer runs \u2014 so it fills that in as a suggestion now instead of leaving you to count.',
     'Under the FOBBIT picker there was a stray <b>\u201cOurs.\u201d</b> on its own line. It was meant to say where the session came from, and now it does: \u201cFrom Tactical Barbell II\u201d, or for the ones we made up, that the shape is the book\u2019s and the movements are not. <b>Something else</b> has no line at all, since there is nothing to attribute.']},

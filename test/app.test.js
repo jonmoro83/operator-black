@@ -1377,6 +1377,30 @@ test("the FOBBIT card explains the format in general and the movements only once
     a.ok(+m[1] > 0, id + " suggests a real number");
   }
 
+  // The bout count is the number you act on, so it goes where you cannot miss it: the
+  // headline, a one-tap fill, and the field's placeholder. Three places, one source.
+  for (const id of Object.keys(x.FOBBIT)) {
+    x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
+    const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+    const n = x.ivOpts(d, "fobbit").rounds;
+    a.match(card, new RegExp(`font-size:18px;font-weight:700">${n} bouts · [^<]*of base between<`), id + ": the headline");
+    a.match(card, new RegExp(`data-act="boutplan" data-v="${n}">Use ${n} bouts<`), id + ": the one-tap fill");
+  }
+  // Predator is a lead format too, and gets the same treatment.
+  x.seed({ [d]: { date: d, hic: { format: "predator", mod: "run" } } }); x.bump();
+  const pc = x.hicCard({ t: "hic", fmt: "predator" }, "");
+  a.match(pc, new RegExp(`${x.ivOpts(d, "predator").rounds} bouts · `), "Predator's headline counts bouts");
+
+  // A format that is not base-then-bout keeps its own description and grows no button.
+  x.seed({ [d]: { date: d, hic: { format: "map", mod: "run" } } }); x.bump();
+  const mc = x.hicCard({ t: "hic", fmt: "map" }, "");
+  a.match(mc, new RegExp(`font-size:18px;font-weight:700">${x.HIC.map.sess.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}<`), "MAP keeps its format line");
+  a.ok(!/boutplan/.test(mc), "and has no bouts to suggest");
+
+  // Once you have logged bouts the offer goes away, as the minutes one does.
+  x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "kb", rounds: 8 } } }); x.bump();
+  a.ok(!/boutplan/.test(x.hicCard({ t: "hic", fmt: "fobbit" }, "")), "nothing to offer once it is logged");
+
   // Provenance reads as a sentence. A bare "Ours." under the picker said nothing.
   for (const id of Object.keys(x.FOBBIT)) {
     x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();

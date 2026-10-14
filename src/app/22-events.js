@@ -225,6 +225,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // choices that are already selected save nothing (no empty log entries)
   if(a==='mlib'){const k=b.dataset.k;openPx.has(k)?openPx.delete(k):openPx.add(k);render();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
+  if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}
   if(a==='varadd'){
     const k=b.dataset.k, nm=(document.getElementById('cv-name-'+k)||{}).value, pct=+(document.getElementById('cv-pct-'+k)||{}).value;
     const name=(nm||'').trim();

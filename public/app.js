@@ -3604,7 +3604,8 @@ function fobLoadLine(bouts){
 function hicCard(dp,note){
   const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f);
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
-  h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
+  const lead0=(IV[f]||{}).lead?ivOpts(sel,f):null;
+  h+=`<div style="font-size:18px;font-weight:700">${lead0?`${lead0.rounds} bouts \u00b7 ${esc(secsLabel(lead0.every))} of base between`:H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
   if((IV[f]||{}).lead){
     // What a FOBBIT is, and nothing about which one. Every number that varies between
@@ -3649,7 +3650,7 @@ function hicCard(dp,note){
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button>${(IV[f]||{}).lead&&(L.rounds==null||L.rounds==='')?`<button class="btn sm" data-act="boutplan" data-v="${ivOpts(sel,f).rounds}">Use ${ivOpts(sel,f).rounds} bouts</button>`:''}</div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
         return `, counted as ${pl.rounds} \u00d7 ${esc(secsLabel(fo.every))} of base${hd?`; the ${pl.rounds} bouts of reps sit on top, so the clock will say more`:` and ${pl.rounds} timed bouts, which are counted in`}`})():`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
@@ -7197,6 +7198,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // choices that are already selected save nothing (no empty log entries)
   if(a==='mlib'){const k=b.dataset.k;openPx.has(k)?openPx.delete(k):openPx.add(k);render();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
+  if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}
   if(a==='varadd'){
     const k=b.dataset.k, nm=(document.getElementById('cv-name-'+k)||{}).value, pct=+(document.getElementById('cv-pct-'+k)||{}).value;
     const name=(nm||'').trim();
