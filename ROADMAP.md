@@ -114,6 +114,33 @@ Decided against for now.
   trade. See commit a983b65 if it is ever wanted again.
   **What works instead:** in-app spoken cues whenever the screen is on, with Auto-Lock
   set to Never for a session.
+- **A native iOS app on TestFlight.** Tabled 2026-10-14: the web app does what is
+  needed. The analysis is worth keeping because the conclusion was not the obvious one.
+  - **The backend would not change at all.** The Worker, D1, KV, R2 and the Durable
+    Object are untouched by any of this. "Architecture" here means the client shell.
+  - **A WKWebView wrapper would lose push, not gain it.** Web push works on iOS only
+    for home-screen web apps, which is why rest alerts reach the lock screen today. It
+    does not work in a WKWebView, so wrapping would mean rebuilding alerts on APNs
+    first. `webpush.js` is 95 lines and an APNs version is comparable; the Durable
+    Object scheduling would be unchanged.
+  - **Audio is the one real win.** Native `AVAudioSession` gives `.playback` +
+    `.mixWithOthers`, which is exactly what the web platform refuses and what cost four
+    rounds of work on the beep. A wrapper could beep over music *and* handle the ring
+    switch properly. If this is ever revisited, that is the reason.
+  - **Auth is the friction.** Cloudflare Access's SSO redirect needs a persistent
+    `WKWebsiteDataStore` and probably `ASWebAuthenticationSession`. Cleaner: issue the
+    app a long-lived device token the Worker validates, keeping Access for the browser.
+    This is the only part that touches the Worker.
+  - **Keep loading the live site** rather than bundling `public/`. Bundling makes
+    offline unconditional but puts every change behind a TestFlight build; loading live
+    keeps `npm run deploy` working as it does now, which is what makes this app quick
+    to iterate on.
+  - Rough effort: a weekend to get a build on a phone loading the live site with push
+    punted, another two or three days to do push and audio properly. TestFlight needs
+    the Apple Developer Program ($99/yr); internal testing skips App Review.
+  - **Not worth considering:** a native rewrite. 7,376 lines of scheduling engine and
+    284 tests, discarded, and the only things it buys over a wrapper are Apple Watch,
+    HealthKit and background execution.
 - **AI coach (Claude API):** weekly summary and Q&A over the training log. Not feasible
   right now because of API cost. Revisit if that changes.
 
