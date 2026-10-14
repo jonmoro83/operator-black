@@ -142,6 +142,11 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // six is what these are. Squat is already on this day, so single-leg was the most
   // redundant of the four.
   gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'],
+  // Specificity's H cluster: six to twelve exercises for Alpha, eight to sixteen for
+  // Bravo, split in half and each half trained on its own day. The book leaves what
+  // goes in them entirely to you and gives sample clusters; this is a starting split,
+  // and like every accessory split here it is the app's, not the book's.
+  sp1:['pchain','spress','rdelt','core','biceps','triceps'], sp2:['hpull','delts','pullup','sleg','carry','core'],
   // Mass is spare on purpose: the book says weighted pull-ups cover the arms well
   // enough that you need not train them separately, and the deadlift day is its own
   // posterior chain. These are the app's, as every accessory split here is.

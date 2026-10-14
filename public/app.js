@@ -32,6 +32,12 @@ const LIFTSET={
   GLA:()=>['squat','ohp'],                     // Gladiator's, which the book pairs differently
   GLB:()=>['bench','dead'],
   GMB:()=>['ohp','dead'],
+  // Specificity Alpha's standard maximal-strength cluster, in the book's order. Its
+  // rule for building your own is a press, a pull and legs.
+  MS:()=>['bench','squat','dead'],
+  // A hypertrophy day has no barbell prescription at all: the whole session is the
+  // cluster you built, which the app already models as supplementary work.
+  NONE:()=>[],
 };
 // A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
 // and B-A-B the next, so the same weekday is a different session a week later.
@@ -75,10 +81,10 @@ function halfOfDay(dp){ return dp&&dp.half||null }
    reps and percentage, lighter and longer than the main lifts, and runs them every week
    including the heavy one. A template that prescribes them therefore also overrides the
    skip rule, because skipping them is Operator's idea and not every program's. */
-function accRxFor(wk){
+function accRxFor(wk,day){
   const T=STEMPL[wk&&wk.tpl]||stemplOf();
   if(typeof T.accRx!=='function'||!wk||wk.kind!=='cycle') return null;
-  return T.accRx(wk)||null;
+  return T.accRx(wk,day)||null;
 }
 // Move one lift into a half, or out of both. Refuses to empty a half, because a half
 // with nothing in it is not a session.
@@ -158,6 +164,46 @@ const STEMPL={
       // second. Either work up above the prescribed weight, or take the last set out.
       if(w===2&&k===(day===1?'squat':'bench')) return Object.assign({},base,{amrap:true});
       return base;
+    },
+  },
+  /* Mass Protocol's Specificity block: three weeks, four lifting days, run after a
+     stretch of General Mass. Alpha is half maximal strength and half hypertrophy;
+     Bravo drops the barbell work entirely. Both tables are the book's, read off the
+     page rather than remembered. */
+  specalpha:{
+    name:'Specificity Alpha', book:'Mass Protocol', slots:[0,1,3,4],
+    blurb:'A three-week hypertrophy block that keeps heavy work in the mix. Two maximal-strength days on bench, squat and deadlift, and two days of your own cluster at higher reps. The book wants it after a stretch of General Mass.',
+    days:[
+      {lifts:'MS',half:'a',short:'Spec MS',label:'Specificity Alpha \u00b7 maximal strength'},
+      {lifts:'NONE',half:'b',acc:'sp1',short:'Spec H1',label:'Specificity Alpha \u00b7 hypertrophy 1'},
+      {lifts:'MS',half:'a',short:'Spec MS'},
+      {lifts:'NONE',half:'b',acc:'sp2',short:'Spec H2',label:'Specificity Alpha \u00b7 hypertrophy 2'},
+    ],
+    wave:[{s:3,r:6,p:75},{s:3,r:5,p:80},{s:3,r:3,p:85}],
+    rx(wk,day,k){
+      const w=((wk.w||1)-1)%3;
+      // The deadlift has its own programming in this block: one work set per session.
+      if(k==='dead') return [{s:1,r:5,p:75},{s:1,r:4,p:80},{s:1,r:3,p:85}][w];
+      return [{s:3,r:6,p:75},{s:3,r:5,p:80},{s:3,r:3,p:85}][w];
+    },
+    // The H cluster, six to twelve exercises split across the two hypertrophy days.
+    accRx:wk=>[{s:4,r:12,p:65},{s:4,r:10,p:70},{s:4,r:8,p:75}][(((wk&&wk.w||1)-1)%3)],
+  },
+  specbravo:{
+    name:'Specificity Bravo', book:'Mass Protocol', slots:[0,1,3,4],
+    blurb:'Three weeks of nothing but hypertrophy. Eight to sixteen exercises split in two, each half trained twice a week at 50 to 75%. Dropping maximal strength for a block is the point of it, not an oversight.',
+    days:[
+      {lifts:'NONE',half:'a',acc:'sp1',short:'Spec H1',label:'Specificity Bravo \u00b7 hypertrophy 1'},
+      {lifts:'NONE',half:'b',acc:'sp2',short:'Spec H2',label:'Specificity Bravo \u00b7 hypertrophy 2'},
+      {lifts:'NONE',half:'a',acc:'sp1',short:'Spec H1'},
+      {lifts:'NONE',half:'b',acc:'sp2',short:'Spec H2'},
+    ],
+    wave:[{s:4,sMax:5,r:12,p:50},{s:4,sMax:5,r:10,p:60},{s:4,sMax:5,r:8,p:70}],
+    // The book's table runs the back half of the week five percent heavier than the
+    // front, so this one is per day rather than per week.
+    accRx(wk,day){
+      const w=((wk&&wk.w||1)-1)%3, late=(+day||1)>=3;
+      return [{s:4,sMax:5,r:12,p:late?55:50},{s:4,sMax:5,r:10,p:late?65:60},{s:4,sMax:5,r:8,p:late?75:70}][w];
     },
   },
   greyman:{
@@ -1446,6 +1492,11 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // six is what these are. Squat is already on this day, so single-leg was the most
   // redundant of the four.
   gm1:['pchain','spress','triceps'], gm2:['hpull','biceps','core'],
+  // Specificity's H cluster: six to twelve exercises for Alpha, eight to sixteen for
+  // Bravo, split in half and each half trained on its own day. The book leaves what
+  // goes in them entirely to you and gives sample clusters; this is a starting split,
+  // and like every accessory split here it is the app's, not the book's.
+  sp1:['pchain','spress','rdelt','core','biceps','triceps'], sp2:['hpull','delts','pullup','sleg','carry','core'],
   // Mass is spare on purpose: the book says weighted pull-ups cover the arms well
   // enough that you need not train them separately, and the deadlift day is its own
   // posterior chain. These are the app's, as every accessory split here is.
@@ -3237,14 +3288,14 @@ function checkinCard(date){
 function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.length?a:ACC[day]}
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
-  const v=wkRx(wk), arx=accRxFor(wk);
+  const v=wkRx(wk), arx=accRxFor(wk,dp.day);
   // A program that prescribes its supplementary work means it, heavy week or not.
   if(!arx&&wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
   const day=dp.acc; if(!day) return '';
   const slots=accSlots(day), done=accDoneCount(sel,day);
   const title=arx?'Supplementary':'Accessories';
-  let h=`<div class="card"><div class="lift-h"><h3>${title}</h3>${arx?`<span class="rx">${arx.s} \u00d7 ${arx.r} @ ${arx.p}%</span>`:''}<span class="small muted">${done} of ${slots.length} done</span></div>
-  <p class="muted small" style="margin:0">${arx?`Every one of these, ${arx.s} sets of ${arx.r}. The percentage is of your own best for that movement \u2014 if you have never tested it, take ${arx.r} reps you could have done a couple more of.`:'Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.'}</p>`;
+  let h=`<div class="card"><div class="lift-h"><h3>${title}</h3>${arx?`<span class="rx">${arx.s}${arx.sMax?'\u2013'+arx.sMax:''} \u00d7 ${arx.r} @ ${arx.p}%</span>`:''}<span class="small muted">${done} of ${slots.length} done</span></div>
+  <p class="muted small" style="margin:0">${arx?`Every one of these, ${arx.sMax?`${arx.s} or ${arx.sMax}`:arx.s} sets of ${arx.r}. The percentage is of your own best for that movement \u2014 if you have never tested it, take ${arx.r} reps you could have done a couple more of.`:'Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.'}</p>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
   for(const g of accGroups(day)){
     if(g.length>1) h+=`<div class="acc-super"><div class="small" style="font-weight:650">Superset \u00b7 ${esc(g.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
@@ -5930,7 +5981,7 @@ function templateCard(){
   let h=`<div class="card"><div class="lift-h"><h2>Program</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
   <p class="small muted" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
   if(keys.length>1){
-    h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${STEMPL[k].days.length} day${STEMPL[k].days.length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
+    h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${tplDays(STEMPL[k],{w:1}).length} day${tplDays(STEMPL[k],{w:1}).length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(T.blurb)}</div>`;
   }
   if(pkeys.length>1){
@@ -6176,11 +6227,13 @@ function vGuide(){
   <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
   <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Jump tests',['broad','vertj','triple']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
   <div class="card guide"><h3>Programs</h3><p>Your strength template and your conditioning protocol are separate choices, set in Setup \u2192 Program, and the week is built from the two. That is how the books present it: Tactical Barbell II's sample weeks are headed \u201cBlack + Zulu\u201d, \u201cBlack + Operator\u201d, \u201cBlack + Fighter\u201d.</p>
-  <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${v.days.length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${tplDays(v,{w:1}).length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, keeping hard days apart. Easy aerobic days can sit next to anything, which is what Green's own template does.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
+  <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Mass Protocol and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
+  <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>
   <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the program they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>

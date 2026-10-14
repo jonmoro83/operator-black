@@ -53,15 +53,13 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
-- **Finish Tactical Barbell III.** Seven templates in (Operator, Fighter, Zulu,
-  Fighter HT, Grey Man, Mass, Gladiator) against three protocols (Black, Green, Green
-  Progressive SE), which is twenty-one combinations and a matrix test over all of them.
-  Still to come: **Specificity Alpha** and **Specificity Bravo**. Specificity needs
-  nothing new in principle — per-day lift sets and per-day prescriptions both exist —
-  but its H cluster is large and user-defined. After the
-  templates: TB III's own Bridge Week, its Base Building variant (6 weeks, SE + E), and
-  its named conditioning sessions (Ruck, Endurance Predator, Anabolic Sprints,
-  RESET-20, Hill Sprints). FOBBITs came off that list on 2026-10-14.
+- **Finish the TB book coverage.** Nine templates now (Operator, Fighter, Zulu,
+  Fighter HT, Grey Man, Mass, Gladiator, Specificity Alpha, Specificity Bravo) against
+  three protocols, which is twenty-seven combinations and a matrix test over all of
+  them. All the templates are in. Still to come: TB III's own Bridge Week, its Base
+  Building variant (6 weeks, SE + E), and its named conditioning sessions (Ruck,
+  Endurance Predator, Anabolic Sprints, RESET-20, Hill Sprints). FOBBITs came off that
+  list on 2026-10-14, Specificity on the same day.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -124,6 +122,35 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Specificity Alpha and Bravo (2026-10-14)**
+- The last two templates. Both read off the book's tables rather than remembered: the
+  PDF's tables are images, so they were pulled out by resolving each page's
+  `/Resources /XObject` to an object number and reading the JPEGs.
+- They are Mass Protocol's, not TB III's, which the roadmap had wrong. Labelled
+  `Mass Protocol` in Setup alongside TB1 and TB3.
+- Three-week blocks, four days a week on days 1, 2, 4 and 5. `wave` has three entries,
+  so `cycleWeeks()` reports three and week four starts the block again — the same
+  mechanism Gladiator and Mass already use.
+- **Alpha** is half and half. MS days are bench, squat and deadlift at 3x6/75, 3x5/80,
+  3x3/85, with the deadlift on its own programming at one work set (1x5, 1x4, 1x3).
+  H days carry the cluster at 4x12/65, 4x10/70, 4x8/75.
+- **Bravo** has no barbell work at all. Four hypertrophy days, 4-5 reps x 12/10/8, and
+  the back half of the week runs five percent heavier than the front. That last part
+  needed `accRxFor(wk)` to become `accRxFor(wk,day)`, since no template until now had
+  supplementary numbers that moved within a week.
+- **A lifting day with no lifts** is new. `LIFTSET.NONE` returns an empty array and the
+  session is the accessory cluster, which the day view already renders after the lifts.
+  The matrix test's "no empty lifting day" invariant was written when every lifting day
+  had a barbell in it; it now bans a training day with neither lifts nor accessories,
+  which is the thing actually worth banning.
+- `half:'a'`/`'b'` on the days, so two training days running do not read as a clash.
+  Zulu's mechanism, and the book's layout needs it.
+- **Two real bugs found on the way.** Setup and the Guide both listed a template's day
+  count as `days.length`, which for Mass and Grey Man is a function's arity: both were
+  shown as one-day templates. And `accCard` dropped a prescription's `sMax`, so Bravo's
+  "four to five sets" would have displayed as four.
+- 273 tests, 12 mutants, all caught.
 
 **Sandbag over the shoulder (2026-10-14)**
 - A fourth sandbag FOBBIT, and the first thing added since the model was generalised:

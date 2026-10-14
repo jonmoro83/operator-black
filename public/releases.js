@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.4',date:'2026-10-14',title:'Specificity Alpha and Bravo',items:[
+    'The last two strength templates, both from Mass Protocol. Three-week blocks, four days a week, meant to follow a stretch of General Mass.',
+    '<b>Alpha</b> is half and half. Two maximal-strength days on bench, squat and deadlift \u2014 the deadlift at one work set per session, which is its own programming in this block \u2014 and two hypertrophy days running your own cluster at higher reps.',
+    '<b>Bravo</b> drops the barbell work altogether. Four hypertrophy days, eight to sixteen exercises split in two with each half trained twice a week, four to five sets throughout. The back half of the week runs five percent heavier than the front, which is the book\u2019s table, not ours.',
+    'A hypertrophy day has no lifts to show you, so the whole session is the cluster, under Supplementary. What goes in it is yours: the book gives sample clusters and leaves the choice open.',
+    'Two display bugs turned up while building it. Setup and the Guide were listing Mass and Grey Man as one-day templates, and a prescription\u2019s set ceiling was being dropped from the accessory card.']},
   {v:'2.3',date:'2026-10-14',title:'Sandbag over the shoulder',items:[
     'Ground to shoulder, then keep it going and throw the bag over that shoulder behind you. Turn round, pick it up off the floor, do the other side. Ten of those between each block of base.',
     'It is one movement rather than a pair because each rep is already the whole chain, hip to shoulder to release. Check what is behind you before the first one, and let the bag land rather than trying to guide it down. Same warning as the over-the-bar version: it is explosive hip extension, so if the bag is only going up because your back is rounding, the bout is over.']},

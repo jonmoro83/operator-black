@@ -4068,6 +4068,119 @@ test("a circuit that rides on a lifting day is drawn as a circuit, not a bike se
   delete x.CPROTO.allse;
 });
 
+test("Specificity Alpha is half maximal strength and half hypertrophy, on the book's table", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.stempl = "specalpha"; x.plan.cproto = "black"; x.bump();
+
+  a.equal(x.cycleWeeks(), 3, "a Specificity block is three weeks");
+  const wks = x.weeks().filter((w) => w.kind === "cycle").slice(0, 4);
+  const lift = (wk) => [0, 1, 2, 3, 4, 5, 6].map((i) => [i, x.dayPlanSlot(x.addDays(wk.monday, i), i)])
+    .filter(([, p]) => p.t === "lift");
+
+  // Days 1, 2, 4 and 5, which is what the book's table shows.
+  a.deepEqual(lift(wks[0]).map(([i]) => i), [0, 1, 3, 4]);
+  a.deepEqual(lift(wks[0]).map(([, p]) => p.short.replace(/ \+ .*/, "")), ["Spec MS", "Spec H1", "Spec MS", "Spec H2"]);
+
+  // MS days: bench, squat, deadlift. H days: no barbell work at all, just the cluster.
+  const [ms1, h1, ms2, h2] = lift(wks[0]).map(([, p]) => p);
+  a.deepEqual(ms1.lifts, ["bench", "squat", "dead"], "the standard MS cluster, in the book's order");
+  a.deepEqual(ms2.lifts, ["bench", "squat", "dead"]);
+  a.deepEqual(h1.lifts, [], "a hypertrophy day has no barbell prescription");
+  a.equal(h1.acc, "sp1", "its session is the first half of the H cluster");
+  a.equal(h2.acc, "sp2", "and the second half on the other day");
+  a.ok(!ms1.acc, "the MS days carry no supplementary work in Alpha");
+
+  // The three-week wave, read off the book's table: 3x6/75, 3x5/80, 3x3/85.
+  const want = [[3, 6, 75], [3, 5, 80], [3, 3, 85]];
+  const wantDL = [[1, 5, 75], [1, 4, 80], [1, 3, 85]];
+  for (let w = 0; w < 3; w++) {
+    const wk = wks[w], [i] = lift(wk)[0], d = x.addDays(wk.monday, i);
+    for (const k of ["bench", "squat"]) {
+      const r = x.rx(wk, k, d);
+      a.deepEqual([r.s, r.r, r.p], want[w], `week ${w + 1} ${k}`);
+    }
+    // The deadlift has its own programming in this block: one work set per session.
+    const dl = x.rx(wk, "dead", d);
+    a.deepEqual([dl.s, dl.r, dl.p], wantDL[w], `week ${w + 1} deadlift is one work set`);
+    // And the H cluster's own numbers.
+    a.deepEqual([x.accRxFor(wk).s, x.accRxFor(wk).r, x.accRxFor(wk).p], [[4, 12, 65], [4, 10, 70], [4, 8, 75]][w]);
+  }
+  // Week four starts the block again rather than running off the end of the table.
+  const wk4 = wks[3], d4 = x.addDays(wk4.monday, 0);
+  a.deepEqual([x.rx(wk4, "bench", d4).s, x.rx(wk4, "bench", d4).r, x.rx(wk4, "bench", d4).p], [3, 6, 75]);
+});
+
+test("Specificity Bravo drops the barbell work and runs its back half heavier", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.stempl = "specbravo"; x.plan.cproto = "black"; x.bump();
+
+  const wks = x.weeks().filter((w) => w.kind === "cycle").slice(0, 3);
+  const days = (wk) => [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlanSlot(x.addDays(wk.monday, i), i)).filter((p) => p.t === "lift");
+
+  const ds = days(wks[0]);
+  a.equal(ds.length, 4, "four days a week");
+  a.ok(ds.every((p) => !(p.lifts || []).length), "and not one of them lifts a barbell, which is the point");
+  a.deepEqual(ds.map((p) => p.acc), ["sp1", "sp2", "sp1", "sp2"], "each half trained twice a week");
+
+  // The book's table: 50/55, 60/65, 70/75, four to five sets throughout.
+  const want = [[12, 50, 55], [10, 60, 65], [8, 70, 75]];
+  for (let w = 0; w < 3; w++) {
+    const wk = wks[w], [reps, early, late] = want[w];
+    const got = days(wk).map((p) => x.accRxFor(wk, p.day));
+    a.deepEqual(got.map((r) => r.r), [reps, reps, reps, reps], `week ${w + 1} reps`);
+    a.deepEqual(got.map((r) => r.p), [early, early, late, late], `week ${w + 1} runs the back half five percent heavier`);
+    a.ok(got.every((r) => r.s === 4 && r.sMax === 5), "four to five sets, the ceiling being yours to take");
+  }
+
+  // The day card has to show the ceiling, or the prescription silently loses the "to 5".
+  const d = x.addDays(wks[0].monday, 3); x.sel = d; x.bump();
+  const card = x.accCard(wks[0], x.dayPlanSlot(d, 3));
+  a.match(card, /4–5 × 12 @ 55%/, "the set ceiling and the heavier back half both reach the card");
+  a.match(card, /4 or 5 sets of 12/);
+});
+
+test("a Specificity hypertrophy day is a session even though it lifts no barbell", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.cproto = "black";
+
+  for (const t of ["specalpha", "specbravo"]) {
+    x.plan.stempl = t; x.bump();
+    const d = x.addDays("2026-10-19", 1); x.sel = d; x.bump();
+    const wk = x.weekOf(d), dp = x.dayPlanSlot(d, 1);
+    a.equal(dp.t, "lift", t + ": it is a training day");
+    a.deepEqual(dp.lifts, [], t + ": with no barbell lifts");
+    a.ok(x.accSlots(dp.acc).length >= 4, t + ": and a cluster to work through");
+    const card = x.accCard(wk, dp);
+    a.match(card, /Supplementary/, t + ": the card prescribes it rather than calling it optional");
+    a.ok(!/No accessory slots/.test(card), t + ": and it is not empty");
+    // The session view renders without a single liftCard, which is the part most likely
+    // to assume a lifting day has lifts.
+    a.ok(x.sessionHtml(wk, dp).length > 200, t + ": the day still renders");
+  }
+
+  // Two training days back to back is the book's layout, so it must not read as a clash.
+  for (const t of ["specalpha", "specbravo"]) {
+    x.plan.stempl = t; x.bump();
+    a.deepEqual(x.orderIssues("2026-10-19", [0, 1, 2, 3, 4, 5, 6]), [], t + " has no clash");
+  }
+});
+
+test("Setup counts a template's days even when they depend on the week", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.stempl = "mass"; x.bump();
+  const h = x.vSetup();
+  // `days` is a function on Mass and Grey Man, so reading `.length` off it gave the
+  // function's arity -- every one of them listed as a one-day template.
+  for (const [k, n] of [["operator", 3], ["mass", 4], ["greyman", 3], ["specalpha", 4], ["specbravo", 4]]) {
+    a.match(h, new RegExp(`<option value="${k}"[^>]*>[^<]*· ${n} days?`), `${k} is listed as ${n} days`);
+    a.equal(x.tplDays(x.STEMPL[k], { w: 1 }).length, n);
+  }
+  a.ok(!/· 1 day ·/.test(h), "and nothing claims to be a one-day template");
+});
+
 test("every template and protocol pairing gives a legal week", () => {
   const x = app({ now: "2026-10-19" });
   const mon = "2026-10-19";
@@ -4078,7 +4191,10 @@ test("every template and protocol pairing gives a legal week", () => {
 
     a.equal(w.length, 7, tag);
     a.ok(w.some((p) => p.t === "off"), `${tag} keeps a rest day`);
-    a.ok(!w.some((p) => p.t === "lift" && !(p.lifts || []).length), `${tag}: no empty lifting day`);
+    // A lifting day must have something to do. Usually that is barbell lifts; on a
+    // Specificity hypertrophy day the whole session is the cluster, so an accessory
+    // day counts. What is banned is a training day with neither.
+    a.ok(!w.some((p) => p.t === "lift" && !(p.lifts || []).length && !p.acc), `${tag}: no empty lifting day`);
     // Every session the protocol asked for is somewhere, on its own day or riding along.
     const want = x.CPROTO[c].sessions({ w: 1 }).length;
     const got = w.filter((p) => p.t === "hic" || p.t === "se" || p.ride).length;

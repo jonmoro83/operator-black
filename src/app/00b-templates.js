@@ -30,6 +30,12 @@ const LIFTSET={
   GLA:()=>['squat','ohp'],                     // Gladiator's, which the book pairs differently
   GLB:()=>['bench','dead'],
   GMB:()=>['ohp','dead'],
+  // Specificity Alpha's standard maximal-strength cluster, in the book's order. Its
+  // rule for building your own is a press, a pull and legs.
+  MS:()=>['bench','squat','dead'],
+  // A hypertrophy day has no barbell prescription at all: the whole session is the
+  // cluster you built, which the app already models as supplementary work.
+  NONE:()=>[],
 };
 // A template's lifting days may depend on the week: Grey Man alternates A-B-A one week
 // and B-A-B the next, so the same weekday is a different session a week later.
@@ -73,10 +79,10 @@ function halfOfDay(dp){ return dp&&dp.half||null }
    reps and percentage, lighter and longer than the main lifts, and runs them every week
    including the heavy one. A template that prescribes them therefore also overrides the
    skip rule, because skipping them is Operator's idea and not every program's. */
-function accRxFor(wk){
+function accRxFor(wk,day){
   const T=STEMPL[wk&&wk.tpl]||stemplOf();
   if(typeof T.accRx!=='function'||!wk||wk.kind!=='cycle') return null;
-  return T.accRx(wk)||null;
+  return T.accRx(wk,day)||null;
 }
 // Move one lift into a half, or out of both. Refuses to empty a half, because a half
 // with nothing in it is not a session.
@@ -156,6 +162,46 @@ const STEMPL={
       // second. Either work up above the prescribed weight, or take the last set out.
       if(w===2&&k===(day===1?'squat':'bench')) return Object.assign({},base,{amrap:true});
       return base;
+    },
+  },
+  /* Mass Protocol's Specificity block: three weeks, four lifting days, run after a
+     stretch of General Mass. Alpha is half maximal strength and half hypertrophy;
+     Bravo drops the barbell work entirely. Both tables are the book's, read off the
+     page rather than remembered. */
+  specalpha:{
+    name:'Specificity Alpha', book:'Mass Protocol', slots:[0,1,3,4],
+    blurb:'A three-week hypertrophy block that keeps heavy work in the mix. Two maximal-strength days on bench, squat and deadlift, and two days of your own cluster at higher reps. The book wants it after a stretch of General Mass.',
+    days:[
+      {lifts:'MS',half:'a',short:'Spec MS',label:'Specificity Alpha \u00b7 maximal strength'},
+      {lifts:'NONE',half:'b',acc:'sp1',short:'Spec H1',label:'Specificity Alpha \u00b7 hypertrophy 1'},
+      {lifts:'MS',half:'a',short:'Spec MS'},
+      {lifts:'NONE',half:'b',acc:'sp2',short:'Spec H2',label:'Specificity Alpha \u00b7 hypertrophy 2'},
+    ],
+    wave:[{s:3,r:6,p:75},{s:3,r:5,p:80},{s:3,r:3,p:85}],
+    rx(wk,day,k){
+      const w=((wk.w||1)-1)%3;
+      // The deadlift has its own programming in this block: one work set per session.
+      if(k==='dead') return [{s:1,r:5,p:75},{s:1,r:4,p:80},{s:1,r:3,p:85}][w];
+      return [{s:3,r:6,p:75},{s:3,r:5,p:80},{s:3,r:3,p:85}][w];
+    },
+    // The H cluster, six to twelve exercises split across the two hypertrophy days.
+    accRx:wk=>[{s:4,r:12,p:65},{s:4,r:10,p:70},{s:4,r:8,p:75}][(((wk&&wk.w||1)-1)%3)],
+  },
+  specbravo:{
+    name:'Specificity Bravo', book:'Mass Protocol', slots:[0,1,3,4],
+    blurb:'Three weeks of nothing but hypertrophy. Eight to sixteen exercises split in two, each half trained twice a week at 50 to 75%. Dropping maximal strength for a block is the point of it, not an oversight.',
+    days:[
+      {lifts:'NONE',half:'a',acc:'sp1',short:'Spec H1',label:'Specificity Bravo \u00b7 hypertrophy 1'},
+      {lifts:'NONE',half:'b',acc:'sp2',short:'Spec H2',label:'Specificity Bravo \u00b7 hypertrophy 2'},
+      {lifts:'NONE',half:'a',acc:'sp1',short:'Spec H1'},
+      {lifts:'NONE',half:'b',acc:'sp2',short:'Spec H2'},
+    ],
+    wave:[{s:4,sMax:5,r:12,p:50},{s:4,sMax:5,r:10,p:60},{s:4,sMax:5,r:8,p:70}],
+    // The book's table runs the back half of the week five percent heavier than the
+    // front, so this one is per day rather than per week.
+    accRx(wk,day){
+      const w=((wk&&wk.w||1)-1)%3, late=(+day||1)>=3;
+      return [{s:4,sMax:5,r:12,p:late?55:50},{s:4,sMax:5,r:10,p:late?65:60},{s:4,sMax:5,r:8,p:late?75:70}][w];
     },
   },
   greyman:{
