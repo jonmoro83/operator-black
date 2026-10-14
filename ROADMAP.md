@@ -127,6 +127,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The FOBBIT card describes the format, not one FOBBIT (2026-10-14)**
+- The day's card still read "twenty swings, then ten per arm snatches" whatever was
+  selected. The catalog shipped in 1.99 made that text a lie for six of the seven
+  entries, and nothing caught it because the test asserted the hardcoded strings.
+- Split in two. The general blurb says what a FOBBIT is and how it is shaped (easy base,
+  step off every two minutes for a set of reps, alternating two movements) and names no
+  movement at all. A second line names the pair, and it comes from the selection.
+- `fobReps(id,ease,what)` in `01-constants.js` is now the single source of the pairing:
+  the card, the interval timer's burst labels and the easy-week halving all read it, so
+  the card cannot advertise one pair and the timer run another. `other` falls back to
+  whatever you typed, and to a plain "Set" if you typed nothing.
+- `halveReps(q)` halves only the leading count and leaves the unit: "10 / arm" halves to
+  "5 / arm", and "20 with the 24 kg bell" does not halve the bell. It rounds up and
+  never reaches zero.
+- The old test asserted the literal strings, which is why it went stale silently; the
+  new ones derive their expectations from `FOBBIT` and loop over every entry, so adding
+  an eighth FOBBIT tests itself.
+- 266 tests, 9 mutants. Two survived and both were worth fixing: halving was not pinned
+  to the leading number, and nothing asserted the easy-week "reps are halved today" note.
+
 **Sandbag over bar (2026-10-14)**
 - A third sandbag FOBBIT, paired with push-ups so the burst is one loaded explosive
   movement and one that needs nothing.

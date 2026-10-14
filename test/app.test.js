@@ -1247,7 +1247,7 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   const o = { ...x.ivOpts(wk1, "fobbit"), cool: false };
   a.equal(o.warm, false, "no separate warm-up: the base is the warm-up");
   a.equal(o.rounds, 10, "ten sets, so the base adds up to the standard 20 minutes");
-  a.deepEqual(o.reps, [["Swings", "20"], ["Snatches", "10 per arm"]], "prescribed in reps");
+  a.deepEqual(o.reps, [x.FOBBIT.kb.a, x.FOBBIT.kb.b], "prescribed in reps, taken from the chosen FOBBIT");
   a.equal(o.burst, undefined, "there is no burst duration to pick");
 
   const segs = x.ivSegments("fobbit", o);
@@ -1255,9 +1255,10 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   a.equal(segs[0].l, "Base", "it opens on the base, unlike every other format");
   a.equal(base.length, 10);
   a.equal(sets.length, 10, "one set of reps per base, alternating two movements");
-  a.deepEqual(sets.slice(0, 4).map((s) => s.l), ["Swings", "Snatches", "Swings", "Snatches"]);
-  a.equal(sets[0].reps, "20");
-  a.equal(sets[1].reps, "10 per arm");
+  const [kbA, kbB] = [x.FOBBIT.kb.a, x.FOBBIT.kb.b];
+  a.deepEqual(sets.slice(0, 4).map((s) => s.l), [kbA[0], kbB[0], kbA[0], kbB[0]]);
+  a.equal(sets[0].reps, kbA[1]);
+  a.equal(sets[1].reps, kbB[1]);
   a.ok(sets.every((s) => s.hold), "every set holds the clock until you say it is done");
 
   // The base is the session. The sets sit on top and are not counted.
@@ -1273,7 +1274,8 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   const hw = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
   const eo = x.ivOpts(x.addDays(hw.monday, 1), "fobbit");
   a.equal(eo.rounds, 7, "the easy week drops to the 15-minute version");
-  a.deepEqual(eo.reps, [["Swings", "10"], ["Snatches", "5 per arm"]], "with the reps halved too");
+  a.deepEqual(eo.reps, x.fobReps("kb", true), "with the reps halved too");
+  a.deepEqual(eo.reps.map(([, q]) => q), [x.halveReps(kbA[1]), x.halveReps(kbB[1])], "and halving only touches the count");
 
   // Every other format still opens on work, is timed, and drops the trailing easy period.
   for (const f of ["map", "anaerobic", "threshold", "long"]) {
@@ -1296,13 +1298,76 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   x.sel = wk1;
   x.seed({ [wk1]: { date: wk1, hic: { format: "fobbit", mod: "run" } } }); x.bump();
   const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
-  a.match(card, /20 swings/, "the card names the prescription");
-  a.match(card, /10 per arm snatches/);
+  a.match(card, /20 kettlebell swing, then 10 \/ arm kettlebell snatch/, "the card names the prescription");
   a.match(card, /The sets are not on the clock/);
   a.match(card, /data-act="ivopt" data-k="rounds" data-v="10"/, "session length is what you pick");
   a.ok(!/data-k="burst"/.test(card), "the invented burst-seconds picker is gone");
   a.match(card, /Use 20 min/, "the base total, with the clock reading longer");
   a.match(card, /10 × two minutes of base/);
+});
+test("the FOBBIT card explains the format in general and the movements only once one is picked", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = x.addDays(x.weeks().find((w) => w.kind === "cycle").monday, 1);
+  x.sel = d;
+
+  // The general blurb is the same whichever FOBBIT you are on: it describes the shape, not a pairing.
+  const blurbs = new Set(), lines = [];
+  for (const id of Object.keys(x.FOBBIT)) {
+    x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
+    const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+    blurbs.add((card.match(/Keep moving on an easy base[^<]*/) || [""])[0]);
+    lines.push([id, (card.match(/<b>([^<]*)<\/b>, alternating, between two-minute blocks/) || ["", ""])[1], card]);
+  }
+  a.equal(blurbs.size, 1, "one description of the format, shared by every FOBBIT");
+  const blurb = [...blurbs][0];
+  a.match(blurb, /alternating two movements/, "it says how a FOBBIT is structured");
+  a.ok(!/swing|snatch|burpee|sandbag|thruster/i.test(blurb), "and names no particular movement: " + blurb);
+
+  // The named movements follow the selection, and "something else" names none.
+  for (const [id, line, card] of lines) {
+    const F = x.FOBBIT[id];
+    if (!F.a) { a.equal(line, "", "a free-text FOBBIT prescribes nothing"); continue; }
+    a.ok(line.includes(F.a[1] + " " + F.a[0].toLowerCase()), id + " names its own first movement: " + line);
+    a.ok(line.includes(F.b[1]), id + " names its own second movement");
+    if (id !== "kb") a.ok(!/swing/i.test(line), id + " does not borrow the kettlebell pairing");
+    // And the timer runs the same pair it just advertised.
+    x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
+    const sets = x.ivSegments("fobbit", x.ivOpts(d, "fobbit")).filter((g) => g.k === "work");
+    a.deepEqual([sets[0].l, sets[0].reps], F.a, id + " burst 1 matches the card");
+    a.deepEqual([sets[1].l, sets[1].reps], F.b, id + " burst 2 matches the card");
+  }
+
+  // A FOBBIT with no pairing still gives the timer something to show.
+  x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "other", what: "Sled push / sit-ups" } } }); x.bump();
+  const free = x.ivSegments("fobbit", x.ivOpts(d, "fobbit")).filter((g) => g.k === "work");
+  a.equal(free[0].l, "Sled push / sit-ups", "it falls back to what you typed");
+  a.equal(free.length, 10, "and still runs the full count");
+
+  // On the easy week the card shows the halved pairing and says so.
+  const hw = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  const ed = x.addDays(hw.monday, 1); x.sel = ed;
+  x.seed({ [ed]: { date: ed, hic: { format: "fobbit", mod: "run", fob: "kb" } } }); x.bump();
+  const easy = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(easy, /<b>10 kettlebell swing, then 5 \/ arm kettlebell snatch<\/b>/, "the halved pairing, not the full one");
+  a.match(easy, /Reps are halved today/, "and the card says why the numbers look light");
+  a.ok(!/Reps are halved today/.test(lines.find((l) => l[0] === "kb")[2]), "an ordinary week says nothing of the sort");
+});
+test("halving a FOBBIT's reps touches the count and leaves the units alone", () => {
+  const x = app({ now: "2026-10-01" });
+  a.equal(x.halveReps("20"), "10");
+  a.equal(x.halveReps("10 / arm"), "5 / arm", "the unit survives");
+  a.equal(x.halveReps("5"), "3", "odd counts round up");
+  a.equal(x.halveReps("1"), "1", "and never reach zero");
+  a.equal(x.halveReps("30 m"), "15 m");
+  a.equal(x.halveReps("Sled push"), "Sled push", "free text is left alone");
+  a.equal(x.halveReps("20 with the 24 kg bell"), "10 with the 24 kg bell", "the load in the unit is not a rep count");
+  a.equal(x.halveReps("Max reps in 60 s"), "Max reps in 60 s", "a number that is not the leading count is left alone");
+  for (const id of Object.keys(x.FOBBIT)) {
+    const F = x.FOBBIT[id];
+    if (!F.a) continue;
+    a.deepEqual(x.fobReps(id, true), [[F.a[0], x.halveReps(F.a[1])], [F.b[0], x.halveReps(F.b[1])]], id + " halves on the easy week");
+  }
 });
 test("conditioning eases on the weeks the lifting is heaviest", () => {
   const x = app({ now: "2026-10-01" });

@@ -309,8 +309,9 @@ function hicCard(dp,note){
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
   if((IV[f]||{}).lead){
-    const rp=ivOpts(sel,f).reps||[];
-    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements: <b>${rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join('</b>, then <b>')}</b>. Kettlebells are the book\u2019s choice; dumbbells do the job, and a push-press can stand in for the snatch. Row, skip, cycle or take the stairs if you would rather not run.</div>
+    // What a FOBBIT is. Which one you are doing is shown with the picker further down,
+    // so this does not go stale the moment you choose a different pairing.
+    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements. Pick the pair below. Row, skip, cycle or take the stairs if you would rather not run.</div>
     <div class="small muted"><b>The sets are not on the clock.</b> Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
@@ -321,7 +322,11 @@ function hicCard(dp,note){
   if((HIC[f]||{}).noMetric){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
-    if(F&&F.a) h+=`<div class="small"><b>${esc(fobLine(fb))}</b>, alternating, between two-minute blocks of base.</div>`;
+    // The reps the timer will actually hold at, so a halved day reads as halved here too.
+    if(F&&F.a){
+      const o=ivOpts(sel,f), rp=o.reps||[];
+      h+=`<div class="small"><b>${esc(rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join(', then '))}</b>, alternating, between two-minute blocks of base.${o.ease?' Reps are halved today.':''}</div>`;
+    }
     if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
     if(!F||!F.a) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;

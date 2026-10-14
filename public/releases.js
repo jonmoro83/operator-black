@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.1',date:'2026-10-14',title:'The FOBBIT card tells you about the one you picked',items:[
+    'The day used to describe a FOBBIT as twenty swings then ten snatches per arm whatever you had selected, which was wrong for every option but the kettlebell one.',
+    'Now the description is about the format: easy base, step off every two minutes for a set of reps, alternating two movements. The movements themselves come from whichever FOBBIT you are on, and on the easy conditioning week the card shows the halved numbers and says that is what they are.']},
   {v:'2.0',date:'2026-10-14',title:'Sandbag over bar',items:[
     'A third sandbag FOBBIT: five over the bar, then fifteen push-ups, between the two-minute blocks of base.',
     'Two things on it worth saying. Reset the bag on the floor each rep rather than catching it coming back, and keep the bar at the same height every session \u2014 change the height and the count means nothing against the last one. It is explosive hip extension, so it is the first thing to fall apart when you are tired: if the back is rounding to get the bag up, the set is over.']},

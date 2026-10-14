@@ -71,6 +71,27 @@ const FOBBIT={
 };
 function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
 function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
+/* The two movements as the interval timer wants them: [label, reps] twice, alternating.
+
+   `ease` halves the reps, which is what a low-readiness day or an easy conditioning week
+   asks for. The reps are labels rather than numbers because some are per side and one is
+   a carry, so halving means halving the leading number and leaving the rest: "10 / arm"
+   becomes "5 / arm", "30 m" becomes "15 m". Odd numbers round up, because five and a
+   half swings is not a thing.
+
+   `other` prescribes nothing, so it falls back to whatever was typed on the day and then
+   to a neutral label — the structure still runs, it just does not tell you what to do. */
+function halveReps(q){
+  return String(q).replace(/^\s*(\d+)/,(m,d)=>String(Math.max(1,Math.ceil(+d/2))));
+}
+function fobReps(id,ease,what){
+  const F=FOBBIT[id];
+  if(!F||!F.a){
+    const w=String(what||'').trim();
+    return w?[[w,'Set'],[w,'Set']]:[['First movement','Set'],['Second movement','Set']];
+  }
+  return [F.a,F.b].map(([n0,q])=>[n0,ease?halveReps(q):q]);
+}
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
 function setFob(date,v){

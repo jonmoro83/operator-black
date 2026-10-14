@@ -4,7 +4,7 @@
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
 const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,rounds:[7,15],def:10,lead:true,hold:true,
     roundOpts:[[7,'15 min'],[10,'20 min'],[15,'30 min']],
-    reps:[['Swings','20'],['Snatches','10 per arm']], repsEasy:[['Swings','10'],['Snatches','5 per arm']]}};
+    }};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
@@ -12,7 +12,7 @@ function ivOpts(date,fmt){
   const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-    reps:(r&&r.reps)?(ease?r.repsEasy:r.reps):null};
+    reps:(r&&r.lead)?fobReps(fobOf(date),ease,(lg(date).hic||{}).what):null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -23,7 +23,7 @@ function ivSegments(fmt,o){
     // burst, until the base adds up. The bursts sit on top, so the session runs longer
     // than its nominal length. The book alternates two movements, hence A and B.
     if(r.lead) for(let i=1;i<=o.rounds;i++){
-      const rp=(o.reps||r.reps)[(i-1)%2];
+      const rp=(o.reps||[['Burst','Set'],['Burst','Set']])[(i-1)%2];
       seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
       seg.push({k:'work',l:rp[0],sub:rp[1],s:wk,round:i,hold:!!r.hold,reps:rp[1]});
     }

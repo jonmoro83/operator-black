@@ -504,6 +504,27 @@ const FOBBIT={
 };
 function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
 function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
+/* The two movements as the interval timer wants them: [label, reps] twice, alternating.
+
+   `ease` halves the reps, which is what a low-readiness day or an easy conditioning week
+   asks for. The reps are labels rather than numbers because some are per side and one is
+   a carry, so halving means halving the leading number and leaving the rest: "10 / arm"
+   becomes "5 / arm", "30 m" becomes "15 m". Odd numbers round up, because five and a
+   half swings is not a thing.
+
+   `other` prescribes nothing, so it falls back to whatever was typed on the day and then
+   to a neutral label — the structure still runs, it just does not tell you what to do. */
+function halveReps(q){
+  return String(q).replace(/^\s*(\d+)/,(m,d)=>String(Math.max(1,Math.ceil(+d/2))));
+}
+function fobReps(id,ease,what){
+  const F=FOBBIT[id];
+  if(!F||!F.a){
+    const w=String(what||'').trim();
+    return w?[[w,'Set'],[w,'Set']]:[['First movement','Set'],['Second movement','Set']];
+  }
+  return [F.a,F.b].map(([n0,q])=>[n0,ease?halveReps(q):q]);
+}
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
 function setFob(date,v){
@@ -3170,8 +3191,9 @@ function hicCard(dp,note){
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
   if((IV[f]||{}).lead){
-    const rp=ivOpts(sel,f).reps||[];
-    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements: <b>${rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join('</b>, then <b>')}</b>. Kettlebells are the book\u2019s choice; dumbbells do the job, and a push-press can stand in for the snatch. Row, skip, cycle or take the stairs if you would rather not run.</div>
+    // What a FOBBIT is. Which one you are doing is shown with the picker further down,
+    // so this does not go stale the moment you choose a different pairing.
+    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements. Pick the pair below. Row, skip, cycle or take the stairs if you would rather not run.</div>
     <div class="small muted"><b>The sets are not on the clock.</b> Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
@@ -3182,7 +3204,11 @@ function hicCard(dp,note){
   if((HIC[f]||{}).noMetric){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
-    if(F&&F.a) h+=`<div class="small"><b>${esc(fobLine(fb))}</b>, alternating, between two-minute blocks of base.</div>`;
+    // The reps the timer will actually hold at, so a halved day reads as halved here too.
+    if(F&&F.a){
+      const o=ivOpts(sel,f), rp=o.reps||[];
+      h+=`<div class="small"><b>${esc(rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join(', then '))}</b>, alternating, between two-minute blocks of base.${o.ease?' Reps are halved today.':''}</div>`;
+    }
     if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
     if(!F||!F.a) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
@@ -4521,7 +4547,7 @@ document.getElementById('ls').addEventListener('change',e=>{ const t=e.target; i
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
 const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,rounds:[7,15],def:10,lead:true,hold:true,
     roundOpts:[[7,'15 min'],[10,'20 min'],[15,'30 min']],
-    reps:[['Swings','20'],['Snatches','10 per arm']], repsEasy:[['Swings','10'],['Snatches','5 per arm']]}};
+    }};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
@@ -4529,7 +4555,7 @@ function ivOpts(date,fmt){
   const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-    reps:(r&&r.reps)?(ease?r.repsEasy:r.reps):null};
+    reps:(r&&r.lead)?fobReps(fobOf(date),ease,(lg(date).hic||{}).what):null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -4540,7 +4566,7 @@ function ivSegments(fmt,o){
     // burst, until the base adds up. The bursts sit on top, so the session runs longer
     // than its nominal length. The book alternates two movements, hence A and B.
     if(r.lead) for(let i=1;i<=o.rounds;i++){
-      const rp=(o.reps||r.reps)[(i-1)%2];
+      const rp=(o.reps||[['Burst','Set'],['Burst','Set']])[(i-1)%2];
       seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
       seg.push({k:'work',l:rp[0],sub:rp[1],s:wk,round:i,hold:!!r.hold,reps:rp[1]});
     }
