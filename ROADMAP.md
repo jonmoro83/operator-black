@@ -127,6 +127,20 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A catalog of FOBBITs (2026-10-14)**
+- There was one, hardcoded into the Guide's prose, and the movements were a free-text
+  box on the day. `FOBBIT` is now a list: kettlebell (the original pairing, unchanged so
+  old sessions still read right), two sandbag versions, bodyweight, dumbbells, and an
+  `other` that keeps the text box.
+- Chosen per session over a plan default, exactly as the conditioning activity is:
+  `defFob()` / `fobOf(date)` / `setFob(date,v)`, and `setFob` stores a swap only when it
+  differs from the default so changing the default still moves the sessions that never
+  disagreed with it.
+- `setFob` extracted from the change handler because the mutation that survived was
+  "any typed value is stored as a choice" — the same unreachable-handler problem as
+  `lsAct` and `wzSet`. That is three times now; handlers get a named function.
+- 262 → 264 tests, 10 mutants, all caught.
+
 **Stair machine (2026-10-13)**
 - A `MOD` entry measuring `floors` on both HIC and LISS, which needed a case in
   `metricLabel` — without one a new field falls through to "Distance (floors)".

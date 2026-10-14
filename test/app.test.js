@@ -5028,3 +5028,79 @@ test("the stair machine logs floors, and floors are not a distance", () => {
   a.equal(x.modOf(hicDay), "stair");
   a.match(x.hicCard(x.dayPlan(hicDay), ""), /value="42"/);
 });
+
+test("FOBBITs are a catalog, with sandbag options, not one hardcoded pair", () => {
+  const x = app({ now: "2026-10-14" });
+  const ids = Object.keys(x.FOBBIT);
+  a.ok(ids.length >= 5, "several to choose from");
+  a.ok(ids.includes("kb"), "the kettlebell one the app already had");
+  a.ok(ids.filter((k) => /sandbag/.test(k)).length >= 2, "and more than one sandbag");
+
+  // Every one names its kit and its two movements, or is the type-your-own.
+  for (const [k, F] of Object.entries(x.FOBBIT)) {
+    a.ok(F.name, `${k} has a name`);
+    if (k === "other") { a.equal(F.a, null, "the free-text one prescribes nothing"); continue }
+    a.ok(F.gear, `${k} says what kit it needs`);
+    a.equal(F.a.length, 2, `${k} has a first movement and its reps`);
+    a.equal(F.b.length, 2, `${k} has a second`);
+    a.match(x.fobLine(k), new RegExp(F.a[1].replace("/", "\\/")), `${k} reads as a line`);
+  }
+  // The original pairing is untouched, so a session logged before this still reads right.
+  a.equal(x.fobLine("kb"), "Kettlebell swing × 20, then kettlebell snatch × 10 / arm");
+  a.equal(x.fobLine("other"), "", "nothing to print for the free-text one");
+  a.equal(x.fobLine("nope"), "");
+});
+
+test("a FOBBIT is chosen per session, over a default, like the activity is", () => {
+  const x = app({ now: "2026-10-14" });
+  x.plan.startMonday = "2026-09-28"; x.plan.bridge = true; x.bump();
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays("2026-10-12", i))
+    .find((dt) => x.dayPlan(dt).t === "hic");
+
+  a.equal(x.defFob(), "kb", "kettlebells unless you say otherwise");
+  a.equal(x.fobOf(d), "kb");
+
+  // A plan default.
+  x.plan.fobbit = "sandbag"; x.bump();
+  a.equal(x.fobOf(d), "sandbag");
+  x.plan.fobbit = "nonsense"; x.bump();
+  a.equal(x.defFob(), "kb", "and a default that is not on the list falls back");
+
+  // A single session can differ from it.
+  x.plan.fobbit = "kb"; x.bump();
+  x.setLog(d, "hic.fob", "sandbagheavy");
+  a.equal(x.fobOf(d), "sandbagheavy");
+  a.equal(x.defFob(), "kb", "without changing the default");
+  x.setLog(d, "hic.fob", "rubbish");
+  a.equal(x.fobOf(d), "kb", "a stored value that is not on the list falls back too");
+
+  // Choosing through the picker: only a real difference from the default is stored, so
+  // changing the default later still moves the sessions that never disagreed with it.
+  a.equal(x.setFob(d, "sandbag"), true);
+  a.equal(((x.logs[d] || {}).hic || {}).fob, "sandbag");
+  a.equal(x.setFob(d, "kb"), true, "picking the default again");
+  a.equal(((x.logs[d] || {}).hic || {}).fob, null, "clears the swap rather than pinning it");
+  a.equal(x.setFob(d, "nope"), false, "and a value that is not on the list is refused");
+  a.equal(((x.logs[d] || {}).hic || {}).fob, null, "with nothing written");
+
+  // It shows on the day, with the movements spelled out rather than typed by hand.
+  x.sel = d;
+  x.setLog(d, "hic.format", "fobbit");
+  x.setLog(d, "hic.fob", "sandbag");
+  const card = x.hicCard(x.dayPlan(d), "");
+  a.match(card, /data-act-fob/, "a picker on the session");
+  a.match(card, /Bear-hug squat|bear-hug squat/, "and the movements it prescribes");
+  a.doesNotMatch(card, /placeholder="e\.g\. sandbag clean/, "no free-text box when it is prescribed");
+
+  // Except for the one that is deliberately free text.
+  x.setLog(d, "hic.fob", "other");
+  a.match(x.hicCard(x.dayPlan(d), ""), /placeholder="e\.g\. sandbag clean/);
+
+  // Setup carries the default, and the Guide lists them all.
+  x.view = "setup";
+  a.match(x.vSetup(), /data-pbind="fobbit"/);
+  const g = x.vGuide();
+  for (const [k, F] of Object.entries(x.FOBBIT)) {
+    if (F.a) a.ok(g.includes(x.esc(F.name)), `${k} is in the Guide`);
+  }
+});

@@ -319,7 +319,11 @@ function hicCard(dp,note){
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((HIC[f]||{}).noMetric){
-    h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="KB swings / snatches"></label>`;
+    const fb=fobOf(sel), F=FOBBIT[fb];
+    h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
+    if(F&&F.a) h+=`<div class="small"><b>${esc(fobLine(fb))}</b>, alternating, between two-minute blocks of base.</div>`;
+    if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
+    if(!F||!F.a) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
   {

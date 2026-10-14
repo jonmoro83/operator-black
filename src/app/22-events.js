@@ -60,6 +60,9 @@ document.addEventListener('change',e=>{ const t=e.target;
     }
     t.value=''; render(); return;
   }
+  if(t.dataset&&t.dataset.actFob){
+    setFob(sel,t.value); render(); return;
+  }
   if(t.dataset&&t.dataset.actAcc){
     const sl=t.dataset.actAcc, v=t.value;
     // Only a real difference from the block's choice is worth storing as a swap.

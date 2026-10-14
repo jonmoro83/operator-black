@@ -474,6 +474,45 @@ const MOD={
   swim:{name:'Swim',hic:['dist','m'],liss:['dist','m'],fixedUnit:true,wu:'200 easy, then 4 × 25 building to HIC pace.'},
   other:{name:'Other',hic:null,liss:null}
 };
+
+/* FOBBITs. Named for the soldier who never leaves the forward operating base: a session
+   with no ground to cover and barely any kit. You hold an easy base and step off every
+   two minutes for a set of reps, alternating two movements.
+
+   The pairing used to be hardcoded to kettlebells and typed in by hand. What the base is
+   and what the two movements are is the whole variation, so it is a list. `a` and `b`
+   alternate; the reps are a label rather than a number because some of them are per side
+   and one of them is a carry. */
+const FOBBIT={
+  kb:{name:'Kettlebell',gear:'One kettlebell',
+    a:['Kettlebell swing','20'],b:['Kettlebell snatch','10 / arm']},
+  sandbag:{name:'Sandbag',gear:'One sandbag',
+    a:['Shoulder it, alternating sides','10'],b:['Bear-hug squat','15'],
+    note:'Drop it to the floor between reps rather than lowering it under control \u2014 the point is to keep moving, and eccentric lowering a bag this often is what makes people sore for days.'},
+  sandbagheavy:{name:'Sandbag, heavy',gear:'A bag you would not want to carry far',
+    a:['Ground to shoulder','6 / side'],b:['Front carry','30 m'],
+    note:'The heavy version. The carry is the rest, so do not put the bag down during it \u2014 if you have to, the bag is too heavy for this session rather than you being unfit.'},
+  bodyweight:{name:'Bodyweight',gear:'Nothing at all',
+    a:['Burpee','10'],b:['Push-up','15'],
+    note:'The one you can do in a hotel room. Nothing here is loaded, so take the base a little faster to keep it honest.'},
+  db:{name:'Dumbbells',gear:'Two dumbbells',
+    a:['Thruster','10'],b:['Renegade row','10 / side']},
+  other:{name:'Something else',gear:'',a:null,b:null},
+};
+function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
+function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
+// Choosing one for a single session. Only a real difference from the default is worth
+// storing as a swap, the same rule the activity picker follows.
+function setFob(date,v){
+  if(!FOBBIT[v]) return false;
+  setLog(date,'hic.fob',v===defFob()?null:v);
+  return true;
+}
+// The two movements as one line, for the day card and the week's record.
+function fobLine(id){
+  const F=FOBBIT[id]; if(!F||!F.a) return '';
+  return `${F.a[0]} \u00d7 ${F.a[1]}, then ${F.b[0].charAt(0).toLowerCase()+F.b[0].slice(1)} \u00d7 ${F.b[1]}`;
+}
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
 // Contacts count ground impacts (one landing = one contact), as the program does.
 const PLIB={
@@ -813,7 +852,7 @@ const DEF={
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
-  cardio:{def:'echo'},
+  cardio:{def:'echo'}, fobbit:'kb',
   askDeload:true, voice:false, guideAuto:true,
   // 'duck' shares the speaker with your music, 'takeover' seizes it, 'silent' is mute.
   soundMode:'duck',
@@ -3138,7 +3177,11 @@ function hicCard(dp,note){
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((HIC[f]||{}).noMetric){
-    h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="KB swings / snatches"></label>`;
+    const fb=fobOf(sel), F=FOBBIT[fb];
+    h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
+    if(F&&F.a) h+=`<div class="small"><b>${esc(fobLine(fb))}</b>, alternating, between two-minute blocks of base.</div>`;
+    if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
+    if(!F||!F.a) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
   {
@@ -5825,6 +5868,8 @@ function vSetup(){
   h+=accSetupCard();
   h+=bandsCard();
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
+  <label class="f" style="max-width:260px">Default FOBBIT<select id="p-fobbit" data-pbind="fobbit">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===defFob()?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>
+  <div class="small muted">${esc(fobLine(defFob())||'You type the movements on the day.')} Swap it on any single session from that day's card.</div>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
   <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
@@ -5949,7 +5994,9 @@ function vGuide(){
   <p>Some the app can score from what you logged, and does. The rest only you can judge, so those ask you once at the end rather than being guessed at. The difference is visible: a scored line tells you what it counted, a self-rated line asks.</p>
   <p><b>The note is the point.</b> What you write in \u201canything to remember\u201d is shown to you before your next session of the same kind \u2014 your last squat note before you squat again, not Tuesday's bike session. A note nobody reads again is just journalling.</p>
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
-  <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving on an easy base — a pace just under a jog — and step off every two minutes for a set of reps, alternating two movements: twenty kettlebell swings, then ten snatches per arm. Twenty minutes of base is the standard dose; fifteen is the easy version with the reps halved, thirty the hard one. The sets are not on the clock, so the session runs longer than its name. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
+  <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving on an easy base — a pace just under a jog — and step off every two minutes for a set of reps, alternating two movements. Twenty minutes of base is the standard dose; fifteen is the easy version with the reps halved, thirty the hard one. The sets are not on the clock, so the session runs longer than its name. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>FOBBIT</th><th>Kit</th><th>The two movements</th></tr></thead><tbody>${Object.entries(FOBBIT).filter(([,x])=>x.a).map(([k,x])=>`<tr><td><b>${esc(x.name)}</b></td><td class="small">${esc(x.gear)}</td><td class="small">${esc(fobLine(k))}</td></tr>`).join('')}</tbody></table></div>
+  <p class="small muted">Pick a default in Setup and swap it on any single session from that day\u2019s card. <b>Something else</b> lets you type your own pair.</p>
   <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
@@ -6469,6 +6516,9 @@ document.addEventListener('change',e=>{ const t=e.target;
       setLog(sel,'acc.sets.'+sl,cur.map(x=>x&&x.w!=null&&x.w!==''?x:Object.assign({},x,{w})));
     }
     t.value=''; render(); return;
+  }
+  if(t.dataset&&t.dataset.actFob){
+    setFob(sel,t.value); render(); return;
   }
   if(t.dataset&&t.dataset.actAcc){
     const sl=t.dataset.actAcc, v=t.value;

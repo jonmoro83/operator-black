@@ -41,6 +41,45 @@ const MOD={
   swim:{name:'Swim',hic:['dist','m'],liss:['dist','m'],fixedUnit:true,wu:'200 easy, then 4 × 25 building to HIC pace.'},
   other:{name:'Other',hic:null,liss:null}
 };
+
+/* FOBBITs. Named for the soldier who never leaves the forward operating base: a session
+   with no ground to cover and barely any kit. You hold an easy base and step off every
+   two minutes for a set of reps, alternating two movements.
+
+   The pairing used to be hardcoded to kettlebells and typed in by hand. What the base is
+   and what the two movements are is the whole variation, so it is a list. `a` and `b`
+   alternate; the reps are a label rather than a number because some of them are per side
+   and one of them is a carry. */
+const FOBBIT={
+  kb:{name:'Kettlebell',gear:'One kettlebell',
+    a:['Kettlebell swing','20'],b:['Kettlebell snatch','10 / arm']},
+  sandbag:{name:'Sandbag',gear:'One sandbag',
+    a:['Shoulder it, alternating sides','10'],b:['Bear-hug squat','15'],
+    note:'Drop it to the floor between reps rather than lowering it under control \u2014 the point is to keep moving, and eccentric lowering a bag this often is what makes people sore for days.'},
+  sandbagheavy:{name:'Sandbag, heavy',gear:'A bag you would not want to carry far',
+    a:['Ground to shoulder','6 / side'],b:['Front carry','30 m'],
+    note:'The heavy version. The carry is the rest, so do not put the bag down during it \u2014 if you have to, the bag is too heavy for this session rather than you being unfit.'},
+  bodyweight:{name:'Bodyweight',gear:'Nothing at all',
+    a:['Burpee','10'],b:['Push-up','15'],
+    note:'The one you can do in a hotel room. Nothing here is loaded, so take the base a little faster to keep it honest.'},
+  db:{name:'Dumbbells',gear:'Two dumbbells',
+    a:['Thruster','10'],b:['Renegade row','10 / side']},
+  other:{name:'Something else',gear:'',a:null,b:null},
+};
+function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
+function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
+// Choosing one for a single session. Only a real difference from the default is worth
+// storing as a swap, the same rule the activity picker follows.
+function setFob(date,v){
+  if(!FOBBIT[v]) return false;
+  setLog(date,'hic.fob',v===defFob()?null:v);
+  return true;
+}
+// The two movements as one line, for the day card and the week's record.
+function fobLine(id){
+  const F=FOBBIT[id]; if(!F||!F.a) return '';
+  return `${F.a[0]} \u00d7 ${F.a[1]}, then ${F.b[0].charAt(0).toLowerCase()+F.b[0].slice(1)} \u00d7 ${F.b[1]}`;
+}
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
 // Contacts count ground impacts (one landing = one contact), as the program does.
 const PLIB={
@@ -380,7 +419,7 @@ const DEF={
   goal:'lose', sleepTarget:8, proteinPerLb:0.8,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
-  cardio:{def:'echo'},
+  cardio:{def:'echo'}, fobbit:'kb',
   askDeload:true, voice:false, guideAuto:true,
   // 'duck' shares the speaker with your music, 'takeover' seizes it, 'silent' is mute.
   soundMode:'duck',
