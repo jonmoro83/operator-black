@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.8',date:'2026-10-14',title:'Two fixes on the FOBBIT card',items:[
+    'The <b>bouts done</b> field was empty. The app already knows how many bouts the session is \u2014 it is what the timer runs \u2014 so it fills that in as a suggestion now instead of leaving you to count.',
+    'Under the FOBBIT picker there was a stray <b>\u201cOurs.\u201d</b> on its own line. It was meant to say where the session came from, and now it does: \u201cFrom Tactical Barbell II\u201d, or for the ones we made up, that the shape is the book\u2019s and the movements are not. <b>Something else</b> has no line at all, since there is nothing to attribute.']},
   {v:'2.7',date:'2026-10-14',title:'Ageless Athlete',items:[
     'The fourth book, and the one still missing. It does not add a different program for older athletes \u2014 it asks that outright and answers no. What changes is the dosing.',
     '<b>Recovery weeks, 3-1-3-1.</b> One after every third training week, so a six-week cycle takes eight. No barbells and no HIC: that is what recharges the nervous system, joints and hormones. Not an off week either \u2014 two easy sessions, kept easy, plus anything you already do and as much mobility as you like. Turning it on suspends the scheduled deload, because these are the back-off.',

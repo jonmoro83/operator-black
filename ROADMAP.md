@@ -155,6 +155,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Two things wrong on the FOBBIT card (2026-10-14)**
+- Reported after using it. Both were introduced by the catalog work and neither was
+  caught, because the tests checked that the prescription was right without looking at
+  what sat around it.
+- **The bouts field was blank.** The app knows exactly how many bouts the session is —
+  `ivOpts` computes it and the timer runs it — but the field offered no placeholder, so
+  you had to count. It suggests the number now, for every FOBBIT and for Predator.
+- **A bare "Ours." under the picker.** The provenance line printed the source label and
+  a full stop, which reads as a sentence fragment for the book-sourced ones and as
+  nothing at all for ours. It is a sentence now, and the free-text FOBBIT has no line
+  at all, having nothing to attribute.
+- 284 tests, 3 mutants, all caught.
+
 **Ageless Athlete (2026-10-14)**
 - The book I had wrongly called covered. Five pieces, all read off the pages.
 - **3-1-3-1 recovery weeks.** A `recovery` week after every third training week, so a

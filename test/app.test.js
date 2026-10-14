@@ -1366,6 +1366,28 @@ test("the FOBBIT card explains the format in general and the movements only once
   a.equal(x.ivSegments("fobbit", x.ivOpts(d, "fobbit")).filter((g) => g.k === "work")[0].l, "Burst",
     "and with nothing typed it still has a shape");
 
+  // The card knows how many bouts the session is, so the field says so rather than
+  // leaving you to count. A blank here was the bug.
+  for (const id of Object.keys(x.FOBBIT)) {
+    x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
+    const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+    const m = card.match(/Bouts done<input[^>]*placeholder="([^"]*)"/);
+    a.ok(m, id + " has a bouts field");
+    a.equal(m[1], String(x.ivOpts(d, "fobbit").rounds), id + " suggests the session's bout count");
+    a.ok(+m[1] > 0, id + " suggests a real number");
+  }
+
+  // Provenance reads as a sentence. A bare "Ours." under the picker said nothing.
+  for (const id of Object.keys(x.FOBBIT)) {
+    x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
+    const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+    a.ok(!/>(Ours|Tactical Barbell II|Mass Protocol|TB article[^<]*)\.</.test(card),
+      id + ": the source must not be a bare label on its own line");
+    if (!x.fobDef(id)) { a.ok(!/The shape is the book/.test(card), "nothing to attribute on the free-text one"); continue }
+    if (x.FOBBIT[id].src === "ours") a.match(card, /The shape is the book’s; these movements are the app’s own\./, id);
+    else a.match(card, new RegExp("From " + x.fobSrcLabel(id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\."), id);
+  }
+
   // On the easy week the card shows the halved rotation and says so.
   const hw = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
   const ed = x.addDays(hw.monday, 1); x.sel = ed;

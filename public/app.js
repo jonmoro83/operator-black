@@ -3629,11 +3629,14 @@ function hicCard(dp,note){
     }
     if(F&&F.bpm) h+=`<div class="small muted">Base pace: ${F.bpm[0]}\u2013${F.bpm[1]} bpm, or the talk test.</div>`;
     if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
-    h+=`<div class="small muted">${esc(fobSrcLabel(fb))}.</div>`;
+    if(fobDef(fb)) h+=`<div class="small muted">${F.src==='ours'?'The shape is the book\u2019s; these movements are the app\u2019s own.':'From '+esc(fobSrcLabel(fb))+'.'}</div>`;
     if(!fobDef(fb)) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
-    h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
+    h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,String(o.rounds))}</label>`;
   }
-  else if((HIC[f]||{}).noMetric) h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
+  else if((HIC[f]||{}).noMetric){
+    const o=ivOpts(sel,f);
+    h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,String(o.rounds))}</label>`;
+  }
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;
