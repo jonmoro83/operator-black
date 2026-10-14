@@ -9,29 +9,36 @@ Setup → About this app → What's new.
 
 ## Open issues
 
-Known gaps and things to verify. Fix or close these before starting new features.
+Genuinely open: things that still need doing or confirming.
 
-- **The rest beep works. Confirmed on a phone 2026-10-14**, with the ring switch on,
-  through Setup → Sound → Test the beep. Four reports and four rounds of work; 1.84 was
-  the one that landed, after settling the why (iOS audio sessions are exclusive or
-  mixable, never both, and the web has no `mixWithOthers`), making it a three-way choice
+- **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
+  stays awake for a whole session, and the interval timer on the bike. Confirmed so
+  far: home-screen install, Access login in the installed app, the update banner, rest
+  alerts arriving on the lock screen, spoken cues through AirPods with the app open,
+  and the rest beep with the ring switch on (2026-10-14).
+- **Conditioning "last/best" across programs** only counts sessions whose format and
+  activity are stored. Programs archived by the app stamp them automatically, so this
+  only bites on hand-edited history.
+- **Not separately confirmed, and minor:** that the beep ducks music rather than
+  stopping it, and that a real rest timer mid-session sounds the same as the test
+  button. Both run the same path, so this is a note rather than a doubt.
+
+## Settled, for the record
+
+Closed. Here because the reasoning is worth keeping, not because anything is pending.
+
+- **The rest beep works. Confirmed on a phone 2026-10-14**, ring switch on, through
+  Setup → Sound → Test the beep. Four reports and four rounds of work; 1.84 was the one
+  that landed, after settling the why (iOS audio sessions are exclusive or mixable,
+  never both, and the web has no `mixWithOthers`), making it a three-way choice
   defaulting to ducking, undoing the `playback` regression 1.79 introduced, and fixing a
   real fault where an `interrupted` AudioContext was never woken.
   - With the ring switch **off** it is silent, and no web app can change that. The
     answer there is the Apple Watch tap through the existing rest-alert push —
     deferred, not unknown.
-  - Not separately confirmed, and minor: that it ducks music rather than stopping it,
-    and that a real rest timer mid-session sounds the same as the test button. Both run
-    the same path, so this is a note rather than a doubt.
-- **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
-  stays awake for a whole session, and the interval timer on the bike. Confirmed so far:
-  home-screen install, Access login in the installed app, the update banner, rest alerts
-  arriving on the lock screen, and spoken cues through AirPods with the app open.
-- **Conditioning "last/best" across programs** only counts sessions whose format and
-  activity are stored. Programs archived by the app stamp them automatically.
-- **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02.** Settled:
+- **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02:**
   - Wave weeks 5–6 are **3×5 @ 85%** and **3×2 @ 95%**. `plan.wave` matches the Operator
-    table row for row; the disputed alternative was wrong. Closed.
+    table row for row; the disputed alternative was wrong.
   - **There is no strength deload in the book.** Operator runs six weeks and retests; the
     recovery guidance is a full week or more off every 3–6 months, plus the easy
     conditioning week. Our `2×5 @ 60%` deload is an app addition — kept, because a
@@ -43,10 +50,10 @@ Known gaps and things to verify. Fix or close these before starting new features
     retest Saturday, and the deadlift's single set on non-cycle weeks.
 - **Plyo PDF is a 10-week block with a week-10 jump retest.** The app runs its three
   phases back to back (9-week rotation) and tests jumps in the program's retest weeks
-  instead, as the 18-week summary does.
+  instead, as the 18-week summary does. Deliberate.
 - **Interval alerts arrive 1–3 s late** when the phone is locked (Apple push delivery).
   Fine for minutes-long intervals; on 30 s anaerobic work, keep the screen on and use
-  the in-app beeps.
+  the in-app beeps. Not fixable from the app.
 - **Rest alerts fire even with the app open**, so you get the in-app beep and a
   notification together. iOS expects every push to show a notification, so this is
   deliberate.
