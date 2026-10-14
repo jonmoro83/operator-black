@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-13.
+Update it as things ship. Last updated 2026-10-14.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -11,18 +11,18 @@ Setup → About this app → What's new.
 
 Known gaps and things to verify. Fix or close these before starting new features.
 
-- **The rest beep: explained and rebuilt, still unconfirmed on a phone.** Four reports,
-  the last of which asked the right question — *keep my music playing and still beep*.
-  1.84 settled the why (iOS sessions are exclusive or mixable, never both; the web has
-  no `mixWithOthers`), made it a three-way choice defaulting to ducking, undid the
-  `playback` regression 1.79 introduced, and fixed a genuine fault where an
-  `interrupted` AudioContext was never woken. **None of it has been heard on a phone
-  yet**, so it stays open.
-  - Expected on a device with the ring switch **on**: music keeps playing, beep audible.
-  - With the switch **off**: silent, and no web app can change that. The answer there is
-    the Apple Watch tap through the existing rest-alert push — deferred, not unknown.
-  - If it is silent with the switch on, Setup → Sound → **Test the beep** →
-    *Copy for a bug report* names the mode, the session type and the channel state.
+- **The rest beep works. Confirmed on a phone 2026-10-14**, with the ring switch on,
+  through Setup → Sound → Test the beep. Four reports and four rounds of work; 1.84 was
+  the one that landed, after settling the why (iOS audio sessions are exclusive or
+  mixable, never both, and the web has no `mixWithOthers`), making it a three-way choice
+  defaulting to ducking, undoing the `playback` regression 1.79 introduced, and fixing a
+  real fault where an `interrupted` AudioContext was never woken.
+  - With the ring switch **off** it is silent, and no web app can change that. The
+    answer there is the Apple Watch tap through the existing rest-alert push —
+    deferred, not unknown.
+  - Not separately confirmed, and minor: that it ducks music rather than stopping it,
+    and that a real rest timer mid-session sounds the same as the test button. Both run
+    the same path, so this is a note rather than a doubt.
 - **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
   stays awake for a whole session, and the interval timer on the bike. Confirmed so far:
   home-screen install, Access login in the installed app, the update banner, rest alerts
@@ -61,9 +61,7 @@ Known gaps and things to verify. Fix or close these before starting new features
   but its H cluster is large and user-defined. After the
   templates: TB III's own Bridge Week, its Base Building variant (6 weeks, SE + E), and
   its named conditioning sessions (Ruck, Endurance Predator, Anabolic Sprints,
-  RESET-20, Hill Sprints, FOBBITs — several of which the app already has).
-- **Hear the rest beep on a phone**, with music playing and the ring switch on. The one
-  open item that cannot be settled from here.
+  RESET-20, Hill Sprints). FOBBITs came off that list on 2026-10-14.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
