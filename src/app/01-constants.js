@@ -11,7 +11,7 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'2 min base, then a set of reps × 10',sys:'Aerobic base with bursts',noMetric:true}
+  fobbit:{name:'FOBBIT',sess:'An easy base, broken by bouts of work',sys:'Aerobic base with bursts',noMetric:true}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -43,54 +43,131 @@ const MOD={
 };
 
 /* FOBBITs. Named for the soldier who never leaves the forward operating base: a session
-   with no ground to cover and barely any kit. You hold an easy base and step off every
-   two minutes for a set of reps, alternating two movements.
+   with no ground to cover and barely any kit.
 
-   The pairing used to be hardcoded to kettlebells and typed in by hand. What the base is
-   and what the two movements are is the whole variation, so it is a list. `a` and `b`
-   alternate; the reps are a label rather than a number because some of them are per side
-   and one of them is a carry. */
+   A FOBBIT is not one session, it is a shape: hold an easy aerobic base, step off it
+   every so often for a bout of work, get back on. Tactical Barbell II gives one of them
+   (HIC #9, kettlebell swings and snatches), Mass Protocol gives a shorter one and says
+   plainly that you are not restricted to kettlebells, and the author published three
+   more as Mods on tacticalbarbell.com. They disagree on every axis, so every axis here
+   is data rather than a constant:
+
+     every   seconds of base between bouts. A number, or [lo,hi] when the source gives a
+             range — the timer takes the low end and the prose says the range.
+     count   what the minutes measure. 'base' counts only the base, which is how TB2
+             reads ("until your treadmill reads 20 minutes"); 'total' counts the whole
+             session, which is how the three Mods read.
+     mv      the rotation, in order, one or more movements. TB2 alternates two, Mod #1 is
+             a single lift, Mod #2 and #3 cycle three.
+     mins    the duration choices, and `def` the one to start on.
+     bpm     the pace band the source gives, where it gives one.
+
+   A dose is a plain string when it is reps ('20', '10 / arm', '30 m' — a label rather
+   than a number, because some are per side and one is a carry). It is an object when it
+   is anything else: {s} for a timed bout in seconds, {r,pct,lift} for a set at a
+   percentage of a 1RM.
+
+   The governing rule, from Part II and stated in those words: any FOBBIT over 30 minutes
+   is an E session, anything under is a HIC. That is `fobIsE`, and it is why duration is
+   not just cosmetic here. */
+const FOB_SRC={tb2:'Tactical Barbell II',mass:'Mass Protocol',mod1:'TB article, Mod #1',mod2:'TB article, Mod #2',mod3:'TB article, Mod #3',ours:'Ours'};
+const FOB_EVERY=120, FOB_HELD=30;   // default base interval; and what a held set is assumed to cost when sizing by total time
 const FOBBIT={
-  kb:{name:'Kettlebell',gear:'One kettlebell',
-    a:['Kettlebell swing','20'],b:['Kettlebell snatch','10 / arm']},
-  sandbag:{name:'Sandbag',gear:'One sandbag',
-    a:['Shoulder it, alternating sides','10'],b:['Bear-hug squat','15'],
-    note:'Drop it to the floor between reps rather than lowering it under control \u2014 the point is to keep moving, and eccentric lowering a bag this often is what makes people sore for days.'},
-  sandbagheavy:{name:'Sandbag, heavy',gear:'A bag you would not want to carry far',
-    a:['Ground to shoulder','6 / side'],b:['Front carry','30 m'],
-    note:'The heavy version. The carry is the rest, so do not put the bag down during it \u2014 if you have to, the bag is too heavy for this session rather than you being unfit.'},
-  sandbagbar:{name:'Sandbag over bar',gear:'A sandbag and a bar you can fix at a height',
-    a:['Sandbag over the bar','5'],b:['Push-up','15'],
-    note:'Explosive hip extension, so it is the first thing to go when you are tired \u2014 if the back is rounding to get the bag up, the set is over. Reset the bag on the floor each rep rather than catching it on the way back, and keep the bar at the same height every session or the count means nothing against the last one.'},
-  bodyweight:{name:'Bodyweight',gear:'Nothing at all',
-    a:['Burpee','10'],b:['Push-up','15'],
+  kb:{name:'Kettlebell',gear:'One kettlebell',src:'tb2',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Kettlebell swing','20'],['Kettlebell snatch','10 / arm']],
+    note:'The original, straight out of Tactical Barbell II. Set the base a notch below a comfortable jog — if your jog is level 5, run it at 4. One or two handed swings both count, and the swing and the snatch can use different bells.'},
+  massfob:{name:'Mass Protocol',gear:'One kettlebell',src:'mass',every:120,count:'base',mins:[15,20],def:20,bpm:[120,150],
+    mv:[['Kettlebell swing','10']],
+    note:'The Mass Protocol version: the same shape, half the swings, and fifteen to twenty minutes with no longer allowed. It is general conditioning while you are growing, so the variety matters more than the numbers.'},
+  maxstrength:{name:'Maximal strength',gear:'A press you can leave loaded',src:'mod1',every:[180,300],count:'total',mins:[30,45,60],def:45,bpm:[130,150],
+    mv:[['Overhead press',{r:'3',pct:[70,75],lift:'ohp'}]],
+    note:'Mod #1, from a reader the author published. Thirty minutes is the floor and sixty is fine once you are used to it; it defaults to forty-five because the article puts it in the week as the day-six E session, and thirty exactly would still count as a HIC. It buys press volume while you build an aerobic base, and it is deliberately easy: you should never be unreasonably fatigued when you get to the bar. Out of breath at the station means the base is too fast; tired at the press means lengthen the base, drop the load, or both. Walking back between sets is fine. Swap the press for bench if that is the volume you want, and change it week to week.'},
+  se:{name:'Strength-endurance',gear:'A pull-up bar and a floor',src:'mod2',every:120,count:'total',mins:[20,30,45,60],def:30,bpm:[130,150],
+    mv:[['Push-up','10'],['Pull-up','10'],['Sit-up','10']],
+    note:'Mod #2. Three movements on rotation — the ones you are tested on, if you are tested. Scale the pull-ups to what you have: one to five is fine if ten is not. Keep strength-endurance to a tenth or a fifth of the training week; weeks of it at the expense of maximal strength goes backwards, because maximal strength is what feeds it.'},
+  seamrap:{name:'Strength-endurance, AMRAP',gear:'A pull-up bar and a floor',src:'mod2',every:120,count:'total',mins:[20,30,45,60],def:30,bpm:[130,150],
+    mv:[['Push-up',{s:60}],['Pull-up',{s:60}],['Sit-up',{s:60}]],
+    note:'Mod #2 run on the clock instead of on a count: sixty seconds of as many as you can manage, rather than a fixed ten. The bouts are timed, so unlike the rep versions they do count toward the session.'},
+  combat:{name:'Combat',gear:'A bag, or room to shadow box',src:'mod3',every:[60,90],count:'total',mins:[20,30,45,60],def:30,bpm:[130,150],
+    mv:[['Heavy bag',{s:[120,180]}],['Straight punches',{s:[120,180]}],['Shadow boxing',{s:[120,180]}]],
+    note:'Mod #3, and the one that runs the other way round: the drill is longer than the base. If you fight, set the work and rest to your event instead. Starting out, flip it — two minutes easy, sixty to ninety seconds of work. Gloves rule out the rower for the base. It is a more specific conditioning option, not a replacement for Base Building.'},
+  sledge:{name:'Sledgehammer',gear:'A sledgehammer and a tire',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Sledgehammer strike','10 / side'],['Push-up','15']],
+    note:'Mass Protocol names sledgehammer and tire drills as a work interval but gives no count, so the numbers here are ours. Alternate the top hand every set or one side does all the work.'},
+  pushpress:{name:'Barbell push press',gear:'A loaded barbell',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Push press','10']],
+    note:'Mass Protocol names the push press as a work interval but gives no load or count, so those are ours. Keep it light enough that the base is still the hard part.'},
+  sandbag:{name:'Sandbag',gear:'One sandbag',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Shoulder it, alternating sides','10'],['Bear-hug squat','15']],
+    note:'Drop it to the floor between reps rather than lowering it under control — the point is to keep moving, and eccentric lowering a bag this often is what makes people sore for days.'},
+  sandbagheavy:{name:'Sandbag, heavy',gear:'A bag you would not want to carry far',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Ground to shoulder','6 / side'],['Front carry','30 m']],
+    note:'The heavy version. The carry is the rest, so do not put the bag down during it — if you have to, the bag is too heavy for this session rather than you being unfit.'},
+  sandbagbar:{name:'Sandbag over bar',gear:'A sandbag and a bar you can fix at a height',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Sandbag over the bar','5'],['Push-up','15']],
+    note:'Explosive hip extension, so it is the first thing to go when you are tired — if the back is rounding to get the bag up, the set is over. Reset the bag on the floor each rep rather than catching it on the way back, and keep the bar at the same height every session or the count means nothing against the last one.'},
+  bodyweight:{name:'Bodyweight',gear:'Nothing at all',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Burpee','10'],['Push-up','15']],
     note:'The one you can do in a hotel room. Nothing here is loaded, so take the base a little faster to keep it honest.'},
-  db:{name:'Dumbbells',gear:'Two dumbbells',
-    a:['Thruster','10'],b:['Renegade row','10 / side']},
-  other:{name:'Something else',gear:'',a:null,b:null},
+  db:{name:'Dumbbells',gear:'Two dumbbells',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Thruster','10'],['Renegade row','10 / side']]},
+  other:{name:'Something else',gear:'',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,mv:null},
 };
 function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
 function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
-/* The two movements as the interval timer wants them: [label, reps] twice, alternating.
-
-   `ease` halves the reps, which is what a low-readiness day or an easy conditioning week
-   asks for. The reps are labels rather than numbers because some are per side and one is
-   a carry, so halving means halving the leading number and leaving the rest: "10 / arm"
-   becomes "5 / arm", "30 m" becomes "15 m". Odd numbers round up, because five and a
-   half swings is not a thing.
-
-   `other` prescribes nothing, so it falls back to whatever was typed on the day and then
-   to a neutral label — the structure still runs, it just does not tell you what to do. */
+function fobDef(id){ const F=FOBBIT[id]; return F&&F.mv&&F.mv.length?F:null }
+// Ranges read as [lo,hi]; the timer needs one number and takes the low end, which is the
+// one that gives the session its full count of bouts.
+function lo(v){ return Array.isArray(v)?v[0]:v }
+function fobEvery(id){ const F=FOBBIT[id]; return lo(F&&F.every)||FOB_EVERY }
+function fobCount(id){ return (FOBBIT[id]||{}).count==='total'?'total':'base' }
+function fobMinOpts(id){ const F=FOBBIT[id]; return (F&&F.mins)||[15,20,30] }
+function fobDefMins(id){ const F=FOBBIT[id]; return (F&&F.def)||20 }
+/* The rule from Part II, in those words: over 30 minutes it is an E, under it is a HIC.
+   So a 60-minute Mod #1 is not a hard session and must not be counted as one. */
+function fobIsE(mins){ return +mins>30 }
+// A dose, normalised for the timer. Reps are held — you tap Done, and they are not on
+// the clock. Anything with seconds is timed and does count.
+function fobDose(d,ease){
+  if(d&&typeof d==='object'){
+    if(d.s!=null) return {secs:lo(d.s),hold:false,reps:null,pct:null};
+    // A set at a percentage of a 1RM is already three reps and deliberately easy. Halving
+    // it makes it pointless rather than lighter, so the easy week shortens the session
+    // instead, which it does anyway by dropping to the shortest length on offer.
+    return {secs:null,hold:true,reps:d.r,pct:d.pct||null,lift:d.lift||null};
+  }
+  return {secs:null,hold:true,reps:ease?halveReps(d):d,pct:null,lift:null};
+}
+/* Halving for a low-readiness day or an easy conditioning week. It halves the leading
+   count and leaves the rest, so "10 / arm" becomes "5 / arm" and "30 m" becomes "15 m",
+   and a load written into the unit is not touched. Odd counts round up, because five and
+   a half swings is not a thing. Timed bouts are left alone: an AMRAP is already
+   self-limiting, and the easy week shortens the session instead. */
 function halveReps(q){
   return String(q).replace(/^\s*(\d+)/,(m,d)=>String(Math.max(1,Math.ceil(+d/2))));
 }
-function fobReps(id,ease,what){
-  const F=FOBBIT[id];
-  if(!F||!F.a){
-    const w=String(what||'').trim();
-    return w?[[w,'Set'],[w,'Set']]:[['First movement','Set'],['Second movement','Set']];
+/* The rotation as the timer wants it: one entry per movement, cycled in order.
+
+   `other` prescribes nothing, so it falls back to whatever was typed on the day and then
+   to a neutral label — the structure still runs, it just does not tell you what to do. */
+function fobBouts(id,ease,what){
+  const F=fobDef(id);
+  if(!F){
+    const w=String(what||'').trim().split('/').map(s=>s.trim()).filter(Boolean);
+    const ns=w.length?w:['Burst'];
+    return ns.map(n0=>Object.assign({name:n0},fobDose('Set',false)));
   }
-  return [F.a,F.b].map(([n0,q])=>[n0,ease?halveReps(q):q]);
+  return F.mv.map(([n0,d])=>Object.assign({name:n0},fobDose(d,ease)));
+}
+// How many bouts fit. A base-counted FOBBIT divides the base by the interval; a
+// total-counted one has to pay for the bouts too, and a held set is assumed to cost
+// FOB_HELD seconds since nobody can know what it really takes.
+function fobRounds(id,mins){
+  const ev=fobEvery(id);
+  if(fobCount(id)==='base') return Math.max(1,Math.round(mins*60/ev));
+  const bs=fobBouts(id,false,'').map(b=>b.secs||FOB_HELD);
+  const avg=bs.reduce((a,b)=>a+b,0)/bs.length;
+  return Math.max(1,Math.round(mins*60/(ev+avg)));
 }
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
@@ -99,11 +176,21 @@ function setFob(date,v){
   setLog(date,'hic.fob',v===defFob()?null:v);
   return true;
 }
-// The two movements as one line, for the day card and the week's record.
-function fobLine(id){
-  const F=FOBBIT[id]; if(!F||!F.a) return '';
-  return `${F.a[0]} \u00d7 ${F.a[1]}, then ${F.b[0].charAt(0).toLowerCase()+F.b[0].slice(1)} \u00d7 ${F.b[1]}`;
+function secsLabel(s){ return (s>=120&&s%60===0)?(s/60)+' min':s+' s' }
+function rangeLabel(v,f){ return Array.isArray(v)?f(v[0])+' to '+f(v[1]):f(v) }
+// "every two minutes", "every 3 min to 5 min", "every 60 s to 90 s".
+function fobEveryLabel(id){ const F=FOBBIT[id]; return rangeLabel((F&&F.every)||FOB_EVERY,secsLabel) }
+function doseLabel(b){
+  if(b.secs!=null) return secsLabel(b.secs)+(b.secs<=60?' AMRAP':'');
+  if(b.pct) return b.reps+' at '+rangeLabel(b.pct,p=>p+'%');
+  return b.reps;
 }
+// The rotation as one line, for the day card, the Guide table and the week's record.
+function boutsLine(bs){
+  return (bs||[]).map((b,i)=>`${i?b.name.charAt(0).toLowerCase()+b.name.slice(1):b.name} × ${doseLabel(b)}`).join(', then ');
+}
+function fobLine(id,ease){ const F=fobDef(id); return F?boutsLine(fobBouts(id,ease,'')):'' }
+function fobSrcLabel(id){ return FOB_SRC[(FOBBIT[id]||{}).src]||FOB_SRC.ours }
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
 // Contacts count ground impacts (one landing = one contact), as the program does.
 const PLIB={

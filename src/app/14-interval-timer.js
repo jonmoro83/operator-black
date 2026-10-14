@@ -2,17 +2,27 @@
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,rounds:[7,15],def:10,lead:true,hold:true,
-    roundOpts:[[7,'15 min'],[10,'20 min'],[15,'30 min']],
-    }};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,lead:true}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
   const o=((lg(date).hic||{}).iv)||{}, r=IV[fmt];
   const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
+  // A FOBBIT is picked in minutes, because that is the number the sources argue about
+  // and the number that decides whether it is a HIC or an E. Rounds fall out of it.
+  if(r&&r.lead){
+    const id=fobOf(date), opts=fobMinOpts(id);
+    // Before FOBBITs carried their own interval the stored number was rounds of a
+    // two-minute base, so read a legacy value that way and old sessions keep their length.
+    const stored=o.mins!=null?+o.mins:(o.rounds!=null?+o.rounds*2:null);
+    const mins=stored||(ease?opts[0]:fobDefMins(id));
+    return {fob:id, mins, minOpts:opts, every:fobEvery(id), count:fobCount(id),
+      rounds:fobRounds(id,mins), isE:fobIsE(mins),
+      warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
+      bouts:fobBouts(id,ease,(lg(date).hic||{}).what)};
+  }
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
-  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-    reps:(r&&r.lead)?fobReps(fobOf(date),ease,(lg(date).hic||{}).what):null};
+  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -22,10 +32,14 @@ function ivSegments(fmt,o){
     // A base-first format (FOBBIT) counts only the base: two easy minutes before every
     // burst, until the base adds up. The bursts sit on top, so the session runs longer
     // than its nominal length. The book alternates two movements, hence A and B.
-    if(r.lead) for(let i=1;i<=o.rounds;i++){
-      const rp=(o.reps||[['Burst','Set'],['Burst','Set']])[(i-1)%2];
-      seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
-      seg.push({k:'work',l:rp[0],sub:rp[1],s:wk,round:i,hold:!!r.hold,reps:rp[1]});
+    if(r.lead){
+      const bs=(o.bouts&&o.bouts.length)?o.bouts:[{name:'Burst',reps:'Set',hold:true,secs:null}];
+      const ev=o.every||r.rest;
+      for(let i=1;i<=o.rounds;i++){
+        const b=bs[(i-1)%bs.length];
+        seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:ev,round:i,lead:i===1});
+        seg.push({k:'work',l:b.name,sub:doseLabel(b),s:b.secs||FOB_HELD,round:i,hold:!!b.hold,reps:b.reps});
+      }
     }
     else for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
@@ -47,9 +61,11 @@ function ivParts(segs){
 function ivPartsLabel(f,o){
   const segs=ivSegments(f,o), p=ivParts(segs), m=s0=>Math.round(s0/60), bits=[];
   if(p.warm) bits.push(m(p.warm)+' min warm-up');
-  bits.push(m(p.work)+(f==='liss'?' min steady':(IV[f]||{}).lead?' min of base':' min of intervals'));
+  const lead=(IV[f]||{}).lead, held=segs.reduce((a0,x)=>a0+(x.hold?x.s:0),0);
+  const tot=lead&&o.count==='total'?p.work+held:p.work;
+  bits.push(m(tot)+(f==='liss'?' min steady':lead?(o.count==='total'?' min in all':' min of base'):' min of intervals'));
   if(p.cool) bits.push(m(p.cool)+' min cool-down');
-  return {text:bits.join(' + '),rounds:p.rounds,total:m(p.warm+p.work+p.cool)};
+  return {text:bits.join(' + '),rounds:p.rounds,total:m(p.warm+tot+p.cool)};
 }
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
 // A held burst is not part of the session's length, so the countdown reports base only.

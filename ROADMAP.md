@@ -127,6 +127,33 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A FOBBIT is a shape, not a session (2026-10-14)**
+- Asked whether the catalog came from the books, and it mostly did not. The books name
+  one FOBBIT (TB2 HIC #9) and Mass Protocol gives a second; the other five shipped in
+  1.99 were ours and nothing said so. Then the author's own two-part article turned up
+  three more Mods, and they break every assumption the model had.
+- What the sources actually disagree on: the base interval (2 min in TB2, 3 to 5 in
+  Mod #1, 60 to 90 seconds in Mod #3), the number of movements (two, one, three), the
+  dose (reps, a 60-second AMRAP, 3 reps at 70-75% of a 1RM), the duration (15 to 60+),
+  and whether the minutes count the base alone or the whole session.
+- So all of it is data now. A catalog entry carries `every`, `count`, `mv`, `mins`, `def`,
+  `bpm` and `src`. A dose is a string when it is reps and an object when it is anything
+  else. `fobBouts` normalises the lot into what the timer wants, and the timer rotates
+  through however many movements there are instead of alternating two.
+- **The rule that was prose and is now code.** "Any Fobbit over 30 minutes is an E -
+  anything under is HIC" (Part II). The Guide said it; nothing enforced it. `sessHard`
+  now asks the default FOBBIT's length when laying out a week, and `hicWasHard` asks the
+  logged length when counting what you did, so a 45-minute FOBBIT stops being counted
+  against your hard days.
+- Thirteen entries, each labelled with where it came from: Tactical Barbell II, Mass
+  Protocol, the three Mods, or Ours. The Guide prints the source in the table, because
+  five of them are ours and the honest thing is to say so.
+- Mod #1 defaults to 45 minutes rather than its floor of 30, because the article puts it
+  in the week as the day-six E session and 30 exactly would still count as a HIC.
+- Session length is picked in minutes now, not rounds. A length stored before this is
+  read as a count of two-minute rounds so old sessions keep the length they were given.
+- 269 tests, 16 mutants.
+
 **The FOBBIT card describes the format, not one FOBBIT (2026-10-14)**
 - The day's card still read "twenty swings, then ten per arm snatches" whatever was
   selected. The catalog shipped in 1.99 made that text a lie for six of the seven

@@ -1247,7 +1247,8 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   const o = { ...x.ivOpts(wk1, "fobbit"), cool: false };
   a.equal(o.warm, false, "no separate warm-up: the base is the warm-up");
   a.equal(o.rounds, 10, "ten sets, so the base adds up to the standard 20 minutes");
-  a.deepEqual(o.reps, [x.FOBBIT.kb.a, x.FOBBIT.kb.b], "prescribed in reps, taken from the chosen FOBBIT");
+  a.deepEqual(o.bouts.map((b) => [b.name, b.reps]), x.FOBBIT.kb.mv, "prescribed in reps, taken from the chosen FOBBIT");
+  a.ok(o.bouts.every((b) => b.hold && b.secs == null), "and held, not timed");
   a.equal(o.burst, undefined, "there is no burst duration to pick");
 
   const segs = x.ivSegments("fobbit", o);
@@ -1255,7 +1256,7 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   a.equal(segs[0].l, "Base", "it opens on the base, unlike every other format");
   a.equal(base.length, 10);
   a.equal(sets.length, 10, "one set of reps per base, alternating two movements");
-  const [kbA, kbB] = [x.FOBBIT.kb.a, x.FOBBIT.kb.b];
+  const [kbA, kbB] = x.FOBBIT.kb.mv;
   a.deepEqual(sets.slice(0, 4).map((s) => s.l), [kbA[0], kbB[0], kbA[0], kbB[0]]);
   a.equal(sets[0].reps, kbA[1]);
   a.equal(sets[1].reps, kbB[1]);
@@ -1273,9 +1274,10 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
 
   const hw = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
   const eo = x.ivOpts(x.addDays(hw.monday, 1), "fobbit");
-  a.equal(eo.rounds, 7, "the easy week drops to the 15-minute version");
-  a.deepEqual(eo.reps, x.fobReps("kb", true), "with the reps halved too");
-  a.deepEqual(eo.reps.map(([, q]) => q), [x.halveReps(kbA[1]), x.halveReps(kbB[1])], "and halving only touches the count");
+  a.equal(eo.mins, 15, "the easy week drops to the 15-minute version");
+  a.equal(eo.rounds, 8, "which is eight two-minute blocks, and the card says so rather than rounding it away");
+  a.deepEqual(eo.bouts, x.fobBouts("kb", true), "with the reps halved too");
+  a.deepEqual(eo.bouts.map((b) => b.reps), [x.halveReps(kbA[1]), x.halveReps(kbB[1])], "and halving only touches the count");
 
   // Every other format still opens on work, is timed, and drops the trailing easy period.
   for (const f of ["map", "anaerobic", "threshold", "long"]) {
@@ -1298,12 +1300,12 @@ test("a FOBBIT counts base time only, and its bursts are reps not seconds", () =
   x.sel = wk1;
   x.seed({ [wk1]: { date: wk1, hic: { format: "fobbit", mod: "run" } } }); x.bump();
   const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
-  a.match(card, /20 kettlebell swing, then 10 \/ arm kettlebell snatch/, "the card names the prescription");
-  a.match(card, /The sets are not on the clock/);
-  a.match(card, /data-act="ivopt" data-k="rounds" data-v="10"/, "session length is what you pick");
+  a.match(card, /Kettlebell swing × 20, then kettlebell snatch × 10 \/ arm/, "the card names the prescription");
+  a.match(card, /A bout of reps is not on the clock/);
+  a.match(card, /data-act="ivopt" data-k="mins" data-v="20"/, "session length is what you pick, in minutes");
   a.ok(!/data-k="burst"/.test(card), "the invented burst-seconds picker is gone");
   a.match(card, /Use 20 min/, "the base total, with the clock reading longer");
-  a.match(card, /10 × two minutes of base/);
+  a.match(card, /10 × 2 min of base/);
 });
 test("the FOBBIT card explains the format in general and the movements only once one is picked", () => {
   const x = app({ now: "2026-10-01" });
@@ -1311,48 +1313,197 @@ test("the FOBBIT card explains the format in general and the movements only once
   const d = x.addDays(x.weeks().find((w) => w.kind === "cycle").monday, 1);
   x.sel = d;
 
-  // The general blurb is the same whichever FOBBIT you are on: it describes the shape, not a pairing.
+  // Every movement the catalog knows about. None of them may appear in the general blurb.
+  const allMoves = Object.values(x.FOBBIT).flatMap((F) => (F.mv || []).map((m) => m[0].toLowerCase()));
+  const words = [...new Set(allMoves.flatMap((m) => m.split(/[^a-z-]+/)))].filter((w) => w.length > 3 && w !== "with" && w !== "alternating" && w !== "sides");
+  a.ok(words.length > 8, "a real vocabulary to check against");
+
   const blurbs = new Set(), lines = [];
   for (const id of Object.keys(x.FOBBIT)) {
     x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
     const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
-    blurbs.add((card.match(/Keep moving on an easy base[^<]*/) || [""])[0]);
-    lines.push([id, (card.match(/<b>([^<]*)<\/b>, alternating, between two-minute blocks/) || ["", ""])[1], card]);
+    const blurb = (card.match(/Hold an easy aerobic base[^<]*/) || [""])[0];
+    a.ok(blurb, id + " describes the format at all");
+    a.match(blurb, /step off it every .* for a bout of work/, "it says how a FOBBIT is structured");
+    for (const w of words) a.ok(!blurb.includes(w), `the general blurb must not name "${w}" (on ${id}): ${blurb}`);
+    blurbs.add(blurb);
+    lines.push([id, (card.match(/<b>([^<]*)<\/b>, between /) || ["", ""])[1], card]);
   }
-  a.equal(blurbs.size, 1, "one description of the format, shared by every FOBBIT");
-  const blurb = [...blurbs][0];
-  a.match(blurb, /alternating two movements/, "it says how a FOBBIT is structured");
-  a.ok(!/swing|snatch|burpee|sandbag|thruster/i.test(blurb), "and names no particular movement: " + blurb);
+  // Two things may differ between blurbs, and both are structural: the base interval,
+  // and whether there is more than one movement to rotate through. Neither names one.
+  const norm = (b) => b.replace(/every .*? for a bout/, "every X for a bout").replace(/ The movements rotate in order\./, "");
+  a.equal(new Set([...blurbs].map(norm)).size, 1, "otherwise one description of the format, shared by every FOBBIT");
+  a.ok([...blurbs].length > 2, "and the blurbs really do vary, so the check is not vacuous");
 
   // The named movements follow the selection, and "something else" names none.
-  for (const [id, line, card] of lines) {
-    const F = x.FOBBIT[id];
-    if (!F.a) { a.equal(line, "", "a free-text FOBBIT prescribes nothing"); continue; }
-    a.ok(line.includes(F.a[1] + " " + F.a[0].toLowerCase()), id + " names its own first movement: " + line);
-    a.ok(line.includes(F.b[1]), id + " names its own second movement");
-    if (id !== "kb") a.ok(!/swing/i.test(line), id + " does not borrow the kettlebell pairing");
-    // And the timer runs the same pair it just advertised.
+  for (const [id, line] of lines) {
+    if (!x.fobDef(id)) { a.equal(line, "", "a free-text FOBBIT prescribes nothing"); continue }
+    const bouts = x.fobBouts(id, false);
+    a.equal(line, x.fobLine(id), id + " prints its own rotation and nobody else's");
+    for (const b of bouts) a.ok(line.toLowerCase().includes(b.name.toLowerCase()), `${id} names ${b.name}`);
+
+    // And the timer runs the rotation it just advertised, in order and on a cycle.
     x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
     const sets = x.ivSegments("fobbit", x.ivOpts(d, "fobbit")).filter((g) => g.k === "work");
-    a.deepEqual([sets[0].l, sets[0].reps], F.a, id + " burst 1 matches the card");
-    a.deepEqual([sets[1].l, sets[1].reps], F.b, id + " burst 2 matches the card");
+    a.ok(sets.length >= bouts.length * 2, `${id} runs the rotation round at least twice`);
+    for (let i = 0; i < bouts.length * 2; i++) {
+      const b = bouts[i % bouts.length];
+      a.equal(sets[i].l, b.name, `${id} bout ${i + 1} is the one the card named`);
+      a.equal(sets[i].reps, b.reps, `${id} bout ${i + 1} carries its own dose`);
+    }
   }
+  // The bug this all exists to prevent: one FOBBIT's movements showing up under another.
+  a.deepEqual(lines.filter(([, l]) => /swing/i.test(l)).map(([id]) => id).sort(), ["kb", "massfob"],
+    "only the kettlebell ones mention swings");
 
-  // A FOBBIT with no pairing still gives the timer something to show.
+  // A FOBBIT with no rotation still gives the timer something to show, and a slash in
+  // what you typed is read as two movements, because that is how people write them.
   x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "other", what: "Sled push / sit-ups" } } }); x.bump();
   const free = x.ivSegments("fobbit", x.ivOpts(d, "fobbit")).filter((g) => g.k === "work");
-  a.equal(free[0].l, "Sled push / sit-ups", "it falls back to what you typed");
+  a.deepEqual(free.slice(0, 4).map((g) => g.l), ["Sled push", "sit-ups", "Sled push", "sit-ups"]);
   a.equal(free.length, 10, "and still runs the full count");
+  x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "other" } } }); x.bump();
+  a.equal(x.ivSegments("fobbit", x.ivOpts(d, "fobbit")).filter((g) => g.k === "work")[0].l, "Burst",
+    "and with nothing typed it still has a shape");
 
-  // On the easy week the card shows the halved pairing and says so.
+  // On the easy week the card shows the halved rotation and says so.
   const hw = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
   const ed = x.addDays(hw.monday, 1); x.sel = ed;
   x.seed({ [ed]: { date: ed, hic: { format: "fobbit", mod: "run", fob: "kb" } } }); x.bump();
   const easy = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
-  a.match(easy, /<b>10 kettlebell swing, then 5 \/ arm kettlebell snatch<\/b>/, "the halved pairing, not the full one");
+  a.match(easy, /<b>Kettlebell swing × 10, then kettlebell snatch × 5 \/ arm<\/b>/, "the halved rotation, not the full one");
   a.match(easy, /Reps are halved today/, "and the card says why the numbers look light");
   a.ok(!/Reps are halved today/.test(lines.find((l) => l[0] === "kb")[2]), "an ordinary week says nothing of the sort");
 });
+test("a FOBBIT's base interval, rotation length and dose all come from the one you picked", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = x.addDays(x.weeks().find((w) => w.kind === "cycle").monday, 1); x.sel = d;
+  const segs = (id) => { x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: id } } }); x.bump();
+    const o = x.ivOpts(d, "fobbit"); return { o, segs: x.ivSegments("fobbit", o) } };
+
+  // TB2: two minutes of base, two movements, held reps, and the base is what counts.
+  const kb = segs("kb");
+  a.equal(kb.o.every, 120); a.equal(kb.o.count, "base");
+  a.equal(kb.segs.filter((g) => g.k === "easy")[0].s, 120, "two-minute base blocks");
+
+  // Mod #1: three to five minutes of base, ONE movement, and sized by total time.
+  const ms = segs("maxstrength");
+  a.equal(ms.o.every, 180, "the timer takes the low end of 3 to 5 minutes");
+  a.equal(x.fobEveryLabel("maxstrength"), "3 min to 5 min", "and the prose keeps the range");
+  a.equal(ms.o.count, "total", "the Mods measure the whole session, not just the base");
+  a.equal(ms.segs.filter((g) => g.k === "easy")[0].s, 180, "and the timer really runs that base");
+  a.equal(new Set(ms.segs.filter((g) => g.k === "work").map((g) => g.l)).size, 1, "a single lift, repeated");
+  a.ok(ms.segs.filter((g) => g.k === "work").every((g) => g.hold), "a set of three is held, not timed");
+
+  // Mod #3 runs the other way round: the drill is longer than the base, and timed.
+  const cb = segs("combat");
+  a.equal(cb.o.every, 60, "sixty to ninety seconds of base");
+  a.equal(cb.segs.filter((g) => g.k === "easy")[0].s, 60, "and the timer really runs that base");
+  const work = cb.segs.filter((g) => g.k === "work");
+  a.equal(work[0].s, 120, "two to three minutes of drill");
+  a.ok(work[0].s > cb.o.every, "the work is longer than the base, which no other FOBBIT does");
+  a.ok(work.every((g) => !g.hold), "a striking round is on the clock");
+  a.deepEqual(work.slice(0, 4).map((g) => g.l), ["Heavy bag", "Straight punches", "Shadow boxing", "Heavy bag"],
+    "three drills, rotating in order");
+
+  // Mod #2 ships twice: ten reps held, or sixty seconds on the clock.
+  const se = segs("se"), am = segs("seamrap");
+  a.equal(se.segs.filter((g) => g.k === "work").length % 3, 0, "three movements divide evenly");
+  a.ok(se.segs.filter((g) => g.k === "work").every((g) => g.hold && g.reps === "10"));
+  a.ok(am.segs.filter((g) => g.k === "work").every((g) => !g.hold && g.s === 60), "the AMRAP version is timed");
+
+  // A held bout is not part of the session; a timed one is. That is the whole difference.
+  a.equal(x.ivParts(se.segs).work, se.segs.filter((g) => g.k === "easy").reduce((t, g) => t + g.s, 0),
+    "the reps version reports base only");
+  a.ok(x.ivParts(am.segs).work > am.segs.filter((g) => g.k === "easy").reduce((t, g) => t + g.s, 0),
+    "the AMRAP version counts the bouts too");
+});
+
+test("a FOBBIT is sized in minutes, and over thirty of them it stops being a HIC", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = x.addDays(x.weeks().find((w) => w.kind === "cycle").monday, 1); x.sel = d;
+
+  // The rule, in the author's words: over 30 minutes it is an E, under it is a HIC.
+  a.equal(x.fobIsE(20), false); a.equal(x.fobIsE(30), false, "thirty exactly is still a HIC");
+  a.equal(x.fobIsE(31), true); a.equal(x.fobIsE(60), true);
+
+  // Base-counted: the minutes are base, so rounds are minutes over the interval.
+  a.equal(x.fobRounds("kb", 20), 10); a.equal(x.fobRounds("kb", 30), 15);
+  // Total-counted: the bouts have to be paid for out of the same minutes, so fewer fit.
+  a.ok(x.fobRounds("maxstrength", 30) < Math.round(30 * 60 / 180), "the held sets cost time too");
+  a.ok(x.fobRounds("combat", 30) < Math.round(30 * 60 / 60), "and so do the drills");
+
+  // Each FOBBIT offers its own lengths: Mass Protocol refuses to go past twenty.
+  a.deepEqual(x.fobMinOpts("massfob"), [15, 20], "fifteen to twenty minutes, no longer");
+  a.ok(x.fobMinOpts("maxstrength").every((m) => m >= 30), "and Mod #1 starts where the others stop");
+
+  // Picking a length is picking minutes, and the card says what that makes the session.
+  x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "se" } } }); x.bump();
+  a.equal(x.ivOpts(d, "fobbit").mins, 30, "its own default");
+  a.equal(x.ivOpts(d, "fobbit").isE, false);
+  let card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(card, /counts as a HIC/);
+  a.match(card, /data-act="ivopt" data-k="mins" data-v="60"/, "and the longer options are there");
+
+  x.setLog(d, "hic.iv.mins", 60); x.bump();
+  a.equal(x.ivOpts(d, "fobbit").isE, true);
+  card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(card, /counts as an E session rather than a HIC/, "and the card says the length changed what it is");
+
+  // Scheduling follows it: a default FOBBIT that is an E is not a hard session, so the
+  // rule against two hard conditioning days running does not apply to it.
+  a.equal(x.sessHard({ fmt: "liss" }), false);
+  a.equal(x.sessHard({ fmt: "map" }), true);
+  a.equal(x.sessHard({ fmt: "fobbit" }), true, "the default FOBBIT is twenty minutes");
+  x.plan.fobbit = "maxstrength"; x.bump();
+  a.equal(x.sessHard({ fmt: "fobbit" }), false, "but Mod #1 is half an hour at least, so it is an E");
+  x.plan.fobbit = "kb"; x.bump();
+
+  // And counting what you actually did follows it too.
+  a.equal(x.hicWasHard({ f: "fobbit", min: 20 }), true);
+  a.equal(x.hicWasHard({ f: "fobbit", min: 45 }), false, "logged long, counted as an E");
+  a.equal(x.hicWasHard({ f: "map", min: 45 }), true, "which is a FOBBIT rule, not a length rule");
+  a.equal(x.hicWasHard({ f: "liss", min: 20 }), false);
+
+  // A length stored before FOBBITs had their own interval was a count of two-minute
+  // rounds, so it has to keep meaning that or old sessions silently change length.
+  x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "kb", iv: { rounds: 15 } } } }); x.bump();
+  a.equal(x.ivOpts(d, "fobbit").mins, 30, "fifteen old rounds is thirty minutes");
+  a.equal(x.ivOpts(d, "fobbit").rounds, 15, "and it still runs fifteen of them");
+});
+
+test("a FOBBIT dosed as a percentage turns into a weight when there is a max on file", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = x.addDays(x.weeks().find((w) => w.kind === "cycle").monday, 1); x.sel = d;
+  x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "maxstrength" } } }); x.bump();
+
+  const b = x.fobBouts("maxstrength", false)[0];
+  a.equal(b.reps, "3"); a.deepEqual(b.pct, [70, 75]); a.equal(b.lift, "ohp");
+  a.equal(x.doseLabel(b), "3 at 70% to 75%", "the dose reads as a percentage, not a weight");
+  a.deepEqual(x.fobBouts("maxstrength", true), x.fobBouts("maxstrength", false),
+    "and the easy week does not halve it: three reps at 70% is already light, and the week shortens the session instead");
+
+  // 135 lb press: 70% is 94.5 and 75% is 101.25, both rounded to the nearest 5.
+  const card = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(card, /at 70–75% of 135: <b>95 to 100 lb<\/b>/, "worked out for you");
+
+  // Without a max it still prescribes the session, it just cannot do the arithmetic.
+  x.plan.maxes.ohp = ""; x.bump();
+  const bare = x.hicCard({ t: "hic", fmt: "fobbit" }, "");
+  a.match(bare, /70–75% of your 1RM/);
+  a.match(bare, /Put a 1RM in Setup/);
+  a.ok(!/<b>\d+ to \d+ lb<\/b>/.test(bare), "and invents no weight");
+
+  // Nothing else in the catalog is dosed this way, so nothing else grows a load line.
+  for (const id of Object.keys(x.FOBBIT)) {
+    if (id === "maxstrength") continue;
+    a.equal(x.fobLoadLine(x.fobBouts(id, false)), "", id + " has no percentage to resolve");
+  }
+});
+
 test("halving a FOBBIT's reps touches the count and leaves the units alone", () => {
   const x = app({ now: "2026-10-01" });
   a.equal(x.halveReps("20"), "10");
@@ -1363,11 +1514,21 @@ test("halving a FOBBIT's reps touches the count and leaves the units alone", () 
   a.equal(x.halveReps("Sled push"), "Sled push", "free text is left alone");
   a.equal(x.halveReps("20 with the 24 kg bell"), "10 with the 24 kg bell", "the load in the unit is not a rep count");
   a.equal(x.halveReps("Max reps in 60 s"), "Max reps in 60 s", "a number that is not the leading count is left alone");
+  // Every rep-dosed movement in the catalog halves; timed bouts and percentage sets do
+  // not, because an AMRAP is self-limiting and three reps at 70% is already light.
+  let halved = 0, left = 0;
   for (const id of Object.keys(x.FOBBIT)) {
-    const F = x.FOBBIT[id];
-    if (!F.a) continue;
-    a.deepEqual(x.fobReps(id, true), [[F.a[0], x.halveReps(F.a[1])], [F.b[0], x.halveReps(F.b[1])]], id + " halves on the easy week");
+    if (!x.fobDef(id)) continue;
+    const full = x.fobBouts(id, false), easy = x.fobBouts(id, true);
+    a.equal(easy.length, full.length, id + " keeps its rotation");
+    for (let i = 0; i < full.length; i++) {
+      a.equal(easy[i].name, full[i].name, id + " renames nothing");
+      if (full[i].secs != null || full[i].pct) { a.deepEqual(easy[i], full[i], id + " leaves a timed or loaded bout alone"); left++ }
+      else { a.equal(easy[i].reps, x.halveReps(full[i].reps), id + " halves its reps"); halved++ }
+    }
   }
+  a.ok(halved > 10, "plenty of rep doses to halve");
+  a.ok(left > 3, "and some that must not be");
 });
 test("conditioning eases on the weeks the lifting is heaviest", () => {
   const x = app({ now: "2026-10-01" });
@@ -5094,34 +5255,47 @@ test("the stair machine logs floors, and floors are not a distance", () => {
   a.match(x.hicCard(x.dayPlan(hicDay), ""), /value="42"/);
 });
 
-test("FOBBITs are a catalog, with sandbag options, not one hardcoded pair", () => {
+test("FOBBITs are a catalog of whole sessions, not one hardcoded pair", () => {
   const x = app({ now: "2026-10-14" });
   const ids = Object.keys(x.FOBBIT);
-  a.ok(ids.length >= 5, "several to choose from");
+  a.ok(ids.length >= 10, "several to choose from");
   a.ok(ids.includes("kb"), "the kettlebell one the app already had");
   a.ok(ids.filter((k) => /sandbag/.test(k)).length >= 3, "and several sandbag ones");
-  a.ok(ids.includes("sandbagbar"), "including over the bar");
   a.match(x.fobLine("sandbagbar"), /over the bar/);
 
-  // Every entry is a distinct pairing: a catalog of one movement repeated is not one.
-  const lines = ids.filter((k) => x.FOBBIT[k].a).map((k) => x.fobLine(k));
-  a.equal(new Set(lines).size, lines.length, "no two prescribe the same pair");
+  // Every entry is a distinct session: a catalog of one rotation repeated is not one.
+  const lines = ids.filter((k) => x.fobDef(k)).map((k) => x.fobLine(k) + "|" + x.fobEveryLabel(k));
+  a.equal(new Set(lines).size, lines.length, "no two prescribe the same thing");
 
-  // Every one names its kit and its two movements, or is the type-your-own.
   for (const [k, F] of Object.entries(x.FOBBIT)) {
     a.ok(F.name, `${k} has a name`);
-    if (k === "other") { a.equal(F.a, null, "the free-text one prescribes nothing"); continue }
+    a.ok(x.FOB_SRC[F.src], `${k} says where it came from`);
+    a.ok(F.mins.includes(F.def), `${k} defaults to one of its own lengths`);
+    a.ok(["base", "total"].includes(x.fobCount(k)), `${k} says what its minutes measure`);
+    a.ok(x.fobEvery(k) > 0, `${k} has a base interval`);
+    if (k === "other") { a.equal(F.mv, null, "the free-text one prescribes nothing"); continue }
     a.ok(F.gear, `${k} says what kit it needs`);
-    a.equal(F.a.length, 2, `${k} has a first movement and its reps`);
-    a.equal(F.b.length, 2, `${k} has a second`);
-    a.match(x.fobLine(k), new RegExp(F.a[1].replace("/", "\\/")), `${k} reads as a line`);
+    a.ok(F.mv.length >= 1, `${k} has at least one movement`);
+    for (const [nm, dose] of F.mv) {
+      a.ok(nm, `${k} names each movement`);
+      a.ok(typeof dose === "string" || typeof dose === "object", `${k} doses each one`);
+    }
+    a.ok(x.fobLine(k).includes(F.mv[0][0]), `${k} reads as a line`);
   }
-  // The original pairing is untouched, so a session logged before this still reads right.
+
+  // The original is untouched, so a session logged before any of this still reads right.
   a.equal(x.fobLine("kb"), "Kettlebell swing × 20, then kettlebell snatch × 10 / arm");
+  a.equal(x.FOB_SRC[x.FOBBIT.kb.src], "Tactical Barbell II");
   a.equal(x.fobLine("other"), "", "nothing to print for the free-text one");
   a.equal(x.fobLine("nope"), "");
-});
 
+  // Provenance is recorded, because most of the catalog is ours and the Guide says so.
+  a.equal(x.fobSrcLabel("kb"), "Tactical Barbell II");
+  a.equal(x.fobSrcLabel("massfob"), "Mass Protocol");
+  a.equal(x.fobSrcLabel("sandbagbar"), "Ours");
+  a.equal(x.fobSrcLabel("nope"), "Ours", "an unknown one is not credited to a book");
+  for (const k of ["maxstrength", "se", "seamrap", "combat"]) a.match(x.fobSrcLabel(k), /^TB article, Mod #[123]$/, k);
+});
 test("a FOBBIT is chosen per session, over a default, like the activity is", () => {
   const x = app({ now: "2026-10-14" });
   x.plan.startMonday = "2026-09-28"; x.plan.bridge = true; x.bump();

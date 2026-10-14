@@ -341,7 +341,16 @@ function cycleWeeks(){ return Math.max(1,waveOf().length) }
 
 // Only hard sessions have to be kept apart. An easy aerobic day can sit next to
 // anything, which is why Green's own template runs E on days 5 and 6.
-function sessHard(x){ return !!x&&x.fmt!=='liss' }
+/* Is this a hard conditioning session, for the purpose of not stacking two together?
+   LISS never is. A FOBBIT is one only while it stays under half an hour: "any Fobbit
+   over 30 minutes is an E - anything under is HIC" (TB, FOBBITs Part II). Laying out a
+   week we only know the default FOBBIT, so that is what the schedule reasons about; a
+   session logged longer is reclassified where logged sessions are counted. */
+function sessHard(x){
+  if(!x||x.fmt==='liss') return false;
+  if(x.fmt==='fobbit') return !fobIsE(fobDefMins(defFob()));
+  return true;
+}
 
 /* Lay out a week: the lifting days where the template's table puts them, then the
    conditioning sessions spread through what is left.

@@ -142,8 +142,11 @@ function readiness(c){
 function rLevel(sc){return sc==null?null:sc>=75?{k:'go',cls:'light',t:'Ready'}:sc>=55?{k:'care',cls:'mid',t:'Moderate'}:{k:'stop',cls:'heavy',t:'Low'}}
 // Black rotates its conditioning; the app lets you pick anything and never noticed when
 // you stopped rotating. Looks at the hard sessions only — LISS is meant to be samey.
+// What a logged session turned out to be. A FOBBIT run long is an E, whatever it was
+// scheduled as, so it does not belong in a count of hard sessions.
+function hicWasHard(x){ return !!x&&x.f!=='liss'&&!(x.f==='fobbit'&&fobIsE(x.min)) }
 function hicRut(date,n0){
-  const xs=hicSessions().filter(x=>x.d<=date&&x.f!=='liss').slice(-(n0||6));
+  const xs=hicSessions().filter(x=>x.d<=date&&hicWasHard(x)).slice(-(n0||6));
   if(xs.length<(n0||6)) return null;
   const f=xs[0].f, mod=xs[0].mod;
   const sameF=xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
@@ -303,16 +306,31 @@ function lastHic(fmt,mod,before){
     if(!last||x.d>last.d) last=x; if(!best||hicValue(x)>hicValue(best)) best=x; }
   return {best,last};
 }
+/* Mod #1 prescribes a percentage of a 1RM rather than a rep count. If there is a max on
+   file, turn it into the weight on the bar; without one we still show the percentage,
+   because the session works either way and you can do the arithmetic. */
+function fobLoadLine(bouts){
+  const out=[];
+  for(const b of (bouts||[])){
+    if(!b.pct||!b.lift) continue;
+    const mx=(plan.maxes||{})[b.lift], pc=Array.isArray(b.pct)?b.pct:[b.pct,b.pct], nm=esc(liftName(b.lift));
+    if(mx==null||mx===''){ out.push(`${nm} at ${pc[0]}–${pc[1]}% of your 1RM. Put a 1RM in Setup and this becomes a weight.`); continue }
+    const w=pc.map(p=>rnd(+mx*p/100,(plan.round||{})[b.lift]));
+    out.push(`${nm} at ${pc[0]}–${pc[1]}% of ${n(+mx)}: <b>${n(w[0])}${w[1]!==w[0]?' to '+n(w[1]):''} ${u()}</b>.`);
+  }
+  return out.length?`<div class="small muted">${out.join(' ')}</div>`:'';
+}
 function hicCard(dp,note){
   const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f);
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
   if((IV[f]||{}).lead){
-    // What a FOBBIT is. Which one you are doing is shown with the picker further down,
-    // so this does not go stale the moment you choose a different pairing.
-    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements. Pick the pair below. Row, skip, cycle or take the stairs if you would rather not run.</div>
-    <div class="small muted"><b>The sets are not on the clock.</b> Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.</div>`;
+    // What a FOBBIT is, and nothing about which one. Every number that varies between
+    // them is read from the selection, so this cannot go stale when you change it.
+    const fo=ivOpts(sel,f), held=(fo.bouts||[]).some(b=>b.hold);
+    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} Pick which FOBBIT below. Row, skip, cycle or take the stairs if you would rather not run.</div>`;
+    if(held) h+=`<div class="small muted"><b>A bout of reps is not on the clock.</b> ${fo.count==='total'?'The timer holds at each one until you tap Done, so the wall clock reads longer than the session.':'Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.'}</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
@@ -322,14 +340,17 @@ function hicCard(dp,note){
   if((HIC[f]||{}).noMetric){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
-    // The reps the timer will actually hold at, so a halved day reads as halved here too.
-    if(F&&F.a){
-      const o=ivOpts(sel,f), rp=o.reps||[];
-      h+=`<div class="small"><b>${esc(rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join(', then '))}</b>, alternating, between two-minute blocks of base.${o.ease?' Reps are halved today.':''}</div>`;
+    // What the timer will actually do, so a halved day reads as halved here too.
+    const o=ivOpts(sel,f);
+    if(fobDef(fb)){
+      h+=`<div class="small"><b>${esc(boutsLine(o.bouts))}</b>, between ${esc(fobEveryLabel(fb))} of base.${o.ease?' Reps are halved today.':''}</div>`;
+      h+=fobLoadLine(o.bouts);
     }
+    if(F&&F.bpm) h+=`<div class="small muted">Base pace: ${F.bpm[0]}\u2013${F.bpm[1]} bpm, or the talk test.</div>`;
     if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
-    if(!F||!F.a) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
-    h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
+    h+=`<div class="small muted">${esc(fobSrcLabel(fb))}.</div>`;
+    if(!fobDef(fb)) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
+    h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
@@ -343,13 +364,15 @@ function hicCard(dp,note){
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, counted as ${pl.rounds} \u00d7 two minutes of base; the ${pl.rounds} sets of reps sit on top, so the clock will say more`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
+        return `, counted as ${pl.rounds} \u00d7 ${esc(secsLabel(fo.every))} of base${hd?`; the ${pl.rounds} bouts of reps sit on top, so the clock will say more`:` and ${pl.rounds} timed bouts, which are counted in`}`})():`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
   {
     const o=ivOpts(sel,f), r=IV[f], segs=ivSegments(f,o), running=iv&&iv.date===sel&&!iv.done;
-    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).hold?' of base':' total'}</span></div>`;
-    if(r&&r.roundOpts) h+=`<div class="restsel"><span>Session</span><div class="seg">${r.roundOpts.map(([v,l])=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}" aria-pressed="${o.rounds===v}">${l}</button>`).join('')}</div></div>`;
+    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).lead&&o.count!=='total'?' of base':' total'}</span></div>`;
+    if(r&&r.lead) h+=`<div class="restsel"><span>Session</span><div class="seg">${(o.minOpts||[]).map(v=>`<button class="segb${o.mins===v?' on':''}" data-act="ivopt" data-k="mins" data-v="${v}" aria-pressed="${o.mins===v}">${v} min</button>`).join('')}</div></div>`
+      +`<div class="small muted">${o.rounds} \u00d7 ${esc(secsLabel(o.every))} of base${o.count==='total'?', with the bouts counted in':''}. ${o.isE?'<b>Over 30 minutes, so this counts as an E session rather than a HIC</b> \u2014 that is the book\u2019s line, not ours.':'Under 30 minutes, so it counts as a HIC.'}</div>`;
     else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week, so the conditioning comes down to leave the energy for them — fewer rounds, shorter sessions. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;

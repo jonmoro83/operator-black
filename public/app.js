@@ -343,7 +343,16 @@ function cycleWeeks(){ return Math.max(1,waveOf().length) }
 
 // Only hard sessions have to be kept apart. An easy aerobic day can sit next to
 // anything, which is why Green's own template runs E on days 5 and 6.
-function sessHard(x){ return !!x&&x.fmt!=='liss' }
+/* Is this a hard conditioning session, for the purpose of not stacking two together?
+   LISS never is. A FOBBIT is one only while it stays under half an hour: "any Fobbit
+   over 30 minutes is an E - anything under is HIC" (TB, FOBBITs Part II). Laying out a
+   week we only know the default FOBBIT, so that is what the schedule reasons about; a
+   session logged longer is reclassified where logged sessions are counted. */
+function sessHard(x){
+  if(!x||x.fmt==='liss') return false;
+  if(x.fmt==='fobbit') return !fobIsE(fobDefMins(defFob()));
+  return true;
+}
 
 /* Lay out a week: the lifting days where the template's table puts them, then the
    conditioning sessions spread through what is left.
@@ -444,7 +453,7 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'2 min base, then a set of reps × 10',sys:'Aerobic base with bursts',noMetric:true}
+  fobbit:{name:'FOBBIT',sess:'An easy base, broken by bouts of work',sys:'Aerobic base with bursts',noMetric:true}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -476,54 +485,131 @@ const MOD={
 };
 
 /* FOBBITs. Named for the soldier who never leaves the forward operating base: a session
-   with no ground to cover and barely any kit. You hold an easy base and step off every
-   two minutes for a set of reps, alternating two movements.
+   with no ground to cover and barely any kit.
 
-   The pairing used to be hardcoded to kettlebells and typed in by hand. What the base is
-   and what the two movements are is the whole variation, so it is a list. `a` and `b`
-   alternate; the reps are a label rather than a number because some of them are per side
-   and one of them is a carry. */
+   A FOBBIT is not one session, it is a shape: hold an easy aerobic base, step off it
+   every so often for a bout of work, get back on. Tactical Barbell II gives one of them
+   (HIC #9, kettlebell swings and snatches), Mass Protocol gives a shorter one and says
+   plainly that you are not restricted to kettlebells, and the author published three
+   more as Mods on tacticalbarbell.com. They disagree on every axis, so every axis here
+   is data rather than a constant:
+
+     every   seconds of base between bouts. A number, or [lo,hi] when the source gives a
+             range — the timer takes the low end and the prose says the range.
+     count   what the minutes measure. 'base' counts only the base, which is how TB2
+             reads ("until your treadmill reads 20 minutes"); 'total' counts the whole
+             session, which is how the three Mods read.
+     mv      the rotation, in order, one or more movements. TB2 alternates two, Mod #1 is
+             a single lift, Mod #2 and #3 cycle three.
+     mins    the duration choices, and `def` the one to start on.
+     bpm     the pace band the source gives, where it gives one.
+
+   A dose is a plain string when it is reps ('20', '10 / arm', '30 m' — a label rather
+   than a number, because some are per side and one is a carry). It is an object when it
+   is anything else: {s} for a timed bout in seconds, {r,pct,lift} for a set at a
+   percentage of a 1RM.
+
+   The governing rule, from Part II and stated in those words: any FOBBIT over 30 minutes
+   is an E session, anything under is a HIC. That is `fobIsE`, and it is why duration is
+   not just cosmetic here. */
+const FOB_SRC={tb2:'Tactical Barbell II',mass:'Mass Protocol',mod1:'TB article, Mod #1',mod2:'TB article, Mod #2',mod3:'TB article, Mod #3',ours:'Ours'};
+const FOB_EVERY=120, FOB_HELD=30;   // default base interval; and what a held set is assumed to cost when sizing by total time
 const FOBBIT={
-  kb:{name:'Kettlebell',gear:'One kettlebell',
-    a:['Kettlebell swing','20'],b:['Kettlebell snatch','10 / arm']},
-  sandbag:{name:'Sandbag',gear:'One sandbag',
-    a:['Shoulder it, alternating sides','10'],b:['Bear-hug squat','15'],
-    note:'Drop it to the floor between reps rather than lowering it under control \u2014 the point is to keep moving, and eccentric lowering a bag this often is what makes people sore for days.'},
-  sandbagheavy:{name:'Sandbag, heavy',gear:'A bag you would not want to carry far',
-    a:['Ground to shoulder','6 / side'],b:['Front carry','30 m'],
-    note:'The heavy version. The carry is the rest, so do not put the bag down during it \u2014 if you have to, the bag is too heavy for this session rather than you being unfit.'},
-  sandbagbar:{name:'Sandbag over bar',gear:'A sandbag and a bar you can fix at a height',
-    a:['Sandbag over the bar','5'],b:['Push-up','15'],
-    note:'Explosive hip extension, so it is the first thing to go when you are tired \u2014 if the back is rounding to get the bag up, the set is over. Reset the bag on the floor each rep rather than catching it on the way back, and keep the bar at the same height every session or the count means nothing against the last one.'},
-  bodyweight:{name:'Bodyweight',gear:'Nothing at all',
-    a:['Burpee','10'],b:['Push-up','15'],
+  kb:{name:'Kettlebell',gear:'One kettlebell',src:'tb2',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Kettlebell swing','20'],['Kettlebell snatch','10 / arm']],
+    note:'The original, straight out of Tactical Barbell II. Set the base a notch below a comfortable jog — if your jog is level 5, run it at 4. One or two handed swings both count, and the swing and the snatch can use different bells.'},
+  massfob:{name:'Mass Protocol',gear:'One kettlebell',src:'mass',every:120,count:'base',mins:[15,20],def:20,bpm:[120,150],
+    mv:[['Kettlebell swing','10']],
+    note:'The Mass Protocol version: the same shape, half the swings, and fifteen to twenty minutes with no longer allowed. It is general conditioning while you are growing, so the variety matters more than the numbers.'},
+  maxstrength:{name:'Maximal strength',gear:'A press you can leave loaded',src:'mod1',every:[180,300],count:'total',mins:[30,45,60],def:45,bpm:[130,150],
+    mv:[['Overhead press',{r:'3',pct:[70,75],lift:'ohp'}]],
+    note:'Mod #1, from a reader the author published. Thirty minutes is the floor and sixty is fine once you are used to it; it defaults to forty-five because the article puts it in the week as the day-six E session, and thirty exactly would still count as a HIC. It buys press volume while you build an aerobic base, and it is deliberately easy: you should never be unreasonably fatigued when you get to the bar. Out of breath at the station means the base is too fast; tired at the press means lengthen the base, drop the load, or both. Walking back between sets is fine. Swap the press for bench if that is the volume you want, and change it week to week.'},
+  se:{name:'Strength-endurance',gear:'A pull-up bar and a floor',src:'mod2',every:120,count:'total',mins:[20,30,45,60],def:30,bpm:[130,150],
+    mv:[['Push-up','10'],['Pull-up','10'],['Sit-up','10']],
+    note:'Mod #2. Three movements on rotation — the ones you are tested on, if you are tested. Scale the pull-ups to what you have: one to five is fine if ten is not. Keep strength-endurance to a tenth or a fifth of the training week; weeks of it at the expense of maximal strength goes backwards, because maximal strength is what feeds it.'},
+  seamrap:{name:'Strength-endurance, AMRAP',gear:'A pull-up bar and a floor',src:'mod2',every:120,count:'total',mins:[20,30,45,60],def:30,bpm:[130,150],
+    mv:[['Push-up',{s:60}],['Pull-up',{s:60}],['Sit-up',{s:60}]],
+    note:'Mod #2 run on the clock instead of on a count: sixty seconds of as many as you can manage, rather than a fixed ten. The bouts are timed, so unlike the rep versions they do count toward the session.'},
+  combat:{name:'Combat',gear:'A bag, or room to shadow box',src:'mod3',every:[60,90],count:'total',mins:[20,30,45,60],def:30,bpm:[130,150],
+    mv:[['Heavy bag',{s:[120,180]}],['Straight punches',{s:[120,180]}],['Shadow boxing',{s:[120,180]}]],
+    note:'Mod #3, and the one that runs the other way round: the drill is longer than the base. If you fight, set the work and rest to your event instead. Starting out, flip it — two minutes easy, sixty to ninety seconds of work. Gloves rule out the rower for the base. It is a more specific conditioning option, not a replacement for Base Building.'},
+  sledge:{name:'Sledgehammer',gear:'A sledgehammer and a tire',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Sledgehammer strike','10 / side'],['Push-up','15']],
+    note:'Mass Protocol names sledgehammer and tire drills as a work interval but gives no count, so the numbers here are ours. Alternate the top hand every set or one side does all the work.'},
+  pushpress:{name:'Barbell push press',gear:'A loaded barbell',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Push press','10']],
+    note:'Mass Protocol names the push press as a work interval but gives no load or count, so those are ours. Keep it light enough that the base is still the hard part.'},
+  sandbag:{name:'Sandbag',gear:'One sandbag',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Shoulder it, alternating sides','10'],['Bear-hug squat','15']],
+    note:'Drop it to the floor between reps rather than lowering it under control — the point is to keep moving, and eccentric lowering a bag this often is what makes people sore for days.'},
+  sandbagheavy:{name:'Sandbag, heavy',gear:'A bag you would not want to carry far',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Ground to shoulder','6 / side'],['Front carry','30 m']],
+    note:'The heavy version. The carry is the rest, so do not put the bag down during it — if you have to, the bag is too heavy for this session rather than you being unfit.'},
+  sandbagbar:{name:'Sandbag over bar',gear:'A sandbag and a bar you can fix at a height',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Sandbag over the bar','5'],['Push-up','15']],
+    note:'Explosive hip extension, so it is the first thing to go when you are tired — if the back is rounding to get the bag up, the set is over. Reset the bag on the floor each rep rather than catching it on the way back, and keep the bar at the same height every session or the count means nothing against the last one.'},
+  bodyweight:{name:'Bodyweight',gear:'Nothing at all',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Burpee','10'],['Push-up','15']],
     note:'The one you can do in a hotel room. Nothing here is loaded, so take the base a little faster to keep it honest.'},
-  db:{name:'Dumbbells',gear:'Two dumbbells',
-    a:['Thruster','10'],b:['Renegade row','10 / side']},
-  other:{name:'Something else',gear:'',a:null,b:null},
+  db:{name:'Dumbbells',gear:'Two dumbbells',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,
+    mv:[['Thruster','10'],['Renegade row','10 / side']]},
+  other:{name:'Something else',gear:'',src:'ours',every:120,count:'base',mins:[15,20,30],def:20,mv:null},
 };
 function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
 function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
-/* The two movements as the interval timer wants them: [label, reps] twice, alternating.
-
-   `ease` halves the reps, which is what a low-readiness day or an easy conditioning week
-   asks for. The reps are labels rather than numbers because some are per side and one is
-   a carry, so halving means halving the leading number and leaving the rest: "10 / arm"
-   becomes "5 / arm", "30 m" becomes "15 m". Odd numbers round up, because five and a
-   half swings is not a thing.
-
-   `other` prescribes nothing, so it falls back to whatever was typed on the day and then
-   to a neutral label — the structure still runs, it just does not tell you what to do. */
+function fobDef(id){ const F=FOBBIT[id]; return F&&F.mv&&F.mv.length?F:null }
+// Ranges read as [lo,hi]; the timer needs one number and takes the low end, which is the
+// one that gives the session its full count of bouts.
+function lo(v){ return Array.isArray(v)?v[0]:v }
+function fobEvery(id){ const F=FOBBIT[id]; return lo(F&&F.every)||FOB_EVERY }
+function fobCount(id){ return (FOBBIT[id]||{}).count==='total'?'total':'base' }
+function fobMinOpts(id){ const F=FOBBIT[id]; return (F&&F.mins)||[15,20,30] }
+function fobDefMins(id){ const F=FOBBIT[id]; return (F&&F.def)||20 }
+/* The rule from Part II, in those words: over 30 minutes it is an E, under it is a HIC.
+   So a 60-minute Mod #1 is not a hard session and must not be counted as one. */
+function fobIsE(mins){ return +mins>30 }
+// A dose, normalised for the timer. Reps are held — you tap Done, and they are not on
+// the clock. Anything with seconds is timed and does count.
+function fobDose(d,ease){
+  if(d&&typeof d==='object'){
+    if(d.s!=null) return {secs:lo(d.s),hold:false,reps:null,pct:null};
+    // A set at a percentage of a 1RM is already three reps and deliberately easy. Halving
+    // it makes it pointless rather than lighter, so the easy week shortens the session
+    // instead, which it does anyway by dropping to the shortest length on offer.
+    return {secs:null,hold:true,reps:d.r,pct:d.pct||null,lift:d.lift||null};
+  }
+  return {secs:null,hold:true,reps:ease?halveReps(d):d,pct:null,lift:null};
+}
+/* Halving for a low-readiness day or an easy conditioning week. It halves the leading
+   count and leaves the rest, so "10 / arm" becomes "5 / arm" and "30 m" becomes "15 m",
+   and a load written into the unit is not touched. Odd counts round up, because five and
+   a half swings is not a thing. Timed bouts are left alone: an AMRAP is already
+   self-limiting, and the easy week shortens the session instead. */
 function halveReps(q){
   return String(q).replace(/^\s*(\d+)/,(m,d)=>String(Math.max(1,Math.ceil(+d/2))));
 }
-function fobReps(id,ease,what){
-  const F=FOBBIT[id];
-  if(!F||!F.a){
-    const w=String(what||'').trim();
-    return w?[[w,'Set'],[w,'Set']]:[['First movement','Set'],['Second movement','Set']];
+/* The rotation as the timer wants it: one entry per movement, cycled in order.
+
+   `other` prescribes nothing, so it falls back to whatever was typed on the day and then
+   to a neutral label — the structure still runs, it just does not tell you what to do. */
+function fobBouts(id,ease,what){
+  const F=fobDef(id);
+  if(!F){
+    const w=String(what||'').trim().split('/').map(s=>s.trim()).filter(Boolean);
+    const ns=w.length?w:['Burst'];
+    return ns.map(n0=>Object.assign({name:n0},fobDose('Set',false)));
   }
-  return [F.a,F.b].map(([n0,q])=>[n0,ease?halveReps(q):q]);
+  return F.mv.map(([n0,d])=>Object.assign({name:n0},fobDose(d,ease)));
+}
+// How many bouts fit. A base-counted FOBBIT divides the base by the interval; a
+// total-counted one has to pay for the bouts too, and a held set is assumed to cost
+// FOB_HELD seconds since nobody can know what it really takes.
+function fobRounds(id,mins){
+  const ev=fobEvery(id);
+  if(fobCount(id)==='base') return Math.max(1,Math.round(mins*60/ev));
+  const bs=fobBouts(id,false,'').map(b=>b.secs||FOB_HELD);
+  const avg=bs.reduce((a,b)=>a+b,0)/bs.length;
+  return Math.max(1,Math.round(mins*60/(ev+avg)));
 }
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
@@ -532,11 +618,21 @@ function setFob(date,v){
   setLog(date,'hic.fob',v===defFob()?null:v);
   return true;
 }
-// The two movements as one line, for the day card and the week's record.
-function fobLine(id){
-  const F=FOBBIT[id]; if(!F||!F.a) return '';
-  return `${F.a[0]} \u00d7 ${F.a[1]}, then ${F.b[0].charAt(0).toLowerCase()+F.b[0].slice(1)} \u00d7 ${F.b[1]}`;
+function secsLabel(s){ return (s>=120&&s%60===0)?(s/60)+' min':s+' s' }
+function rangeLabel(v,f){ return Array.isArray(v)?f(v[0])+' to '+f(v[1]):f(v) }
+// "every two minutes", "every 3 min to 5 min", "every 60 s to 90 s".
+function fobEveryLabel(id){ const F=FOBBIT[id]; return rangeLabel((F&&F.every)||FOB_EVERY,secsLabel) }
+function doseLabel(b){
+  if(b.secs!=null) return secsLabel(b.secs)+(b.secs<=60?' AMRAP':'');
+  if(b.pct) return b.reps+' at '+rangeLabel(b.pct,p=>p+'%');
+  return b.reps;
 }
+// The rotation as one line, for the day card, the Guide table and the week's record.
+function boutsLine(bs){
+  return (bs||[]).map((b,i)=>`${i?b.name.charAt(0).toLowerCase()+b.name.slice(1):b.name} × ${doseLabel(b)}`).join(', then ');
+}
+function fobLine(id,ease){ const F=fobDef(id); return F?boutsLine(fobBouts(id,ease,'')):'' }
+function fobSrcLabel(id){ return FOB_SRC[(FOBBIT[id]||{}).src]||FOB_SRC.ours }
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
 // Contacts count ground impacts (one landing = one contact), as the program does.
 const PLIB={
@@ -3024,8 +3120,11 @@ function readiness(c){
 function rLevel(sc){return sc==null?null:sc>=75?{k:'go',cls:'light',t:'Ready'}:sc>=55?{k:'care',cls:'mid',t:'Moderate'}:{k:'stop',cls:'heavy',t:'Low'}}
 // Black rotates its conditioning; the app lets you pick anything and never noticed when
 // you stopped rotating. Looks at the hard sessions only — LISS is meant to be samey.
+// What a logged session turned out to be. A FOBBIT run long is an E, whatever it was
+// scheduled as, so it does not belong in a count of hard sessions.
+function hicWasHard(x){ return !!x&&x.f!=='liss'&&!(x.f==='fobbit'&&fobIsE(x.min)) }
 function hicRut(date,n0){
-  const xs=hicSessions().filter(x=>x.d<=date&&x.f!=='liss').slice(-(n0||6));
+  const xs=hicSessions().filter(x=>x.d<=date&&hicWasHard(x)).slice(-(n0||6));
   if(xs.length<(n0||6)) return null;
   const f=xs[0].f, mod=xs[0].mod;
   const sameF=xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
@@ -3185,16 +3284,31 @@ function lastHic(fmt,mod,before){
     if(!last||x.d>last.d) last=x; if(!best||hicValue(x)>hicValue(best)) best=x; }
   return {best,last};
 }
+/* Mod #1 prescribes a percentage of a 1RM rather than a rep count. If there is a max on
+   file, turn it into the weight on the bar; without one we still show the percentage,
+   because the session works either way and you can do the arithmetic. */
+function fobLoadLine(bouts){
+  const out=[];
+  for(const b of (bouts||[])){
+    if(!b.pct||!b.lift) continue;
+    const mx=(plan.maxes||{})[b.lift], pc=Array.isArray(b.pct)?b.pct:[b.pct,b.pct], nm=esc(liftName(b.lift));
+    if(mx==null||mx===''){ out.push(`${nm} at ${pc[0]}–${pc[1]}% of your 1RM. Put a 1RM in Setup and this becomes a weight.`); continue }
+    const w=pc.map(p=>rnd(+mx*p/100,(plan.round||{})[b.lift]));
+    out.push(`${nm} at ${pc[0]}–${pc[1]}% of ${n(+mx)}: <b>${n(w[0])}${w[1]!==w[0]?' to '+n(w[1]):''} ${u()}</b>.`);
+  }
+  return out.length?`<div class="small muted">${out.join(' ')}</div>`:'';
+}
 function hicCard(dp,note){
   const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f);
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
   h+=`<div style="font-size:18px;font-weight:700">${H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
   if((IV[f]||{}).lead){
-    // What a FOBBIT is. Which one you are doing is shown with the picker further down,
-    // so this does not go stale the moment you choose a different pairing.
-    h+=`<div class="small muted">Keep moving on an easy base \u2014 a pace just under a jog, not a jog \u2014 and step off every two minutes for a set of reps, alternating two movements. Pick the pair below. Row, skip, cycle or take the stairs if you would rather not run.</div>
-    <div class="small muted"><b>The sets are not on the clock.</b> Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.</div>`;
+    // What a FOBBIT is, and nothing about which one. Every number that varies between
+    // them is read from the selection, so this cannot go stale when you change it.
+    const fo=ivOpts(sel,f), held=(fo.bouts||[]).some(b=>b.hold);
+    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} Pick which FOBBIT below. Row, skip, cycle or take the stairs if you would rather not run.</div>`;
+    if(held) h+=`<div class="small muted"><b>A bout of reps is not on the clock.</b> ${fo.count==='total'?'The timer holds at each one until you tap Done, so the wall clock reads longer than the session.':'Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.'}</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
@@ -3204,14 +3318,17 @@ function hicCard(dp,note){
   if((HIC[f]||{}).noMetric){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
-    // The reps the timer will actually hold at, so a halved day reads as halved here too.
-    if(F&&F.a){
-      const o=ivOpts(sel,f), rp=o.reps||[];
-      h+=`<div class="small"><b>${esc(rp.map(([n0,q])=>q+' '+n0.toLowerCase()).join(', then '))}</b>, alternating, between two-minute blocks of base.${o.ease?' Reps are halved today.':''}</div>`;
+    // What the timer will actually do, so a halved day reads as halved here too.
+    const o=ivOpts(sel,f);
+    if(fobDef(fb)){
+      h+=`<div class="small"><b>${esc(boutsLine(o.bouts))}</b>, between ${esc(fobEveryLabel(fb))} of base.${o.ease?' Reps are halved today.':''}</div>`;
+      h+=fobLoadLine(o.bouts);
     }
+    if(F&&F.bpm) h+=`<div class="small muted">Base pace: ${F.bpm[0]}\u2013${F.bpm[1]} bpm, or the talk test.</div>`;
     if(F&&F.note) h+=`<div class="small muted">${esc(F.note)}</div>`;
-    if(!F||!F.a) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
-    h+=`<label class="f">Sets done${numIn('hic.rounds',L.rounds,'')}</label>`;
+    h+=`<div class="small muted">${esc(fobSrcLabel(fb))}.</div>`;
+    if(!fobDef(fb)) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
+    h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
@@ -3225,13 +3342,15 @@ function hicCard(dp,note){
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?`, counted as ${pl.rounds} \u00d7 two minutes of base; the ${pl.rounds} sets of reps sit on top, so the clock will say more`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button></div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
+        return `, counted as ${pl.rounds} \u00d7 ${esc(secsLabel(fo.every))} of base${hd?`; the ${pl.rounds} bouts of reps sit on top, so the clock will say more`:` and ${pl.rounds} timed bouts, which are counted in`}`})():`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
   {
     const o=ivOpts(sel,f), r=IV[f], segs=ivSegments(f,o), running=iv&&iv.date===sel&&!iv.done;
-    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).hold?' of base':' total'}</span></div>`;
-    if(r&&r.roundOpts) h+=`<div class="restsel"><span>Session</span><div class="seg">${r.roundOpts.map(([v,l])=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}" aria-pressed="${o.rounds===v}">${l}</button>`).join('')}</div></div>`;
+    h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).lead&&o.count!=='total'?' of base':' total'}</span></div>`;
+    if(r&&r.lead) h+=`<div class="restsel"><span>Session</span><div class="seg">${(o.minOpts||[]).map(v=>`<button class="segb${o.mins===v?' on':''}" data-act="ivopt" data-k="mins" data-v="${v}" aria-pressed="${o.mins===v}">${v} min</button>`).join('')}</div></div>`
+      +`<div class="small muted">${o.rounds} \u00d7 ${esc(secsLabel(o.every))} of base${o.count==='total'?', with the bouts counted in':''}. ${o.isE?'<b>Over 30 minutes, so this counts as an E session rather than a HIC</b> \u2014 that is the book\u2019s line, not ours.':'Under 30 minutes, so it counts as a HIC.'}</div>`;
     else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week, so the conditioning comes down to leave the energy for them — fewer rounds, shorter sessions. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
@@ -4545,17 +4664,27 @@ document.getElementById('ls').addEventListener('change',e=>{ const t=e.target; i
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,rounds:[7,15],def:10,lead:true,hold:true,
-    roundOpts:[[7,'15 min'],[10,'20 min'],[15,'30 min']],
-    }};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,lead:true}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
   const o=((lg(date).hic||{}).iv)||{}, r=IV[fmt];
   const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
+  // A FOBBIT is picked in minutes, because that is the number the sources argue about
+  // and the number that decides whether it is a HIC or an E. Rounds fall out of it.
+  if(r&&r.lead){
+    const id=fobOf(date), opts=fobMinOpts(id);
+    // Before FOBBITs carried their own interval the stored number was rounds of a
+    // two-minute base, so read a legacy value that way and old sessions keep their length.
+    const stored=o.mins!=null?+o.mins:(o.rounds!=null?+o.rounds*2:null);
+    const mins=stored||(ease?opts[0]:fobDefMins(id));
+    return {fob:id, mins, minOpts:opts, every:fobEvery(id), count:fobCount(id),
+      rounds:fobRounds(id,mins), isE:fobIsE(mins),
+      warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
+      bouts:fobBouts(id,ease,(lg(date).hic||{}).what)};
+  }
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
-  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'&&!(IV[fmt]||{}).lead), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-    reps:(r&&r.lead)?fobReps(fobOf(date),ease,(lg(date).hic||{}).what):null};
+  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -4565,10 +4694,14 @@ function ivSegments(fmt,o){
     // A base-first format (FOBBIT) counts only the base: two easy minutes before every
     // burst, until the base adds up. The bursts sit on top, so the session runs longer
     // than its nominal length. The book alternates two movements, hence A and B.
-    if(r.lead) for(let i=1;i<=o.rounds;i++){
-      const rp=(o.reps||[['Burst','Set'],['Burst','Set']])[(i-1)%2];
-      seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:r.rest,round:i,lead:i===1});
-      seg.push({k:'work',l:rp[0],sub:rp[1],s:wk,round:i,hold:!!r.hold,reps:rp[1]});
+    if(r.lead){
+      const bs=(o.bouts&&o.bouts.length)?o.bouts:[{name:'Burst',reps:'Set',hold:true,secs:null}];
+      const ev=o.every||r.rest;
+      for(let i=1;i<=o.rounds;i++){
+        const b=bs[(i-1)%bs.length];
+        seg.push({k:'easy',l:'Base',sub:'Before burst '+i+' of '+o.rounds,s:ev,round:i,lead:i===1});
+        seg.push({k:'work',l:b.name,sub:doseLabel(b),s:b.secs||FOB_HELD,round:i,hold:!!b.hold,reps:b.reps});
+      }
     }
     else for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
@@ -4590,9 +4723,11 @@ function ivParts(segs){
 function ivPartsLabel(f,o){
   const segs=ivSegments(f,o), p=ivParts(segs), m=s0=>Math.round(s0/60), bits=[];
   if(p.warm) bits.push(m(p.warm)+' min warm-up');
-  bits.push(m(p.work)+(f==='liss'?' min steady':(IV[f]||{}).lead?' min of base':' min of intervals'));
+  const lead=(IV[f]||{}).lead, held=segs.reduce((a0,x)=>a0+(x.hold?x.s:0),0);
+  const tot=lead&&o.count==='total'?p.work+held:p.work;
+  bits.push(m(tot)+(f==='liss'?' min steady':lead?(o.count==='total'?' min in all':' min of base'):' min of intervals'));
   if(p.cool) bits.push(m(p.cool)+' min cool-down');
-  return {text:bits.join(' + '),rounds:p.rounds,total:m(p.warm+p.work+p.cool)};
+  return {text:bits.join(' + '),rounds:p.rounds,total:m(p.warm+tot+p.cool)};
 }
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
 // A held burst is not part of the session's length, so the countdown reports base only.
@@ -5898,7 +6033,7 @@ function vSetup(){
   h+=bandsCard();
   h+=`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
   <label class="f" style="max-width:260px">Default FOBBIT<select id="p-fobbit" data-pbind="fobbit">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===defFob()?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>
-  <div class="small muted">${esc(fobLine(defFob())||'You type the movements on the day.')} Swap it on any single session from that day's card.</div>
+  <div class="small muted">${esc(fobLine(defFob())||'You type the movements on the day.')}${fobDef(defFob())?' \u00b7 '+esc(fobEveryLabel(defFob()))+' of base \u00b7 '+esc(fobSrcLabel(defFob())):''} Swap it on any single session from that day's card.</div>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
   <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
@@ -6023,9 +6158,12 @@ function vGuide(){
   <p>Some the app can score from what you logged, and does. The rest only you can judge, so those ask you once at the end rather than being guessed at. The difference is visible: a scored line tells you what it counted, a self-rated line asks.</p>
   <p><b>The note is the point.</b> What you write in \u201canything to remember\u201d is shown to you before your next session of the same kind \u2014 your last squat note before you squat again, not Tuesday's bike session. A note nobody reads again is just journalling.</p>
   <p><b>Easy week.</b> Every third week the conditioning load comes down, and it is meant to land on the wave's 90% and 95% weeks so the heavy lifting gets the energy. The app does this for you: fewer rounds, shorter LISS, on weeks 3 and 6 of each cycle. It is not a week you have missed.</p>
-  <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. You keep moving on an easy base — a pace just under a jog — and step off every two minutes for a set of reps, alternating two movements. Twenty minutes of base is the standard dose; fifteen is the easy version with the reps halved, thirty the hard one. The sets are not on the clock, so the session runs longer than its name. It is an aerobic-based HIC, so it earns its place on a hard day, with one catch worth knowing: <b>run it past 30 minutes and it stops counting as a HIC</b> and becomes an easy session instead, because the intensity is not high enough to hold for that long.</p>
-  <div class="tbl-wrap"><table><thead><tr><th>FOBBIT</th><th>Kit</th><th>The two movements</th></tr></thead><tbody>${Object.entries(FOBBIT).filter(([,x])=>x.a).map(([k,x])=>`<tr><td><b>${esc(x.name)}</b></td><td class="small">${esc(x.gear)}</td><td class="small">${esc(fobLine(k))}</td></tr>`).join('')}</tbody></table></div>
-  <p class="small muted">Pick a default in Setup and swap it on any single session from that day\u2019s card. <b>Something else</b> lets you type your own pair.</p>
+  <p><b>FOBBITs.</b> Named for the soldier who never leaves the forward operating base — the session you can run with no ground to cover and barely any kit. A FOBBIT is not one workout, it is a shape: hold an easy aerobic base, step off it every so often for a bout of work, get back on.</p>
+  <p>Beyond that the sources disagree on nearly everything, so the app does not pretend otherwise. Tactical Barbell II gives the original — two minutes of base, then swings, then snatches. Mass Protocol gives a shorter one and says plainly that you are not restricted to kettlebells. The author then published three more as Mods: one that buys press volume at 70–75% of your 1RM every three to five minutes, one that rotates three strength-endurance movements, and one that runs the other way round, with a two to three minute striking drill off sixty to ninety seconds of base.</p>
+  <p><b>The rule that matters.</b> In the author’s words: <b>any FOBBIT over 30 minutes is an E, anything under is a HIC.</b> So the length you pick is not cosmetic — it decides whether the session counts against your hard days or your easy ones, and the app counts it the way you logged it.</p>
+  <p>A bout of reps is not on the clock: the timer holds at it until you tap Done. A timed bout — an AMRAP, a striking round — is, so it counts toward the session.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>FOBBIT</th><th>Kit</th><th>Base</th><th>The rotation</th><th>Source</th></tr></thead><tbody>${Object.entries(FOBBIT).filter(([k])=>fobDef(k)).map(([k,x])=>`<tr><td><b>${esc(x.name)}</b></td><td class="small">${esc(x.gear)}</td><td class="small">${esc(fobEveryLabel(k))}</td><td class="small">${esc(fobLine(k))}</td><td class="small">${esc(fobSrcLabel(k))}</td></tr>`).join('')}</tbody></table></div>
+  <p class="small muted">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>

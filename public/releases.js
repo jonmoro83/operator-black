@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.2',date:'2026-10-14',title:'Every FOBBIT in the books, and the ones the author published after',items:[
+    'A FOBBIT was one session with a pairing you picked. It is actually a shape \u2014 hold an easy aerobic base, step off it every so often for a bout of work \u2014 and the sources fill that shape in very differently. So now the app does too.',
+    '<b>From the books.</b> The Tactical Barbell II original (two minutes, swings, snatches) and the shorter Mass Protocol one.',
+    '<b>From the author\u2019s own articles.</b> Three Mods. <b>Maximal strength</b> buys press volume while you build a base: three reps at 70\u201375% of your 1RM every three to five minutes, and if you have a press max on file the app shows the weight. <b>Strength-endurance</b> rotates push-ups, pull-ups and sit-ups, with a version on a count and a version on a sixty-second AMRAP. <b>Combat</b> runs the other way round, a two to three minute striking drill off sixty to ninety seconds of base.',
+    '<b>The rule that changes things.</b> In the author\u2019s words, any FOBBIT over thirty minutes is an E, anything under is a HIC. The Guide has said that for a while and nothing enforced it. It does now, both when the week is laid out and when what you actually logged gets counted, so a forty-five minute FOBBIT stops eating one of your hard days.',
+    'Length is picked in minutes rather than rounds, each FOBBIT offers the lengths its source gives, and the card tells you which side of the thirty-minute line you are on. Anything set before this keeps the length it had.',
+    'Every entry says where it came from. Five of the thirteen are ours \u2014 the shape is the book\u2019s and the movements are not \u2014 and the Guide says so rather than letting them pass as doctrine.']},
   {v:'2.1',date:'2026-10-14',title:'The FOBBIT card tells you about the one you picked',items:[
     'The day used to describe a FOBBIT as twenty swings then ten snatches per arm whatever you had selected, which was wrong for every option but the kettlebell one.',
     'Now the description is about the format: easy base, step off every two minutes for a set of reps, alternating two movements. The movements themselves come from whichever FOBBIT you are on, and on the easy conditioning week the card shows the halved numbers and says that is what they are.']},
