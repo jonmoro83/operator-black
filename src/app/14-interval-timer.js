@@ -2,7 +2,18 @@
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,lead:true}};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,lead:true,fob:true},
+  /* TB III's Black sessions. Short, maximal, and well rested between efforts -- the
+     book's point is that every rep is all out, so the rests are long on purpose. */
+  sprints:{work:8,rest:90,rounds:[5,10],def:8},
+  reset20:{work:20,rest:150,rounds:[3,5],def:4},
+  hillsprint:{work:15,rest:90,rounds:[3,10],def:6},
+  /* Endurance Predator is a Green session and the same shape as a FOBBIT: hold an easy
+     base, step off it for a bout. So it rides the same machinery, with its spec here
+     instead of in the FOBBIT catalog. Over 30 minutes it reads as an E, which is what
+     the book calls it. */
+  predator:{work:15,rest:420,lead:true,every:[300,600],count:'total',mins:[30,45,60],def:45,
+    mv:[['Sprint 50 to 100 m',{s:15}]]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
@@ -11,15 +22,15 @@ function ivOpts(date,fmt){
   // A FOBBIT is picked in minutes, because that is the number the sources argue about
   // and the number that decides whether it is a HIC or an E. Rounds fall out of it.
   if(r&&r.lead){
-    const id=fobOf(date), opts=fobMinOpts(id);
+    const id=r.fob?fobOf(date):null, F=r.fob?FOBBIT[id]:r, opts=specMinOpts(F);
     // Before FOBBITs carried their own interval the stored number was rounds of a
     // two-minute base, so read a legacy value that way and old sessions keep their length.
     const stored=o.mins!=null?+o.mins:(o.rounds!=null?+o.rounds*2:null);
-    const mins=stored||(ease?opts[0]:fobDefMins(id));
-    return {fob:id, mins, minOpts:opts, every:fobEvery(id), count:fobCount(id),
-      rounds:fobRounds(id,mins), isE:fobIsE(mins),
+    const mins=stored||(ease?opts[0]:specDefMins(F));
+    return {fob:id, mins, minOpts:opts, every:specEvery(F), count:specCount(F),
+      rounds:specRounds(F,mins), isE:fobIsE(mins),
       warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-      bouts:fobBouts(id,ease,(lg(date).hic||{}).what)};
+      bouts:specBouts(F,ease,(lg(date).hic||{}).what)};
   }
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};

@@ -4118,6 +4118,92 @@ test("Tactical Barbell III's Base Building is six weeks of SE and E, and nothing
   a.equal(x.weeks()[6].kind, "cycle", "week seven is the program again");
 });
 
+test("TB III's named conditioning sessions are the ones the book provides", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.plan.cproto = "massgreen"; x.bump();
+
+  for (const f of ["predator", "sprints", "reset20", "hillsprint"]) {
+    a.ok(x.HIC[f], f + " is a format");
+    a.ok(x.IV[f], f + " can be run on the timer");
+    const segs = x.ivSegments(f, { ...x.ivOpts("2026-10-20", f), warm: false, cool: false });
+    a.ok(segs.length > 2, f + " builds a session");
+    a.ok(segs.some((g) => g.k === "work"), f + " has work in it");
+  }
+
+  // The Black sessions are short and maximal, so the rests are long on purpose.
+  a.equal(x.IV.reset20.work, 20); a.ok(x.IV.reset20.rest >= 120, "two to five minutes between efforts");
+  a.deepEqual(x.IV.reset20.rounds, [3, 5]);
+  a.deepEqual(x.IV.sprints.rounds, [5, 10]);
+  a.deepEqual(x.IV.hillsprint.rounds, [3, 10]);
+
+  // Endurance Predator is the same shape as a FOBBIT, and runs on the same machinery
+  // with its own spec rather than a second copy of it.
+  const o = x.ivOpts("2026-10-20", "predator");
+  a.equal(o.count, "total"); a.equal(o.every, 300, "a sprint every five to ten minutes");
+  a.equal(x.specEveryLabel(x.IV.predator), "5 min to 10 min");
+  a.deepEqual(o.bouts.map((b) => b.name), ["Sprint 50 to 100 m"]);
+  a.equal(o.mins, 45);
+  a.equal(o.isE, true, "and at 45 minutes it is an E, which is what the book calls it");
+  a.equal(x.hicWasHard({ f: "predator", min: 45 }), false, "so it does not eat a hard day");
+  a.equal(x.hicWasHard({ f: "sprints", min: 20 }), true, "a Black session does");
+
+  // It must not borrow the FOBBIT picker just because it reports no distance.
+  x.sel = "2026-10-20";
+  x.seed({ "2026-10-20": { date: "2026-10-20", hic: { format: "predator", mod: "run" } } }); x.bump();
+  const card = x.hicCard({ t: "hic", fmt: "predator" }, "");
+  a.ok(!/data-act-fob/.test(card), "no FOBBIT picker on a session that is not a FOBBIT");
+  a.ok(!/Pick which FOBBIT/.test(card), "and no invitation to pick one");
+  a.match(card, /Hold an easy aerobic base/, "but it still explains the shape");
+});
+
+test("TB III's Green and Black protocols respect the book's own limits", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false;
+
+  // Green: no more than three a week, all of them easy, none of them intervals.
+  x.plan.stempl = "mass"; x.plan.cproto = "massgreen"; x.bump();
+  const g = x.CPROTO.massgreen.sessions({ w: 1 });
+  a.equal(g.length, 3, "three, which is the book's cap");
+  a.ok(g.every((p) => p.t === "hic"), "all conditioning");
+  a.ok(g.every((p) => p.fmt === "liss" || p.fmt === "predator"), "nothing lactic in Green");
+  a.ok(g.some((p) => p.mod === "ruck"), "one of them is the ruck");
+
+  // Black: no more than two, and both must stay off lifting days.
+  x.plan.cproto = "massblack";
+  for (const t of ["specalpha", "specbravo"]) {
+    x.plan.stempl = t; x.bump();
+    a.equal(x.CPROTO.massblack.sessions({ w: 1 }).length, 2, "two, which is the book's cap");
+    const w = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d));
+    const cond = w.filter((p) => p.t === "hic");
+    a.equal(cond.length, 2, t + ": both scheduled");
+    a.ok(!w.some((p) => p.t === "lift" && p.ride), t + ": and neither rides along on a lifting day, which the book forbids");
+    a.ok(cond.every((p) => ["sprints", "reset20", "hillsprint"].includes(p.fmt)), t + ": Black sessions only");
+  }
+
+  // The second Black session alternates, so both of the book's options get used.
+  const seen = new Set();
+  for (let w = 1; w <= 4; w++) seen.add(x.CPROTO.massblack.sessions({ w })[1].fmt);
+  a.deepEqual([...seen].sort(), ["hillsprint", "reset20"], "RESET-20 and Hill Sprints take turns");
+});
+
+test("the Mass template's own layout does not read as a clash", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.stempl = "mass"; x.bump();
+
+  // The book puts the deadlift day straight after day 5. Those are different sessions,
+  // so the adjacency rule has to see them as different -- it used to warn about the
+  // template's own table, on every protocol.
+  const w = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d)).filter((p) => p.t === "lift");
+  a.equal(w.length, 4, "four lifting days in a non-peak week");
+  a.deepEqual(w.map((p) => p.half), ["a", "a", "a", "b"], "three main days and the deadlift day");
+  for (const c of Object.keys(x.CPROTO)) {
+    x.plan.cproto = c; x.bump();
+    a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], "mass + " + c);
+  }
+});
+
 test("TB III's bridge week is a week off, with testing offered rather than imposed", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
@@ -4280,8 +4366,13 @@ test("Setup counts a template's days even when they depend on the week", () => {
 test("every template and protocol pairing gives a legal week", () => {
   const x = app({ now: "2026-10-19" });
   const mon = "2026-10-19";
+  // Start the plan here, so every template is in week 1 of a cycle and showing its
+  // fullest week. Without this the matrix ran against a plan that had not begun, Mass
+  // never reached its four-day layout, and a clash in it went unseen.
+  x.plan.startMonday = mon; x.plan.bridge = false;
   for (const t of Object.keys(x.STEMPL)) for (const c of Object.keys(x.CPROTO)) {
     x.plan.stempl = t; x.plan.cproto = c; x.bump();
+    a.equal(x.weekOf(mon).kind, "cycle", `${t} + ${c}: a real training week`);
     const w = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(mon, d), d));
     const tag = `${t} + ${c}`;
 

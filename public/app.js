@@ -150,8 +150,12 @@ const STEMPL={
     // session comes out and the week tapers into the peak.
     slots:wk=>((wk&&wk.w||1)-1)%3===2?[0,2,5]:[0,2,4,5],
     days:wk=>{
-      const main=i=>({lifts:'MASS',acc:'ms1',short:'Mass '+i,label:'Mass '+i});
-      const dl={lifts:'D',acc:'ms2',short:'Mass DL',label:'Mass deadlift'};
+      // The book's table puts the deadlift day straight after day 5, so those two are
+      // consecutive by design. Marking them as different halves is what stops the Move
+      // tool warning about the template's own layout -- the deadlift day really is a
+      // different session, the same way Zulu's A and B are.
+      const main=i=>({lifts:'MASS',half:'a',acc:'ms1',short:'Mass '+i,label:'Mass '+i});
+      const dl={lifts:'D',half:'b',acc:'ms2',short:'Mass DL',label:'Mass deadlift'};
       return ((wk&&wk.w||1)-1)%3===2?[main(1),main(2),dl]:[main(1),main(2),main(3),dl];
     },
     wave:[{s:4,r:8,p:65},{s:4,r:6,p:75},{s:4,r:3,p:80}],
@@ -289,6 +293,36 @@ const CPROTO={
       ];
     },
   },
+  /* Tactical Barbell III's own conditioning. The book is blunt about it: "Use the
+     sessions provided in this book - NOT the Green/Black training found in Tactical
+     Barbell II." Green runs alongside General Mass, Black alongside Specificity, and
+     both are deliberately minimal -- enough to stay operational without opposing the
+     thing you came for. */
+  massgreen:{
+    name:'Green · TB III', book:'TB3',
+    blurb:'Three easy sessions a week while you build mass. Long, low intensity, and no intervals — the book picks these specifically because they do not work against hypertrophy. Pairs with the General Mass templates: Mass, Gladiator and Fighter HT.',
+    // "Perform 1 to 3 conditioning sessions per week. No more than 3." Three is the cap
+    // and the app schedules the cap; skip one and nothing complains.
+    sessions:()=>[
+      {t:'hic',fmt:'liss',short:'Ruck',mod:'ruck',note:'Ruck 30 to 60 minutes continuously, 10 to 50 lb — 30 is the sweet spot for most. A weight vest does the same job. Carrying a load tells the body to keep its structure, which is the opposite of what long running tells it.'},
+      {t:'hic',fmt:'liss',short:'Easy run',note:'A recovery run, 20 to 30 minutes. Talk test, or breathe through your nose. Do not go past 30 minutes while mass is the objective, and cap it at 20 if you gain weight slowly. Cycling, swimming and rowing all count.'},
+      {t:'hic',fmt:'predator',short:'Predator',note:'Endurance Predator. Walk, and every five to ten minutes break into an all-out sprint of 50 to 100 m. Vary the gaps. Hills and trails suit it. A 5 to 10 lb vest is optional.'},
+    ],
+  },
+  massblack:{
+    name:'Black · TB III', book:'TB3',
+    blurb:'Two short, maximal sessions a week during a Specificity block. Sprints rather than intervals: the book picks them because brief all-out efforts drive an anabolic response instead of working against one. The book says to keep them off lifting days.',
+    // "Perform 1 to 2 conditioning sessions per week. No more than 2." The third named
+    // session is the FOBBIT, which already exists; these two rotate and you can swap
+    // either one on the day.
+    sessions:wk=>[
+      {t:'hic',fmt:'sprints',short:'Sprints',note:'Anabolic Sprints. 30 m flat out, walk back, go again, 5 to 10 rounds. Warm up first with 5 to 10 minutes easy and a couple of sprints at half effort — hamstrings do not like being surprised. Intensity is the whole session.'},
+      {t:'hic',fmt:(wk&&wk.w||1)%2?'reset20':'hillsprint',
+        short:(wk&&wk.w||1)%2?'RESET-20':'Hills',
+        note:(wk&&wk.w||1)%2?'RESET-20. Twenty seconds at absolute maximum, then two to five minutes of rest, three to five rounds. Be properly rested before each one. Stop at 15 to 20 minutes. An Airdyne, a rower or a heavy bag all work.'
+          :'Hill Sprints. Find a steep hill and run up it flat out for 10 to 20 seconds, walk down, rest a minute or two, repeat. No more than ten sprints or 15 minutes, whichever comes first. A flat sprint of 15 to 20 seconds does the same job.'},
+    ],
+  },
   greense:{
     name:'Green \u00b7 Progressive SE', book:'TB2', noStrength:true,
     blurb:'The no-barbell variation. Three strength-endurance circuits and two easy aerobic sessions a week, climbing over a three-week block. For when you have no equipment \u2014 the book says not to run it past nine weeks without going back to maximal strength.',
@@ -401,7 +435,8 @@ function cycleWeeks(){ return Math.max(1,waveOf().length) }
    session logged longer is reclassified where logged sessions are counted. */
 function sessHard(x){
   if(!x||x.fmt==='liss') return false;
-  if(x.fmt==='fobbit') return !fobIsE(fobDefMins(defFob()));
+  const r=IV[x.fmt];
+  if(r&&r.lead) return !fobIsE(specDefMins(r.fob?FOBBIT[defFob()]:r));
   return true;
 }
 
@@ -504,7 +539,16 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'An easy base, broken by bouts of work',sys:'Aerobic base with bursts',noMetric:true}
+  fobbit:{name:'FOBBIT',sess:'An easy base, broken by bouts of work',sys:'Aerobic base with bursts',noMetric:true},
+  /* Tactical Barbell III's own named sessions. The book is explicit that these replace
+     TB II's Green and Black work while mass is the objective: "Use the sessions
+     provided in this book - NOT the Green/Black training found in Tactical Barbell II."
+     Green is long and easy, Black is short and hard. Walk, Ruck and Recovery Run are
+     already expressible as LISS on the right activity, so only these four are new. */
+  predator:{name:'Endurance Predator',sess:'A long walk, broken by all-out sprints',sys:'Aerobic base with sprints',noMetric:true},
+  sprints:{name:'Anabolic Sprints',sess:'30 m flat out \u00d7 5\u201310, walk back between',sys:'Alactic power'},
+  reset20:{name:'RESET-20',sess:'20 sec flat out / 2\u20135 min rest \u00d7 3\u20135',sys:'Alactic / anaerobic'},
+  hillsprint:{name:'Hill Sprints',sess:'10\u201320 sec up a steep hill \u00d7 3\u201310',sys:'Alactic power'}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -612,13 +656,35 @@ const FOBBIT={
 function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
 function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
 function fobDef(id){ const F=FOBBIT[id]; return F&&F.mv&&F.mv.length?F:null }
+/* The accessors below take a spec -- an object carrying every/count/mv/mins/def -- so
+   that anything shaped like "hold a base, step off it for a bout" can use them. A
+   FOBBIT catalog entry is one such spec; so is Endurance Predator, which lives on its
+   interval-timer entry instead. The fob* wrappers are the FOBBIT-by-id versions. */
+function specEvery(F){ return lo(F&&F.every)||FOB_EVERY }
+function specCount(F){ return (F||{}).count==='total'?'total':'base' }
+function specMinOpts(F){ return (F&&F.mins)||[15,20,30] }
+function specDefMins(F){ return (F&&F.def)||20 }
+function specEveryLabel(F){ return rangeLabel((F&&F.every)||FOB_EVERY,secsLabel) }
+function specBouts(F,ease,what){
+  if(!F||!F.mv||!F.mv.length){
+    const w=String(what||'').trim().split('/').map(x=>x.trim()).filter(Boolean);
+    return (w.length?w:['Burst']).map(n0=>Object.assign({name:n0},fobDose('Set',false)));
+  }
+  return F.mv.map(([n0,d])=>Object.assign({name:n0},fobDose(d,ease)));
+}
+function specRounds(F,mins){
+  const ev=specEvery(F);
+  if(specCount(F)==='base') return Math.max(1,Math.round(mins*60/ev));
+  const bs=specBouts(F,false,'').map(b=>b.secs||FOB_HELD);
+  return Math.max(1,Math.round(mins*60/(ev+bs.reduce((a,b)=>a+b,0)/bs.length)));
+}
 // Ranges read as [lo,hi]; the timer needs one number and takes the low end, which is the
 // one that gives the session its full count of bouts.
 function lo(v){ return Array.isArray(v)?v[0]:v }
-function fobEvery(id){ const F=FOBBIT[id]; return lo(F&&F.every)||FOB_EVERY }
-function fobCount(id){ return (FOBBIT[id]||{}).count==='total'?'total':'base' }
-function fobMinOpts(id){ const F=FOBBIT[id]; return (F&&F.mins)||[15,20,30] }
-function fobDefMins(id){ const F=FOBBIT[id]; return (F&&F.def)||20 }
+function fobEvery(id){ return specEvery(FOBBIT[id]) }
+function fobCount(id){ return specCount(FOBBIT[id]) }
+function fobMinOpts(id){ return specMinOpts(FOBBIT[id]) }
+function fobDefMins(id){ return specDefMins(FOBBIT[id]) }
 /* The rule from Part II, in those words: over 30 minutes it is an E, under it is a HIC.
    So a 60-minute Mod #1 is not a hard session and must not be counted as one. */
 function fobIsE(mins){ return +mins>30 }
@@ -646,25 +712,11 @@ function halveReps(q){
 
    `other` prescribes nothing, so it falls back to whatever was typed on the day and then
    to a neutral label — the structure still runs, it just does not tell you what to do. */
-function fobBouts(id,ease,what){
-  const F=fobDef(id);
-  if(!F){
-    const w=String(what||'').trim().split('/').map(s=>s.trim()).filter(Boolean);
-    const ns=w.length?w:['Burst'];
-    return ns.map(n0=>Object.assign({name:n0},fobDose('Set',false)));
-  }
-  return F.mv.map(([n0,d])=>Object.assign({name:n0},fobDose(d,ease)));
-}
+function fobBouts(id,ease,what){ return specBouts(fobDef(id),ease,what) }
 // How many bouts fit. A base-counted FOBBIT divides the base by the interval; a
 // total-counted one has to pay for the bouts too, and a held set is assumed to cost
 // FOB_HELD seconds since nobody can know what it really takes.
-function fobRounds(id,mins){
-  const ev=fobEvery(id);
-  if(fobCount(id)==='base') return Math.max(1,Math.round(mins*60/ev));
-  const bs=fobBouts(id,false,'').map(b=>b.secs||FOB_HELD);
-  const avg=bs.reduce((a,b)=>a+b,0)/bs.length;
-  return Math.max(1,Math.round(mins*60/(ev+avg)));
-}
+function fobRounds(id,mins){ return specRounds(fobDef(id)||FOBBIT[id],mins) }
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
 function setFob(date,v){
@@ -675,7 +727,7 @@ function setFob(date,v){
 function secsLabel(s){ return (s>=120&&s%60===0)?(s/60)+' min':s+' s' }
 function rangeLabel(v,f){ return Array.isArray(v)?f(v[0])+' to '+f(v[1]):f(v) }
 // "every two minutes", "every 3 min to 5 min", "every 60 s to 90 s".
-function fobEveryLabel(id){ const F=FOBBIT[id]; return rangeLabel((F&&F.every)||FOB_EVERY,secsLabel) }
+function fobEveryLabel(id){ return specEveryLabel(FOBBIT[id]) }
 function doseLabel(b){
   if(b.secs!=null) return secsLabel(b.secs)+(b.secs<=60?' AMRAP':'');
   if(b.pct) return b.reps+' at '+rangeLabel(b.pct,p=>p+'%');
@@ -3227,7 +3279,7 @@ function rLevel(sc){return sc==null?null:sc>=75?{k:'go',cls:'light',t:'Ready'}:s
 // you stopped rotating. Looks at the hard sessions only — LISS is meant to be samey.
 // What a logged session turned out to be. A FOBBIT run long is an E, whatever it was
 // scheduled as, so it does not belong in a count of hard sessions.
-function hicWasHard(x){ return !!x&&x.f!=='liss'&&!(x.f==='fobbit'&&fobIsE(x.min)) }
+function hicWasHard(x){ return !!x&&x.f!=='liss'&&!((IV[x.f]||{}).lead&&fobIsE(x.min)) }
 function hicRut(date,n0){
   const xs=hicSessions().filter(x=>x.d<=date&&hicWasHard(x)).slice(-(n0||6));
   if(xs.length<(n0||6)) return null;
@@ -3412,7 +3464,7 @@ function hicCard(dp,note){
     // What a FOBBIT is, and nothing about which one. Every number that varies between
     // them is read from the selection, so this cannot go stale when you change it.
     const fo=ivOpts(sel,f), held=(fo.bouts||[]).some(b=>b.hold);
-    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} Pick which FOBBIT below. Row, skip, cycle or take the stairs if you would rather not run.</div>`;
+    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} ${(IV[f]||{}).fob?'Pick which FOBBIT below. ':''}Row, skip, cycle or take the stairs if you would rather not run.</div>`;
     if(held) h+=`<div class="small muted"><b>A bout of reps is not on the clock.</b> ${fo.count==='total'?'The timer holds at each one until you tap Done, so the wall clock reads longer than the session.':'Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.'}</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
@@ -3420,7 +3472,7 @@ function hicCard(dp,note){
   if(dp.plyo&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
-  if((HIC[f]||{}).noMetric){
+  if((IV[f]||{}).fob){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
     // What the timer will actually do, so a halved day reads as halved here too.
@@ -3435,6 +3487,7 @@ function hicCard(dp,note){
     if(!fobDef(fb)) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
+  else if((HIC[f]||{}).noMetric) h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;
@@ -4769,7 +4822,18 @@ document.getElementById('ls').addEventListener('change',e=>{ const t=e.target; i
 // Black's HIC formats as guided intervals. The session is a list of segments timed from
 // an absolute start, so it stays right through screen locks and reloads. Each change of
 // interval beeps (3-2-1 then a tone) and, with alerts on, is queued as a push.
-const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,lead:true}};
+const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds:[6,8]},threshold:{work:240,rest:180,rounds:[4,4]},long:{work:180,rest:90,rounds:[5,5]},fobbit:{work:15,rest:120,lead:true,fob:true},
+  /* TB III's Black sessions. Short, maximal, and well rested between efforts -- the
+     book's point is that every rep is all out, so the rests are long on purpose. */
+  sprints:{work:8,rest:90,rounds:[5,10],def:8},
+  reset20:{work:20,rest:150,rounds:[3,5],def:4},
+  hillsprint:{work:15,rest:90,rounds:[3,10],def:6},
+  /* Endurance Predator is a Green session and the same shape as a FOBBIT: hold an easy
+     base, step off it for a bout. So it rides the same machinery, with its spec here
+     instead of in the FOBBIT catalog. Over 30 minutes it reads as an E, which is what
+     the book calls it. */
+  predator:{work:15,rest:420,lead:true,every:[300,600],count:'total',mins:[30,45,60],def:45,
+    mv:[['Sprint 50 to 100 m',{s:15}]]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 function ivOpts(date,fmt){
@@ -4778,15 +4842,15 @@ function ivOpts(date,fmt){
   // A FOBBIT is picked in minutes, because that is the number the sources argue about
   // and the number that decides whether it is a HIC or an E. Rounds fall out of it.
   if(r&&r.lead){
-    const id=fobOf(date), opts=fobMinOpts(id);
+    const id=r.fob?fobOf(date):null, F=r.fob?FOBBIT[id]:r, opts=specMinOpts(F);
     // Before FOBBITs carried their own interval the stored number was rounds of a
     // two-minute base, so read a legacy value that way and old sessions keep their length.
     const stored=o.mins!=null?+o.mins:(o.rounds!=null?+o.rounds*2:null);
-    const mins=stored||(ease?opts[0]:fobDefMins(id));
-    return {fob:id, mins, minOpts:opts, every:fobEvery(id), count:fobCount(id),
-      rounds:fobRounds(id,mins), isE:fobIsE(mins),
+    const mins=stored||(ease?opts[0]:specDefMins(F));
+    return {fob:id, mins, minOpts:opts, every:specEvery(F), count:specCount(F),
+      rounds:specRounds(F,mins), isE:fobIsE(mins),
       warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
-      bouts:fobBouts(id,ease,(lg(date).hic||{}).what)};
+      bouts:specBouts(F,ease,(lg(date).hic||{}).what)};
   }
   const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
@@ -6285,6 +6349,8 @@ function vGuide(){
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>
+  <li><b>Tactical Barbell III brings its own conditioning.</b> The book is blunt about it — use these sessions, not TB II's Green and Black — because while mass is the objective, conditioning is there to keep you operational rather than to build an elite base. <b>Green · TB III</b> is three easy sessions a week (a ruck, a recovery run, and Endurance Predator) and goes with the General Mass templates. <b>Black · TB III</b> is two short maximal ones (Anabolic Sprints, then RESET-20 and Hill Sprints alternating) and goes with Specificity. Both numbers are the book's caps, and the app schedules the cap.</li>
+  <li><b>Black sessions stay off lifting days</b>, which the book asks for outright. Green ones may go on either.</li>
   <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the program they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>

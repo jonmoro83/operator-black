@@ -148,8 +148,12 @@ const STEMPL={
     // session comes out and the week tapers into the peak.
     slots:wk=>((wk&&wk.w||1)-1)%3===2?[0,2,5]:[0,2,4,5],
     days:wk=>{
-      const main=i=>({lifts:'MASS',acc:'ms1',short:'Mass '+i,label:'Mass '+i});
-      const dl={lifts:'D',acc:'ms2',short:'Mass DL',label:'Mass deadlift'};
+      // The book's table puts the deadlift day straight after day 5, so those two are
+      // consecutive by design. Marking them as different halves is what stops the Move
+      // tool warning about the template's own layout -- the deadlift day really is a
+      // different session, the same way Zulu's A and B are.
+      const main=i=>({lifts:'MASS',half:'a',acc:'ms1',short:'Mass '+i,label:'Mass '+i});
+      const dl={lifts:'D',half:'b',acc:'ms2',short:'Mass DL',label:'Mass deadlift'};
       return ((wk&&wk.w||1)-1)%3===2?[main(1),main(2),dl]:[main(1),main(2),main(3),dl];
     },
     wave:[{s:4,r:8,p:65},{s:4,r:6,p:75},{s:4,r:3,p:80}],
@@ -287,6 +291,36 @@ const CPROTO={
       ];
     },
   },
+  /* Tactical Barbell III's own conditioning. The book is blunt about it: "Use the
+     sessions provided in this book - NOT the Green/Black training found in Tactical
+     Barbell II." Green runs alongside General Mass, Black alongside Specificity, and
+     both are deliberately minimal -- enough to stay operational without opposing the
+     thing you came for. */
+  massgreen:{
+    name:'Green · TB III', book:'TB3',
+    blurb:'Three easy sessions a week while you build mass. Long, low intensity, and no intervals — the book picks these specifically because they do not work against hypertrophy. Pairs with the General Mass templates: Mass, Gladiator and Fighter HT.',
+    // "Perform 1 to 3 conditioning sessions per week. No more than 3." Three is the cap
+    // and the app schedules the cap; skip one and nothing complains.
+    sessions:()=>[
+      {t:'hic',fmt:'liss',short:'Ruck',mod:'ruck',note:'Ruck 30 to 60 minutes continuously, 10 to 50 lb — 30 is the sweet spot for most. A weight vest does the same job. Carrying a load tells the body to keep its structure, which is the opposite of what long running tells it.'},
+      {t:'hic',fmt:'liss',short:'Easy run',note:'A recovery run, 20 to 30 minutes. Talk test, or breathe through your nose. Do not go past 30 minutes while mass is the objective, and cap it at 20 if you gain weight slowly. Cycling, swimming and rowing all count.'},
+      {t:'hic',fmt:'predator',short:'Predator',note:'Endurance Predator. Walk, and every five to ten minutes break into an all-out sprint of 50 to 100 m. Vary the gaps. Hills and trails suit it. A 5 to 10 lb vest is optional.'},
+    ],
+  },
+  massblack:{
+    name:'Black · TB III', book:'TB3',
+    blurb:'Two short, maximal sessions a week during a Specificity block. Sprints rather than intervals: the book picks them because brief all-out efforts drive an anabolic response instead of working against one. The book says to keep them off lifting days.',
+    // "Perform 1 to 2 conditioning sessions per week. No more than 2." The third named
+    // session is the FOBBIT, which already exists; these two rotate and you can swap
+    // either one on the day.
+    sessions:wk=>[
+      {t:'hic',fmt:'sprints',short:'Sprints',note:'Anabolic Sprints. 30 m flat out, walk back, go again, 5 to 10 rounds. Warm up first with 5 to 10 minutes easy and a couple of sprints at half effort — hamstrings do not like being surprised. Intensity is the whole session.'},
+      {t:'hic',fmt:(wk&&wk.w||1)%2?'reset20':'hillsprint',
+        short:(wk&&wk.w||1)%2?'RESET-20':'Hills',
+        note:(wk&&wk.w||1)%2?'RESET-20. Twenty seconds at absolute maximum, then two to five minutes of rest, three to five rounds. Be properly rested before each one. Stop at 15 to 20 minutes. An Airdyne, a rower or a heavy bag all work.'
+          :'Hill Sprints. Find a steep hill and run up it flat out for 10 to 20 seconds, walk down, rest a minute or two, repeat. No more than ten sprints or 15 minutes, whichever comes first. A flat sprint of 15 to 20 seconds does the same job.'},
+    ],
+  },
   greense:{
     name:'Green \u00b7 Progressive SE', book:'TB2', noStrength:true,
     blurb:'The no-barbell variation. Three strength-endurance circuits and two easy aerobic sessions a week, climbing over a three-week block. For when you have no equipment \u2014 the book says not to run it past nine weeks without going back to maximal strength.',
@@ -399,7 +433,8 @@ function cycleWeeks(){ return Math.max(1,waveOf().length) }
    session logged longer is reclassified where logged sessions are counted. */
 function sessHard(x){
   if(!x||x.fmt==='liss') return false;
-  if(x.fmt==='fobbit') return !fobIsE(fobDefMins(defFob()));
+  const r=IV[x.fmt];
+  if(r&&r.lead) return !fobIsE(specDefMins(r.fob?FOBBIT[defFob()]:r));
   return true;
 }
 

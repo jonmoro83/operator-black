@@ -144,7 +144,7 @@ function rLevel(sc){return sc==null?null:sc>=75?{k:'go',cls:'light',t:'Ready'}:s
 // you stopped rotating. Looks at the hard sessions only — LISS is meant to be samey.
 // What a logged session turned out to be. A FOBBIT run long is an E, whatever it was
 // scheduled as, so it does not belong in a count of hard sessions.
-function hicWasHard(x){ return !!x&&x.f!=='liss'&&!(x.f==='fobbit'&&fobIsE(x.min)) }
+function hicWasHard(x){ return !!x&&x.f!=='liss'&&!((IV[x.f]||{}).lead&&fobIsE(x.min)) }
 function hicRut(date,n0){
   const xs=hicSessions().filter(x=>x.d<=date&&hicWasHard(x)).slice(-(n0||6));
   if(xs.length<(n0||6)) return null;
@@ -329,7 +329,7 @@ function hicCard(dp,note){
     // What a FOBBIT is, and nothing about which one. Every number that varies between
     // them is read from the selection, so this cannot go stale when you change it.
     const fo=ivOpts(sel,f), held=(fo.bouts||[]).some(b=>b.hold);
-    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} Pick which FOBBIT below. Row, skip, cycle or take the stairs if you would rather not run.</div>`;
+    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} ${(IV[f]||{}).fob?'Pick which FOBBIT below. ':''}Row, skip, cycle or take the stairs if you would rather not run.</div>`;
     if(held) h+=`<div class="small muted"><b>A bout of reps is not on the clock.</b> ${fo.count==='total'?'The timer holds at each one until you tap Done, so the wall clock reads longer than the session.':'Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.'}</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
@@ -337,7 +337,7 @@ function hicCard(dp,note){
   if(dp.plyo&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
   h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
   if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
-  if((HIC[f]||{}).noMetric){
+  if((IV[f]||{}).fob){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
     // What the timer will actually do, so a halved day reads as halved here too.
@@ -352,6 +352,7 @@ function hicCard(dp,note){
     if(!fobDef(fb)) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   }
+  else if((HIC[f]||{}).noMetric) h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,'')}</label>`;
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;

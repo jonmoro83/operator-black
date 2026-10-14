@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.6',date:'2026-10-14',title:'Tactical Barbell III\u2019s own conditioning',items:[
+    'The book does not want you using TB II\u2019s Green and Black while you are building mass \u2014 it provides its own sessions, picked so they support hypertrophy instead of working against it. Both are protocols now, in Setup next to the others.',
+    '<b>Green \u00b7 TB III</b> is three easy sessions a week, and goes with Mass, Gladiator and Fighter HT. A ruck of 30 to 60 minutes, a 20 to 30 minute recovery run, and <b>Endurance Predator</b> \u2014 a long walk where every five to ten minutes you break into an all-out sprint.',
+    '<b>Black \u00b7 TB III</b> is two short maximal sessions, and goes with Specificity. <b>Anabolic Sprints</b>, 30 m flat out with a walk back, then <b>RESET-20</b> and <b>Hill Sprints</b> taking turns week to week. Long rests on purpose: the point is that every effort is genuinely all out.',
+    'Three a week for Green and two for Black are the book\u2019s caps, and Black sessions stay off lifting days because the book asks for that outright.',
+    'One old bug turned up while fitting this together: the Move tool had been warning that the Mass template put two lifting days back to back \u2014 which is the book\u2019s own table. It no longer does.']},
   {v:'2.5',date:'2026-10-14',title:'Tactical Barbell III\u2019s Base Building, and its bridge week',items:[
     '<b>A third Base Building option</b>, and it is a different block rather than a variation. Six weeks instead of eight, and only two things in it: strength-endurance three days a week, easy endurance on the days between. No strength week, no HIC, no recovery day.',
     'The reps climb inside the week \u2014 ten, twenty, thirty \u2014 and weeks four to six add five percent to each load. Every session shows the exact percentage rather than a range to guess at. The cluster the book wants is bench, squat, Romanian deadlift and abs, and it is on the picker as <b>TB III barbell</b>.',

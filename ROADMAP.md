@@ -53,13 +53,11 @@ Known gaps and things to verify. Fix or close these before starting new features
 
 ## Next up
 
-- **Finish the TB book coverage.** Nine templates now (Operator, Fighter, Zulu,
-  Fighter HT, Grey Man, Mass, Gladiator, Specificity Alpha, Specificity Bravo) against
-  three protocols, which is twenty-seven combinations and a matrix test over all of
-  them. All the templates are in. Still to come: TB III's own Bridge Week, its Base
-  Building variant (6 weeks, SE + E), and its named conditioning sessions (Ruck,
-  Endurance Predator, Anabolic Sprints, RESET-20, Hill Sprints). FOBBITs came off that
-  list on 2026-10-14, Specificity on the same day.
+- **TB book coverage is done.** Nine templates (Operator, Fighter, Zulu, Fighter HT,
+  Grey Man, Mass, Gladiator, Specificity Alpha, Specificity Bravo) against five
+  protocols, which is forty-five combinations and a matrix test over all of them. Three
+  Base Building variants, two bridge weeks, and TB III's named conditioning sessions.
+  Whatever comes next is new ground rather than catching up with the books.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -122,6 +120,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**TB III's named conditioning sessions (2026-10-14)**
+- The last item on the list. Ruck, Recovery Run, Endurance Predator, Anabolic Sprints,
+  RESET-20 and Hill Sprints, plus two protocols to put them in: `massgreen` and
+  `massblack`. The book is explicit that these replace TB II's Green and Black while
+  mass is the objective, so they are protocols rather than extra sessions bolted on.
+- Walk, Ruck and Recovery Run were already expressible as LISS on the right activity.
+  Four formats are new: `predator`, `sprints`, `reset20`, `hillsprint`.
+- **Endurance Predator is a FOBBIT by shape** — hold an easy base, step off it for a
+  bout — so rather than a second copy of that machinery, the accessors it needs now
+  take a spec object (`specEvery`, `specCount`, `specBouts`, `specRounds`, ...) and the
+  `fob*` functions are thin wrappers that look the spec up in the catalog. Predator's
+  spec lives on its interval-timer entry. `IV.fobbit.fob` marks the formats whose spec
+  comes from the catalog, which is also what gates the FOBBIT picker: before that,
+  Predator inherited it just by reporting no distance.
+- Over 30 minutes Predator reads as an E, which is what the book calls it. The rule
+  generalised from "a FOBBIT over 30" to "any base-then-bout session over 30".
+- **A pre-existing bug the matrix test could not see.** Mass's own book layout puts the
+  deadlift day straight after day 5, and the Move tool warned about it on every
+  protocol. Marking the deadlift day as a different half fixes it, as it did for Zulu.
+  The matrix test missed it because it ran against a plan that had not started, so Mass
+  never reached its four-day week; it now starts the plan, and 45 pairings are clean.
+- 279 tests, 12 mutants, all caught.
 
 **TB III's Base Building and its Bridge Week (2026-10-14)**
 - Both read off the book's tables, the same way Specificity was.

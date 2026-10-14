@@ -11,7 +11,16 @@ const HIC={
   threshold:{name:'Threshold',sess:'4 × 4 min hard / 3 min easy',sys:'Threshold / VO2'},
   long:{name:'Long HIC',sess:'5 × 3 min hard / 90 sec easy',sys:'Aerobic power'},
   liss:{name:'LISS',sess:'30–45 min conversational',sys:'Aerobic base'},
-  fobbit:{name:'FOBBIT',sess:'An easy base, broken by bouts of work',sys:'Aerobic base with bursts',noMetric:true}
+  fobbit:{name:'FOBBIT',sess:'An easy base, broken by bouts of work',sys:'Aerobic base with bursts',noMetric:true},
+  /* Tactical Barbell III's own named sessions. The book is explicit that these replace
+     TB II's Green and Black work while mass is the objective: "Use the sessions
+     provided in this book - NOT the Green/Black training found in Tactical Barbell II."
+     Green is long and easy, Black is short and hard. Walk, Ruck and Recovery Run are
+     already expressible as LISS on the right activity, so only these four are new. */
+  predator:{name:'Endurance Predator',sess:'A long walk, broken by all-out sprints',sys:'Aerobic base with sprints',noMetric:true},
+  sprints:{name:'Anabolic Sprints',sess:'30 m flat out \u00d7 5\u201310, walk back between',sys:'Alactic power'},
+  reset20:{name:'RESET-20',sess:'20 sec flat out / 2\u20135 min rest \u00d7 3\u20135',sys:'Alactic / anaerobic'},
+  hillsprint:{name:'Hill Sprints',sess:'10\u201320 sec up a steep hill \u00d7 3\u201310',sys:'Alactic power'}
 };
 // Activities for HIC/LISS days. Each logs the measure that makes sense for it:
 // [field, unit] for HIC and for LISS. Results only compare within one activity + format.
@@ -119,13 +128,35 @@ const FOBBIT={
 function defFob(){ return FOBBIT[plan.fobbit]?plan.fobbit:'kb' }
 function fobOf(date){ const v=(logs[date]||{}).hic; return v&&FOBBIT[v.fob]?v.fob:defFob() }
 function fobDef(id){ const F=FOBBIT[id]; return F&&F.mv&&F.mv.length?F:null }
+/* The accessors below take a spec -- an object carrying every/count/mv/mins/def -- so
+   that anything shaped like "hold a base, step off it for a bout" can use them. A
+   FOBBIT catalog entry is one such spec; so is Endurance Predator, which lives on its
+   interval-timer entry instead. The fob* wrappers are the FOBBIT-by-id versions. */
+function specEvery(F){ return lo(F&&F.every)||FOB_EVERY }
+function specCount(F){ return (F||{}).count==='total'?'total':'base' }
+function specMinOpts(F){ return (F&&F.mins)||[15,20,30] }
+function specDefMins(F){ return (F&&F.def)||20 }
+function specEveryLabel(F){ return rangeLabel((F&&F.every)||FOB_EVERY,secsLabel) }
+function specBouts(F,ease,what){
+  if(!F||!F.mv||!F.mv.length){
+    const w=String(what||'').trim().split('/').map(x=>x.trim()).filter(Boolean);
+    return (w.length?w:['Burst']).map(n0=>Object.assign({name:n0},fobDose('Set',false)));
+  }
+  return F.mv.map(([n0,d])=>Object.assign({name:n0},fobDose(d,ease)));
+}
+function specRounds(F,mins){
+  const ev=specEvery(F);
+  if(specCount(F)==='base') return Math.max(1,Math.round(mins*60/ev));
+  const bs=specBouts(F,false,'').map(b=>b.secs||FOB_HELD);
+  return Math.max(1,Math.round(mins*60/(ev+bs.reduce((a,b)=>a+b,0)/bs.length)));
+}
 // Ranges read as [lo,hi]; the timer needs one number and takes the low end, which is the
 // one that gives the session its full count of bouts.
 function lo(v){ return Array.isArray(v)?v[0]:v }
-function fobEvery(id){ const F=FOBBIT[id]; return lo(F&&F.every)||FOB_EVERY }
-function fobCount(id){ return (FOBBIT[id]||{}).count==='total'?'total':'base' }
-function fobMinOpts(id){ const F=FOBBIT[id]; return (F&&F.mins)||[15,20,30] }
-function fobDefMins(id){ const F=FOBBIT[id]; return (F&&F.def)||20 }
+function fobEvery(id){ return specEvery(FOBBIT[id]) }
+function fobCount(id){ return specCount(FOBBIT[id]) }
+function fobMinOpts(id){ return specMinOpts(FOBBIT[id]) }
+function fobDefMins(id){ return specDefMins(FOBBIT[id]) }
 /* The rule from Part II, in those words: over 30 minutes it is an E, under it is a HIC.
    So a 60-minute Mod #1 is not a hard session and must not be counted as one. */
 function fobIsE(mins){ return +mins>30 }
@@ -153,25 +184,11 @@ function halveReps(q){
 
    `other` prescribes nothing, so it falls back to whatever was typed on the day and then
    to a neutral label — the structure still runs, it just does not tell you what to do. */
-function fobBouts(id,ease,what){
-  const F=fobDef(id);
-  if(!F){
-    const w=String(what||'').trim().split('/').map(s=>s.trim()).filter(Boolean);
-    const ns=w.length?w:['Burst'];
-    return ns.map(n0=>Object.assign({name:n0},fobDose('Set',false)));
-  }
-  return F.mv.map(([n0,d])=>Object.assign({name:n0},fobDose(d,ease)));
-}
+function fobBouts(id,ease,what){ return specBouts(fobDef(id),ease,what) }
 // How many bouts fit. A base-counted FOBBIT divides the base by the interval; a
 // total-counted one has to pay for the bouts too, and a held set is assumed to cost
 // FOB_HELD seconds since nobody can know what it really takes.
-function fobRounds(id,mins){
-  const ev=fobEvery(id);
-  if(fobCount(id)==='base') return Math.max(1,Math.round(mins*60/ev));
-  const bs=fobBouts(id,false,'').map(b=>b.secs||FOB_HELD);
-  const avg=bs.reduce((a,b)=>a+b,0)/bs.length;
-  return Math.max(1,Math.round(mins*60/(ev+avg)));
-}
+function fobRounds(id,mins){ return specRounds(fobDef(id)||FOBBIT[id],mins) }
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
 function setFob(date,v){
@@ -182,7 +199,7 @@ function setFob(date,v){
 function secsLabel(s){ return (s>=120&&s%60===0)?(s/60)+' min':s+' s' }
 function rangeLabel(v,f){ return Array.isArray(v)?f(v[0])+' to '+f(v[1]):f(v) }
 // "every two minutes", "every 3 min to 5 min", "every 60 s to 90 s".
-function fobEveryLabel(id){ const F=FOBBIT[id]; return rangeLabel((F&&F.every)||FOB_EVERY,secsLabel) }
+function fobEveryLabel(id){ return specEveryLabel(FOBBIT[id]) }
 function doseLabel(b){
   if(b.secs!=null) return secsLabel(b.secs)+(b.secs<=60?' AMRAP':'');
   if(b.pct) return b.reps+' at '+rangeLabel(b.pct,p=>p+'%');
