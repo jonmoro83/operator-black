@@ -123,6 +123,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**TB III's Base Building and its Bridge Week (2026-10-14)**
+- Both read off the book's tables, the same way Specificity was.
+- **Base Building, TB III's version.** Six weeks, not TB II's eight, and only two
+  domains: SE three times a week on alternate days, E on the days between. No barbell
+  strength week, no HIC, no recovery day. The reps climb inside the week (10, 20, 30)
+  rather than across it, and weeks 4-6 add five percent. E is capped at 30 minutes and
+  the book means a cap, not a minimum.
+- The block already had a `ver` ('standard' / 'strength'), so this is a third. What it
+  needed was for the length to stop being the literal 8 in four places: `BB_LEN` and
+  `bbLen(ver)` now carry it, including for a frozen week resuming mid-block.
+- SE rows grew a fourth field, the percentage. TB II's block prescribes none, so its
+  rows are unchanged and its card keeps the 15-30% range; TB III's card shows the day's
+  own number instead.
+- **Bridge Week** is an insert alongside Deload, Retest, Travel and Off. Light activity
+  for five days and two optional test days on 4 and 5 — the book says that if no
+  testing is needed those become rest days, so they say so rather than being dropped.
+  Distinct from the app's own bridge week, which is a calibration week at the start and
+  is ours.
+- 276 tests, 12 mutants, all caught.
+
 **Specificity Alpha and Bravo (2026-10-14)**
 - The last two templates. Both read off the book's tables rather than remembered: the
   PDF's tables are images, so they were pulled out by resolving each page's

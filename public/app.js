@@ -1066,11 +1066,29 @@ const BB_WEEKS=[
   [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']],
   [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']]
 ];
+/* Tactical Barbell III's Base Building, which is not TB II's. Six weeks rather than
+   eight, and only two domains: strength-endurance three times a week on alternate days,
+   and endurance three times on the days between. No barbell strength week, no HIC, no
+   recovery day -- the book strips it to what supports hypertrophy and nothing else.
+
+   The reps climb within the week (10, 20, 30) rather than across it, and weeks 4 to 6
+   add five percent to each. E is capped at 30 minutes and the book means the cap:
+   "No more, no less." Asked outright whether you can do longer E sessions, it answers
+   "The short answer is NO."  */
+const BB_MASS=(()=>{
+  const row=(a,b,c)=>[['se',3,a[0],a[1]],['e',30],['se',3,b[0],b[1]],['e',30],['se',3,c[0],c[1]],['e',30],['rest']];
+  const early=row([10,15],[20,20],[30,25]), late=row([10,20],[20,25],[30,30]);
+  return [early,early,early,late,late,late];
+})();
+// How long each version of the block runs. TB II's is eight weeks, TB III's is six.
+const BB_LEN={standard:8,strength:8,mass:6};
 // Strength-first reverses SE and Max Strength. The book says only "reverse it" and gives
 // no rep scheme for the late SE weeks, so this ramp to 50 is ours, and says so on screen.
 const BB_SF_SE=[[3,30],[3,40],[3,50]];
 // The book's example clusters. Five to eight exercises covering the whole body.
 const SE_CLUSTERS={
+  mass:{name:'TB III barbell',ex:['Bench press','Squat','Romanian deadlift','Abs'],
+      note:'The book’s cluster for TB III Base Building: the same lifts General Mass runs, so the base you build is the one you are about to need. It says not to use the conventional deadlift here — it is an awkward movement light and for high reps.'},
   bw:{name:'Bodyweight',ex:['Push-ups','Squats','Kipping pull-ups or inverted rows','Bicycle crunches','Dips','Back extensions'],
       note:'Add a weight vest or a pack with 5–10 lb to make it harder.'},
   bar:{name:'Barbell',ex:['Push press','Front squat','Row','Bench or floor press','Shrugs','Romanian deadlift'],
@@ -1836,19 +1854,19 @@ function weeks(minIdx){
     let wk;
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
-      if(wk.kind==='bb'&&wk.w<8){bbLeft=8-wk.w;bbVer=wk.ver||'standard'}
+      if(wk.kind==='bb'&&wk.w<bbLen(wk.ver)){bbVer=wk.ver||'standard';bbLeft=bbLen(bbVer)-wk.w}
       if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<cycleWeeks()?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
-      if(bbLeft>0){ wk={kind:'bb',w:9-bbLeft,ver:bbVer,inserted:true}; bbLeft--; }
-      else if(ins==='bb'){ bbVer=((plan.bbVer||{})[m])||'standard'; wk={kind:'bb',w:1,ver:bbVer,inserted:true}; bbLeft=7; }
+      if(bbLeft>0){ wk={kind:'bb',w:bbLen(bbVer)-bbLeft+1,ver:bbVer,inserted:true}; bbLeft--; }
+      else if(ins==='bb'){ bbVer=((plan.bbVer||{})[m])||'standard'; wk={kind:'bb',w:1,ver:bbVer,inserted:true}; bbLeft=bbLen(bbVer)-1; }
       else if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
     }
     wk=Object.assign({},wk,{monday:m,idx:i});
     if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
     if(wk.kind==='bb'&&wk.rx==null){
-      const i=(wk.ver==='strength')?wk.w-1:wk.w-6;      // which lifting week of the block
+      const i=wk.ver==='mass'?-1:(wk.ver==='strength')?wk.w-1:wk.w-6;   // which lifting week of the block, or none
       if(i>=0){const W=waveOf(); wk.rx=clone(W[Math.min(i,W.length-1)])}
     }
     if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
@@ -2184,9 +2202,9 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'}][d];
   if(wk.kind==='bb'){
     const row=bbRow(wk)[d]||['rest'], k=row[0];
-    if(k==='se') return {t:'se',circuits:row[1],reps:row[2],short:'SE '+row[1]+'×'+row[2]};
+    if(k==='se') return {t:'se',circuits:row[1],reps:row[2],pct:row[3]||null,short:'SE '+row[1]+'×'+row[2]};
     if(k==='e') return {t:'hic',fmt:'liss',eMin:row[1],eMax:row[2]||row[1],short:'E '+row[1]+(row[2]?'–'+row[2]:'')+'m',
-      note:d===5?'The long one. You have a recovery day behind you and a rest day ahead, so push the duration — a long ruck, a longer run than you have done, or one of the fun-runs.':'Minimum 30 minutes, conversational. Run-walk-run is fine and still aerobic.'};
+      note:wk.ver==='mass'?'Thirty minutes, and the book means it — no more, no less. Low intensity throughout: the talk test, or 120 to 150 bpm. No intervals, no sprints, no going fast. Anything continuous counts, so walk or ride if thirty minutes of running is a lot.':d===5?'The long one. You have a recovery day behind you and a rest day ahead, so push the duration — a long ruck, a longer run than you have done, or one of the fun-runs.':'Minimum 30 minutes, conversational. Run-walk-run is fine and still aerobic.'};
     if(k==='hic') return {t:'hic',fmt:(plan.bbHic||{})[monAdd(wk.monday,d)]||'map',bbHic:true,short:'HIC',
       note:'Weeks 6–8 use the aerobic-leaning HIC sessions only. Keep off the purely lactic ones: you cannot build the aerobic and lactic systems at once.'};
     if(k==='ms') return {t:'lift',lifts:d===0?['squat','bench',l3For(date)]:['squat','bench','dead'],bbLift:true,short:'Strength',
@@ -2194,6 +2212,29 @@ function dayPlanSlot(date,d){
     if(k==='rec') return {t:'off',recovery:true,short:'Recovery',
       note:'Movement drills, mobility, an easy swim or bike, a walk, yoga, a massage. Or nothing. If you are still raring to go, one easy E session or half an SE circuit is allowed.'};
     return {t:'off',short:'Rest',note:'Complete rest. No structured training. Walking, a casual swim or pick-up sport is fine.'};
+  }
+  /* Tactical Barbell III's Bridge Week: a week off between blocks, which the book also
+     calls deloading. Light activity only -- walking, hiking, an easy swim, yoga,
+     stretching, easy bodyweight circuits -- and no weights, HIC or E. Testing is
+     optional and goes on day 4, day 5 or both; "if no 1RM testing is required then Test
+     Days become Rest Days", so the app offers those days rather than imposing them. The
+     book asks for one every two to three months whether you feel like it or not.
+
+     Not to be confused with the app's own bridge week above, which is a calibration
+     week at the very start and is ours, not the book's. */
+  if(wk.kind==='bridge3'){
+    const ease='Light activity only. Walking, hiking, an easy swim, yoga, stretching, an easy bodyweight circuit. No weights, no HIC, no E — this week is for recovering, which is when the work you have already done actually lands.';
+    const light=()=>({t:'off',bridge3:true,short:'Light',note:ease});
+    const rest=['dead',...l3On()];
+    return [
+      light(), light(), light(),
+      {t:'test',lifts:['squat','bench'],bridge3:true,short:'Test',
+        note:'Optional. Test here if the next block needs new numbers — otherwise this is another rest day. The book only asks you to test once before you start, and maybe again before your first Specificity block.'},
+      {t:'test',lifts:rest,apply:true,bridge3:true,short:'Test',
+        note:'Optional, the same as day 4. Testing both days is fine, and so is testing neither.'},
+      light(),
+      {t:'off',bridge3:true,short:'Rest',note:'Complete rest.'},
+    ][d];
   }
   if(wk.kind==='bridge') return [
     {t:'off',short:'—',note:'Bridge week starts Tuesday.'},
@@ -2214,9 +2255,12 @@ function dayPlanSlot(date,d){
   return {t:'off',short:'Off',note:'Off week. Walk, sleep, eat. The plan resumes next Monday.'};
 }
 // The block's row for a week, after the strength-first swap if that version is running.
+function bbLen(ver){ return BB_LEN[ver||'standard']||8 }
 function bbRow(wk){
-  const base=BB_WEEKS[Math.min(Math.max((wk.w||1)-1,0),BB_WEEKS.length-1)];
-  if((wk.ver||'standard')!=='strength') return base;
+  const ver=wk.ver||'standard', clamp=t=>t[Math.min(Math.max((wk.w||1)-1,0),t.length-1)];
+  if(ver==='mass') return clamp(BB_MASS);
+  const base=clamp(BB_WEEKS);
+  if(ver!=='strength') return base;
   const r=BB_SF_SE[Math.min(Math.max((wk.w||6)-6,0),BB_SF_SE.length-1)];
   return base.map((x,i)=>x[0]==='se'?['ms']:x[0]==='ms'?['se',i===0?r[0]:2,r[1]]:x);
 }
@@ -2227,9 +2271,10 @@ function weekTitle(wk){
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
   if(wk.kind==='bb'){
     const r=bbRow(wk), se=r.filter(x=>x[0]==='se').length, ms=r.filter(x=>x[0]==='ms').length;
-    return {t:'Base Building · Week '+wk.w+' of 8',chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
+    return {t:'Base Building · Week '+wk.w+' of '+bbLen(wk.ver),chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
   }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
+  if(wk.kind==='bridge3') return {t:'Bridge week · TB III',chip:'A week off',cls:'light'};
   if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};
 }
@@ -2968,7 +3013,7 @@ function seSwap(i,name,ex){
 function seCard(dp){
   const key=seCluster(sel), ex=seDayList(sel), done=seDone(sel), C=dp.circuits, R=dp.reps, edited=seEdited(sel);
   const ticks=ex.reduce((a,_,i)=>a+((done[i]||[]).filter(Boolean).length),0), total=ex.length*C;
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps</span></div>
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps${dp.pct?' @ '+dp.pct+'%':''}</span></div>
   <div class="small muted">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
   <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key&&!edited?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key&&!edited}">${c.name}</button>`).join('')}</div>${edited?`<span class="chip blue">Changed for today</span><button class="btn sm ghost" data-act="sereset">Back to ${esc(SE_CLUSTERS[key].name)}</button>`:''}</div>`;
   if(!ex.length) return h+`<div class="banner warn"><div class="small">No exercises in your own cluster yet. Add five to eight in <b>Setup → Strength-endurance</b>, or pick one of the book's above.</div></div></div>`;
@@ -2976,7 +3021,8 @@ function seCard(dp){
   <div><button class="btn sm ghost" data-act="seadd">+ Add an exercise</button></div>
   <div class="row between"><span class="small muted">${ticks} of ${total} sets</span><span class="small muted">${esc(SE_CLUSTERS[key].note)}</span></div>
   <div class="restsel"><span>Rest between exercises</span><div class="seg">${SE_RESTS.map(v=>`<button class="segb${seRestSecs()===v?' on':''}" data-act="serest" data-v="${v}">${v?v+'s':'none'}</button>`).join('')}</div></div>
-  ${key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
+  ${dp.pct?`<div class="small muted">Today is <b>${dp.pct}% of your one-rep max</b> on each lift — the block's own number, not a range to guess at. Reps first, not load: get in the ballpark and err lighter. Failing partway through a set is normal here, so take a breather and make up the difference.</div>`
+    :key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
   </div>`;
   return h;
 }
@@ -5878,8 +5924,8 @@ function vPlanList(){
       if(wk.kind==='bb') opts.push(`<button class="btn sm" data-act="bbremove" data-monday="${wk.monday}">Remove the whole block</button>`);
       else if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
       else if(wk.rule) opts.push(`<button class="btn sm" data-act="skip" data-rule="${wk.rule}">Skip this ${wk.kind==='test'?'retest':'deload'}</button>`);
-      if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button>`);
-      if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
+      if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="mass">Base Building · TB III · 6 weeks</button>`);
+      if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','bridge3','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',bridge3:'Bridge · TB III',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
       menu=`<details class="menu"><summary>Change</summary><div class="pop">${opts.join('')}</div></details>`;
     }
     h+=`<div class="wk-row${cur?' cur':''}${past?' past':''}"><div class="wk-date">${fmtD(wk.monday)}–${fmtD(addDays(wk.monday,6))}</div><div class="wk-main"><div class="row" style="gap:8px"><span class="t">${wt.t}</span><span class="chip ${wt.cls}">${wt.chip}</span>${wk.inserted?'<span class="chip">Added</span>':''}</div>${sub.length?`<div class="small muted">${esc(sub.join(' · '))}</div>`:''}</div><div class="row" style="gap:6px;justify-content:flex-end">${done?`<span class="small mono muted">${done}/${tot}</span>`:''}${menu}</div></div>`;
@@ -6242,7 +6288,14 @@ function vGuide(){
   <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the program they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6,7,8].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6,7,8].map(w=>{const r=BB_WEEKS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]:k==='e'?'E '+r[1]+(r[2]?'–'+r[2]:'')+'M':k==='ms'?'Strength':k==='hic'?'HIC':k==='rec'?'Recovery':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
-  <ul class="tight"><li>Weeks 1–5 are endurance and strength-endurance dense, with no barbell work at all. That is deliberate: it frees the energy for the long sessions and gives tendons and joints a break before heavy lifting returns.</li><li>Weeks 6–8 taper the long work and bring back two strength days and the aerobic-leaning HIC sessions.</li><li>Every E session is a minimum of 30 minutes. Day 6 is the long one, with a recovery day before it and a rest day after, so push the duration there.</li><li>Recovery days are movement drills, mobility, an easy swim or bike, a walk, yoga, or nothing at all.</li><li>At least one completely free day a week. Walking and pick-up sport are fine.</li><li>Eat for it. The book asks for 1–2 g of protein per pound of bodyweight through the block and is firmly against going low-carb while the volume is up.</li><li><b>Strength-first</b> reverses it: lift for the first five weeks, strength-endurance for the last three. The book doesn't give rep numbers for those late SE weeks, so the app ramps 3×30, 3×40, 3×50.</li></ul></div>
+  <ul class="tight"><li>Weeks 1–5 are endurance and strength-endurance dense, with no barbell work at all. That is deliberate: it frees the energy for the long sessions and gives tendons and joints a break before heavy lifting returns.</li><li>Weeks 6–8 taper the long work and bring back two strength days and the aerobic-leaning HIC sessions.</li><li>Every E session is a minimum of 30 minutes. Day 6 is the long one, with a recovery day before it and a rest day after, so push the duration there.</li><li>Recovery days are movement drills, mobility, an easy swim or bike, a walk, yoga, or nothing at all.</li><li>At least one completely free day a week. Walking and pick-up sport are fine.</li><li>Eat for it. The book asks for 1–2 g of protein per pound of bodyweight through the block and is firmly against going low-carb while the volume is up.</li><li><b>Strength-first</b> reverses it: lift for the first five weeks, strength-endurance for the last three. The book doesn't give rep numbers for those late SE weeks, so the app ramps 3×30, 3×40, 3×50.</li></ul>
+  <p><b>Tactical Barbell III runs its own version, and it is a different block.</b> Six weeks instead of eight, and only two domains: strength-endurance three times a week on alternate days, endurance on the days between. No barbell strength week, no HIC, no recovery day. The book is explicit that this is not the TB II model — mass is the objective and conditioning is there to keep you operational, not to build an elite base.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Day</th>${[1,2,3,4,5,6].map(w=>`<th>W${w}</th>`).join('')}</tr></thead><tbody>${[0,1,2,3,4,5,6].map(d=>`<tr><td>${d+1}</td>${[1,2,3,4,5,6].map(w=>{const r=BB_MASS[w-1][d],k=r[0];return `<td class="small">${k==='se'?'SE '+r[1]+'×'+r[2]+' @ '+r[3]+'%':k==='e'?'E '+r[1]+'M':'Rest'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
+  <ul class="tight"><li><b>The reps climb inside the week, not across it.</b> Ten, twenty, thirty on the three SE days, and weeks 4 to 6 add five percent to each load. Every week has the same shape.</li>
+  <li><b>E is capped at thirty minutes.</b> Not a minimum — a cap. The book says “no more, no less”, and answers the obvious question about longer sessions with “the short answer is NO”: more endurance than this works against the thing you came for.</li>
+  <li><b>Low intensity throughout.</b> Talk test, or 120 to 150 bpm, or nose breathing. No intervals and no sprints for the full six weeks. Walking or riding counts if thirty minutes of running is a lot.</li>
+  <li><b>The cluster is the General Mass lifts</b> — bench, squat, Romanian deadlift and abs — so the base you build is for the block you are about to run. Pick <b>TB III barbell</b> on the day. The book says to keep the conventional deadlift out of it: light and high-rep, it is an awkward lift.</li>
+  <li>Add it from the Plan tab, the same way as the other two.</li></ul></div>
   <div class="card guide"><h3>Strength-endurance circuits</h3><p>Five to eight exercises covering the whole body, done one after another. Do your reps, take a short rest, move to the next. After a full circuit, rest two minutes and go again. The shorter you can make the rests, the better — down to none if you can hold it together.</p>
   <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that gray area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
@@ -7060,7 +7113,7 @@ document.getElementById('main').addEventListener('click',e=>{
     return}
   if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}
-  if(a==='insert'){replan((b.dataset.kind==='deload'?'Deload':b.dataset.kind==='test'?'Retest':b.dataset.kind==='travel'?'Travel':'Off')+' week added',p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
+  if(a==='insert'){replan(({deload:'Deload',test:'Retest',bridge3:'Bridge',travel:'Travel'}[b.dataset.kind]||'Off')+' week added',p=>{p.inserts[b.dataset.monday]=b.dataset.kind});return}
   if(a==='uninsert'){replan('Week removed',p=>{delete p.inserts[b.dataset.monday]});return}
   if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}
   if(a==='unskip'){replan('Week restored',p=>{delete p.skips[b.dataset.rule]});return}

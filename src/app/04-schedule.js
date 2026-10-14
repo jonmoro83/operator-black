@@ -24,19 +24,19 @@ function weeks(minIdx){
     let wk;
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
-      if(wk.kind==='bb'&&wk.w<8){bbLeft=8-wk.w;bbVer=wk.ver||'standard'}
+      if(wk.kind==='bb'&&wk.w<bbLen(wk.ver)){bbVer=wk.ver||'standard';bbLeft=bbLen(bbVer)-wk.w}
       if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<cycleWeeks()?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
-      if(bbLeft>0){ wk={kind:'bb',w:9-bbLeft,ver:bbVer,inserted:true}; bbLeft--; }
-      else if(ins==='bb'){ bbVer=((plan.bbVer||{})[m])||'standard'; wk={kind:'bb',w:1,ver:bbVer,inserted:true}; bbLeft=7; }
+      if(bbLeft>0){ wk={kind:'bb',w:bbLen(bbVer)-bbLeft+1,ver:bbVer,inserted:true}; bbLeft--; }
+      else if(ins==='bb'){ bbVer=((plan.bbVer||{})[m])||'standard'; wk={kind:'bb',w:1,ver:bbVer,inserted:true}; bbLeft=bbLen(bbVer)-1; }
       else if(ins) wk={kind:ins,inserted:true}; else wk=g.next().value;
     }
     wk=Object.assign({},wk,{monday:m,idx:i});
     if(wk.kind==='cycle'){if(wk.plyoIdx==null)wk.plyoIdx=cw;cw=wk.plyoIdx+1;lastC=wk.cycle}
     if(wk.kind==='bb'&&wk.rx==null){
-      const i=(wk.ver==='strength')?wk.w-1:wk.w-6;      // which lifting week of the block
+      const i=wk.ver==='mass'?-1:(wk.ver==='strength')?wk.w-1:wk.w-6;   // which lifting week of the block, or none
       if(i>=0){const W=waveOf(); wk.rx=clone(W[Math.min(i,W.length-1)])}
     }
     if(wk.refCycle==null) wk.refCycle=wk.after||lastC||1;
@@ -372,9 +372,9 @@ function dayPlanSlot(date,d){
     {t:'off',short:'Off'}][d];
   if(wk.kind==='bb'){
     const row=bbRow(wk)[d]||['rest'], k=row[0];
-    if(k==='se') return {t:'se',circuits:row[1],reps:row[2],short:'SE '+row[1]+'×'+row[2]};
+    if(k==='se') return {t:'se',circuits:row[1],reps:row[2],pct:row[3]||null,short:'SE '+row[1]+'×'+row[2]};
     if(k==='e') return {t:'hic',fmt:'liss',eMin:row[1],eMax:row[2]||row[1],short:'E '+row[1]+(row[2]?'–'+row[2]:'')+'m',
-      note:d===5?'The long one. You have a recovery day behind you and a rest day ahead, so push the duration — a long ruck, a longer run than you have done, or one of the fun-runs.':'Minimum 30 minutes, conversational. Run-walk-run is fine and still aerobic.'};
+      note:wk.ver==='mass'?'Thirty minutes, and the book means it — no more, no less. Low intensity throughout: the talk test, or 120 to 150 bpm. No intervals, no sprints, no going fast. Anything continuous counts, so walk or ride if thirty minutes of running is a lot.':d===5?'The long one. You have a recovery day behind you and a rest day ahead, so push the duration — a long ruck, a longer run than you have done, or one of the fun-runs.':'Minimum 30 minutes, conversational. Run-walk-run is fine and still aerobic.'};
     if(k==='hic') return {t:'hic',fmt:(plan.bbHic||{})[monAdd(wk.monday,d)]||'map',bbHic:true,short:'HIC',
       note:'Weeks 6–8 use the aerobic-leaning HIC sessions only. Keep off the purely lactic ones: you cannot build the aerobic and lactic systems at once.'};
     if(k==='ms') return {t:'lift',lifts:d===0?['squat','bench',l3For(date)]:['squat','bench','dead'],bbLift:true,short:'Strength',
@@ -382,6 +382,29 @@ function dayPlanSlot(date,d){
     if(k==='rec') return {t:'off',recovery:true,short:'Recovery',
       note:'Movement drills, mobility, an easy swim or bike, a walk, yoga, a massage. Or nothing. If you are still raring to go, one easy E session or half an SE circuit is allowed.'};
     return {t:'off',short:'Rest',note:'Complete rest. No structured training. Walking, a casual swim or pick-up sport is fine.'};
+  }
+  /* Tactical Barbell III's Bridge Week: a week off between blocks, which the book also
+     calls deloading. Light activity only -- walking, hiking, an easy swim, yoga,
+     stretching, easy bodyweight circuits -- and no weights, HIC or E. Testing is
+     optional and goes on day 4, day 5 or both; "if no 1RM testing is required then Test
+     Days become Rest Days", so the app offers those days rather than imposing them. The
+     book asks for one every two to three months whether you feel like it or not.
+
+     Not to be confused with the app's own bridge week above, which is a calibration
+     week at the very start and is ours, not the book's. */
+  if(wk.kind==='bridge3'){
+    const ease='Light activity only. Walking, hiking, an easy swim, yoga, stretching, an easy bodyweight circuit. No weights, no HIC, no E — this week is for recovering, which is when the work you have already done actually lands.';
+    const light=()=>({t:'off',bridge3:true,short:'Light',note:ease});
+    const rest=['dead',...l3On()];
+    return [
+      light(), light(), light(),
+      {t:'test',lifts:['squat','bench'],bridge3:true,short:'Test',
+        note:'Optional. Test here if the next block needs new numbers — otherwise this is another rest day. The book only asks you to test once before you start, and maybe again before your first Specificity block.'},
+      {t:'test',lifts:rest,apply:true,bridge3:true,short:'Test',
+        note:'Optional, the same as day 4. Testing both days is fine, and so is testing neither.'},
+      light(),
+      {t:'off',bridge3:true,short:'Rest',note:'Complete rest.'},
+    ][d];
   }
   if(wk.kind==='bridge') return [
     {t:'off',short:'—',note:'Bridge week starts Tuesday.'},
@@ -402,9 +425,12 @@ function dayPlanSlot(date,d){
   return {t:'off',short:'Off',note:'Off week. Walk, sleep, eat. The plan resumes next Monday.'};
 }
 // The block's row for a week, after the strength-first swap if that version is running.
+function bbLen(ver){ return BB_LEN[ver||'standard']||8 }
 function bbRow(wk){
-  const base=BB_WEEKS[Math.min(Math.max((wk.w||1)-1,0),BB_WEEKS.length-1)];
-  if((wk.ver||'standard')!=='strength') return base;
+  const ver=wk.ver||'standard', clamp=t=>t[Math.min(Math.max((wk.w||1)-1,0),t.length-1)];
+  if(ver==='mass') return clamp(BB_MASS);
+  const base=clamp(BB_WEEKS);
+  if(ver!=='strength') return base;
   const r=BB_SF_SE[Math.min(Math.max((wk.w||6)-6,0),BB_SF_SE.length-1)];
   return base.map((x,i)=>x[0]==='se'?['ms']:x[0]==='ms'?['se',i===0?r[0]:2,r[1]]:x);
 }
@@ -415,9 +441,10 @@ function weekTitle(wk){
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
   if(wk.kind==='bb'){
     const r=bbRow(wk), se=r.filter(x=>x[0]==='se').length, ms=r.filter(x=>x[0]==='ms').length;
-    return {t:'Base Building · Week '+wk.w+' of 8',chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
+    return {t:'Base Building · Week '+wk.w+' of '+bbLen(wk.ver),chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
   }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};
+  if(wk.kind==='bridge3') return {t:'Bridge week · TB III',chip:'A week off',cls:'light'};
   if(wk.kind==='travel') return {t:'Travel week',chip:'Minimal kit',cls:'mid'};
   return {t:'Off week',chip:'Rest',cls:''};
 }

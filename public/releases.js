@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.5',date:'2026-10-14',title:'Tactical Barbell III\u2019s Base Building, and its bridge week',items:[
+    '<b>A third Base Building option</b>, and it is a different block rather than a variation. Six weeks instead of eight, and only two things in it: strength-endurance three days a week, easy endurance on the days between. No strength week, no HIC, no recovery day.',
+    'The reps climb inside the week \u2014 ten, twenty, thirty \u2014 and weeks four to six add five percent to each load. Every session shows the exact percentage rather than a range to guess at. The cluster the book wants is bench, squat, Romanian deadlift and abs, and it is on the picker as <b>TB III barbell</b>.',
+    'Endurance is capped at thirty minutes. That is a cap and not a minimum: asked outright whether you can do longer, the book answers no. More endurance than this works against the reason you picked the block.',
+    '<b>A bridge week</b> you can drop in from the Plan tab, next to Deload and Retest. Five days of light activity \u2014 walking, an easy swim, yoga, nothing \u2014 and two optional test days. If you do not need new numbers, those are rest days too, and the app says so instead of making you train.']},
   {v:'2.4',date:'2026-10-14',title:'Specificity Alpha and Bravo',items:[
     'The last two strength templates, both from Tactical Barbell III. Three-week blocks, four days a week, meant to follow a stretch of General Mass.',
     '<b>Alpha</b> is half and half. Two maximal-strength days on bench, squat and deadlift \u2014 the deadlift at one work set per session, which is its own programming in this block \u2014 and two hypertrophy days running your own cluster at higher reps.',

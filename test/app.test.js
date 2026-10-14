@@ -4068,6 +4068,102 @@ test("a circuit that rides on a lifting day is drawn as a circuit, not a bike se
   delete x.CPROTO.allse;
 });
 
+test("Tactical Barbell III's Base Building is six weeks of SE and E, and nothing else", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.inserts = { "2026-10-19": "bb" }; x.plan.bbVer = { "2026-10-19": "mass" }; x.bump();
+
+  const bb = x.weeks().filter((w) => w.kind === "bb");
+  a.equal(bb.length, 6, "six weeks, not TB II's eight");
+  a.match(x.weekTitle(bb[0]).t, /Week 1 of 6/, "and the header counts to six");
+  a.equal(x.bbLen("mass"), 6);
+  a.equal(x.bbLen("standard"), 8, "TB II's is untouched");
+  a.equal(x.bbLen("strength"), 8);
+  a.equal(x.bbLen(undefined), 8, "and an unset version is the standard one");
+
+  const day = (wk, d) => x.dayPlanSlot(x.addDays(wk.monday, d), d);
+  for (const wk of bb) {
+    const ds = [0, 1, 2, 3, 4, 5, 6].map((d) => day(wk, d));
+    a.deepEqual(ds.map((p) => p.t), ["se", "hic", "se", "hic", "se", "hic", "off"], `week ${wk.w} shape`);
+    a.ok(ds.filter((p) => p.t === "hic").every((p) => p.fmt === "liss" && p.eMin === 30 && p.eMax === 30),
+      `week ${wk.w}: E is thirty minutes exactly, which the book means as a cap`);
+    // No barbell strength week, no HIC, no recovery day: the three things TB II has.
+    a.ok(!ds.some((p) => p.bbLift || p.bbHic || p.recovery), `week ${wk.w} has none of TB II's furniture`);
+    a.equal(wk.rx, null, `week ${wk.w} takes no wave prescription, having no lifting day`);
+  }
+
+  // The book's SE table: reps climb inside the week, loads step up at week four.
+  const pct = bb.map((wk) => [0, 2, 4].map((d) => day(wk, d).pct));
+  const reps = bb.map((wk) => [0, 2, 4].map((d) => day(wk, d).reps));
+  a.deepEqual(reps, Array(6).fill([10, 20, 30]), "ten, twenty, thirty, every week");
+  a.deepEqual(pct, [[15, 20, 25], [15, 20, 25], [15, 20, 25], [20, 25, 30], [20, 25, 30], [20, 25, 30]]);
+  a.ok(bb.every((wk) => [0, 2, 4].every((d) => day(wk, d).circuits === 3)), "three sets throughout");
+
+  // The percentage reaches the card, because a range to guess at is not what this is.
+  const d0 = x.addDays(bb[3].monday, 4); x.sel = d0; x.bump();
+  const card = x.seCard(day(bb[3], 4));
+  a.match(card, /3 circuits × 30 reps @ 30%/);
+  a.match(card, /<b>30% of your one-rep max<\/b>/);
+  a.ok(!/roughly 15–30%/.test(card), "the generic range gives way to the block's own number");
+  // TB II's block has no percentage, so it keeps the range.
+  x.plan.bbVer = { "2026-10-19": "standard" }; x.bump();
+  const std = x.weeks().filter((w) => w.kind === "bb");
+  a.equal(std.length, 8);
+  a.equal(x.dayPlanSlot(std[0].monday, 0).pct, null, "TB II prescribes no percentage");
+
+  // And the block hands back to the cycle after six weeks rather than eight.
+  x.plan.bbVer = { "2026-10-19": "mass" }; x.bump();
+  const after = x.weeks().filter((w) => w.kind !== "bb")[0];
+  a.equal(after.kind, "cycle"); a.equal(after.w, 1);
+  a.equal(x.weeks()[6].kind, "cycle", "week seven is the program again");
+});
+
+test("TB III's bridge week is a week off, with testing offered rather than imposed", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.inserts = { "2026-11-16": "bridge3" }; x.bump();
+
+  const wk = x.weeks().find((w) => w.kind === "bridge3");
+  a.ok(wk, "it can be inserted like any other week");
+  a.match(x.weekTitle(wk).t, /Bridge week · TB III/);
+  a.equal(x.weekTitle(wk).chip, "A week off");
+
+  const ds = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(wk.monday, d), d));
+  a.deepEqual(ds.map((p) => p.t), ["off", "off", "off", "test", "test", "off", "off"],
+    "light days, two optional test days on 4 and 5, rest");
+  a.ok(ds.every((p) => p.bridge3), "every day knows which week it is in");
+
+  // No training. The book bans weights, HIC and E for the week.
+  a.ok(!ds.some((p) => p.t === "lift" || p.t === "hic" || p.t === "se"), "nothing to train");
+  for (const p of ds.filter((q) => q.short === "Light")) {
+    a.match(p.note, /Light activity only/);
+    a.match(p.note, /No weights, no HIC, no E/);
+  }
+  // The test days say outright that they are optional, because the book does.
+  for (const p of ds.filter((q) => q.t === "test")) a.match(p.note, /[Oo]ptional/);
+  a.deepEqual(ds[3].lifts, ["squat", "bench"]);
+  a.ok(ds[4].lifts.includes("dead"), "and the rest of the cluster on day 5");
+  a.equal(ds[4].apply, true, "day 5 is where new maxes get applied");
+
+  // It is one week, inserted, and the program picks up straight after.
+  a.equal(x.weeks().filter((w) => w.kind === "bridge3").length, 1);
+  a.equal(x.weeks().find((w) => w.monday > wk.monday).kind, "cycle");
+
+  // And it is distinct from the app's own calibration bridge, which is not the book's.
+  x.plan.inserts = {}; x.plan.bridge = true; x.bump();
+  const own = x.weeks().find((w) => w.kind === "bridge");
+  a.ok(own && own.kind !== "bridge3", "two different weeks, not one renamed");
+  a.match(x.weekTitle(own).chip, /Calibration/);
+});
+
+test("the book's own SE cluster for the TB III block is on offer", () => {
+  const x = app({ now: "2026-10-19" });
+  a.ok(x.SE_CLUSTERS.mass, "a cluster for it");
+  a.deepEqual(x.SE_CLUSTERS.mass.ex, ["Bench press", "Squat", "Romanian deadlift", "Abs"],
+    "the General Mass lifts, with the RDL standing in for the deadlift");
+  a.match(x.SE_CLUSTERS.mass.note, /conventional deadlift/, "and it says why the deadlift is not in it");
+});
+
 test("Specificity Alpha is half maximal strength and half hypertrophy, on the book's table", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;

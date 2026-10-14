@@ -573,11 +573,29 @@ const BB_WEEKS=[
   [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']],
   [['ms'],['hic'],['rec'],['ms'],['hic'],['e',30,60],['rest']]
 ];
+/* Tactical Barbell III's Base Building, which is not TB II's. Six weeks rather than
+   eight, and only two domains: strength-endurance three times a week on alternate days,
+   and endurance three times on the days between. No barbell strength week, no HIC, no
+   recovery day -- the book strips it to what supports hypertrophy and nothing else.
+
+   The reps climb within the week (10, 20, 30) rather than across it, and weeks 4 to 6
+   add five percent to each. E is capped at 30 minutes and the book means the cap:
+   "No more, no less." Asked outright whether you can do longer E sessions, it answers
+   "The short answer is NO."  */
+const BB_MASS=(()=>{
+  const row=(a,b,c)=>[['se',3,a[0],a[1]],['e',30],['se',3,b[0],b[1]],['e',30],['se',3,c[0],c[1]],['e',30],['rest']];
+  const early=row([10,15],[20,20],[30,25]), late=row([10,20],[20,25],[30,30]);
+  return [early,early,early,late,late,late];
+})();
+// How long each version of the block runs. TB II's is eight weeks, TB III's is six.
+const BB_LEN={standard:8,strength:8,mass:6};
 // Strength-first reverses SE and Max Strength. The book says only "reverse it" and gives
 // no rep scheme for the late SE weeks, so this ramp to 50 is ours, and says so on screen.
 const BB_SF_SE=[[3,30],[3,40],[3,50]];
 // The book's example clusters. Five to eight exercises covering the whole body.
 const SE_CLUSTERS={
+  mass:{name:'TB III barbell',ex:['Bench press','Squat','Romanian deadlift','Abs'],
+      note:'The book’s cluster for TB III Base Building: the same lifts General Mass runs, so the base you build is the one you are about to need. It says not to use the conventional deadlift here — it is an awkward movement light and for high reps.'},
   bw:{name:'Bodyweight',ex:['Push-ups','Squats','Kipping pull-ups or inverted rows','Bicycle crunches','Dips','Back extensions'],
       note:'Add a weight vest or a pack with 5–10 lb to make it harder.'},
   bar:{name:'Barbell',ex:['Push press','Front squat','Row','Bench or floor press','Shrugs','Romanian deadlift'],
