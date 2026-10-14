@@ -127,8 +127,11 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - The last two templates. Both read off the book's tables rather than remembered: the
   PDF's tables are images, so they were pulled out by resolving each page's
   `/Resources /XObject` to an object number and reading the JPEGs.
-- They are Mass Protocol's, not TB III's, which the roadmap had wrong. Labelled
-  `Mass Protocol` in Setup alongside TB1 and TB3.
+- Shipped briefly labelled `Mass Protocol` on the claim that the roadmap had filed them
+  under the wrong book. That was wrong and the roadmap was right: TB III is titled
+  Tactical Barbell III: Mass Protocol, one book, and its contents run Mass Template,
+  Grey Man, Gladiator, Fighter HT, Specificity Alpha, Specificity Bravo. Corrected to
+  `TB3`, which is what their four siblings from the same book already said.
 - Three-week blocks, four days a week on days 1, 2, 4 and 5. `wave` has three entries,
   so `cycleWeeks()` reports three and week four starts the block again — the same
   mechanism Gladiator and Mass already use.

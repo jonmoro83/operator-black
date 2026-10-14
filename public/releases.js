@@ -7,7 +7,7 @@
 // tag carries it), so the two move together.
 const RELEASES=[
   {v:'2.4',date:'2026-10-14',title:'Specificity Alpha and Bravo',items:[
-    'The last two strength templates, both from Mass Protocol. Three-week blocks, four days a week, meant to follow a stretch of General Mass.',
+    'The last two strength templates, both from Tactical Barbell III. Three-week blocks, four days a week, meant to follow a stretch of General Mass.',
     '<b>Alpha</b> is half and half. Two maximal-strength days on bench, squat and deadlift \u2014 the deadlift at one work set per session, which is its own programming in this block \u2014 and two hypertrophy days running your own cluster at higher reps.',
     '<b>Bravo</b> drops the barbell work altogether. Four hypertrophy days, eight to sixteen exercises split in two with each half trained twice a week, four to five sets throughout. The back half of the week runs five percent heavier than the front, which is the book\u2019s table, not ours.',
     'A hypertrophy day has no lifts to show you, so the whole session is the cluster, under Supplementary. What goes in it is yours: the book gives sample clusters and leaves the choice open.',

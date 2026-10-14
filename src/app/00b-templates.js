@@ -164,12 +164,17 @@ const STEMPL={
       return base;
     },
   },
-  /* Mass Protocol's Specificity block: three weeks, four lifting days, run after a
-     stretch of General Mass. Alpha is half maximal strength and half hypertrophy;
-     Bravo drops the barbell work entirely. Both tables are the book's, read off the
-     page rather than remembered. */
+  /* Tactical Barbell III's Specificity block: three weeks, four lifting days, run
+     after a stretch of General Mass. Alpha is half maximal strength and half
+     hypertrophy; Bravo drops the barbell work entirely. Both tables are the book's,
+     read off the page rather than remembered.
+
+     TB III is also titled Mass Protocol, and they are one book, not two — its contents
+     run Mass Template, Grey Man, Gladiator, Fighter HT, Specificity Alpha, Specificity
+     Bravo. These two shipped briefly labelled 'Mass Protocol' while their four siblings
+     from the same book said 'TB3'. */
   specalpha:{
-    name:'Specificity Alpha', book:'Mass Protocol', slots:[0,1,3,4],
+    name:'Specificity Alpha', book:'TB3', slots:[0,1,3,4],
     blurb:'A three-week hypertrophy block that keeps heavy work in the mix. Two maximal-strength days on bench, squat and deadlift, and two days of your own cluster at higher reps. The book wants it after a stretch of General Mass.',
     days:[
       {lifts:'MS',half:'a',short:'Spec MS',label:'Specificity Alpha \u00b7 maximal strength'},
@@ -188,7 +193,7 @@ const STEMPL={
     accRx:wk=>[{s:4,r:12,p:65},{s:4,r:10,p:70},{s:4,r:8,p:75}][(((wk&&wk.w||1)-1)%3)],
   },
   specbravo:{
-    name:'Specificity Bravo', book:'Mass Protocol', slots:[0,1,3,4],
+    name:'Specificity Bravo', book:'TB3', slots:[0,1,3,4],
     blurb:'Three weeks of nothing but hypertrophy. Eight to sixteen exercises split in two, each half trained twice a week at 50 to 75%. Dropping maximal strength for a block is the point of it, not an oversight.',
     days:[
       {lifts:'NONE',half:'a',acc:'sp1',short:'Spec H1',label:'Specificity Bravo \u00b7 hypertrophy 1'},

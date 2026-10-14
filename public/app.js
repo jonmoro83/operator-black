@@ -166,12 +166,17 @@ const STEMPL={
       return base;
     },
   },
-  /* Mass Protocol's Specificity block: three weeks, four lifting days, run after a
-     stretch of General Mass. Alpha is half maximal strength and half hypertrophy;
-     Bravo drops the barbell work entirely. Both tables are the book's, read off the
-     page rather than remembered. */
+  /* Tactical Barbell III's Specificity block: three weeks, four lifting days, run
+     after a stretch of General Mass. Alpha is half maximal strength and half
+     hypertrophy; Bravo drops the barbell work entirely. Both tables are the book's,
+     read off the page rather than remembered.
+
+     TB III is also titled Mass Protocol, and they are one book, not two — its contents
+     run Mass Template, Grey Man, Gladiator, Fighter HT, Specificity Alpha, Specificity
+     Bravo. These two shipped briefly labelled 'Mass Protocol' while their four siblings
+     from the same book said 'TB3'. */
   specalpha:{
-    name:'Specificity Alpha', book:'Mass Protocol', slots:[0,1,3,4],
+    name:'Specificity Alpha', book:'TB3', slots:[0,1,3,4],
     blurb:'A three-week hypertrophy block that keeps heavy work in the mix. Two maximal-strength days on bench, squat and deadlift, and two days of your own cluster at higher reps. The book wants it after a stretch of General Mass.',
     days:[
       {lifts:'MS',half:'a',short:'Spec MS',label:'Specificity Alpha \u00b7 maximal strength'},
@@ -190,7 +195,7 @@ const STEMPL={
     accRx:wk=>[{s:4,r:12,p:65},{s:4,r:10,p:70},{s:4,r:8,p:75}][(((wk&&wk.w||1)-1)%3)],
   },
   specbravo:{
-    name:'Specificity Bravo', book:'Mass Protocol', slots:[0,1,3,4],
+    name:'Specificity Bravo', book:'TB3', slots:[0,1,3,4],
     blurb:'Three weeks of nothing but hypertrophy. Eight to sixteen exercises split in two, each half trained twice a week at 50 to 75%. Dropping maximal strength for a block is the point of it, not an oversight.',
     days:[
       {lifts:'NONE',half:'a',acc:'sp1',short:'Spec H1',label:'Specificity Bravo \u00b7 hypertrophy 1'},
@@ -6232,7 +6237,7 @@ function vGuide(){
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, keeping hard days apart. Easy aerobic days can sit next to anything, which is what Green's own template does.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
-  <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Mass Protocol and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
+  <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>
   <li><b>Switching re-draws this week and the ones ahead.</b> Weeks you have already trained keep the program they were done under. Each strength template keeps its own wave, so you can switch across and back without losing tuned numbers.</li></ul></div>
   <div class="card guide"><h3>Base Building</h3><p>Tactical Barbell II's Block I: eight weeks of aerobic base and strength-endurance before you go back to heavy barbell work. Add it from the Plan tab and it runs in place of your next cycle; Operator picks up where it left off afterwards, at the same maxes.</p>
