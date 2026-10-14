@@ -127,6 +127,13 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Sandbag over bar (2026-10-14)**
+- A third sandbag FOBBIT, paired with push-ups so the burst is one loaded explosive
+  movement and one that needs nothing.
+- The test now also asserts no two entries prescribe the same pair, which is what stops
+  a catalog quietly becoming a list of the same session under different names.
+- 264 tests held, 2 mutants, both caught.
+
 **A catalog of FOBBITs (2026-10-14)**
 - There was one, hardcoded into the Guide's prose, and the movements were a free-text
   box on the day. `FOBBIT` is now a list: kettlebell (the original pairing, unchanged so

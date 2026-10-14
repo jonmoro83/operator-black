@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'2.0',date:'2026-10-14',title:'Sandbag over bar',items:[
+    'A third sandbag FOBBIT: five over the bar, then fifteen push-ups, between the two-minute blocks of base.',
+    'Two things on it worth saying. Reset the bag on the floor each rep rather than catching it coming back, and keep the bar at the same height every session \u2014 change the height and the count means nothing against the last one. It is explosive hip extension, so it is the first thing to fall apart when you are tired: if the back is rounding to get the bag up, the set is over.']},
   {v:'1.99',date:'2026-10-14',title:'A catalog of FOBBITs',items:[
     'There was only ever one \u2014 kettlebell swings and snatches \u2014 and the movements were a text box you filled in yourself. Now it is a list you pick from, and the day tells you what the two movements are instead of asking.',
     '<b>Two sandbag versions.</b> The standard one is shouldering it ten times alternating, then fifteen bear-hug squats. The heavy one is six ground-to-shoulder per side, then a thirty-meter front carry \u2014 the carry is the rest, so do not put the bag down during it.',

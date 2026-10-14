@@ -5034,7 +5034,13 @@ test("FOBBITs are a catalog, with sandbag options, not one hardcoded pair", () =
   const ids = Object.keys(x.FOBBIT);
   a.ok(ids.length >= 5, "several to choose from");
   a.ok(ids.includes("kb"), "the kettlebell one the app already had");
-  a.ok(ids.filter((k) => /sandbag/.test(k)).length >= 2, "and more than one sandbag");
+  a.ok(ids.filter((k) => /sandbag/.test(k)).length >= 3, "and several sandbag ones");
+  a.ok(ids.includes("sandbagbar"), "including over the bar");
+  a.match(x.fobLine("sandbagbar"), /over the bar/);
+
+  // Every entry is a distinct pairing: a catalog of one movement repeated is not one.
+  const lines = ids.filter((k) => x.FOBBIT[k].a).map((k) => x.fobLine(k));
+  a.equal(new Set(lines).size, lines.length, "no two prescribe the same pair");
 
   // Every one names its kit and its two movements, or is the type-your-own.
   for (const [k, F] of Object.entries(x.FOBBIT)) {
