@@ -79,6 +79,11 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
 
 ## Next up
 
+- **Status, pass two: the verdict block.** The cuts and the reorder shipped 2026-10-16.
+  What is left is the part that answers the question instead of presenting the evidence:
+  three lines at the top of Status — keeping up, working, watch — in words and in
+  color, with the cards below as the backing. The same move the Macros card made.
+
 - **TB book coverage is done**, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
@@ -190,6 +195,31 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Status says where you are, History says what happened (2026-10-16)**
+- First of two passes on the Status tab. The tab had become ten cards and twenty trend
+  charts on one scroll, and most of the lines were drawn twice: Status charted maxes by
+  cycle, readiness, results per activity and broad jump, while History tabled all four.
+- **The split is the fix.** Status answers "how am I doing" and keeps the current number
+  and its direction. History answers "what happened" and keeps the line. Four chart
+  groups moved: maxes by cycle, readiness over 28 days, results per activity, broad
+  jump. Status went from 20 charts to 7, History from 0 to 13.
+- The heaviest completed set, and the sentence about a logged weight implying a
+  different 1RM, moved with the maxes table it explains.
+- **Strength is rows now, not five sparklines** — lift, current max, and green or red
+  for where it has gone since C1. The Macros row treatment, reused.
+- **One fact, one place.** Readiness was a 7-day tile and a 28-day line four cards
+  apart; the tile stays, the line is History's. All-time adherence went, since the
+  heatmap beside it already shows the pattern rather than the rate.
+- **Reordered to what gets looked at.** Macros, bodyweight and energy used to start at
+  96% of the scroll and are now third, fourth and fifth. The pain banner moved above
+  the numbers instead of four cards below them.
+- Four tests: the two tabs never draw the same line, the lift rows carry a direction,
+  readiness is said once, and the daily cards come before the monthly ones. Five
+  mutants, all caught.
+- **Pass two is the verdict block** — three lines at the top of Status saying whether
+  you are keeping up, whether it is working, and what to watch, in words and in color.
+  Not started; this pass was the cuts and the reorder.
 
 **Everything you tap is big enough to tap (2026-10-16)**
 - Asked for UI/UX recommendations for the app as a whole, not just the Macros card.

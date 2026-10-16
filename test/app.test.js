@@ -477,8 +477,9 @@ test("the heaviest completed set only claims a 1RM when you logged your own weig
   x.seed({ [d]: { date: d, done: true, lifts: { squat: { sets: [true, true, true] } } } }); x.bump();
   const asRx = x.heavySet("squat");
   a.equal(asRx.off, false, "nothing was overridden");
-  a.match(x.vStatus(), /Heaviest set completed/);
-  a.ok(!/implies/.test(x.vStatus()), "a prescribed set restates the max, so it claims nothing");
+  // The heaviest set is in History now, with the maxes-by-cycle table it explains.
+  a.match(x.vHistory(), /Heaviest set completed/);
+  a.ok(!/implies/.test(x.vHistory()), "a prescribed set restates the max, so it claims nothing");
 
   // Now log a heavier weight than prescribed: that is real evidence.
   const w = x.loadFor("squat", v.m.v, v.p, d) + 20;
@@ -487,7 +488,7 @@ test("the heaviest completed set only claims a 1RM when you logged your own weig
   a.equal(over.off, true);
   a.equal(over.w, w);
   a.ok(over.e > asRx.e, "a heavier set implies a higher max");
-  a.match(x.vStatus(), /implies/);
+  a.match(x.vHistory(), /implies/);
 });
 
 test("releases are a history: newest first, each version used once", () => {
@@ -6638,4 +6639,65 @@ test("anything you tap is big enough to tap", () => {
     if (px < MIN) small.push(`${sel} (${px})`);
   }
   a.deepEqual(small, [], `tap targets under ${MIN}px: ${small.join("; ")}`);
+});
+
+// A seeded two months: sessions done, daily check-ins, conditioning and jumps, so both
+// tabs render with their charts on rather than their empty states.
+function lived(now) {
+  const x = app({ now });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const seed = {};
+  for (let i = 60; i >= 1; i--) {
+    const d = x.addDays(now, -i), dp = x.dayPlan(d);
+    const L = { date: d, checkin: { bw: 185 - i * 0.05, kcal: 3000, protein: 180, carb: 330,
+      fat: 90, sleepH: 7, sleepQ: 3, energy: 3, soreness: 2, stress: 2 } };
+    if (dp.t !== "off") L.done = true;
+    if (dp.hic) L.cond = { mod: "row", f: "gal", v: 2000 + i * 3, u: "m", min: 30 };
+    if (dp.plyo) L.jumps = { broad: 90 + i * 0.1 };
+    seed[d] = L;
+  }
+  x.seed(seed); x.bump();
+  return x;
+}
+const charts = (h) => [...h.matchAll(/<svg[^>]*aria-label="([^"]*)"/g)].map((m) => m[1]).filter(Boolean);
+
+test("Status says where you are now, History holds the trend — never both", () => {
+  const x = lived("2026-11-11");
+  const s = charts(x.vStatus()), hi = charts(x.vHistory());
+  a.ok(hi.length >= 2, "History charts something");
+  const both = s.filter((c) => hi.includes(c));
+  a.deepEqual(both, [], `the same line is drawn on both tabs: ${both.join("; ")}`);
+  // The four that moved. Each is a trend over past cycles or weeks, which is the
+  // question History answers; Status keeps the current number instead.
+  for (const gone of ["max by cycle", "Readiness", "Broad jump"])
+    a.ok(!s.some((c) => c.includes(gone)), `Status still charts ${gone}`);
+  a.ok(hi.some((c) => c.includes("max by cycle")), "History charts max by cycle");
+  a.ok(hi.includes("Readiness"), "History charts readiness");
+});
+
+test("Status keeps the current max and its direction without a chart", () => {
+  const x = lived("2026-11-11");
+  const h = x.vStatus();
+  a.match(h, /class="mrows lifts"/, "the lifts are rows");
+  for (const k of x.activeLifts()) a.ok(h.includes(x.liftName(k)), `${k} is listed`);
+  a.match(h, /since C1/, "each row says where the max has gone");
+  a.match(h, /Open History/, "and points at the tab that holds the line");
+});
+
+test("one fact, one place: readiness and adherence are not said twice on Status", () => {
+  const h = lived("2026-11-11").vStatus();
+  // It was a 7-day tile here and a 28-day line four cards below. The line is History's.
+  a.equal((h.match(/Readiness \u00b7 7 days/g) || []).length, 1, "the readiness tile appears once");
+  a.ok(!/Readiness \u00b7 28 days/.test(h), "the 28-day readiness line is not also here");
+  a.ok(!/All time/.test(h), "all-time adherence went with the heatmap that shows it");
+  a.match(h, /class="heat"/, "the heatmap is the adherence picture");
+});
+
+test("what you log daily comes before what you review monthly", () => {
+  const h = lived("2026-11-11").vStatus();
+  const at = (s) => { const i = h.indexOf(s); a.ok(i > 0, `${s} is on the page`); return i };
+  a.ok(at(">Macros<") < at(">Strength<"), "macros before strength");
+  a.ok(at(">Bodyweight<") < at(">Strength<"), "bodyweight before strength");
+  a.ok(at(">This week<") < at(">Macros<"), "this week stays at the top");
+  a.ok(at(">Strength<") < at(">Conditioning<"), "strength before conditioning");
 });

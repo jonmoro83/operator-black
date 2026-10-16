@@ -306,7 +306,30 @@ function vHistory(){
     const m=maxFor(c), r=range[c], o=plan.cycleMaxes[c]||{};
     h+=`<tr class="${c===curC?'cur':c<curC?'past':''}"><td><b>${c}</b></td><td class="small mono">${r?fmtD(r.a)+'–'+fmtD(addDays(r.b,4)):''}</td>${activeLifts().map(k=>c===1&&(o[k]==null||o[k]==='')?`<td class="n"><span title="Set in Setup">${m[k]?n(m[k].v):'—'}</span></td>`:`<td class="n"><input type="number" inputmode="decimal" step="any" id="cm-${c}-${k}" data-cmax="${c}.${k}" value="${o[k]??''}" placeholder="${m[k]?n(m[k].v):''}" aria-label="Cycle ${c} ${esc(liftName(k))}"></td>`).join('')}</tr>`;
   }
-  h+=`</tbody></table></div></div>`;
+  h+=`</tbody></table>`;
+  // The line per lift, moved here from Status: a trend belongs where the table is.
+  {
+    let g='', anyChart=false;
+    for(const k of activeLifts()){
+      const pts=[];for(let c=1;c<=curC+(viewing?0:1);c++){const m=maxFor(c)[k];if(m)pts.push({y:m.v,xl:'C'+c,hollow:c>curC,tip:`Cycle ${c}: ${n(m.v)} ${u()}${m.src==='set'?' (tested/set)':m.src==='proj'?' (projected)':''}`})}
+      const cur=maxFor(curC)[k], base=maxFor(1)[k], hv=heavySet(k);
+      if(pts.length<2&&!hv) continue;
+      if(pts.length>=2) anyChart=true;
+      // Where the number came from. A set logged heavier than prescribed is the only
+      // thing here that is evidence of a new max rather than a restatement of the old.
+      let note='';
+      if(hv){
+        let say='';
+        if(hv.off){ const d=Math.round(hv.e-hv.max);
+          say=` You logged your own weight, which implies <b class="mono">${n(Math.round(hv.e))}</b> — ${d===0?'the max it replaced':(d>0?n(d)+' '+u()+' above':n(-d)+' '+u()+' below')+' the max for that cycle'}.`; }
+        else if(hv.grinder) say=' It ground, which is what the end-of-cycle review reads.';
+        note=`<div class="small muted">Heaviest set completed: <b class="mono">${fmtLoad(k,hv.w)} × ${hv.r}</b> at ${hv.p}% on ${fmtD(hv.d,true)}.${say}</div>`;
+      }
+      g+=`<div class="sm"><div class="sm-h"><b>${esc(liftName(k))}</b>${cur?`<span class="v">${n(cur.v)}<small>${u()}${base&&cur.v!==base.v?` · ${cur.v>base.v?'+':''}${n(cur.v-base.v)} since C1`:''}</small></span>`:''}</div>${pts.length>=2?lineChart(pts,{label:liftName(k)+' max by cycle',minStep:+plan.round[k]||5}):''}${note}</div>`;
+    }
+    if(g) h+=`<div class="sm-grid" style="margin-top:16px">${g}</div>${anyChart?'<div class="small muted">Hollow is next cycle, projected.</div>':''}`;
+  }
+  h+=`</div>`;
   // Recovery
   const cis=progLogs().filter(([d,L])=>L.checkin&&readiness(L.checkin)!=null).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,14);
   h+=`<div class="card"><h2>Recovery</h2>`;
@@ -315,6 +338,8 @@ function vHistory(){
     const avg=(f)=>{const xs=cis.slice(0,7).map(([d,L])=>L.checkin[f]).filter(v=>v!=null&&v!=='').map(Number);return xs.length?(xs.reduce((a,b)=>a+b,0)/xs.length):null};
     const ar=cis.slice(0,7).map(([d,L])=>readiness(L.checkin));const ra=ar.reduce((a,b)=>a+b,0)/ar.length;
     h+=`<div class="grid3"><div class="stack" style="gap:2px"><span class="small muted">Readiness · last 7</span><span class="big" style="font-size:32px">${Math.round(ra)}</span></div><div class="stack" style="gap:2px"><span class="small muted">Sleep · last 7</span><span class="big" style="font-size:32px">${avg('sleepH')!=null?avg('sleepH').toFixed(1):'—'}<small>h</small></span></div><div class="stack" style="gap:2px"><span class="small muted">Bodyweight</span><span class="big" style="font-size:32px">${latestBw(todayStr())?n(latestBw(todayStr())):'—'}<small>${u()}</small></span></div></div>`;
+    const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
+    if(rd.length>=2) h+=`<div class="sm" style="margin:12px 0"><div class="sm-h"><b>Readiness \u00b7 28 days</b><span class="v">${rd[rd.length-1].r}<small>latest</small></span></div>${lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'})}</div>`;
     h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Ready</th><th class="n">Sleep</th><th class="n">Energy</th><th class="n">Sore</th><th class="n">BW</th></tr></thead><tbody>${cis.map(([d,L])=>{const c=L.checkin,r=readiness(c),lv=rLevel(r);return `<tr><td>${fmtD(d,true)}</td><td class="n"><span class="chip ${lv.cls}">${r}</span></td><td class="n">${c.sleepH!=null&&c.sleepH!==''?n(c.sleepH):'—'}</td><td class="n">${c.energy||'—'}</td><td class="n">${c.soreness||'—'}</td><td class="n">${c.bw?n(c.bw):'—'}</td></tr>`}).join('')}</tbody></table></div>`;
   }
   h+=`</div>`;
@@ -326,12 +351,23 @@ function vHistory(){
     const groups={};for(const x of hic) if(x.f!=='liss'&&x.v!=null)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
     const top=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,4);
     if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:32px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
+    {
+      const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,6);
+      const g=keys.map(key=>{const xs=groups[key].slice().reverse().slice(-24),[m,f]=key.split('|'),best=xs.reduce((a,x)=>Math.max(a,x.v),0),un=xs[xs.length-1].u;
+        if(xs.length<2) return '';
+        return `<div class="sm"><div class="sm-h"><b>${MOD[m].name} \u00b7 ${HIC[f].name}</b><span class="v">${n(best)}<small>${esc(un)} best</small></span></div>${lineChart(xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:MOD[m].name+' '+HIC[f].name,minStep:1})}</div>`}).filter(Boolean).join('');
+      if(g) h+=`<div class="sm-grid" style="margin:16px 0">${g}</div>`;
+    }
     h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':'',x.elev?'↑'+n(x.elev)+' '+elevUnit():'',flatEquiv(x)!=null?'≈ '+n(flatEquiv(x))+' '+x.u+' flat':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
   }
   h+=`</div>`;
   // Jumps
   const jm=progLogs().filter(([d,L])=>(L.plyo&&(L.plyo.best||L.plyo.mark))||(L.jumps&&(L.jumps.broad||L.jumps.vertical))).sort((a,b)=>a[0]<b[0]?1:-1);
   h+=`<div class="card"><h2>Jumps</h2>`;
+  {
+    const bj=jm.map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
+    if(bj.length>=2) h+=`<div class="sm" style="margin-bottom:12px"><div class="sm-h"><b>Broad jump</b><span class="v">${r1(Math.max(...bj.map(x=>x.v)))}<small>in best</small></span></div>${lineChart(bj.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1})}</div>`;
+  }
   h+=jm.length?`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Broad</th><th class="n">Vertical</th><th class="n">Triple</th></tr></thead><tbody>${jm.slice(0,15).map(([d,L])=>`<tr><td>${fmtD(d,true)}</td><td class="n">${n((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark)))}</td><td class="n">${n(L.jumps&&L.jumps.vertical)}</td><td class="n">${n(L.jumps&&L.jumps.triple)}</td></tr>`).join('')}</tbody></table></div>`:`<div class="empty">No jumps yet. Log Thursday's first broad jump on the plyo card, or a full set on a test day.</div>`;
   h+=`</div>`;
   // Sessions

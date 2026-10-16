@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.14',date:'2026-10-16',title:'Status and History stop overlapping',items:[
+    'Status had ten cards and twenty charts on one scroll, and most of those lines were already in History as tables. Status now answers how you are doing and History answers what happened. Maxes by cycle, readiness over 28 days, results per activity and the broad jump all moved to History, which is where the full tables already were.',
+    'Strength is five rows instead of five little charts: the lift, your current max, and green or red for where it has gone since cycle 1. The heaviest set you completed moved to History with the maxes table it explains.',
+    'Readiness used to appear twice, four cards apart. It appears once now, and all-time adherence went because the heatmap next to it already shows the same thing better.',
+    'Macros, bodyweight and energy used to be right at the bottom. They are near the top now, since those are the ones you look at daily. Anything hurting is flagged above the numbers rather than below them.']},
   {v:'3.13',date:'2026-10-16',title:'Everything is big enough to tap',items:[
     'Measured every button in the app and most of them were too small for a thumb. The main button was 38 pixels tall, the small one 30, the segmented pickers 36, a checkbox 18, the days in the week strip 30. The guideline is 44, and it matters here more than in most apps because you are standing up between sets with one hand on the bar.',
     'Nineteen of them are now at least 44 pixels: buttons, pickers, checkboxes, the nav tabs, the week strip, the calendar days, the set buttons, the aims, the timer buttons. Nothing moved or changed color, so it should look the same and just stop missing.',

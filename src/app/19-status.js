@@ -250,6 +250,22 @@ function energyCard(t){
   h+=`<div class="small muted">The body-fat estimate is the US Navy tape method: typically within 3–4 points, and more useful as a direction than a number. Measure at the same time of day, relaxed.</div>`;
   return h+`</div>`;
 }
+// Status answers "how am I doing", History answers "what happened". Every trend line
+// that was here as well as there has gone to History: maxes by cycle, readiness,
+// results per activity, jumps. What stays is the current number and its direction.
+function strengthRows(curC){
+  let h=`<div class="mrows lifts">`;
+  for(const k of activeLifts()){
+    const cur=maxFor(curC)[k], base=maxFor(1)[k], hv=heavySet(k);
+    const d=cur&&base?cur.v-base.v:null;
+    const dir=d==null||!base||cur.v===base.v?'muted':d>0?'ok':'off';
+    const say=d==null?'No max yet':!base||cur.v===base.v?'Level since C1':`${d>0?'+':'−'}${n(Math.abs(d))} since C1`;
+    h+=`<div class="mrow"><span class="mrow-l">${esc(liftName(k))}</span>`;
+    h+=cur?`<span class="mrow-n mono">${n(cur.v)}</span><span class="mrow-u">${u()}</span>`:`<span class="mrow-u">—</span>`;
+    h+=`<span class="mrow-r"><span class="mrow-v ${dir}">${say}</span>${hv?`<span class="mrow-u">${fmtLoad(k,hv.w)} × ${hv.r} at ${hv.p}%${hv.grinder?', ground':''}</span>`:''}</span></div>`;
+  }
+  return h+`</div>`;
+}
 function vStatus(){
   const t=todayStr(), wk=weekOf(t);
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
@@ -261,7 +277,7 @@ function vStatus(){
   if(wk.kind==='cycle'){
     const first=ci0-(wk.w-1);
     h+=`<div class="cyc" aria-label="Cycle ${wk.cycle} progress">${waveOf().map((v,i)=>{const cls=tier(+v.p);return `<div class="chip ${cls}${i<wk.w-1?' past':''}${i===wk.w-1?' now':''}" style="border-radius:6px">W${i+1}<small>${v.s}×${v.r} ${v.p}%</small></div>`}).join('')}</div>`;
-    h+=`<div class="small muted">Day ${dow(t)+1} of week ${wk.w}. Cycle ${wk.cycle} ends ${fmtD(addDays(list[first+5].monday,4),true)}.</div>`;
+    h+=`<div class="small muted">Cycle ${wk.cycle} ends ${fmtD(addDays(list[first+5].monday,4),true)}.</div>`;
   }
   const nextOf=kind=>{for(let i=ci0+1;i<list.length;i++){if(kind==='cycle'?(list[i].kind==='cycle'&&list[i].w===1):list[i].kind===kind)return list[i]}return null};
   const days=w=>w?Math.round((D(w.monday)-D(t))/864e5):null;
@@ -270,45 +286,46 @@ function vStatus(){
   h+=`<div class="miles">${mile('Next cycle',nc,w=>'Cycle '+w.cycle+' · '+fmtD(w.monday,true))}${mile('Next deload',nd,w=>fmtD(w.monday,true))}${mile('Next retest',nt,w=>fmtD(w.monday,true))}</div>`;
   const trained=list.slice(0,ci0).filter(w=>w.kind==='cycle').length;
   h+=`<div class="small muted">${trained} training week${trained===1?'':'s'} completed since ${fmtD(plan.startMonday)}.</div></div>`;
+  // --- anything hurting comes before the numbers, not four cards below them
+  {
+    const since=addDays(t,-27), flags=progLogs().filter(([d,L])=>d>=since&&d<=t&&(L.pain==='sharp'||L.pain==='niggle'));
+    if(flags.length){
+      const sharp=flags.filter(([,L])=>L.pain==='sharp').length, where={};
+      for(const [,L] of flags) for(const w of painAt(L)) where[w]=(where[w]||0)+1;
+      const spots=Object.entries(where).sort((a,b)=>b[1]-a[1]).map(([k,c])=>((PAIN_AT[k]||{}).name||k)+' ×'+c).join(' · ');
+      h+=`<div class="banner ${sharp?'alert':'warn'}"><div class="small"><b>${flags.length} session${flags.length===1?'':'s'} with something hurting</b> in the last 4 weeks${sharp?`, ${sharp} of them sharp`:''}.${spots?' '+esc(spots)+'.':''} ${sharp?'Sharp pain holds that lift back at the end of the cycle.':'Noted, not acted on — worth watching if it keeps appearing.'}</div></div>`;
+    }
+  }
   // --- this week + adherence
   const mon=mondayOf(t);
   let wd='';for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t),p=dayPlan(d);wd+=`<div><i class="${st}" aria-label="${DAYN[i]}: ${st}">${st==='done'?'✓':st==='missed'?'✕':st==='rest'?'–':'•'}</i>${DAYN[i]}<span style="font-size:10px">${esc(p.short||'')}</span></div>`}
   const adh=(from,to)=>{let d0=0,n0=0;for(let d=from;d<=to;d=addDays(d,1)){if(d<plan.startMonday)continue;const st=sessState(d,t);if(st==='rest'||st==='upcoming'||st==='today')continue;n0++;if(st==='done')d0++}return {d:d0,n:n0}};
-  const yest=addDays(t,-1), wkA=adh(mon,yest), a4=adh(addDays(mon,-28),yest), all=adh(plan.startMonday,yest);
+  const yest=addDays(t,-1), a4=adh(addDays(mon,-28),yest);
   let tw=0,td=0;for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t);if(st!=='rest'){tw++;if(st==='done')td++}}
   const pct=a=>a.n?Math.round(a.d/a.n*100)+'%':'—';
+  // Readiness is a 7-day average here and a 28-day line in History. It used to be both,
+  // two cards apart, which is one metric answering the same question twice.
   h+=`<div class="card"><div class="lift-h"><h3>This week</h3><span class="small muted mono">${td}/${tw} sessions</span></div><div class="wkdots">${wd}</div>
-  <div class="miles"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">All time</span><span class="big">${pct(all)}</span><span class="small muted">${all.d} of ${all.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div>${heatmap(t,12)}</div>`;
+  <div class="miles two"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div>${heatmap(t,12)}</div>`;
+  // --- what you look at daily, before what you look at monthly
+  h+=macroCard(t);
+  h+=bwCard(t);
+  h+=energyCard(t);
   // --- strength
   const curC=wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle);
-  h+=`<div class="card"><div class="lift-h"><h3>Strength</h3><span class="small muted">Max by cycle · hollow = next cycle, projected</span></div><div class="sm-grid">`;
-  for(const k of activeLifts()){
-    const pts=[];for(let c=1;c<=curC+(viewing?0:1);c++){const m=maxFor(c)[k];if(m)pts.push({y:m.v,xl:'C'+c,hollow:c>curC,tip:`Cycle ${c}: ${n(m.v)} ${u()}${m.src==='set'?' (tested/set)':m.src==='proj'?' (projected)':''}`})}
-    const cur=maxFor(curC)[k], base=maxFor(1)[k];
-    h+=`<div class="sm"><div class="sm-h"><b>${esc(liftName(k))}</b>${cur?`<span class="v">${n(cur.v)}<small>${u()}${base&&cur.v!==base.v?` · ${cur.v>base.v?'+':''}${n(cur.v-base.v)} since C1`:''}</small></span>`:''}</div>${pts.length?lineChart(pts,{label:liftName(k)+' max by cycle',minStep:+plan.round[k]||5}):'<div class="none">No max entered yet.</div>'}${(()=>{
-      const hv=heavySet(k); if(!hv) return '';
-      let say='';
-      if(hv.off){ const d=Math.round(hv.e-hv.max);
-        say=` You logged your own weight, which implies <b class="mono">${n(Math.round(hv.e))}</b> \u2014 ${d===0?'the max it replaced':(d>0?n(d)+' '+u()+' above':n(-d)+' '+u()+' below')+' the max for that cycle'}.`; }
-      else if(hv.grinder) say=' It ground, which is what the end-of-cycle review reads.';
-      return `<div class="small muted">Heaviest set completed: <b class="mono">${fmtLoad(k,hv.w)} \u00d7 ${hv.r}</b> at ${hv.p}% on ${fmtD(hv.d,true)}.${say}</div>`;
-    })()}</div>`;
-  }
-  h+=`</div></div>`;
+  h+=`<div class="card"><div class="lift-h"><h3>Strength</h3><span class="small muted">Current max and where it has gone</span></div>${strengthRows(curC)}<div class="small muted">Max by cycle, with every projection, is charted in History.</div></div>`;
   // --- conditioning
   {
-    const all=hicSessions(), hs=all.filter(x=>x.f!=='liss'&&x.v!=null), groups={};
-    for(const x of hs)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
-    const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,6);
+    const all=hicSessions();
     const since=addDays(t,-27), mix={}; for(const x of all) if(x.d>=since) mix[x.mod]=(mix[x.mod]||0)+1;
-    h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Volume per week, then results per activity</span></div>`;
+    h+=`<div class="card"><div class="lift-h"><h3>Conditioning</h3><span class="small muted">Volume per week, and the session you repeat</span></div>`;
     h+=Object.keys(mix).length?`<div class="row" style="gap:6px"><span class="small muted">Last 4 weeks:</span>${Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([m,c])=>`<span class="chip">${MOD[m].name} · ${c}</span>`).join('')}</div>`:'';
     {
       // climbing: what the hills actually added up to
       const wkStart=mondayOf(t);
       const gain=(from)=>all.reduce((a,x)=>a+(x.d>=from&&x.elev?+x.elev:0),0);
       const thisWeek=gain(wkStart), fourWeeks=gain(since), prevFour=all.reduce((a,x)=>a+(x.d>=addDays(since,-28)&&x.d<since&&x.elev?+x.elev:0),0);
-      if(fourWeeks||thisWeek) h+=`<div class="miles"><div class="mile"><span class="l">Climbing this week</span><span class="big">${n(thisWeek)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${n(Math.round(thisWeek/elevPerDist()*10)/10)} ${u()==='kg'?'km':'mi'} of flat walking</span></div><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${n(fourWeeks)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${prevFour?(fourWeeks>=prevFour?'up from ':'down from ')+n(prevFour)+' the 4 before':'first four weeks logged'}</span></div></div>`;
+      if(fourWeeks||thisWeek) h+=`<div class="miles two"><div class="mile"><span class="l">Climbing this week</span><span class="big">${n(thisWeek)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${n(Math.round(thisWeek/elevPerDist()*10)/10)} ${u()==='kg'?'km':'mi'} of flat walking</span></div><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${n(fourWeeks)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${prevFour?(fourWeeks>=prevFour?'up from ':'down from ')+n(prevFour)+' the 4 before':'first four weeks logged'}</span></div></div>`;
     }
     {
       const cw=condWeeks(12), tot=cw.reduce((a,x)=>a+x.min,0), thisWk=mondayOf(t);
@@ -320,47 +337,23 @@ function vStatus(){
       h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:now&&now.n?`<span class="v">${now.min}<small>min this week so far</small></span>`:''}</div>`;
       h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?`${now&&now.n===1?'One session':`${now?now.n:0} sessions`} this week. The trend starts once a second week has sessions in it.`:'Log a conditioning session and this fills in.'}</div>`;
       const drew=cw.length>=2&&tot;
-      if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included \u2014 log the real number on the day\u2019s card and it uses that instead.`:''}</div>`;
+      if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included — log the real number on the day’s card and it uses that instead.`:''}</div>`;
       h+=`</div>`;
     }
     {
       const bm=benchmarkState(t);
       if(bm&&bm.xs.length){
         const dir=bm.xs.length>1?bm.last.v-bm.first.v:null;
-        h+=`<div class="sm"><div class="sm-h"><b>Benchmark \u00b7 ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
+        h+=`<div class="sm"><div class="sm-h"><b>Benchmark · ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
         h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
         h+=`<div class="small muted">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
       }
     }
-    if(!keys.length) h+=`<div class="sm"><div class="none">No HIC results logged yet. Results you log on HIC days show up here.</div></div>`;
-    else{
-      h+=`<div class="sm-grid">`;
-      for(const key of keys){const xs=groups[key].slice(-24),[m,f]=key.split('|'),best=xs.reduce((a,x)=>Math.max(a,x.v),0),un=xs[xs.length-1].u;
-        h+=`<div class="sm"><div class="sm-h"><b>${MOD[m].name} · ${HIC[f].name}</b><span class="v">${n(best)}<small>${esc(un)} best</small></span></div>${xs.length>=2?lineChart(xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:MOD[m].name+' '+HIC[f].name,minStep:1}):'<div class="none">One session logged. The trend appears after the second.</div>'}</div>`}
-      h+=`</div>`;
-    }
+    h+=`<div class="small muted">Every activity you have logged, charted and tabled, is in History.</div>`;
     h+=`</div>`;
   }
-  // --- body + recovery
-  const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
-  const jm=progLogs().map(([d,L])=>({d,v:+((L.jumps&&L.jumps.broad)||(L.plyo&&(L.plyo.best||L.plyo.mark))||0)})).filter(x=>x.v).sort((a,b)=>a.d<b.d?-1:1).slice(-24);
-  {
-    const since=addDays(t,-27), flags=progLogs().filter(([d,L])=>d>=since&&d<=t&&(L.pain==='sharp'||L.pain==='niggle'));
-    if(flags.length){
-      const sharp=flags.filter(([,L])=>L.pain==='sharp').length, where={};
-      for(const [,L] of flags) for(const w of painAt(L)) where[w]=(where[w]||0)+1;
-      const spots=Object.entries(where).sort((a,b)=>b[1]-a[1]).map(([k,c])=>((PAIN_AT[k]||{}).name||k)+' ×'+c).join(' · ');
-      h+=`<div class="banner ${sharp?'alert':'warn'}"><div class="small"><b>${flags.length} session${flags.length===1?'':'s'} with something hurting</b> in the last 4 weeks${sharp?`, ${sharp} of them sharp`:''}.${spots?' '+esc(spots)+'.':''} ${sharp?'Sharp pain holds that lift back at the end of the cycle.':'Noted, not acted on — worth watching if it keeps appearing.'}</div></div>`;
-    }
-  }
-  h+=`<div class="card"><h3>Body and recovery</h3><div class="sm-grid">`;
-  h+=`<div class="sm"><div class="sm-h"><b>Readiness · 28 days</b>${rd.length?`<span class="v">${rd[rd.length-1].r}<small>latest</small></span>`:''}</div>${rd.length>=2?lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'}):'<div class="none">Check in on the Today tab to build this trend.</div>'}</div>`;
-  h+=`<div class="sm"><div class="sm-h"><b>Broad jump</b>${jm.length?`<span class="v">${r1(Math.max(...jm.map(x=>x.v)))}<small>in best</small></span>`:''}</div>${jm.length>=2?lineChart(jm.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} in`})),{label:'Broad jump',minStep:1}):'<div class="none">Thursday’s first broad jump builds this trend.</div>'}</div>`;
-  h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
-  h+=bwCard(t);
-  h+=energyCard(t);
-  h+=macroCard(t);
   h+=pullupCard(t);
   h+=prBoard();
+  h+=`<div class="row between" style="padding:0 2px"><span class="small muted">Readiness, jumps, maxes by cycle and every session you have logged.</span><button class="btn sm" data-act="view" data-view="history">Open History</button></div>`;
   return h;
 }
