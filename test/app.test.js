@@ -6017,3 +6017,32 @@ test("a FOBBIT is chosen per session, over a default, like the activity is", () 
     if (F.a) a.ok(g.includes(x.esc(F.name)), `${k} is in the Guide`);
   }
 });
+
+test("goals are written once in Setup and kept out of the way", () => {
+  const x = app({ now: "2026-10-16" });
+  x.plan.programGoals = { aim: "315 squat", by: "2027-03-01", sticking: { bench: "off the chest" }, notes: "bad left wrist" };
+  x.bump();
+  const h = x.vSetup();
+  a.match(h, /<h2>Goals<\/h2>/);
+  a.match(h, /data-pbind="programGoals\.aim"[^>]*value="315 squat"/);
+  a.match(h, /data-pbind="programGoals\.by"[^>]*value="2027-03-01"/);
+  a.match(h, /data-pbind="programGoals\.notes"/);
+  // One box per lift you actually train, so the form matches the program.
+  for (const k of x.activeLifts()) a.match(h, new RegExp(`data-pbind="programGoals\\.sticking\\.${k}"`), k);
+  a.match(h, /value="off the chest"/);
+  // It is explicit that nothing here reschedules anything.
+  a.match(h, /Nothing here changes the program/);
+
+  // The date is turned into something readable, and a date gone by says so.
+  a.match(h, /weeks away\./);
+  x.plan.programGoals.by = "2026-01-01"; x.bump();
+  a.match(x.vSetup(), /That date has passed\./);
+  a.equal(x.weeksUntil("2026-10-16"), "That is today.");
+  a.equal(x.weeksUntil("2026-10-20"), "4 days away.");
+  a.equal(x.weeksUntil(""), "");
+
+  // And `programGoals` is not the nutrition `goal`, which is a different setting that
+  // happens to be spelled almost the same.
+  a.equal(typeof x.plan.goal, "string");
+  a.equal(typeof x.plan.programGoals, "object");
+});

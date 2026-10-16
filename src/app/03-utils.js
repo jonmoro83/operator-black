@@ -97,3 +97,13 @@ function elevUnit(){return u()==='kg'?'m':'ft'}
 // (190 m ≈ 1 km). One factor for every activity, so the numbers stay comparable.
 function elevPerDist(){const v=+((plan.elevPer||{})[u()]);return v>0?v:(u()==='kg'?190:1000)}
 function u(){return plan.unit||'lb'}
+// "Fourteen weeks away", for a date you are working toward. Past dates say so rather
+// than counting backwards, because a goal with a date behind it needs moving, not maths.
+function weeksUntil(d){
+  if(!d) return '';
+  const days=Math.round((Date.parse(d)-Date.parse(todayStr()))/86400000);
+  if(days<0) return 'That date has passed.';
+  if(days===0) return 'That is today.';
+  if(days<14) return days+' day'+(days===1?'':'s')+' away.';
+  return Math.round(days/7)+' weeks away.';
+}

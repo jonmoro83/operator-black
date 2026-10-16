@@ -605,6 +605,11 @@ const DEF={
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8, macroBump:0,
+  /* Long-run goals, as opposed to `goal` just above, which is about food, and the
+     per-session `aims` in the log, which are about today. Nothing in the app schedules
+     off these -- they exist so the coach knows what you are training for, and so that
+     you had to write it down once. `sticking` is keyed by lift. */
+  programGoals:{aim:'',by:'',sticking:{},notes:''},
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'}, fobbit:'kb',

@@ -1454,3 +1454,54 @@ test("the coach is told the bodyweight and calories that are actually logged", a
     a.ok(!("weight" in d14), "nothing under a name the check-in never used");
   } finally { globalThis.fetch = orig }
 });
+
+test("the coach is told what the person is training for", async () => {
+  const k = await setupKeys();
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main", data: JSON.stringify({
+    unit: "lb", bodyweight: 185,
+    programGoals: { aim: "315 squat without losing my mile time", by: "2027-03-01",
+      sticking: { bench: "stalls just off the chest", squat: "" }, notes: "no gym on Tuesdays" },
+  }), updated_at: 1 });
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "bench is stuck" }) }, tok);
+    const sent = globalThis.fetch.calls[0].body;
+    const state = JSON.parse(sent.messages[0].content.match(/<state>(.*?)<\/state>/s)[1]);
+
+    a.equal(state.goals.aim, "315 squat without losing my mile time");
+    a.equal(state.goals.by, "2027-03-01");
+    a.equal(state.goals.notes, "no gym on Tuesdays");
+    a.equal(state.goals.stalls.bench, "stalls just off the chest");
+    a.ok(!("squat" in state.goals.stalls), "a blank is left out, not sent as empty");
+
+    // A suggestion is only useful if it names something the app can actually turn on.
+    a.ok(state.accessorySlots.includes("triceps"), "the real slots go with it");
+    a.ok(state.accessorySlots.includes("pchain"));
+    a.match(sent.system, /accessorySlots/, "and the prompt says to use them");
+    a.match(sent.system, /goals\.stalls says where a lift slows down/, "and what to do about a stall");
+    a.match(sent.system, /name the slot it goes in/, "naming a slot they can switch on");
+    a.match(sent.system, /Do not invent movements the app does not offer/);
+    a.match(sent.system, /goals\.by is a date/);
+  } finally { globalThis.fetch = orig }
+});
+
+test("goals that were never filled in are absent, not empty", async () => {
+  const k = await setupKeys();
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main",
+    data: JSON.stringify({ bodyweight: 185, programGoals: { aim: "", by: "", sticking: {}, notes: "" } }), updated_at: 1 });
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.messages[0].content.match(/<state>(.*?)<\/state>/s)[1]);
+    // An object of nulls reads as "asked and left blank"; absent reads as "not asked".
+    a.equal(state.goals, null);
+  } finally { globalThis.fetch = orig }
+});

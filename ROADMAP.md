@@ -65,6 +65,14 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
   conditioning sessions. The only book content left out is AA's Base Building, declined
   by request, and I/A's floating schedule. Whatever comes next is new ground.
+- **A week calendar with drag-and-drop**, replacing the per-day Move tool. Asked for
+  2026-10-16: rearranging a week means opening each day in turn and picking what goes
+  there, which is the wrong shape for a week-level change. The data model already
+  supports it — `plan.order[monday]` is a seven-element permutation — so this is a
+  front end, not a schema change. Two things to get right: HTML5 drag-and-drop does not
+  work in iOS Safari, so it has to be pointer events; and the existing picker should
+  stay as the keyboard and accessibility path rather than being replaced. `orderIssues`
+  should run live during a drag so a clash is visible before the drop, not after.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -154,6 +162,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Goals, for the coach to read (2026-10-16)**
+- A **Goals** card in Setup: what you are working toward, a date if there is one, where
+  each lift stalls, and anything else worth knowing. Nothing in the app schedules off
+  it, and the card says so.
+- **The sticking points are the part that earns its place.** The app already has an
+  accessory catalog with slots, so "stalls just off the chest" lets the coach name a
+  movement that exists and the slot to put it in, rather than inventing an exercise.
+  The slot list goes to the coach with the goals, and the prompt tells it not to make
+  movements up.
+- The same is true of lift variants: `VARS` already covers high bar, low bar, SSB,
+  front and box for the squat, so advice on which to run points at something that can
+  be switched on rather than at a general opinion.
+- A date gets turned into weeks and counted down; a date gone by says so rather than
+  counting backwards.
+- Empty fields are dropped before being sent. A shape full of nulls reads to a model as
+  "asked and left blank"; absent reads as "never asked".
+- Named `plan.programGoals`, deliberately not `plan.goals`, because `plan.goal` is the
+  food setting and the per-session `aims` are something else again. Three near-identical
+  names for three different things is how `checkin.weight` happened.
+- 304 tests, 6 mutants, all caught after adding an assertion for the prompt itself.
 
 **Macros (2026-10-15)**
 - Three boxes in the daily check-in next to the calories — protein, carbs, fat in

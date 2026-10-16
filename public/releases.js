@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.1',date:'2026-10-16',title:'Goals',items:[
+    'A <b>Goals</b> card in Setup: what you are working toward, a date if there is one, where each lift stalls, and anything else worth knowing. Nothing here changes the program \u2014 the coach reads it, so its advice is about your goals rather than about training in general.',
+    '<b>Where each lift stalls is the useful one.</b> Write \u201cstalls just off the chest\u201d and the coach can name an accessory for that part of the lift, and the slot to put it in, from the ones the app already offers. It is told not to invent movements that are not there.',
+    'A date gets counted down in weeks, so advice can work backwards from it.']},
   {v:'3.0',date:'2026-10-15',title:'Macros',items:[
     'Three boxes in the daily check-in beside the calories \u2014 protein, carbs and fat in grams \u2014 and a <b>Macros</b> card in Status showing the target, what you have actually been averaging, and what to change when the scale stops moving.',
     '<b>If you are building, the target is the book\u2019s.</b> Tactical Barbell III gives the formula outright: bodyweight \u00d7 1.3 for protein, \u00d7 2 for carbs, half for fat. At 185 lb that is 240, 370 and 95 \u2014 the book\u2019s own example.',

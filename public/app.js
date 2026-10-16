@@ -1224,6 +1224,11 @@ const DEF={
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
   goal:'lose', sleepTarget:8, proteinPerLb:0.8, macroBump:0,
+  /* Long-run goals, as opposed to `goal` just above, which is about food, and the
+     per-session `aims` in the log, which are about today. Nothing in the app schedules
+     off these -- they exist so the coach knows what you are training for, and so that
+     you had to write it down once. `sticking` is keyed by lift. */
+  programGoals:{aim:'',by:'',sticking:{},notes:''},
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'}, fobbit:'kb',
@@ -2033,6 +2038,16 @@ function elevUnit(){return u()==='kg'?'m':'ft'}
 // (190 m ≈ 1 km). One factor for every activity, so the numbers stay comparable.
 function elevPerDist(){const v=+((plan.elevPer||{})[u()]);return v>0?v:(u()==='kg'?190:1000)}
 function u(){return plan.unit||'lb'}
+// "Fourteen weeks away", for a date you are working toward. Past dates say so rather
+// than counting backwards, because a goal with a date behind it needs moving, not maths.
+function weeksUntil(d){
+  if(!d) return '';
+  const days=Math.round((Date.parse(d)-Date.parse(todayStr()))/86400000);
+  if(days<0) return 'That date has passed.';
+  if(days===0) return 'That is today.';
+  if(days<14) return days+' day'+(days===1?'':'s')+' away.';
+  return Math.round(days/7)+' weeks away.';
+}
 
 /* ---------------- schedule engine ---------------- */
 // The rule sequence (bridge, 6-week cycles, rule deloads/retests). `from` resumes it
@@ -6517,6 +6532,18 @@ function vSetup(){
   <label class="f">Daily activity<select id="p-act" data-pbind="activity">${ACT.map(([v,l])=>`<option value="${v}"${actFactor()===v?' selected':''}>${esc(l)}</option>`).join('')}</select></label></div>
   <div class="small muted">The formulas: Mifflin-St Jeor for the predicted burn, the US Navy circumference method for body fat. Both are estimates — once you have logged calories and weigh-ins for a few weeks, Status uses your own numbers instead.</div></div>
   <div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
+  {
+    const g=plan.programGoals||{}, st=g.sticking||{};
+    h+=`<div class="card"><h2>Goals</h2><p class="small muted" style="margin:0">What you are training for, in your own words. Nothing here changes the program — the coach reads it, so that its advice is about your goals rather than about training in general.</p>
+    <label class="f">What are you working toward?<input type="text" id="p-goal-aim" data-pbind="programGoals.aim" value="${esc(g.aim||'')}" placeholder="e.g. 315 squat without losing my mile time"></label>
+    <label class="f" style="max-width:220px">By when <span style="font-weight:500">(optional)</span><input type="date" id="p-goal-by" data-pbind="programGoals.by" value="${esc(g.by||'')}"></label>
+    ${g.by?`<div class="small muted">${esc(weeksUntil(g.by))}</div>`:''}
+    <div class="small muted" style="font-weight:650;margin-top:10px">Where each lift stalls</div>
+    <p class="small muted" style="margin:0 0 4px">The most useful thing here. Say where the bar slows and the coach can suggest accessories for that part of the lift, from the ones the app already offers.</p>
+    <div class="grid2">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}<input type="text" id="p-stick-${esc(k)}" data-pbind="programGoals.sticking.${esc(k)}" value="${esc(st[k]||'')}" placeholder="e.g. stalls just off the chest"></label>`).join('')}</div>
+    <label class="f">Anything else worth knowing<textarea id="p-goal-notes" data-pbind="programGoals.notes" rows="3" placeholder="Injuries, kit you do not have, days you can never train, a sport you play.">${esc(g.notes||'')}</textarea></label>
+    </div>`;
+  }
   h+=`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
   <p class="small muted" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${waveOf().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
   {

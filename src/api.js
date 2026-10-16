@@ -565,6 +565,12 @@ GROUNDING, in order of authority:
 
 If you used web search, name the source in the sentence that relies on it. A forum post does not carry the weight of a book and should not be written as though it does.
 
+WHAT THEY ARE TRAINING FOR:
+<state>.goals is what they wrote down in Setup. Use it. Advice that ignores a stated goal is worse than no advice.
+- goals.stalls says where a lift slows down. When asked about a lift that has one, say which accessory would address that part of the movement and name the slot it goes in, from <state>.accessorySlots, so they can switch it on in Setup. Do not invent movements the app does not offer.
+- goals.by is a date. Work back from it in weeks and say what fits before then.
+- If a question has nothing to do with their goals, do not shoehorn them in.
+
 HOW TO WRITE:
 - Talk to them directly, like a coach who knows their log. Short paragraphs.
 - Lead with the answer. No preamble, no restating the question.
@@ -635,12 +641,37 @@ async function coachState(env, user) {
     basis: plan.basis === "tm" ? `training max at ${plan.tmPct || 90}%` : "true 1RM",
     goal: plan.goal || null,
     recovery313: !!plan.recovery313,
+    // Written once in Setup: what they are training for, and where each lift stalls.
+    // Empty strings are dropped so the model is not handed a form to fill in.
+    goals: tidy({
+      aim: (plan.programGoals || {}).aim || null,
+      by: (plan.programGoals || {}).by || null,
+      stalls: tidy((plan.programGoals || {}).sticking || {}),
+      notes: (plan.programGoals || {}).notes || null,
+    }),
+    accessorySlots: Object.keys(ASLOT_NAMES),
     recentDays: recent,
   };
 }
 
 function safeParse(s) { try { return JSON.parse(s) } catch { return null } }
 function nextDay(d) { return new Date(Date.parse(d) + 86400000).toISOString().slice(0, 10) }
+// Drop empty values rather than sending a shape full of nulls, which reads to a model
+// as "this was asked and left blank" instead of "this was never asked".
+function tidy(o) {
+  const out = {};
+  for (const [k, v] of Object.entries(o || {})) {
+    if (v == null || v === "" || (typeof v === "object" && !Object.keys(v).length)) continue;
+    out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+/* The accessory slots the app actually has. Sent so that a suggestion for a sticking
+   point names something the person can switch on in Setup, rather than a movement the
+   app has never heard of. */
+const ASLOT_NAMES = { pchain: "posterior chain", spress: "shoulder press", hpull: "horizontal pull",
+  pullup: "pull-up", delts: "delts", rdelt: "rear delts", sleg: "single leg", core: "core",
+  biceps: "biceps", triceps: "triceps", carry: "carry" };
 
 // Calls this calendar month, which is what the cap is measured against.
 async function coachUsed(env, user) {
