@@ -17,11 +17,6 @@ Genuinely open: things that still need doing or confirming.
   alerts on the lock screen, spoken cues through AirPods with the app open, and the
   rest beep in a real session — **with the ring switch off as well as on**
   (2026-10-16), which the research said was impossible.
-- **Is the calendar workable now?** Reported 2026-10-16 as not working well. The
-  likeliest cause was the adjacency rules refusing most swaps, and those are gone
-  (3.3), but that was a guess and it was never confirmed. If it is still awkward the
-  next suspect is the month grid: seven cells across a phone is a poor drag target,
-  and a week view with full-width rows would be the answer.
 - **Does the coach give good advice?** The agreed gate for letting it apply changes
   rather than only suggest them. It cannot be settled from here — it needs a few weeks
   of reading what it said against what happened.
@@ -52,6 +47,14 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
     session. Not chased further: the `takeover` mode's media clip exists precisely to
     beat the switch, and a home-screen web app may be treated differently from a tab.
     The Apple Watch tap is no longer needed as a workaround.
+- **The calendar works. Confirmed 2026-10-16**, rescheduling included. It had been
+  reported as not working well, and the cause was what it looked like: the adjacency
+  rules were refusing most swaps, nearly all of them on rules that were ours rather
+  than the books' (3.3). The three-way chooser and dragging came in the same week and
+  helped, but the refusals were the problem.
+  - Worth remembering if it ever gets awkward again: the month grid is seven cells
+    across a phone, which is a poor drag target, and a week view with full-width rows
+    was the next thing to try. It was not needed.
 - **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02:**
   - Wave weeks 5–6 are **3×5 @ 85%** and **3×2 @ 95%**. `plan.wave` matches the Operator
     table row for row; the disputed alternative was wrong.
