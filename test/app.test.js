@@ -2718,7 +2718,12 @@ test("the coach calls the API the way the API is actually shaped", async () => {
   global.fetch = (url, init) => {
     const c = { url, method: init.method, body: init.body ? JSON.parse(init.body) : null };
     all.push(c); if (String(url).startsWith("/api/coach")) seen.push(c);
-    return Promise.resolve({ ok: true, status: 200, type: "basic", json: async () => ({ history: [], used: 0, cap: 300, configured: true }) });
+    // A POST answers like the real endpoint, thread and all, or the client's handling
+    // of the thread is never actually exercised.
+    const body = init.method === "POST"
+      ? { id: "t1", thread: "server-thread", answer: "Yes.", suggestions: [], cites: [], used: 1, cap: 300 }
+      : { turns: [], thread: null, used: 0, cap: 300, configured: true };
+    return Promise.resolve({ ok: true, status: 200, type: "basic", json: async () => body });
   };
   try {
     x.view = "coach"; x.loaded = true; x.render();            // triggers the history load
@@ -2730,12 +2735,37 @@ test("the coach calls the API the way the API is actually shaped", async () => {
 
     x.coach.q = "how much protein";
     a.equal(x.coachAsk(), true, "the ask goes out");
+
+    // Checked before the reply lands: the question appears straight away with nothing
+    // under it, so a slow answer reads as thinking rather than as nothing happening.
+    a.equal(x.coach.q, "", "the box is cleared");
+    const pend = x.coach.turns[x.coach.turns.length - 1];
+    a.equal(pend.question, "how much protein");
+    a.equal(pend.pending, true);
+    a.match(x.dom.made.main.innerHTML, /Thinking/);
+
     await new Promise((r) => setImmediate(r));
+    a.ok(!x.coach.turns.some((t) => t.pending), "and the placeholder is replaced by the answer");
     const post = seen[1];
     a.equal(post.url, "/api/coach");
     a.equal(post.method, "POST");
     a.deepEqual(post.body, { q: "how much protein" }, "a real object, stringified once");
     a.ok(!("web" in post.body), "the client no longer decides about searching");
+
+    // A follow-up carries the thread so the server can replay the conversation.
+    x.coach.thread = "abc-123"; x.coach.busy = false; x.coach.q = "why?";
+    a.equal(x.coachAsk(), true);
+    await new Promise((r) => setImmediate(r));
+    a.deepEqual(seen[2].body, { q: "why?", thread: "abc-123" });
+    await new Promise((r) => setImmediate(r));
+    a.strictEqual(x.coach.thread, "server-thread", "the server's thread id is adopted");
+
+    // New topic forgets the thread without touching the server.
+    const sentSoFar = seen.length;
+    x.coachNew();
+    a.strictEqual(x.coach.thread, null, "the thread is dropped, so the next question starts fresh");
+    a.deepEqual(x.coach.turns, []);
+    a.equal(seen.length, sentSoFar, "and sends nothing");
 
     // Nothing to ask is not a request.
     const before = seen.length;

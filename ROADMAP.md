@@ -155,6 +155,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The coach holds a conversation (2026-10-16)**
+- Each question used to be an island: no history, so "why?" meant nothing. Threads now
+  (migration 0010), replayed as real turns, and the screen reads as a conversation
+  with the box at the bottom.
+- **The plan moved into the system block.** It is the same every turn, and leaving it
+  in the user message would have paid for it once per turn of history. The retrieved
+  passages stay with the question they were retrieved for, so the replay is only what
+  was actually said.
+- Bounded twice: eight turns and a 14,000-character budget, because one rambling
+  exchange can be worth more than ten short ones.
+- A thread id is only ever matched against the asker's own rows, so quoting someone
+  else's gets you your own empty conversation; one that is not a uuid is ignored and a
+  fresh one minted. Both have tests.
+- The question appears immediately with nothing under it, so a slow reply reads as
+  thinking rather than as nothing happening, and a failure puts the text back in the
+  box rather than losing it.
+- **The prompt talked about the state block using the same tag the block itself uses**,
+  so a test looking for `<state>` found the sentence describing it first. The prompt
+  says "the state block" now.
+- 314 tests, 7 mutants. One survived because a stub returned no thread id, which made
+  the assertion pass either way; the stub answers like the real endpoint now.
+
 **A coach answer that came back empty (2026-10-16)**
 - Reported: a question returned the citations and no text. The citations are built
   from our own retrieval, not from the model, so they render whether or not it said

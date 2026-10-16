@@ -476,13 +476,22 @@ function fakeDB() {
     if (/^SELECT COUNT\(\*\) AS n FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 1$/.test(q))
       return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 1).length }];
     if (/^INSERT INTO coach_log/.test(q)) {
-      coachRows.push({ id: a[0], user: a[1], asked_at: a[2], question: a[3], answer: a[4],
-        cites: a[5], model: a[6], tokens_in: a[7], tokens_out: a[8], ok: a[9], stop: a[10] });
+      // Date.now() can repeat within a test, and a conversation has to keep its order.
+      coachRows.push({ id: a[0], user: a[1], asked_at: a[2] + coachRows.length / 1000, question: a[3], answer: a[4],
+        cites: a[5], model: a[6], tokens_in: a[7], tokens_out: a[8], ok: a[9], stop: a[10], thread: a[11] });
       return [];
     }
-    if (/^SELECT id, asked_at, question, answer, cites FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
-      return coachRows.filter((r) => r.user === a[0] && r.ok === 1)
-        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[1])
+    if (/^SELECT question, answer FROM coach_log WHERE user = \?1 AND thread = \?2 AND ok = 1 ORDER BY asked_at DESC LIMIT \?3$/.test(q))
+      return coachRows.filter((r) => r.user === a[0] && r.thread === a[1] && r.ok === 1)
+        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[2])
+        .map((r) => ({ question: r.question, answer: r.answer }));
+    if (/^SELECT thread FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT 1$/.test(q)) {
+      const r = coachRows.filter((x) => x.user === a[0] && x.ok === 1).sort((x, y) => y.asked_at - x.asked_at)[0];
+      return r ? [{ thread: r.thread }] : [];
+    }
+    if (/^SELECT id, asked_at, question, answer, cites FROM coach_log WHERE user = \?1 AND thread = \?2 AND ok = 1 ORDER BY asked_at DESC LIMIT \?3$/.test(q))
+      return coachRows.filter((r) => r.user === a[0] && r.thread === (a[1] || "") && r.ok === 1)
+        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[2])
         .map((r) => ({ id: r.id, asked_at: r.asked_at, question: r.question, answer: r.answer, cites: r.cites }));
     if (/^SELECT id, title, short, chunks, updated_at FROM lib_doc ORDER BY id$/.test(q))
       return libDoc.slice().sort((x, y) => (x.id < y.id ? -1 : 1));
@@ -1294,14 +1303,17 @@ test("the coach is grounded in the plan and the books before it answers", async 
     const sent = globalThis.fetch.calls[0];
     a.equal(sent.init.headers["x-api-key"], "sk-test", "the key goes in the header");
     const prompt = sent.body.messages[0].content;
-    // The books come first, and the passage that answers this question is in there.
+    // The books go with the question they were retrieved for.
     a.match(prompt, /<library>/);
     a.match(prompt, /x 1\.3 for grams of protein/, "the macro passage was retrieved");
-    // So does the plan, summarised rather than dumped.
-    a.match(prompt, /"bodyweight":185/);
-    a.match(prompt, /"template":"operator"/);
-    a.match(prompt, /grinder/, "and what actually happened in the log");
-    a.ok(!/"schema"/.test(prompt), "but not the whole plan document");
+    // The plan goes in the system block, where it is sent once however long the
+    // conversation gets, rather than once per turn of history.
+    const sys = sent.body.system;
+    a.match(sys, /"bodyweight":185/);
+    a.match(sys, /"template":"operator"/);
+    a.match(sys, /grinder/, "and what actually happened in the log");
+    a.ok(!/"schema"/.test(sys), "but not the whole plan document");
+    a.ok(!/<state>/.test(prompt), "and not repeated in the message");
     // The system prompt has to rank the books above the model's own view, or the
     // whole point of the library is lost.
     a.match(sent.body.system, /THE BOOKS/);
@@ -1322,16 +1334,16 @@ test("the coach records what it said, and counts it against the cap", async () =
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how long should my recovery weeks be" }) }, tok);
     const hist = await (await call2(env, "coach", {}, tok)).json();
-    a.equal(hist.history.length, 1);
-    a.equal(hist.history[0].question, "how long should my recovery weeks be");
-    a.equal(hist.history[0].answer, "Keep going.");
-    a.ok(hist.history[0].cites.length, "with the passages it was given");
+    a.equal(hist.turns.length, 1);
+    a.equal(hist.turns[0].question, "how long should my recovery weeks be");
+    a.equal(hist.turns[0].answer, "Keep going.");
+    a.ok(hist.turns[0].cites.length, "with the passages it was given");
     a.equal(hist.used, 1, "and it counts toward the month");
     a.equal(hist.configured, true);
 
     // Another person's questions are not in it.
     const mine = await (await call2(env, "coach", {}, other)).json();
-    a.deepEqual(mine.history, [], "the log is per person");
+    a.deepEqual(mine.turns, [], "the log is per person");
     a.equal(mine.used, 0);
   } finally { globalThis.fetch = orig }
 });
@@ -1429,7 +1441,7 @@ test("the coach is told the bodyweight and calories that are actually logged", a
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.messages[0].content.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
 
     // The bug: the summary read checkin.weight, which does not exist, so the coach was
     // told there was no bodyweight while five days of it sat in the log.
@@ -1473,7 +1485,7 @@ test("the coach is told what the person is training for", async () => {
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "bench is stuck" }) }, tok);
     const sent = globalThis.fetch.calls[0].body;
-    const state = JSON.parse(sent.messages[0].content.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sent.system.match(/<state>(.*?)<\/state>/s)[1]);
 
     a.equal(state.goals.aim, "315 squat without losing my mile time");
     a.equal(state.goals.by, "2027-03-01");
@@ -1503,7 +1515,7 @@ test("goals that were never filled in are absent, not empty", async () => {
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.messages[0].content.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
     // An object of nulls reads as "asked and left blank"; absent reads as "not asked".
     a.equal(state.goals, null);
   } finally { globalThis.fetch = orig }
@@ -1536,7 +1548,7 @@ test("an answer that came back empty is an error, not a blank card", async () =>
     // None of those are charged for, and none appear in the history.
     const hist = await (await call2(env, "coach", {}, tok)).json();
     a.equal(hist.used, 0, "not counted");
-    a.deepEqual(hist.history, [], "and not shown as if they were answers");
+    a.deepEqual(hist.turns, [], "and not shown as if they were answers");
     // But they are recorded, with why, or there is nothing to diagnose from.
     a.equal(env.DB.coachRows.length, 3);
     a.deepEqual(env.DB.coachRows.map((r) => r.stop), ["end_turn", "", "max_tokens"]);
@@ -1555,5 +1567,76 @@ test("a truncated answer is shown, and labelled", async () => {
     a.match(r.answer, /^Ruck instead of the HIC today/);
     a.equal(r.truncated, true, "and flagged, rather than trailing off as if finished");
     a.equal((await (await call2(env, "coach", {}, tok)).json()).used, 1, "this one did answer, so it counts");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach carries the conversation, and a new topic drops it", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  const ask = async (q, extra) => (await (await call2(env, "coach",
+    { method: "POST", body: JSON.stringify({ q, ...extra }) }, tok)).json());
+  try {
+    globalThis.fetch = fakeAnthropic(coachReply("Ruck is fine today."));
+    const a1 = await ask("should I ruck instead of the HIC today");
+    a.ok(a1.thread, "the first question opens a thread");
+    a.equal(globalThis.fetch.calls[0].body.messages.length, 1, "with nothing before it");
+
+    // The follow-up carries what was said, so "why?" means something.
+    globalThis.fetch = fakeAnthropic(coachReply("Because an easy hour is not a hard twenty."));
+    const a2 = await ask("why?", { thread: a1.thread });
+    a.equal(a2.thread, a1.thread, "same thread");
+    const msgs = globalThis.fetch.calls[0].body.messages;
+    a.equal(msgs.length, 3, "question, answer, question");
+    a.deepEqual(msgs.map((m) => m.role), ["user", "assistant", "user"]);
+    a.match(msgs[0].content, /should I ruck instead/);
+    a.equal(msgs[1].content, "Ruck is fine today.", "its own answer comes back to it");
+    a.match(msgs[2].content, /why\?$/);
+    // Only the current question carries passages; the history is just what was said.
+    a.ok(!/<library>/.test(msgs[0].content), "no passages replayed in the history");
+    a.match(msgs[2].content, /<library>/);
+    a.ok(!/<state>/.test(msgs.map((m) => m.content).join("")), "and the plan is not repeated per turn");
+
+    // A new topic starts clean even though the rows are still there.
+    globalThis.fetch = fakeAnthropic(coachReply("Different subject."));
+    const a3 = await ask("unrelated question about squats");
+    a.notEqual(a3.thread, a1.thread, "a fresh thread");
+    a.equal(globalThis.fetch.calls[0].body.messages.length, 1, "with no history behind it");
+
+    // And the screen shows the newest thread, oldest turn first.
+    const h = await (await call2(env, "coach", {}, tok)).json();
+    a.equal(h.thread, a3.thread);
+    a.deepEqual(h.turns.map((t) => t.question), ["unrelated question about squats"]);
+  } finally { globalThis.fetch = orig }
+});
+
+test("a thread is bounded, and is only ever your own", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a), other = await asOther(k);
+  const orig = globalThis.fetch;
+  try {
+    globalThis.fetch = fakeAnthropic(coachReply("ok"));
+    let thread = null;
+    // Twelve turns: more than the eight the replay keeps.
+    for (let i = 0; i < 12; i++) {
+      const r = await (await call2(env, "coach",
+        { method: "POST", body: JSON.stringify({ q: "question " + i, thread: thread || undefined }) }, tok)).json();
+      thread = r.thread;
+    }
+    const msgs = globalThis.fetch.calls[globalThis.fetch.calls.length - 1].body.messages;
+    a.ok(msgs.length <= 17, `history is capped, got ${msgs.length}`);
+    a.match(msgs[msgs.length - 1].content, /question 11$/, "the newest question is last");
+    a.ok(!msgs.some((m) => /question 0$/.test(m.content)), "and the oldest have fallen off");
+
+    // Someone else quoting your thread id gets their own conversation, not yours.
+    globalThis.fetch = fakeAnthropic(coachReply("ok"));
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "whose thread", thread }) }, other);
+    a.equal(globalThis.fetch.calls[0].body.messages.length, 1, "no history leaks across people");
+
+    // A thread id that is not one is ignored rather than trusted.
+    globalThis.fetch = fakeAnthropic(coachReply("ok"));
+    const r = await (await call2(env, "coach",
+      { method: "POST", body: JSON.stringify({ q: "hi", thread: "../../etc/passwd" }) }, tok)).json();
+    a.match(r.thread, /^[0-9a-f-]{36}$/, "a fresh one is minted instead");
   } finally { globalThis.fetch = orig }
 });

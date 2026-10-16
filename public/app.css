@@ -501,3 +501,10 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .cal-ghost{position:fixed;z-index:60;transform:translate(-50%,-140%);pointer-events:none;
   background:var(--card,#1c1c1e);color:var(--fg,#fff);border:1px solid var(--line,#3a3a3c);
   border-radius:8px;padding:4px 8px;font-size:12px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+
+/* A conversation reads as alternating turns. The question sits above its answer in
+   one card, so a long thread scrolls as pairs rather than as a wall. */
+.coach-t{padding-top:10px}
+.coach-q{font-weight:650;border-left:3px solid var(--line,#3a3a3c);padding-left:9px;margin-bottom:8px;white-space:pre-wrap}
+.coach-a p{margin:0 0 8px}
+.coach-a p:last-child{margin-bottom:0}

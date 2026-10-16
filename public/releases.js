@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.5',date:'2026-10-16',title:'The coach holds a conversation',items:[
+    'It remembers the rest of the exchange, so you can follow up. \u201cWhy?\u201d, \u201cwhat if I ruck instead\u201d, \u201cand the week after?\u201d all work now \u2014 before, every question started from nothing.',
+    'The screen reads top to bottom like a conversation, with the box at the bottom. Your question shows up the moment you send it, so a slow answer looks like thinking rather than like nothing happening, and if it fails the text comes back rather than disappearing.',
+    '<b>New topic</b> starts a clean thread when you want to change subject rather than carry the last one along.']},
   {v:'3.4',date:'2026-10-16',title:'The coach answers, or says why not',items:[
     'A question came back with the sources listed and no answer above them. The sources come from the app\u2019s own search of your books, so they showed up even though the coach had said nothing \u2014 which made a failure look like a reply. Now an empty answer is an error you can see, and it is not counted against your monthly questions.',
     'Answers also had a length limit they could hit without warning. The limit is nearly twice as high, the coach is asked to keep under about 250 words, and an answer that still runs out says so instead of trailing off.',

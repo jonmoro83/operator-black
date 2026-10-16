@@ -79,7 +79,8 @@ export async function handleApi(request, env) {
   }
   if (route === "coach" && request.method === "POST") return askCoach(request, env, user);
   if (route === "coach" && request.method === "GET") {
-    return json({ history: await coachHistory(env, user, 20), used: await coachUsed(env, user), cap: COACH_CAP,
+    const h = await coachHistory(env, user, 30);
+    return json({ ...h, used: await coachUsed(env, user), cap: COACH_CAP,
       configured: !!env.ANTHROPIC_API_KEY }, 200, { "cache-control": "no-store" });
   }
 
@@ -558,9 +559,11 @@ const COACH_MAX_Q = 1200;         // characters of question
 
 const COACH_SYSTEM = `You are a strength and conditioning coach for one person, inside their own training app. You work in the Tactical Barbell system.
 
+This is a conversation, not a series of lookups. Earlier turns are above; refer back to them, do not re-introduce yourself or repeat advice you have already given. A short reply to a short follow-up is the right length.
+
 GROUNDING, in order of authority:
 1. THE BOOKS. Passages from the person's own copies are supplied under <library>. When they answer the question, follow them and cite them as [tb1 p12] using the doc and ref given. Tactical Barbell III and Mass Protocol are the same book.
-2. THE PLAN. <state> is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
+2. THE PLAN. The state block below is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
 3. YOUR OWN REASONING, last. If the books do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's.
 
 WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
@@ -568,15 +571,15 @@ WEB SEARCH is available and you decide when to use it. Do not reach for it when 
 When you do use it, name the source in the sentence that relies on it, and say that it is not from the books. A forum post does not carry the weight of a book and must not be written as though it does.
 
 WHAT THEY ARE TRAINING FOR:
-<state>.goals is what they wrote down in Setup. Use it. Advice that ignores a stated goal is worse than no advice.
-- goals.stalls says where a lift slows down. When asked about a lift that has one, say which accessory would address that part of the movement and name the slot it goes in, from <state>.accessorySlots, so they can switch it on in Setup. Do not invent movements the app does not offer.
+state.goals is what they wrote down in Setup. Use it. Advice that ignores a stated goal is worse than no advice.
+- goals.stalls says where a lift slows down. When asked about a lift that has one, say which accessory would address that part of the movement and name the slot it goes in, from state.accessorySlots, so they can switch it on in Setup. Do not invent movements the app does not offer.
 - goals.by is a date. Work back from it in weeks and say what fits before then.
 - If a question has nothing to do with their goals, do not shoehorn them in.
 
 HOW TO WRITE:
 - Talk to them directly, like a coach who knows their log. Short paragraphs.
 - Lead with the answer. No preamble, no restating the question.
-- Specific over general: use their actual numbers, lifts and dates from <state>.
+- Specific over general: use their actual numbers, lifts and dates from the state block.
 - If the honest answer is "keep doing what you're doing", say that.
 - Do not invent sessions, percentages or book content. If you are unsure, say so.
 - You cannot change anything. Never say you have adjusted, moved or updated anything — suggest, and they decide.
@@ -696,20 +699,35 @@ async function askCoach(request, env, user) {
   const used = await coachUsed(env, user);
   if (used >= COACH_CAP) return json({ error: `That is ${COACH_CAP} questions this month, which is the cap. It resets on the 1st.` }, 429);
 
+  // Carry on the thread we were given, or open one. A thread id the caller made up is
+  // harmless: it only ever selects that person's own rows.
+  const thread = /^[0-9a-f-]{8,40}$/.test(String(body.thread || "")) && !body.fresh
+    ? String(body.thread) : crypto.randomUUID();
+
   const [state, lib] = await Promise.all([
     coachState(env, user),
     libSearch(env, ftsQuery(q), 8),
   ]);
   const passages = (lib.hits || []).map((h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`).join("\n");
 
+  // Earlier turns carry only what was said. The state goes in the system block, where
+  // it is sent once rather than once per turn of history, and the passages go with the
+  // question they were retrieved for.
+  const prior = await coachTurns(env, user, thread);
+  const messages = [];
+  for (const t of prior) {
+    messages.push({ role: "user", content: t.question });
+    if (t.answer) messages.push({ role: "assistant", content: t.answer });
+  }
+  messages.push({
+    role: "user",
+    content: `<library>${passages || "(nothing in the books matched this question)"}</library>\n\n${q}`,
+  });
   const payload = {
     model: COACH_MODEL,
     max_tokens: 2600,
-    system: COACH_SYSTEM,
-    messages: [{
-      role: "user",
-      content: `<state>${JSON.stringify(state)}</state>\n\n<library>${passages || "(nothing in the books matched this question)"}</library>\n\n${q}`,
-    }],
+    system: `${COACH_SYSTEM}\n\n<state>${JSON.stringify(state)}</state>`,
+    messages,
   };
   // Always offered, never asked for. The books are the authority and the model is told
   // to reach for the web only when they do not cover the question -- which is a
@@ -730,11 +748,11 @@ async function askCoach(request, env, user) {
     });
     data = await res.json();
   } catch (e) {
-    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0 });
+    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0, thread });
     return json({ error: "Could not reach the coach. Try again." }, 502);
   }
   if (!res.ok) {
-    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0 });
+    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0, thread });
     // The upstream message can carry the key's own details, so it is logged, not returned.
     return json({ error: data && data.error && data.error.type === "rate_limit_error"
       ? "The coach is rate limited just now. Try again in a minute."
@@ -758,17 +776,18 @@ async function askCoach(request, env, user) {
 
   if (!answer) {
     await logCoach(env, { id, user, q, answer: "", cites, model: data.model || COACH_MODEL,
-      ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 0, stop });
+      ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 0, stop, thread });
     return json({ error: stop === "max_tokens"
       ? "The answer ran past its length limit before any of it came back. Ask for something narrower and it will fit."
       : "The coach replied with nothing. Ask again \u2014 that one is on us, and it has not been counted." }, 502);
   }
 
   await logCoach(env, { id, user, q, answer, cites, model: data.model || COACH_MODEL,
-    ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 1, stop });
+    ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 1, stop, thread });
 
   return json({
     id,
+    thread,
     answer,
     // A truncated answer is still worth reading, but say so rather than letting it
     // trail off mid-sentence as though that were the whole thought.
@@ -782,17 +801,49 @@ async function askCoach(request, env, user) {
 
 function logCoach(env, x) {
   return env.DB.prepare(
-    `INSERT INTO coach_log (id, user, asked_at, question, answer, cites, model, tokens_in, tokens_out, ok, stop)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
-  ).bind(x.id, x.user, Date.now(), x.q, x.answer, JSON.stringify(x.cites), x.model, x.ti, x.to, x.ok, x.stop || "").run();
+    `INSERT INTO coach_log (id, user, asked_at, question, answer, cites, model, tokens_in, tokens_out, ok, stop, thread)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
+  ).bind(x.id, x.user, Date.now(), x.q, x.answer, JSON.stringify(x.cites), x.model, x.ti, x.to, x.ok, x.stop || "", x.thread || "").run();
+}
+/* The turns already in this thread, oldest first, for replaying as context.
+
+   Bounded twice over: a count, so a long conversation does not grow without limit,
+   and a character budget, because one rambling exchange can be worth more than ten
+   short ones. The oldest go first -- a conversation reads back from the present. */
+const COACH_TURNS = 8, COACH_CHARS = 14000;
+async function coachTurns(env, user, thread) {
+  if (!thread) return [];
+  const { results } = await env.DB.prepare(
+    `SELECT question, answer FROM coach_log
+     WHERE user = ?1 AND thread = ?2 AND ok = 1 ORDER BY asked_at DESC LIMIT ?3`
+  ).bind(user, thread, COACH_TURNS).all();
+  const out = [];
+  let budget = COACH_CHARS;
+  for (const r of results || []) {
+    const cost = (r.question || "").length + (r.answer || "").length;
+    if (cost > budget) break;
+    budget -= cost;
+    out.unshift(r);
+  }
+  return out;
 }
 
+/* The conversation on screen: the most recent thread, oldest first, because that is
+   how a conversation is read. Rows from before threads existed share the empty thread
+   and read as the one long exchange they were. */
 async function coachHistory(env, user, n) {
+  const last = await env.DB.prepare(
+    "SELECT thread FROM coach_log WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT 1"
+  ).bind(user).first();
+  if (!last) return { thread: null, turns: [] };
   const { results } = await env.DB.prepare(
     `SELECT id, asked_at, question, answer, cites FROM coach_log
-     WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT ?2`
-  ).bind(user, n).all();
-  return (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] }));
+     WHERE user = ?1 AND thread = ?2 AND ok = 1 ORDER BY asked_at DESC LIMIT ?3`
+  ).bind(user, last.thread || "", n).all();
+  return {
+    thread: last.thread || null,
+    turns: (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] })).reverse(),
+  };
 }
 
 function isAdmin(env, user) {
