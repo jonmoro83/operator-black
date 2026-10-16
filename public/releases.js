@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.11',date:'2026-10-16',title:'The screen stops being rebuilt',items:[
+    'Every change used to throw the whole screen away and build it again, which is why typing in a field could lose your place in it, and why panels had to be taught to stay open. The app now changes only the parts that actually differ.',
+    'You should notice it as things holding still: the caret stays where you left it, the page does not jump, and nothing closes under you while you type.',
+    'No new libraries \u2014 about ninety lines, and it falls back to the old behavior anywhere it cannot be done safely.']},
   {v:'3.10',date:'2026-10-16',title:'Setup sections stay open',items:[
     'Opening two sections in Setup and then changing a field collapsed one of them. More than one can be open at once now, and which ones are remembered between visits.']},
   {v:'3.9',date:'2026-10-16',title:'Readable section headers',items:[

@@ -6416,3 +6416,146 @@ test("every CSS variable the stylesheet uses is one the stylesheet defines", () 
   for (let i = 1; i < names.length; i++)
     for (const n of base) a.ok(names[i].has(n), `theme ${i} is missing ${n}`);
 });
+
+/* ---------------- morphing ----------------
+   The algorithm is tested against a small node tree built by hand rather than parsed
+   from HTML: a parser is the one part of this that the browser already provides and
+   that a test does not need to re-implement to check the walk. */
+function mkDom() {
+  let active = null;
+  const node = (t, attrs, kids) => {
+    const n = {
+      nodeType: 1, tagName: t.toUpperCase(), childNodes: [], parentNode: null,
+      attributes: Object.entries(attrs || {}).map(([name, value]) => ({ name, value: String(value) })),
+      get id() { return (this.attributes.find((a) => a.name === "id") || {}).value || "" },
+      get type() { return (this.attributes.find((a) => a.name === "type") || {}).value || "" },
+      get textContent() { return this.childNodes.map((c) => (c.nodeType === 3 ? c.nodeValue : c.textContent)).join("") },
+      value: "", checked: false,
+      getAttribute(k) { const a = this.attributes.find((x) => x.name === k); return a ? a.value : null },
+      hasAttribute(k) { return this.attributes.some((x) => x.name === k) },
+      setAttribute(k, v) { const a = this.attributes.find((x) => x.name === k); if (a) a.value = String(v); else this.attributes.push({ name: k, value: String(v) }) },
+      removeAttribute(k) { this.attributes = this.attributes.filter((x) => x.name !== k) },
+      appendChild(c) { c.parentNode = this; this.childNodes.push(c); return c },
+      insertBefore(c, ref) {
+        if (c.parentNode) c.parentNode.childNodes.splice(c.parentNode.childNodes.indexOf(c), 1);
+        c.parentNode = this;
+        const i = ref ? this.childNodes.indexOf(ref) : -1;
+        if (i < 0) this.childNodes.push(c); else this.childNodes.splice(i, 0, c);
+        return c;
+      },
+      removeChild(c) { this.childNodes.splice(this.childNodes.indexOf(c), 1); c.parentNode = null; return c },
+      cloneNode() { const c = node(t, Object.fromEntries(this.attributes.map((a) => [a.name, a.value])));
+        c.value = this.value; c.checked = this.checked;
+        for (const k of this.childNodes) c.appendChild(k.cloneNode(true)); return c },
+    };
+    for (const k of kids || []) n.appendChild(k);
+    return n;
+  };
+  const text = (v) => ({ nodeType: 3, nodeValue: v, parentNode: null, childNodes: [],
+    cloneNode() { return text(this.nodeValue) } });
+  return { node, text, focus: (n) => { active = n }, get active() { return active } };
+}
+
+test("morphing keeps the nodes it can and replaces only what changed", () => {
+  const x = app();
+  const d = mkDom();
+  const old = d.node("div", {}, [
+    d.node("p", { id: "a" }, [d.text("one")]),
+    d.node("p", { id: "b" }, [d.text("two")]),
+  ]);
+  const keptA = old.childNodes[0], keptB = old.childNodes[1];
+
+  // Same shape, one word changed: both elements survive, only the text is written.
+  const next = d.node("div", {}, [
+    d.node("p", { id: "a" }, [d.text("one")]),
+    d.node("p", { id: "b" }, [d.text("TWO")]),
+  ]);
+  x.morphChildren(old, next);
+  a.equal(old.childNodes[0], keptA, "the untouched node is the same object");
+  a.equal(old.childNodes[1], keptB, "and so is the changed one");
+  a.equal(keptB.textContent, "TWO", "its text was updated in place");
+
+  // A node inserted above them must not cost them their identity, or anything the
+  // browser was holding for them -- focus, caret, scroll -- goes with it.
+  const withBanner = d.node("div", {}, [
+    d.node("div", { id: "banner" }, [d.text("!")]),
+    d.node("p", { id: "a" }, [d.text("one")]),
+    d.node("p", { id: "b" }, [d.text("TWO")]),
+  ]);
+  x.morphChildren(old, withBanner);
+  a.equal(old.childNodes.length, 3);
+  a.equal(old.childNodes[1], keptA, "the id carried it to its new position");
+  a.equal(old.childNodes[2], keptB);
+
+  // And removing it puts them back without rebuilding them.
+  x.morphChildren(old, next);
+  a.deepEqual(old.childNodes.map((n) => n.id), ["a", "b"]);
+  a.equal(old.childNodes[0], keptA);
+
+  // A different tag in the same slot is a different element and is replaced.
+  x.morphChildren(old, d.node("div", {}, [d.node("span", { id: "a" }, [d.text("one")])]));
+  a.notEqual(old.childNodes[0], keptA, "a <p> is not a <span>");
+  a.equal(old.childNodes.length, 1, "and the surplus went");
+
+  // So is the same tag under a different id. Reusing one field as another would
+  // carry across whatever the browser was holding for the first -- its value, its
+  // caret, its checked state -- and hand it to something else.
+  const two = d.node("div", {}, [d.node("input", { id: "squat" }), d.node("input", { id: "bench" })]);
+  const squat = two.childNodes[0];
+  squat.value = "300";
+  x.morphChildren(two, d.node("div", {}, [d.node("input", { id: "dead" }), d.node("input", { id: "bench" })]));
+  a.notEqual(two.childNodes[0], squat, "a different id is a different element");
+  a.equal(two.childNodes[0].value, "", "so nothing of the old one came with it");
+  a.equal(two.childNodes[0].id, "dead");
+});
+
+test("morphing updates attributes without rebuilding, and drops the stale ones", () => {
+  const x = app();
+  const d = mkDom();
+  const old = d.node("div", {}, [d.node("button", { id: "go", class: "btn", disabled: "" }, [d.text("Go")])]);
+  const btn = old.childNodes[0];
+  x.morphChildren(old, d.node("div", {}, [d.node("button", { id: "go", class: "btn primary" }, [d.text("Send")])]));
+  a.equal(old.childNodes[0], btn, "same button");
+  a.equal(btn.getAttribute("class"), "btn primary", "class updated");
+  a.equal(btn.hasAttribute("disabled"), false, "and the attribute that went away is gone");
+  a.equal(btn.textContent, "Send");
+});
+
+test("morphing never writes into the field being typed in", () => {
+  const x = app();
+  const d = mkDom();
+  const old = d.node("div", {}, [d.node("input", { id: "q", type: "text", value: "" })]);
+  const input = old.childNodes[0];
+  input.value = "half a sent";                       // what has been typed so far
+
+  // The render is always a keystroke behind. While the field has focus the DOM is the
+  // truth, and writing the stale value is what used to jump the caret to the end.
+  const realDoc = global.document;
+  global.document = { activeElement: input, createElement: () => d.node("div") };
+  try {
+    x.morphChildren(old, d.node("div", {}, [d.node("input", { id: "q", type: "text", value: "half a sen" })]));
+    a.equal(input.value, "half a sent", "what was typed survives");
+
+    // Blurred, the render wins again.
+    global.document.activeElement = null;
+    x.morphChildren(old, d.node("div", {}, [d.node("input", { id: "q", type: "text", value: "from the plan" })]));
+    a.equal(input.value, "from the plan");
+
+    // A checkbox follows the render either way: it has no caret to lose, and its
+    // state lives in the plan rather than in what is half-typed.
+    const box = d.node("div", {}, [d.node("input", { id: "c", type: "checkbox" })]);
+    x.morphChildren(box, d.node("div", {}, [d.node("input", { id: "c", type: "checkbox", checked: "" })]));
+    a.equal(box.childNodes[0].checked, true);
+    x.morphChildren(box, d.node("div", {}, [d.node("input", { id: "c", type: "checkbox" })]));
+    a.equal(box.childNodes[0].checked, false);
+  } finally { global.document = realDoc }
+});
+
+test("morph falls back to replacing when there is no real DOM to walk", () => {
+  const x = app();
+  // Which is what the test harness is, and why every other test still passes: a stub
+  // element with an innerHTML string and no children gets the old behaviour.
+  const stub = { innerHTML: "" };
+  a.equal(x.morph(stub, "<p>hello</p>"), false, "it reports that it could not morph");
+  a.equal(stub.innerHTML, "<p>hello</p>", "and replaced instead, so nothing is lost");
+});

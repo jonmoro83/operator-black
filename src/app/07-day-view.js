@@ -9,6 +9,9 @@ function render(){
   }
 }
 function renderMain(){
+  // Focus and the caret used to be saved here and put back after the innerHTML swap.
+  // morph() does not disturb them, so there is nothing to save -- except where it
+  // cannot morph at all, which is the test harness, and there nothing has focus.
   const a=document.activeElement, aid=a&&a.id, pos=a&&typeof a.selectionStart==='number'?a.selectionStart:null;
   // The Admin tab exists in the markup for everyone and is shown to nobody until the
   // server says otherwise. If a stored view points at it and this address is not an
@@ -19,9 +22,10 @@ function renderMain(){
   document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
-  if(wz&&!viewing){m.innerHTML=vWelcome();if(aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})}return}
-  m.innerHTML=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,coach:vCoach,guide:vGuide,admin:vAdmin}[view]||vToday)();
-  if(aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
+  if(wz&&!viewing){ if(!morph(m,vWelcome())&&aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})} return }
+  const html=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,coach:vCoach,guide:vGuide,admin:vAdmin}[view]||vToday)();
+  // Only the fallback path needs focus putting back; morph never took it away.
+  if(!morph(m,html)&&aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
   showToast();
 }
 

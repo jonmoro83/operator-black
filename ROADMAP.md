@@ -178,6 +178,31 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Morphing the DOM instead of replacing it (2026-10-16)**
+- Every render was `main.innerHTML = html`, which throws the screen away and builds it
+  again, losing whatever the browser was holding and the app was not: focus, the caret,
+  scroll position, a `<details>` that was open. The app had grown three workarounds —
+  saving and restoring the focused element's id and selection around every render, and
+  keeping panel state in JS Sets so a re-render could not forget it. The section-header
+  bug earlier today was the same tax being paid again.
+- `morph(root,html)` walks the new HTML against the DOM already there and changes only
+  what differs. Two rules earn their place: an element with an id is matched to the
+  element with that id wherever it moved to, so inserting a card above a focused input
+  does not replace everything below it; and the value of a field with focus is never
+  written, because the render is a keystroke behind by definition.
+- **No framework and no dependency.** About 90 lines. Considered and rejected a port to
+  a component framework: it would cost weeks, throw away a test harness that evals the
+  bundle and calls internals directly, and buy a component model mostly used to
+  re-implement what works. This was the one part worth taking.
+- Falls back to replacing where there is no real DOM, which is the harness — so all
+  319 existing tests went on passing untouched, and the fallback is itself tested.
+- The algorithm is tested against a node tree built by hand rather than parsed from
+  HTML: a parser is the one part the browser already provides and a test does not need
+  to re-implement to check the walk.
+- 323 tests, 9 mutants. One survived until a test covered the same tag under a
+  different id — reusing one field as another would hand the browser's state for the
+  first to the second.
+
 **Setup sections: open state is state, not DOM (2026-10-16)**
 - The `<details>` I shipped in 3.8 remembered one open section. Setup re-renders on
   every field change and a `<details>` keeps its open state in the DOM, so opening two
