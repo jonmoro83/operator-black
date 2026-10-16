@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.10',date:'2026-10-16',title:'Setup sections stay open',items:[
+    'Opening two sections in Setup and then changing a field collapsed one of them. More than one can be open at once now, and which ones are remembered between visits.']},
   {v:'3.9',date:'2026-10-16',title:'Readable section headers',items:[
     'The new Setup section headers shipped as black text on a black bar. The styling referred to two colors that do not exist in this app, so it fell back to hardcoded dark values and painted them over dark text.',
     'Fixed, and the stylesheet now has no hardcoded color fallbacks at all \u2014 a fallback can only ever hide a mistake like that one. A test reads the stylesheet and fails if any color it uses is not one it defines.']},

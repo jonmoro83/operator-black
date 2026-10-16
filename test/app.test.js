@@ -185,7 +185,32 @@ test("Setup still has every card it is supposed to", () => {
   // Program is open on arrival. A screen of six shut drawers is worse than the scroll
   // it replaced, because now you cannot even see what is in there.
   a.match(h, /data-sec="program" open|open data-sec="program"/, "Program starts open");
-  a.equal((h.match(/<details class="setup-sec" open/g) || []).length, 1, "and only one does");
+  a.equal((h.match(/<details class="setup-sec" open/g) || []).length, 1, "and only it does");
+
+  // Setup re-renders on every field change, and a <details> keeps its open state in
+  // the DOM. So more than one open section has to be remembered, or typing in a field
+  // collapses the others -- the same lesson the mobility panels taught with openPx.
+  const openCount = () => (x.vSetup().match(/<details class="setup-sec" open/g) || []).length;
+  x.setSetupOpen("training", true);
+  a.equal(openCount(), 2, "two can be open at once");
+  a.equal(openCount(), 2, "and a re-render does not collapse either");
+  x.setSetupOpen("program", false);
+  a.equal(openCount(), 1, "closing one closes only that one");
+  a.ok(/data-sec="training" open|open data-sec="training"/.test(x.vSetup()), "the right one stayed");
+
+  // And it comes back that way next time the app is opened, which is the only reason
+  // to write it down at all.
+  const y = app();
+  y.dom.store["ob.setupsec"] = JSON.stringify(["training", "you"]);
+  y.loaded = true; y.bump();
+  const yh = y.vSetup();
+  a.equal((yh.match(/<details class="setup-sec" open/g) || []).length, 2, "both are restored");
+  for (const k of ["training", "you"]) a.ok(new RegExp(`data-sec="${k}" open|open data-sec="${k}"`).test(yh), k);
+  // Rubbish in storage falls back rather than throwing or opening nothing.
+  const z = app();
+  z.dom.store["ob.setupsec"] = "{not json";
+  z.loaded = true; z.bump();
+  a.match(z.vSetup(), /data-sec="program" open|open data-sec="program"/, "a bad value falls back to Program");
   a.match(h, /jon@example\.com/, "About this app shows who is signed in");
   a.match(h, /data-view="releases"/, "and links to the release notes");
 });

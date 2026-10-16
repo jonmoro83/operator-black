@@ -6616,8 +6616,28 @@ function agelessOn(){
 const SETUP_SECS=[['program','Program'],['training','Training'],['sound','Alerts and sound'],
   ['you','About you'],['data','Your data'],['app','This app']];
 const SEC=k=>'\u0000'+k+'\u0000';
-function setupOpen(){ try{ return localStorage.getItem('ob.setupsec')||'program' }catch(e){ return 'program' } }
-function setSetupOpen(k){ try{ localStorage.setItem('ob.setupsec',k) }catch(e){} }
+/* Which sections are open, as a set rather than one name.
+
+   Setup re-renders on every field change, and a <details> keeps its open state in the
+   DOM, so anything not written down here collapses the moment you type. This codebase
+   already learned that with the mobility panels (`openPx`): open state is state, not
+   DOM. More than one section can be open at once, which is the whole point of
+   remembering a set. */
+let setupSecs=null;
+function setupOpen(){
+  if(setupSecs) return setupSecs;
+  let v=null;
+  try{ v=JSON.parse(localStorage.getItem('ob.setupsec')||'null') }catch(e){}
+  const keys=SETUP_SECS.map(([k])=>k);
+  setupSecs=new Set(Array.isArray(v)?v.filter(k=>keys.includes(k)):['program']);
+  return setupSecs;
+}
+function setSetupOpen(k,on){
+  const set=setupOpen();
+  if(on) set.add(k); else set.delete(k);
+  try{ localStorage.setItem('ob.setupsec',JSON.stringify([...set])) }catch(e){}
+  return set;
+}
 /* Group the chunks by the sentinel in front of them, then render one <details> per
    section. Anything emitted before the first sentinel is a bug rather than a section,
    so it is shown rather than silently dropped. */
@@ -6634,7 +6654,7 @@ function setupSections(html){
     const body=(by[k]||[]).join('');
     if(!body.trim()) continue;
     const n=(body.match(/<h2>/g)||[]).length;
-    out+=`<details class="setup-sec"${k===open?' open':''} data-sec="${k}"><summary><b>${esc(label)}</b><span class="small muted">${n} setting${n===1?'':'s'}</span></summary>${body}</details>`;
+    out+=`<details class="setup-sec"${open.has(k)?' open':''} data-sec="${k}"><summary><b>${esc(label)}</b><span class="small muted">${n} setting${n===1?'':'s'}</span></summary>${body}</details>`;
   }
   return out;
 }
@@ -7524,7 +7544,7 @@ document.addEventListener('change',e=>{ const t=e.target;
    you are using this phone right now, not a property of the program. */
 document.addEventListener('toggle',e=>{
   const d=e.target; if(!d||!d.dataset||!d.dataset.sec) return;
-  if(d.open) setSetupOpen(d.dataset.sec);
+  setSetupOpen(d.dataset.sec,d.open);
 },true);
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ if(t0.dataset.actChange==='wzbb'){ if(wz){wz.bb=t0.checked; render()} return } if(t0.dataset.actChange==='wzplyo'){ if(wz){wz.plyo=t0.checked; render()} return } setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.trvday||t.dataset.np) render(); });

@@ -178,6 +178,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Setup sections: open state is state, not DOM (2026-10-16)**
+- The `<details>` I shipped in 3.8 remembered one open section. Setup re-renders on
+  every field change and a `<details>` keeps its open state in the DOM, so opening two
+  sections and then typing in a field collapsed one of them.
+- This codebase had already learned that with the mobility panels: `openPx` is a Set
+  precisely because open state has to survive a re-render. There is even a test
+  asserting "no native disclosure to race the re-render" on those rows. The new
+  sections now keep a Set in `localStorage` for the same reason.
+- The first test of it passed against a mutant that restored only one section, because
+  the set is cached and the test never exercised the load path. Fixed by seeding
+  storage on a fresh app, which is the only way the restore is actually tried.
+- 319 tests.
+
 **Unreadable section headers, and the reason (2026-10-16)**
 - Shipped in 3.8 as near-black text on a near-black bar. The CSS I wrote used
   `var(--card,#1c1c1e)` and `var(--fg,#fff)`, and **neither token exists** — this
