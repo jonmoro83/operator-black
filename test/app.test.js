@@ -2575,6 +2575,139 @@ test("picks made before the per-day change are spread across the days that use t
   a.equal(JSON.stringify(x.plan.accPick), before, "it is not spread a second time");
 });
 
+// A month of identical days, so bodyweight and intake are established rather than
+// guessed at. `bw` moves by `drift` pounds a week.
+function fed(x, from, { bw = 185, drift = 0, kcal = 3000, macros = null, days = 28 } = {}) {
+  const seed = {};
+  for (let i = days - 1; i >= 0; i--) {
+    const d = x.addDays(from, -i);
+    const w = Math.round((bw - (drift / 7) * i) * 10) / 10;
+    seed[d] = { checkin: { bw: w, kcal, ...(macros || {}) } };
+  }
+  x.seed(seed); x.bump();
+  return seed;
+}
+
+test("the macro target for building is the book's formula, to its own worked example", () => {
+  const x = app({ now: "2026-10-15" });
+  fed(x, "2026-10-15", { bw: 185 });
+  x.plan.goal = "gain"; x.plan.proteinPerLb = 0; x.bump();
+
+  // TB III p.108: bodyweight x 1.3 protein, x 2 carb, half for fat. The book works it
+  // through for a 185 lb trainee and gets 240 and 370.
+  const t = x.macroTarget("2026-10-15");
+  a.equal(t.p, 240); a.equal(t.c, 370); a.equal(t.f, 95);
+  a.equal(t.src, "tb3", "and it is the book's, not ours");
+  a.equal(t.kcal, 240 * 4 + 370 * 4 + 95 * 9, "calories follow from the grams");
+  a.deepEqual([x.MACRO.gain.p, x.MACRO.gain.c, x.MACRO.gain.f], [1.3, 2, 0.5]);
+
+  // A protein setting of your own wins over the book's multiplier; the rest does not move.
+  x.plan.proteinPerLb = 1; x.bump();
+  const own = x.macroTarget("2026-10-15");
+  a.equal(own.p, 185, "your own figure");
+  a.equal(own.c, 370, "and the book's for everything else");
+
+  // With nothing logged it uses the Setup figure, which is what everything else that
+  // needs a bodyweight already does. With neither, it says so rather than guessing.
+  const y = app({ now: "2026-10-15" });
+  y.plan.goal = "gain"; y.plan.proteinPerLb = 0; y.plan.bodyweight = 185; y.bump();
+  a.equal(y.macroTarget("2026-10-15").p, 240, "the Setup weight will do until one is logged");
+  y.plan.bodyweight = null; y.bump();
+  a.equal(y.macroTarget("2026-10-15"), null);
+  a.match(y.macroCard("2026-10-15"), /Log your bodyweight/);
+});
+
+test("losing and holding are the app's own numbers, and say so", () => {
+  const x = app({ now: "2026-10-15" });
+  fed(x, "2026-10-15", { bw: 185, kcal: 3000 });
+  for (const goal of ["lose", "maintain"]) {
+    x.plan.goal = goal; x.plan.proteinPerLb = 0; x.bump();
+    const t = x.macroTarget("2026-10-15");
+    a.ok(t, goal + " has a target once there is a burn to work from");
+    a.equal(t.src, "ours", goal + " is not in any of the books");
+    // Protein and a fat floor off bodyweight; carbohydrate takes what is left.
+    a.equal(t.p, Math.round(185 * x.MACRO[goal].p / 5) * 5);
+    a.equal(t.f, Math.round(185 * x.MACRO[goal].f / 5) * 5);
+    a.ok(Math.abs(t.kcal - x.kcalTarget("2026-10-15")) <= 30, goal + " splits up the calorie target");
+    a.match(x.macroCard("2026-10-15"), /so these are ours/, goal + " says whose they are on the card");
+  }
+  // Losing eats less than holding, which is the whole point of the goal setting.
+  x.plan.goal = "lose"; x.bump(); const lose = x.macroTarget("2026-10-15");
+  x.plan.goal = "maintain"; x.bump(); const hold = x.macroTarget("2026-10-15");
+  a.ok(lose.kcal < hold.kcal, "a deficit is a deficit");
+});
+
+test("grams belong to the day they were eaten, not the day they were typed", () => {
+  const x = app({ now: "2026-10-15" });
+  // The check-in asks the morning after, so the 15th's entry is the 14th's eating --
+  // the same offset the calories have, and the same trap.
+  x.seed({ "2026-10-15": { checkin: { bw: 185, proG: 200, carbG: 300, fatG: 80 } } }); x.bump();
+  a.equal(x.macroOn("2026-10-14", "proG"), 200, "attributed to the day before");
+  a.equal(x.macroOn("2026-10-15", "proG"), null, "and not to the day it was entered");
+
+  fed(x, "2026-10-15", { bw: 185, macros: { proG: 210, carbG: 320, fatG: 85 } });
+  const m = x.macroMean("2026-10-15", 14);
+  a.equal(m.p, 210); a.equal(m.c, 320); a.equal(m.f, 85);
+  a.equal(m.days, 13, "thirteen of the fortnight have a morning-after entry");
+});
+
+test("the 500-calorie step is offered on evidence and applied in the book's ratio", () => {
+  const x = app({ now: "2026-10-15" });
+  x.plan.goal = "gain"; x.plan.proteinPerLb = 0;
+
+  // Gaining as intended: nothing to say.
+  fed(x, "2026-10-15", { bw: 185, drift: 1 });
+  a.equal(x.macroAdvice("2026-10-15"), null, "it is working, leave it alone");
+
+  // Flat for a fortnight is the book's trigger.
+  fed(x, "2026-10-15", { bw: 185, drift: 0 });
+  const adv = x.macroAdvice("2026-10-15");
+  a.equal(adv.dir, 1);
+  a.match(adv.text, /another 500 calories a day in the same ratio/);
+  a.match(x.macroCard("2026-10-15"), /data-act="macrobump" data-v="1"/, "with a button to take it");
+
+  // Applied, it moves every macro in proportion and lands near 500 more.
+  const before = x.macroTarget("2026-10-15");
+  x.mutatePlan((p) => { p.macroBump = 1 }); x.bump();
+  const after = x.macroTarget("2026-10-15");
+  // Not exactly 500: grams round to the nearest five, which is the right unit for a
+  // food target and costs up to about fifty calories either way on a figure this size.
+  a.ok(Math.abs(after.kcal - before.kcal - 500) <= 60, `about five hundred more, got ${after.kcal - before.kcal}`);
+  // Every macro moves by the same proportion, which is what "in the same ratio" means.
+  // Fat has the most slack because it is the smallest number, so rounding to five
+  // grams is a larger share of it.
+  const ratio = (k) => after[k] / before[k];
+  for (const k of ["p", "c", "f"]) a.ok(ratio(k) > 1, k + " went up");
+  a.ok(Math.abs(ratio("p") - ratio("c")) < 0.03, "protein and carbs move together");
+  a.ok(Math.abs(ratio("c") - ratio("f")) < 0.06, "and fat with them, within gram rounding");
+  a.match(x.macroCard("2026-10-15"), /including \+500 you have added/);
+
+  // Holding is never nagged, and losing gets our wording rather than the book's.
+  x.mutatePlan((p) => { p.macroBump = 0 });
+  x.plan.goal = "maintain"; x.bump();
+  a.equal(x.macroAdvice("2026-10-15"), null, "holding steady is the goal being met");
+  x.plan.goal = "lose"; x.bump();
+  a.match(x.macroAdvice("2026-10-15").text, /ours, not the book’s/);
+
+  // One week of readings is noise, not a stall.
+  const y = app({ now: "2026-10-15" });
+  y.plan.goal = "gain";
+  fed(y, "2026-10-15", { bw: 185, drift: 0, days: 5 });
+  a.equal(y.macroAdvice("2026-10-15"), null, "not enough history to call it");
+});
+
+test("the macro boxes are in the check-in, carrying the target", () => {
+  const x = app({ now: "2026-10-15" });
+  fed(x, "2026-10-15", { bw: 185 });
+  x.plan.goal = "gain"; x.plan.proteinPerLb = 0; x.sel = "2026-10-15"; x.bump();
+  const html = x.vToday();
+  for (const f of ["proG", "carbG", "fatG"]) a.match(html, new RegExp(`data-bind="checkin\\.${f}"`), f + " has a box");
+  // The target is the placeholder, so the box tells you what it is for.
+  a.match(html, /data-bind="checkin\.proG"[^>]*placeholder="240"/);
+  a.match(html, /data-bind="checkin\.carbG"[^>]*placeholder="370"/);
+  a.match(html, /data-bind="checkin\.fatG"[^>]*placeholder="95"/);
+});
+
 test("the coach calls the API the way the API is actually shaped", async () => {
   const x = app({ now: "2026-10-15" });
   // The one bug a server-side test cannot see: the client calling its own helper

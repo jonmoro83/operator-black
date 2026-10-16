@@ -213,6 +213,63 @@ function fobLine(id,ease){ const F=fobDef(id); return F?boutsLine(fobBouts(id,ea
 function fobSrcLabel(id){ return FOB_SRC[(FOBBIT[id]||{}).src]||FOB_SRC.ours }
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
 // Contacts count ground impacts (one landing = one contact), as the program does.
+/* Macro targets.
+
+   For building, Tactical Barbell III gives a formula outright (p.108): "Multiply your
+   bodyweight x 1.3 for grams of protein, and x 2 for carb. Divide your bodyweight in
+   half for fat. That's it." It also says what to do when the scale stops moving: "If
+   you're not putting on weight after a month or two, add another 500 calories per day
+   using the same ratio."
+
+   For losing or holding there is no formula in any of the books -- Mass Protocol is a
+   mass protocol, and the others leave food alone -- so those two rows are the app's
+   own and say so wherever they are shown. Protein stays high because a deficit is
+   where muscle is at risk; fat has a floor rather than a target, because going very
+   low is where people feel terrible; carbohydrate takes whatever calories are left,
+   which is also the lever that moves when the target changes.
+
+   Grams per pound of bodyweight. `c:null` means "fill the remainder". */
+const MACRO={
+  gain:    {src:'tb3',  p:1.3, c:2,    f:0.5},
+  lose:    {src:'ours', p:1.1, c:null, f:0.4},
+  maintain:{src:'ours', p:1.0, c:null, f:0.4},
+};
+const KCAL_G={p:4,c:4,f:9};
+const MACRO_STEP=500;        // the book's increment when the scale will not move
+function macroGoal(){ return MACRO[plan.goal]?plan.goal:'maintain' }
+// Bodyweight in pounds, which is what every formula here is written in.
+function bwLb(date){ const bw=bwFor(date); if(!bw) return null; return u()==='kg'?bw*2.2046:bw }
+/* The calorie target the energy card already works to: your burn, moved by the goal.
+   Pulled out so the macro split and that card cannot drift apart. */
+function kcalTarget(date){
+  const est=tdeeOn(date); if(!est) return null;
+  const g=macroGoal();
+  if(g==='lose') return est.tdee-Math.round(est.tdee*0.18/10)*10;
+  if(g==='gain') return est.tdee+250;
+  return est.tdee;
+}
+/* Today's grams. Building follows the book's formula and takes its calorie total from
+   it; the other two start from the calorie target and split that up. `bump` is the
+   book's 500-calorie step, applied in the same ratio, and is how a stalled scale gets
+   answered rather than by inventing a new formula. */
+function macroTarget(date,bump){
+  const lb=bwLb(date); if(!lb) return null;
+  // The stored adjustment unless a caller deliberately asks for a different one, so
+  // nobody can show a target that quietly ignores it.
+  bump=bump==null?(+plan.macroBump||0):+bump;
+  const g=macroGoal(), M=MACRO[g], r=n=>Math.round(n/5)*5;
+  const own=+plan.proteinPerLb>0?+plan.proteinPerLb:null;      // a setting of your own wins
+  if(g==='gain'){
+    const k=1+((+bump||0)*MACRO_STEP)/(lb*(M.p*KCAL_G.p+M.c*KCAL_G.c+M.f*KCAL_G.f));
+    const P=r(lb*(own||M.p)*k), C=r(lb*M.c*k), F=r(lb*M.f*k);
+    return {p:P,c:C,f:F,kcal:Math.round(P*KCAL_G.p+C*KCAL_G.c+F*KCAL_G.f),src:M.src,goal:g,bump:+bump||0};
+  }
+  const base=kcalTarget(date); if(base==null) return null;
+  const kcal=Math.max(1200,base+(+bump||0)*MACRO_STEP);
+  const P=r(lb*(own||M.p)), F=r(lb*M.f);
+  const C=Math.max(0,r((kcal-P*KCAL_G.p-F*KCAL_G.f)/KCAL_G.c));
+  return {p:P,c:C,f:F,kcal:Math.round(P*KCAL_G.p+C*KCAL_G.c+F*KCAL_G.f),src:M.src,goal:g,bump:+bump||0};
+}
 const PLIB={
   pogo:{name:'Pogo hop',
     setup:'Stand tall, feet hip width, arms at your sides or lightly bent. Weight on the balls of your feet.',
@@ -547,7 +604,7 @@ const DEF={
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
-  goal:'lose', sleepTarget:8, proteinPerLb:0.8,
+  goal:'lose', sleepTarget:8, proteinPerLb:0.8, macroBump:0,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'}, fobbit:'kb',

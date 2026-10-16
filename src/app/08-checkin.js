@@ -13,6 +13,9 @@ const CI_Q=[
   {f:'water',q:'Enough water?',opts:[['yes','Yes'],['no','Not really']]},
   {f:'alcohol',q:'Any alcohol?',opts:[['none','None'],['some','1–2 drinks'],['lots','3+']]},
   {f:'kcal',q:'Calories yesterday',kcal:true},
+  // Grams, for the same day the calories are for. Optional, and the card above shows
+  // what they should have been so the numbers are worth typing.
+  {f:'macros',q:'Protein, carbs, fat',macros:true},
   {grp:'Optional'},
   {f:'bw',q:'Bodyweight this morning',bw:true}
 ];
@@ -241,6 +244,13 @@ function checkinCard(date){
     if(q.grp) return `</div><div class="ci-grp"><h4>${q.grp}</h4>`;
     if(q.bw) return `<label class="q"><span>${q.q} <small>(${u()})</small></span>${numIn('checkin.bw',c.bw,latestBw(date)?n(latestBw(date)):'','class="num-in"')}</label>`;
     if(q.kcal) return `<label class="q"><span>${q.q} <small>(kcal, optional)</small></span>${numIn('checkin.kcal',c.kcal,'','class="num-in"')}</label>`;
+    if(q.macros){
+      const t=macroTarget(date);
+      return `<div class="q"><span>${q.q} <small>(g, optional)</small></span><div class="row" style="gap:6px">
+      ${[['proG','P',t&&t.p],['carbG','C',t&&t.c],['fatG','F',t&&t.f]].map(([f,lbl,tg])=>
+        `<label class="macro-in"><span class="small muted">${lbl}</span>${numIn('checkin.'+f,c[f],tg?String(tg):'','class="num-in"')}</label>`).join('')}
+      </div></div>`;
+    }
     const hint=q.hint==='target'&&pt?` <small>(~${pt} g)</small>`:'';
     return `<div class="q"><span>${q.q}${hint}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${c[q.f]==v&&c[q.f]!==''&&c[q.f]!=null?' on':''}" data-act="ci" data-f="${q.f}" data-v="${v}" aria-pressed="${c[q.f]==v}">${l}</button>`).join('')}${q.num?numIn('checkin.sleepH',c.sleepH,'exact','class="num-in" style="max-width:84px" aria-label="Exact hours slept"'):''}</div></div>`;
   }).join('');

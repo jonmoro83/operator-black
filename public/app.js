@@ -832,6 +832,63 @@ function fobLine(id,ease){ const F=fobDef(id); return F?boutsLine(fobBouts(id,ea
 function fobSrcLabel(id){ return FOB_SRC[(FOBBIT[id]||{}).src]||FOB_SRC.ours }
 // Plyometric program and exercise library, from Plyometric_Program_Thursday.pdf.
 // Contacts count ground impacts (one landing = one contact), as the program does.
+/* Macro targets.
+
+   For building, Tactical Barbell III gives a formula outright (p.108): "Multiply your
+   bodyweight x 1.3 for grams of protein, and x 2 for carb. Divide your bodyweight in
+   half for fat. That's it." It also says what to do when the scale stops moving: "If
+   you're not putting on weight after a month or two, add another 500 calories per day
+   using the same ratio."
+
+   For losing or holding there is no formula in any of the books -- Mass Protocol is a
+   mass protocol, and the others leave food alone -- so those two rows are the app's
+   own and say so wherever they are shown. Protein stays high because a deficit is
+   where muscle is at risk; fat has a floor rather than a target, because going very
+   low is where people feel terrible; carbohydrate takes whatever calories are left,
+   which is also the lever that moves when the target changes.
+
+   Grams per pound of bodyweight. `c:null` means "fill the remainder". */
+const MACRO={
+  gain:    {src:'tb3',  p:1.3, c:2,    f:0.5},
+  lose:    {src:'ours', p:1.1, c:null, f:0.4},
+  maintain:{src:'ours', p:1.0, c:null, f:0.4},
+};
+const KCAL_G={p:4,c:4,f:9};
+const MACRO_STEP=500;        // the book's increment when the scale will not move
+function macroGoal(){ return MACRO[plan.goal]?plan.goal:'maintain' }
+// Bodyweight in pounds, which is what every formula here is written in.
+function bwLb(date){ const bw=bwFor(date); if(!bw) return null; return u()==='kg'?bw*2.2046:bw }
+/* The calorie target the energy card already works to: your burn, moved by the goal.
+   Pulled out so the macro split and that card cannot drift apart. */
+function kcalTarget(date){
+  const est=tdeeOn(date); if(!est) return null;
+  const g=macroGoal();
+  if(g==='lose') return est.tdee-Math.round(est.tdee*0.18/10)*10;
+  if(g==='gain') return est.tdee+250;
+  return est.tdee;
+}
+/* Today's grams. Building follows the book's formula and takes its calorie total from
+   it; the other two start from the calorie target and split that up. `bump` is the
+   book's 500-calorie step, applied in the same ratio, and is how a stalled scale gets
+   answered rather than by inventing a new formula. */
+function macroTarget(date,bump){
+  const lb=bwLb(date); if(!lb) return null;
+  // The stored adjustment unless a caller deliberately asks for a different one, so
+  // nobody can show a target that quietly ignores it.
+  bump=bump==null?(+plan.macroBump||0):+bump;
+  const g=macroGoal(), M=MACRO[g], r=n=>Math.round(n/5)*5;
+  const own=+plan.proteinPerLb>0?+plan.proteinPerLb:null;      // a setting of your own wins
+  if(g==='gain'){
+    const k=1+((+bump||0)*MACRO_STEP)/(lb*(M.p*KCAL_G.p+M.c*KCAL_G.c+M.f*KCAL_G.f));
+    const P=r(lb*(own||M.p)*k), C=r(lb*M.c*k), F=r(lb*M.f*k);
+    return {p:P,c:C,f:F,kcal:Math.round(P*KCAL_G.p+C*KCAL_G.c+F*KCAL_G.f),src:M.src,goal:g,bump:+bump||0};
+  }
+  const base=kcalTarget(date); if(base==null) return null;
+  const kcal=Math.max(1200,base+(+bump||0)*MACRO_STEP);
+  const P=r(lb*(own||M.p)), F=r(lb*M.f);
+  const C=Math.max(0,r((kcal-P*KCAL_G.p-F*KCAL_G.f)/KCAL_G.c));
+  return {p:P,c:C,f:F,kcal:Math.round(P*KCAL_G.p+C*KCAL_G.c+F*KCAL_G.f),src:M.src,goal:g,bump:+bump||0};
+}
 const PLIB={
   pogo:{name:'Pogo hop',
     setup:'Stand tall, feet hip width, arms at your sides or lightly bent. Weight on the balls of your feet.',
@@ -1166,7 +1223,7 @@ const DEF={
   inc:{squat:10,bench:5,pull:5,ohp:5,wpu:2.5,dead:10},
   deloadEvery:0, testEvery:2,   // the book: retest after 2 blocks, no scheduled deload
   deload:{s:2,r:5,p:60},
-  goal:'lose', sleepTarget:8, proteinPerLb:0.8,
+  goal:'lose', sleepTarget:8, proteinPerLb:0.8, macroBump:0,
   rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'}, fobbit:'kb',
@@ -3294,6 +3351,9 @@ const CI_Q=[
   {f:'water',q:'Enough water?',opts:[['yes','Yes'],['no','Not really']]},
   {f:'alcohol',q:'Any alcohol?',opts:[['none','None'],['some','1–2 drinks'],['lots','3+']]},
   {f:'kcal',q:'Calories yesterday',kcal:true},
+  // Grams, for the same day the calories are for. Optional, and the card above shows
+  // what they should have been so the numbers are worth typing.
+  {f:'macros',q:'Protein, carbs, fat',macros:true},
   {grp:'Optional'},
   {f:'bw',q:'Bodyweight this morning',bw:true}
 ];
@@ -3522,6 +3582,13 @@ function checkinCard(date){
     if(q.grp) return `</div><div class="ci-grp"><h4>${q.grp}</h4>`;
     if(q.bw) return `<label class="q"><span>${q.q} <small>(${u()})</small></span>${numIn('checkin.bw',c.bw,latestBw(date)?n(latestBw(date)):'','class="num-in"')}</label>`;
     if(q.kcal) return `<label class="q"><span>${q.q} <small>(kcal, optional)</small></span>${numIn('checkin.kcal',c.kcal,'','class="num-in"')}</label>`;
+    if(q.macros){
+      const t=macroTarget(date);
+      return `<div class="q"><span>${q.q} <small>(g, optional)</small></span><div class="row" style="gap:6px">
+      ${[['proG','P',t&&t.p],['carbG','C',t&&t.c],['fatG','F',t&&t.f]].map(([f,lbl,tg])=>
+        `<label class="macro-in"><span class="small muted">${lbl}</span>${numIn('checkin.'+f,c[f],tg?String(tg):'','class="num-in"')}</label>`).join('')}
+      </div></div>`;
+    }
     const hint=q.hint==='target'&&pt?` <small>(~${pt} g)</small>`:'';
     return `<div class="q"><span>${q.q}${hint}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${c[q.f]==v&&c[q.f]!==''&&c[q.f]!=null?' on':''}" data-act="ci" data-f="${q.f}" data-v="${v}" aria-pressed="${c[q.f]==v}">${l}</button>`).join('')}${q.num?numIn('checkin.sleepH',c.sleepH,'exact','class="num-in" style="max-width:84px" aria-label="Exact hours slept"'):''}</div></div>`;
   }).join('');
@@ -5707,6 +5774,56 @@ function bwCard(t){
 }
 // What you burn and what you are made of. The measured number comes from your own
 // intake and scale trend; the formula is only there until that exists.
+/* What a macro was, on the day it was eaten. Grams are logged the morning after, in
+   the same check-in as the calories, so they belong to the day before -- the same
+   offset `kcalOn` applies and for the same reason. */
+function macroOn(d,f){ const v=ci(addDays(d,1))[f]; return v==null||v===''?null:+v }
+function macroMean(t,days){
+  const got={p:[],c:[],f:[]}, key={p:'proG',c:'carbG',f:'fatG'};
+  for(let i=days-1;i>=0;i--){ const d=addDays(t,-i);
+    for(const k of ['p','c','f']){ const v=macroOn(d,key[k]); if(v!=null) got[k].push(v) } }
+  const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
+  return {p:mean(got.p),c:mean(got.c),f:mean(got.f),days:Math.max(got.p.length,got.c.length,got.f.length)};
+}
+/* The book's answer to a scale that will not move: "If you're not putting on weight
+   after a month or two, add another 500 calories per day using the same ratio."
+   Only offered on real evidence -- a fortnight of weigh-ins going the wrong way --
+   because a week of noise is not a stall. */
+function macroAdvice(t){
+  // Only the two goals that have a direction. Holding steady is the goal being met,
+  // so there is nothing to say -- which the two tests below fall through to.
+  const g=macroGoal();
+  const r=bwRate(t,14); if(!r) return null;
+  const per=u()==='kg'?r.perWeek*2.2046:r.perWeek;
+  if(g==='gain'&&per<0.25) return {dir:1,per,
+    text:'The scale has not moved in a fortnight. The book’s answer is another 500 calories a day in the same ratio — then give it a month before judging it again.'};
+  if(g==='lose'&&per>-0.25) return {dir:-1,per,
+    text:'Weight is holding rather than coming down. Five hundred calories a day off the target is the usual next step — ours, not the book’s, which only covers building.'};
+  return null;
+}
+function macroCard(t){
+  const tgt=macroTarget(t), got=macroMean(t,14), adv=macroAdvice(t);
+  const lb=bwLb(t);
+  let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="small muted">${tgt.src==='tb3'?'Tactical Barbell III':'the app’s own'}</span>`:''}</div>`;
+  if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
+  if(!tgt) return h+`<p class="small muted" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
+
+  h+=`<div class="miles">`;
+  for(const [k,lbl] of [['p','Protein'],['c','Carbs'],['f','Fat']]){
+    const a=got[k];
+    h+=`<div class="mile"><span class="l">${lbl}</span><span class="big">${tgt[k]}<small style="font-size:14px;color:var(--muted);margin-left:2px">g</small></span>
+    <span class="small muted">${a!=null?`${a} g eaten`:'not logged'}</span></div>`;
+  }
+  h+=`</div>`;
+  h+=`<div class="small">That is <b class="mono">${n(tgt.kcal)}</b> calories a day${tgt.bump?` — including ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} you have added`:''}.
+  ${tgt.src==='tb3'?`The book's formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`:`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}</div>`;
+  if(got.days) h+=`<div class="small muted">Eaten is the average of the ${got.days} day${got.days===1?'':'s'} in the last fortnight you logged grams for.</div>`;
+  else h+=`<div class="small muted">Nothing logged yet. The three boxes are in the daily check-in, under yesterday's eating.</div>`;
+  if(adv) h+=`<div class="banner info"><div class="small">${esc(adv.text)}</div><div class="row" style="gap:8px;margin-top:6px">
+    <button class="btn sm" data-act="macrobump" data-v="${adv.dir}">${adv.dir>0?'Add':'Take off'} 500 a day</button></div></div>`;
+  else if(tgt.bump) h+=`<div class="row" style="align-items:baseline"><span class="small muted">Target adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div>`;
+  return h+`</div>`;
+}
 function energyCard(t){
   const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
   const bf=bfSeries(t), last=bf[bf.length-1];
@@ -5850,6 +5967,7 @@ function vStatus(){
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=bwCard(t);
   h+=energyCard(t);
+  h+=macroCard(t);
   h+=pullupCard(t);
   h+=prBoard();
   return h;
@@ -7275,6 +7393,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
   if(a==='mlib'){const k=b.dataset.k;openPx.has(k)?openPx.delete(k):openPx.add(k);render();return}
+  // 0 clears the adjustment; anything else steps it, which is how the book's +500
+  // compounds if the scale still will not move a month later.
+  if(a==='macrobump'){const d=+b.dataset.v;mutatePlan(p=>{p.macroBump=d===0?0:(+p.macroBump||0)+d});render();return}
   if(a==='coachask'){coachAsk();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}

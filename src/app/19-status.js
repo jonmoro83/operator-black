@@ -111,6 +111,56 @@ function bwCard(t){
 }
 // What you burn and what you are made of. The measured number comes from your own
 // intake and scale trend; the formula is only there until that exists.
+/* What a macro was, on the day it was eaten. Grams are logged the morning after, in
+   the same check-in as the calories, so they belong to the day before -- the same
+   offset `kcalOn` applies and for the same reason. */
+function macroOn(d,f){ const v=ci(addDays(d,1))[f]; return v==null||v===''?null:+v }
+function macroMean(t,days){
+  const got={p:[],c:[],f:[]}, key={p:'proG',c:'carbG',f:'fatG'};
+  for(let i=days-1;i>=0;i--){ const d=addDays(t,-i);
+    for(const k of ['p','c','f']){ const v=macroOn(d,key[k]); if(v!=null) got[k].push(v) } }
+  const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
+  return {p:mean(got.p),c:mean(got.c),f:mean(got.f),days:Math.max(got.p.length,got.c.length,got.f.length)};
+}
+/* The book's answer to a scale that will not move: "If you're not putting on weight
+   after a month or two, add another 500 calories per day using the same ratio."
+   Only offered on real evidence -- a fortnight of weigh-ins going the wrong way --
+   because a week of noise is not a stall. */
+function macroAdvice(t){
+  // Only the two goals that have a direction. Holding steady is the goal being met,
+  // so there is nothing to say -- which the two tests below fall through to.
+  const g=macroGoal();
+  const r=bwRate(t,14); if(!r) return null;
+  const per=u()==='kg'?r.perWeek*2.2046:r.perWeek;
+  if(g==='gain'&&per<0.25) return {dir:1,per,
+    text:'The scale has not moved in a fortnight. The book’s answer is another 500 calories a day in the same ratio — then give it a month before judging it again.'};
+  if(g==='lose'&&per>-0.25) return {dir:-1,per,
+    text:'Weight is holding rather than coming down. Five hundred calories a day off the target is the usual next step — ours, not the book’s, which only covers building.'};
+  return null;
+}
+function macroCard(t){
+  const tgt=macroTarget(t), got=macroMean(t,14), adv=macroAdvice(t);
+  const lb=bwLb(t);
+  let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="small muted">${tgt.src==='tb3'?'Tactical Barbell III':'the app’s own'}</span>`:''}</div>`;
+  if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
+  if(!tgt) return h+`<p class="small muted" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
+
+  h+=`<div class="miles">`;
+  for(const [k,lbl] of [['p','Protein'],['c','Carbs'],['f','Fat']]){
+    const a=got[k];
+    h+=`<div class="mile"><span class="l">${lbl}</span><span class="big">${tgt[k]}<small style="font-size:14px;color:var(--muted);margin-left:2px">g</small></span>
+    <span class="small muted">${a!=null?`${a} g eaten`:'not logged'}</span></div>`;
+  }
+  h+=`</div>`;
+  h+=`<div class="small">That is <b class="mono">${n(tgt.kcal)}</b> calories a day${tgt.bump?` — including ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} you have added`:''}.
+  ${tgt.src==='tb3'?`The book's formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`:`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}</div>`;
+  if(got.days) h+=`<div class="small muted">Eaten is the average of the ${got.days} day${got.days===1?'':'s'} in the last fortnight you logged grams for.</div>`;
+  else h+=`<div class="small muted">Nothing logged yet. The three boxes are in the daily check-in, under yesterday's eating.</div>`;
+  if(adv) h+=`<div class="banner info"><div class="small">${esc(adv.text)}</div><div class="row" style="gap:8px;margin-top:6px">
+    <button class="btn sm" data-act="macrobump" data-v="${adv.dir}">${adv.dir>0?'Add':'Take off'} 500 a day</button></div></div>`;
+  else if(tgt.bump) h+=`<div class="row" style="align-items:baseline"><span class="small muted">Target adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div>`;
+  return h+`</div>`;
+}
 function energyCard(t){
   const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
   const bf=bfSeries(t), last=bf[bf.length-1];
@@ -254,6 +304,7 @@ function vStatus(){
   h+=`</div><div class="row"><button class="btn sm" data-act="view" data-view="history">See full tables in History</button></div></div>`;
   h+=bwCard(t);
   h+=energyCard(t);
+  h+=macroCard(t);
   h+=pullupCard(t);
   h+=prBoard();
   return h;

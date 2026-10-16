@@ -155,6 +155,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Macros (2026-10-15)**
+- Three boxes in the daily check-in next to the calories — protein, carbs, fat in
+  grams — and a Macros card in Status with the target, what you have actually averaged
+  and what to do when the scale will not move.
+- **Building follows the book.** TB III p.108 gives the formula outright: bodyweight
+  × 1.3 for protein, × 2 for carbs, half for fat. At 185 lb that is 240 / 370 / 95,
+  which is the book's own worked example, and the test asserts those numbers.
+- **Losing and holding are ours, and the card says so**, because Mass Protocol is a
+  mass protocol and the other three leave food alone. Protein stays high, fat has a
+  floor rather than a target, and carbohydrate takes the remainder of the calorie
+  target — which also makes it the lever that moves when the target changes.
+- The calorie target comes from `kcalTarget`, pulled out of the energy card so the two
+  cannot drift apart.
+- **The 500-calorie step is the book's**, including the wording: "add another 500
+  calories per day using the same ratio". Offered only on a fortnight of weigh-ins
+  going the wrong way, because a week is noise, and never while the plan is working.
+  It compounds, so a month later it can be taken again.
+- Grams are attributed to the day they were eaten, not the day they were typed — the
+  same offset the calories have, and the trap that had just been fixed in the coach.
+- A `proteinPerLb` of your own overrides the book's multiplier; the rest of the
+  formula does not move.
+- `macroTarget` defaults its adjustment to the stored one rather than taking it as a
+  required argument, after a test caught a caller showing a target that ignored it.
+- 301 tests, 10 mutants. One survived and was right to: a `maintain` guard that the two
+  goal tests below it already covered, so it was removed rather than tested.
+
 **The coach could not see the bodyweight (2026-10-15)**
 - Reported: it said bodyweight was not logged, while a month of daily readings sat in
   the check-in. The summary read `checkin.weight`, and the field is `checkin.bw`.

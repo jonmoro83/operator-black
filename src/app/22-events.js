@@ -226,6 +226,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='mod'){if(modOf(sel)===b.dataset.v)return;setLog(sel,'hic.mod',b.dataset.v);render();return}
   // choices that are already selected save nothing (no empty log entries)
   if(a==='mlib'){const k=b.dataset.k;openPx.has(k)?openPx.delete(k):openPx.add(k);render();return}
+  // 0 clears the adjustment; anything else steps it, which is how the book's +500
+  // compounds if the scale still will not move a month later.
+  if(a==='macrobump'){const d=+b.dataset.v;mutatePlan(p=>{p.macroBump=d===0?0:(+p.macroBump||0)+d});render();return}
   if(a==='coachask'){coachAsk();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}

@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.0',date:'2026-10-15',title:'Macros',items:[
+    'Three boxes in the daily check-in beside the calories \u2014 protein, carbs and fat in grams \u2014 and a <b>Macros</b> card in Status showing the target, what you have actually been averaging, and what to change when the scale stops moving.',
+    '<b>If you are building, the target is the book\u2019s.</b> Tactical Barbell III gives the formula outright: bodyweight \u00d7 1.3 for protein, \u00d7 2 for carbs, half for fat. At 185 lb that is 240, 370 and 95 \u2014 the book\u2019s own example.',
+    '<b>If you are losing or holding, the numbers are ours</b>, and the card says so. None of the four books cover eating to lose; Mass Protocol is a mass protocol. Protein stays high, fat has a floor, and carbohydrate takes whatever is left of your calorie target.',
+    'When a fortnight of weigh-ins goes the wrong way the card offers the book\u2019s answer: another 500 calories a day, in the same ratio. One tap, and it tells you it has been applied. It will not nag you while the plan is working.',
+    'Grams count toward the day you ate them, not the morning you typed them in \u2014 the same as the calories have always done.']},
   {v:'2.9',date:'2026-10-14',title:'The bout count, where you can see it',items:[
     'The number of bouts a session is was only ever a grey placeholder in the field, which is easy to miss. It is in three places now, all the same number: the big line at the top of the card, a <b>Use 10 bouts</b> button next to the one for minutes, and the placeholder.',
     'That top line used to describe the format in general \u2014 \u201can easy base, broken by bouts of work\u201d \u2014 even though the app knew exactly what today was. It now reads <b>10 bouts \u00b7 2 min of base between</b>, and follows whichever FOBBIT and length you have picked.']},
