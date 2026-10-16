@@ -155,6 +155,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The coach's own calls were wrong (2026-10-15)**
+- Shipped broken: asking anything returned a 400. The client called `api(path, init)`
+  when the helper is `api(method, path, body)` and stringifies the body itself, so the
+  POST went to `/apiundefined` with the method `coach`.
+- **The tests could not have caught it.** `test/api.test.js` calls `handleApi` directly
+  and `test/app.test.js` never exercised the client's half, so both ends were tested
+  and the join between them was not. There is now a test that stubs `fetch` and asserts
+  the URL, the method and the body shape, and checks nothing was requested from a route
+  with `undefined` in it.
+- Had to filter that test to coach routes: the app syncs in the background and those
+  calls land in the same stub, which is why it passed alone and failed in the suite.
+- 295 tests, 3 mutants, all caught — one of them being the exact bug that shipped.
+
 **The coach, read-only (2026-10-15)**
 - A **Coach** tab, between Setup and Guide. Ask a question; it answers from the books
   first, the plan second and its own reasoning last, and it says which of the three it

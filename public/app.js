@@ -6980,13 +6980,13 @@ let coach={q:'',busy:false,err:null,last:null,hist:null,web:false,loaded:false};
 
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
-  api('coach').then(r=>{ coach.hist=r.history||[]; coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; render() })
+  api('GET','/coach').then(r=>{ coach.hist=r.history||[]; coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; render() })
     .catch(()=>{ coach.hist=[]; render() });
 }
 function coachAsk(){
   const q=coach.q.trim(); if(!q||coach.busy) return false;
   coach.busy=true; coach.err=null; render();
-  api('coach',{method:'POST',body:JSON.stringify({q,web:coach.web})})
+  api('POST','/coach',{q,web:coach.web})
     .then(r=>{ coach.last=r; coach.used=r.used; coach.q=''; coach.busy=false;
       coach.hist=[{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}].concat(coach.hist||[]).slice(0,20);
       render() })

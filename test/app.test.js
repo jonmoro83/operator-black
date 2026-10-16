@@ -2575,6 +2575,42 @@ test("picks made before the per-day change are spread across the days that use t
   a.equal(JSON.stringify(x.plan.accPick), before, "it is not spread a second time");
 });
 
+test("the coach calls the API the way the API is actually shaped", async () => {
+  const x = app({ now: "2026-10-15" });
+  // The one bug a server-side test cannot see: the client calling its own helper
+  // wrongly. api() is api(method, path, body) and the body is an object it stringifies
+  // -- getting that wrong produced a POST to /apiundefined with the method "coach".
+  // Only the coach's own calls: the app syncs in the background and those land here too.
+  const all = [], seen = [];
+  global.fetch = (url, init) => {
+    const c = { url, method: init.method, body: init.body ? JSON.parse(init.body) : null };
+    all.push(c); if (String(url).startsWith("/api/coach")) seen.push(c);
+    return Promise.resolve({ ok: true, status: 200, type: "basic", json: async () => ({ history: [], used: 0, cap: 300, configured: true }) });
+  };
+  try {
+    x.view = "coach"; x.loaded = true; x.render();            // triggers the history load
+    await new Promise((r) => setImmediate(r));
+    a.equal(seen.length, 1, "the history is fetched once, and from the coach route");
+    a.ok(!all.some((c) => String(c.url).includes("undefined")), "no request to a route built from a bad argument");
+    a.equal(seen[0].url, "/api/coach", "at the route the Worker serves");
+    a.equal(seen[0].method, "GET");
+
+    x.coach.q = "how much protein"; x.coach.web = true;
+    a.equal(x.coachAsk(), true, "the ask goes out");
+    await new Promise((r) => setImmediate(r));
+    const post = seen[1];
+    a.equal(post.url, "/api/coach");
+    a.equal(post.method, "POST");
+    a.deepEqual(post.body, { q: "how much protein", web: true }, "a real object, stringified once");
+
+    // Nothing to ask is not a request.
+    const before = seen.length;
+    x.coach.q = "   ";
+    a.equal(x.coachAsk(), false);
+    a.equal(seen.length, before, "and nothing was sent");
+  } finally { global.fetch = () => new Promise(() => {}) }
+});
+
 test("the Admin tab is in the markup but hidden until the server says you are one", () => {
   const x = app({ now: "2026-10-07" });
   const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
