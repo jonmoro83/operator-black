@@ -2583,7 +2583,7 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   a.match(nav, /data-view="admin"[^>]*hidden/, "it ships hidden, not absent");
   a.ok(!/data-act=/.test(nav), "the header navigates by view, never by action");
   const tabs = [...nav.matchAll(/data-view="([a-z]+)"/g)].map((m) => m[1]);
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "guide", "admin"], "admin is last");
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "coach", "guide", "admin"], "admin is last");
 
   // Every tab the nav offers has a view behind it.
   x.view = "admin"; x.amAdmin = true; x.loaded = true;

@@ -155,6 +155,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The coach, read-only (2026-10-15)**
+- A **Coach** tab, between Setup and Guide. Ask a question; it answers from the books
+  first, the plan second and its own reasoning last, and it says which of the three it
+  is doing.
+- **It cannot change anything**, and the card says so rather than leaving it to be
+  inferred. Suggestions come back as structured items even though they render as text,
+  so making them one-tap later is a change to the view, not to the contract.
+- What it is told: the books (eight retrieved passages), and a *summary* of the plan
+  and the last 28 days — template, protocol, maxes, basis, goal, and per day what was
+  lifted, whether a set ground, the conditioning done, the check-in. Not the raw
+  documents: more than the question needs, more to pay for, and it buries the few
+  facts that matter.
+- Grounding is ranked in the system prompt, because an unranked model treats a forum
+  post and a book as equals. Web search is opt-in per question and capped at three.
+- Every exchange is logged per user with the passages it was given — the only way to
+  judge whether the advice is any good is to look back at what it said and what
+  happened next, which is the whole point of starting read-only. 300 questions a
+  month; a failed call is logged but not counted.
+- Upstream errors are logged and not returned: the body can carry the key's own
+  details. A model that returns fenced JSON, or prose instead of JSON, still renders.
+- **Porter stemming, found by a test.** A question written as "am I recovering well
+  enough" missed the passage that "how long should my recovery weeks be" found, because
+  FTS5's default tokenizer treats "recovering" and "recovery" as unrelated. People ask
+  questions the first way. Migration 0008 rebuilds the index with `tokenize='porter'`.
+- 294 tests.
+
 **A private library of the books (2026-10-15)**
 - Groundwork for the coach: it should answer from what the books say, not from a
   model's recollection of them.

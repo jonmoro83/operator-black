@@ -436,7 +436,7 @@ statements src/api.js actually issues, over real rows. Narrow on purpose: it ans
 queries this code sends and throws on anything it does not recognise, so a new query
 cannot pass by being quietly ignored. */
 function fakeDB() {
-  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [];
+  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [], coachRows = [];
   // A stand-in for FTS5 MATCH, honest about the only two shapes the code builds:
   // quoted terms joined by AND or by OR. Score is -(matches), so ordering ascending
   // puts the best first, which is the direction bm25() works in.
@@ -473,6 +473,17 @@ function fakeDB() {
       docs.length = 0; docs.push(...keep);
       return [];
     }
+    if (/^SELECT COUNT\(\*\) AS n FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 1$/.test(q))
+      return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 1).length }];
+    if (/^INSERT INTO coach_log/.test(q)) {
+      coachRows.push({ id: a[0], user: a[1], asked_at: a[2], question: a[3], answer: a[4],
+        cites: a[5], model: a[6], tokens_in: a[7], tokens_out: a[8], ok: a[9] });
+      return [];
+    }
+    if (/^SELECT id, asked_at, question, answer, cites FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
+      return coachRows.filter((r) => r.user === a[0] && r.ok === 1)
+        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[1])
+        .map((r) => ({ id: r.id, asked_at: r.asked_at, question: r.question, answer: r.answer, cites: r.cites }));
     if (/^SELECT id, title, short, chunks, updated_at FROM lib_doc ORDER BY id$/.test(q))
       return libDoc.slice().sort((x, y) => (x.id < y.id ? -1 : 1));
     if (/^SELECT doc, ref, body, bm25\(lib_chunk\) AS score FROM lib_chunk WHERE lib_chunk MATCH \?1 ORDER BY score LIMIT \?2$/.test(q))
@@ -533,7 +544,7 @@ function fakeDB() {
   const seedLib = (d, cs) => { libDoc.push({ ...d, chunks: cs.length });
     for (const c of cs) libChunk.push({ doc: d.id, ...c }) };
   return {
-    docs, feeds, adminLog, cat, batches, seedLib,
+    docs, feeds, adminLog, cat, batches, seedLib, coachRows,
     prepare(sql) {
       // A statement can be run with or without parameters, like the real binding.
       const made = (args) => ({
@@ -1231,5 +1242,157 @@ test("the library needs a login like everything else", async () => {
   for (const route of ["library", "library/search?q=protein"]) {
     const res = await call2(env, route, {}, null);
     a.equal(res.status, 401, route + " is not public");
+  }
+});
+
+/* ---------------- the coach ---------------- */
+
+// A stand-in for the Anthropic endpoint. Records what was sent, so the tests can check
+// the grounding the coach is given rather than only what it returns.
+function fakeAnthropic(reply, status = 200) {
+  const calls = [];
+  const fn = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: status === 200, status, json: async () => reply };
+  };
+  fn.calls = calls;
+  return fn;
+}
+const coachReply = (answer, suggestions = []) => ({
+  model: "claude-sonnet-5-5",
+  content: [{ type: "text", text: JSON.stringify({ answer, suggestions }) }],
+  usage: { input_tokens: 900, output_tokens: 120 },
+});
+
+async function coachEnv(k) {
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main",
+    data: JSON.stringify({ unit: "lb", bodyweight: 185, stempl: "operator", cproto: "black", maxes: { squat: 300 }, goal: "gain" }), updated_at: 1 });
+  env.DB.docs.push({ user: "lifter@example.com", path: "logs/2026-10-14",
+    data: JSON.stringify({ done: true, lifts: { squat: { sets: [1, 1, 1], grinder: true } }, checkin: { kcal: 3000, weight: 185 } }), updated_at: 1 });
+  return env;
+}
+
+test("the coach is grounded in the plan and the books before it answers", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("Eat more.", [{ title: "Add 500 kcal", detail: "You are not gaining." }]));
+  try {
+    const res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein and carb should I eat" }) }, await mint(k.a));
+    a.equal(res.status, 200);
+    const body = await res.json();
+    a.equal(body.answer, "Eat more.");
+    a.equal(body.suggestions[0].title, "Add 500 kcal");
+
+    const sent = globalThis.fetch.calls[0];
+    a.equal(sent.init.headers["x-api-key"], "sk-test", "the key goes in the header");
+    const prompt = sent.body.messages[0].content;
+    // The books come first, and the passage that answers this question is in there.
+    a.match(prompt, /<library>/);
+    a.match(prompt, /x 1\.3 for grams of protein/, "the macro passage was retrieved");
+    // So does the plan, summarised rather than dumped.
+    a.match(prompt, /"bodyweight":185/);
+    a.match(prompt, /"template":"operator"/);
+    a.match(prompt, /grinder/, "and what actually happened in the log");
+    a.ok(!/"schema"/.test(prompt), "but not the whole plan document");
+    // The system prompt has to rank the books above the model's own view, or the
+    // whole point of the library is lost.
+    a.match(sent.body.system, /THE BOOKS/);
+    a.match(sent.body.system, /books don't address this/);
+    a.match(sent.body.system, /Never say you have adjusted/, "and it must not claim to have acted");
+    a.ok(!sent.body.tools, "no web search unless asked for");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach records what it said, and counts it against the cap", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("Keep going."));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how long should my recovery weeks be" }) }, await mint(k.a));
+    const hist = await (await call2(env, "coach", {}, await mint(k.a))).json();
+    a.equal(hist.history.length, 1);
+    a.equal(hist.history[0].question, "how long should my recovery weeks be");
+    a.equal(hist.history[0].answer, "Keep going.");
+    a.ok(hist.history[0].cites.length, "with the passages it was given");
+    a.equal(hist.used, 1, "and it counts toward the month");
+    a.equal(hist.configured, true);
+
+    // Another person's questions are not in it.
+    const mine = await (await call2(env, "coach", {}, await asOther(k))).json();
+    a.deepEqual(mine.history, [], "the log is per person");
+    a.equal(mine.used, 0);
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach fails safely: no key, bad input, upstream trouble", async () => {
+  const k = await setupKeys();
+  const orig = globalThis.fetch;
+  try {
+    // No key configured is a clear 503, not a crash.
+    const bare = dbEnv();
+    const off = await call2(bare, "coach", { method: "POST", body: JSON.stringify({ q: "hello" }) }, await mint(k.a));
+    a.equal(off.status, 503);
+    a.equal((await (await call2(bare, "coach", {}, await mint(k.a))).json()).configured, false);
+
+    const env = await coachEnv();
+    globalThis.fetch = fakeAnthropic(coachReply("x"));
+    const empty = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "   " }) }, await mint(k.a));
+    a.equal(empty.status, 400, "nothing to ask");
+    a.equal(globalThis.fetch.calls.length, 0, "and nothing was spent on it");
+
+    // Upstream errors must not leak: the key's own details can be in that body.
+    globalThis.fetch = fakeAnthropic({ error: { type: "authentication_error", message: "invalid x-api-key sk-live-abc" } }, 401);
+    const bad = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, await mint(k.a));
+    a.equal(bad.status, 502);
+    const txt = JSON.stringify(await bad.json());
+    a.ok(!/sk-live-abc/.test(txt), "the upstream message is not passed through");
+    a.ok(!/authentication/.test(txt));
+
+    // A failed call is logged but does not count against the cap.
+    const after = await (await call2(env, "coach", {}, await mint(k.a))).json();
+    a.equal(after.used, 0, "you are not charged for a failure");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach copes with a model that does not return clean JSON", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const orig = globalThis.fetch;
+  try {
+    // Fenced JSON, which models do.
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {},
+      content: [{ type: "text", text: '```json\n{"answer":"Fenced.","suggestions":[]}\n```' }] });
+    let r = await (await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, await mint(k.a))).json();
+    a.equal(r.answer, "Fenced.");
+
+    // Plain prose, which they also do. Better to show it than to show nothing.
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, content: [{ type: "text", text: "Just words." }] });
+    r = await (await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, await mint(k.a))).json();
+    a.equal(r.answer, "Just words.");
+    a.deepEqual(r.suggestions, []);
+  } finally { globalThis.fetch = orig }
+});
+
+test("web search is opt-in and the question is bounded", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "latest research on plyometrics", web: true }) }, await mint(k.a));
+    const tools = globalThis.fetch.calls[0].body.tools;
+    a.equal(tools[0].name, "web_search", "asked for, so offered");
+    a.ok(tools[0].max_uses <= 3, "and bounded");
+
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "x".repeat(5000) }) }, await mint(k.a));
+    const q = globalThis.fetch.calls[1].body.messages[0].content;
+    a.ok(q.length < 4000, "a huge question is cut down before it is paid for");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach needs a login", async () => {
+  const env = await coachEnv();
+  for (const init of [{ method: "POST", body: "{}" }, {}]) {
+    a.equal((await call2(env, "coach", init, null)).status, 401);
   }
 });

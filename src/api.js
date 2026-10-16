@@ -77,6 +77,12 @@ export async function handleApi(request, env) {
     const meta = env.CF_VERSION_METADATA || {};
     return json({ page: etag, deployedAt: meta.timestamp || null, tag: meta.tag || null }, 200, { "cache-control": "no-store" });
   }
+  if (route === "coach" && request.method === "POST") return askCoach(request, env, user);
+  if (route === "coach" && request.method === "GET") {
+    return json({ history: await coachHistory(env, user, 20), used: await coachUsed(env, user), cap: COACH_CAP,
+      configured: !!env.ANTHROPIC_API_KEY }, 200, { "cache-control": "no-store" });
+  }
+
   if (route === "library" || route.startsWith("library/")) {
     const op = route === "library" ? "" : route.slice(8);
 
@@ -538,6 +544,163 @@ async function libSearch(env, q, n) {
   const seen = new Set(strict.map((h) => h.doc + h.ref + h.body.slice(0, 40)));
   const merged = strict.concat(loose.filter((h) => !seen.has(h.doc + h.ref + h.body.slice(0, 40))));
   return { hits: merged.slice(0, n), matched: strict.length ? "both" : "loose" };
+}
+
+/* ---------------- the coach ---------------- */
+
+// Advice only. The coach never writes to a plan: it answers, and the person decides.
+// The response carries `suggestions` as structured items even though they render as
+// text today, so turning them into one-tap actions later is additive rather than a
+// rewrite of the contract.
+const COACH_MODEL = "claude-sonnet-5-5";
+const COACH_CAP = 300;            // calls per calendar month, per person
+const COACH_MAX_Q = 1200;         // characters of question
+
+const COACH_SYSTEM = `You are a strength and conditioning coach for one person, inside their own training app. You work in the Tactical Barbell system.
+
+GROUNDING, in order of authority:
+1. THE BOOKS. Passages from the person's own copies are supplied under <library>. When they answer the question, follow them and cite them as [tb1 p12] using the doc and ref given. Tactical Barbell III and Mass Protocol are the same book.
+2. THE PLAN. <state> is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
+3. YOUR OWN REASONING, last. If the books do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's.
+
+If you used web search, name the source in the sentence that relies on it. A forum post does not carry the weight of a book and should not be written as though it does.
+
+HOW TO WRITE:
+- Talk to them directly, like a coach who knows their log. Short paragraphs.
+- Lead with the answer. No preamble, no restating the question.
+- Specific over general: use their actual numbers, lifts and dates from <state>.
+- If the honest answer is "keep doing what you're doing", say that.
+- Do not invent sessions, percentages or book content. If you are unsure, say so.
+- You cannot change anything. Never say you have adjusted, moved or updated anything — suggest, and they decide.
+
+Reply with JSON only, no other text:
+{"answer": "markdown, a few short paragraphs", "suggestions": [{"title": "short imperative", "detail": "one or two sentences"}]}
+Leave suggestions empty if you have none worth acting on. Never pad it.`;
+
+/* What the coach is told about the person. Deliberately a summary rather than the raw
+   log: the whole history is far more than the question needs, costs more to send, and
+   buries the few facts that matter. */
+async function coachState(env, user) {
+  const all = await readAll(env, user);
+  const plan = all.plan || {}, logs = all.logs || {};
+  const days = Object.keys(logs).sort().slice(-28);
+  const recent = days.map((d) => {
+    const L = logs[d], out = { d };
+    if (L.lifts) out.lifts = Object.fromEntries(Object.entries(L.lifts).map(([k, v]) => [k, (v.sets || []).filter(Boolean).length + (v.grinder ? " grinder" : "")]));
+    if (L.hic) out.hic = { fmt: L.hic.format, mod: L.hic.mod, min: L.hic.min, rounds: L.hic.rounds };
+    if (L.checkin) out.checkin = { sleep: L.checkin.sleep, soreness: L.checkin.soreness, stress: L.checkin.stress, kcal: L.checkin.kcal, weight: L.checkin.weight };
+    if (L.done) out.done = true;
+    return out;
+  }).filter((x) => Object.keys(x).length > 1);
+
+  return {
+    today: new Date().toISOString().slice(0, 10),
+    units: plan.unit || "lb",
+    bodyweight: plan.bodyweight ?? null,
+    template: plan.stempl || "operator",
+    protocol: plan.cproto || "black",
+    startMonday: plan.startMonday || null,
+    maxes: plan.maxes || {},
+    basis: plan.basis === "tm" ? `training max at ${plan.tmPct || 90}%` : "true 1RM",
+    goal: plan.goal || null,
+    recovery313: !!plan.recovery313,
+    recentDays: recent,
+  };
+}
+
+function safeParse(s) { try { return JSON.parse(s) } catch { return null } }
+
+// Calls this calendar month, which is what the cap is measured against.
+async function coachUsed(env, user) {
+  const since = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1);
+  const row = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 1"
+  ).bind(user, since).first();
+  return (row && row.n) || 0;
+}
+
+async function askCoach(request, env, user) {
+  if (!env.ANTHROPIC_API_KEY) return json({ error: "The coach is not configured. Set ANTHROPIC_API_KEY." }, 503);
+
+  const body = await request.json().catch(() => ({}));
+  const q = String(body.q || "").trim().slice(0, COACH_MAX_Q);
+  if (!q) return json({ error: "Ask something." }, 400);
+
+  const used = await coachUsed(env, user);
+  if (used >= COACH_CAP) return json({ error: `That is ${COACH_CAP} questions this month, which is the cap. It resets on the 1st.` }, 429);
+
+  const [state, lib] = await Promise.all([
+    coachState(env, user),
+    libSearch(env, ftsQuery(q), 8),
+  ]);
+  const passages = (lib.hits || []).map((h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`).join("\n");
+
+  const payload = {
+    model: COACH_MODEL,
+    max_tokens: 1400,
+    system: COACH_SYSTEM,
+    messages: [{
+      role: "user",
+      content: `<state>${JSON.stringify(state)}</state>\n\n<library>${passages || "(nothing in the books matched this question)"}</library>\n\n${q}`,
+    }],
+  };
+  if (body.web) payload.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+
+  const id = crypto.randomUUID();
+  let res, data;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(payload),
+    });
+    data = await res.json();
+  } catch (e) {
+    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0 });
+    return json({ error: "Could not reach the coach. Try again." }, 502);
+  }
+  if (!res.ok) {
+    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0 });
+    // The upstream message can carry the key's own details, so it is logged, not returned.
+    return json({ error: data && data.error && data.error.type === "rate_limit_error"
+      ? "The coach is rate limited just now. Try again in a minute."
+      : "The coach could not answer that one." }, 502);
+  }
+
+  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+  const parsed = safeParse(text) || safeParse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")) || { answer: text, suggestions: [] };
+  const cites = (lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }));
+  const usage = data.usage || {};
+  await logCoach(env, { id, user, q, answer: parsed.answer || "", cites, model: data.model || COACH_MODEL,
+    ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 1 });
+
+  return json({
+    id,
+    answer: parsed.answer || "",
+    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [],
+    cites,
+    used: used + 1,
+    cap: COACH_CAP,
+  }, 200, { "cache-control": "no-store" });
+}
+
+function logCoach(env, x) {
+  return env.DB.prepare(
+    `INSERT INTO coach_log (id, user, asked_at, question, answer, cites, model, tokens_in, tokens_out, ok)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
+  ).bind(x.id, x.user, Date.now(), x.q, x.answer, JSON.stringify(x.cites), x.model, x.ti, x.to, x.ok).run();
+}
+
+async function coachHistory(env, user, n) {
+  const { results } = await env.DB.prepare(
+    `SELECT id, asked_at, question, answer, cites FROM coach_log
+     WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT ?2`
+  ).bind(user, n).all();
+  return (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] }));
 }
 
 function isAdmin(env, user) {
