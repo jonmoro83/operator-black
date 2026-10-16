@@ -155,6 +155,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The coach could not see the bodyweight (2026-10-15)**
+- Reported: it said bodyweight was not logged, while a month of daily readings sat in
+  the check-in. The summary read `checkin.weight`, and the field is `checkin.bw`.
+- Checking the rest of it against the real check-in, most of what was sent was wrong:
+  `sleep` does not exist (it is `sleepH` and `sleepQ`), and `protein`, `fuel`, `energy`
+  were not being sent at all — the four fields most relevant to the nutrition questions
+  the coach was always going to be asked.
+- **Calories were a day out.** The check-in asks for *yesterday's* intake the next
+  morning, which `kcalOn` has always known and the summary did not, so every figure was
+  attributed to the wrong day.
+- It now also hands over what the readings add up to — latest bodyweight and the date
+  of it, pounds per week, mean intake, days logged, protein target — rather than making
+  a model do arithmetic over 28 rows.
+- **Two test-isolation faults found on the way, both the same kind.** The Anthropic
+  stub replaced `globalThis.fetch` wholesale, and the Access check fetches its signing
+  keys through that same global: every coach test turned into a 403 when run alone,
+  and passed in the suite only because an earlier test had warmed the key cache. The
+  stub now intercepts the model endpoint and passes everything else through. Then a
+  file-wide regex meant to update the coach tests rewrote eleven lines in the admin
+  tests too. Both suites now pass alone and together, and that is checked.
+- 296 tests, 5 mutants, all caught.
+
 **The coach's own calls were wrong (2026-10-15)**
 - Shipped broken: asking anything returned a 400. The client called `api(path, init)`
   when the helper is `api(method, path, body)` and stringifies the body itself, so the

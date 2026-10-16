@@ -584,19 +584,50 @@ async function coachState(env, user) {
   const all = await readAll(env, user);
   const plan = all.plan || {}, logs = all.logs || {};
   const days = Object.keys(logs).sort().slice(-28);
+  const num = (v) => (v == null || v === "" ? null : +v);
+  // Calories are asked for the morning after, so the figure in a day's check-in is
+  // what was eaten the day before. Attribute it to the day it covers or every reading
+  // is a day out, which matters most for exactly the question it gets asked about.
+  const kcalFor = (d) => num(((logs[nextDay(d)] || {}).checkin || {}).kcal);
+
   const recent = days.map((d) => {
-    const L = logs[d], out = { d };
-    if (L.lifts) out.lifts = Object.fromEntries(Object.entries(L.lifts).map(([k, v]) => [k, (v.sets || []).filter(Boolean).length + (v.grinder ? " grinder" : "")]));
-    if (L.hic) out.hic = { fmt: L.hic.format, mod: L.hic.mod, min: L.hic.min, rounds: L.hic.rounds };
-    if (L.checkin) out.checkin = { sleep: L.checkin.sleep, soreness: L.checkin.soreness, stress: L.checkin.stress, kcal: L.checkin.kcal, weight: L.checkin.weight };
+    const L = logs[d], c = L.checkin || {}, out = { d };
+    if (L.lifts) out.lifts = Object.fromEntries(Object.entries(L.lifts)
+      .map(([k, v]) => [k, (v.sets || []).filter(Boolean).length + (v.grinder ? " (grinder)" : "")]));
+    if (L.hic) out.cond = { fmt: L.hic.format, mod: L.hic.mod, min: num(L.hic.min), bouts: num(L.hic.rounds) };
+    const ate = kcalFor(d);
+    const ck = {
+      bodyweight: num(c.bw), kcal: ate,
+      sleepHours: num(c.sleepH), sleepQuality: num(c.sleepQ), energy: num(c.energy),
+      soreness: num(c.soreness), stress: num(c.stress),
+      hitProtein: c.protein || null, ate: c.fuel || null,
+    };
+    for (const k of Object.keys(ck)) if (ck[k] == null) delete ck[k];
+    if (Object.keys(ck).length) out.checkin = ck;
     if (L.done) out.done = true;
     return out;
   }).filter((x) => Object.keys(x).length > 1);
 
+  // Bodyweight and intake are logged daily, so hand over what they add up to rather
+  // than making the model do arithmetic over 28 rows it may get wrong.
+  const bws = days.map((d) => ({ d, v: num((logs[d].checkin || {}).bw) })).filter((x) => x.v != null);
+  const kcals = days.map(kcalFor).filter((v) => v != null);
+  const first = bws[0], last = bws[bws.length - 1];
+  const span = first && last && last.d !== first.d
+    ? (Date.parse(last.d) - Date.parse(first.d)) / 86400000 : 0;
+  const bwPerWeek = span > 0 ? Math.round(((last.v - first.v) / span) * 7 * 10) / 10 : null;
+  const bw = last ? last.v : (num(plan.bodyweight) ?? null);
+
   return {
     today: new Date().toISOString().slice(0, 10),
     units: plan.unit || "lb",
-    bodyweight: plan.bodyweight ?? null,
+    bodyweight: bw,
+    bodyweightLoggedOn: last ? last.d : null,
+    bodyweightPerWeek: bwPerWeek,
+    bodyweightReadings: bws.length,
+    kcalMean: kcals.length ? Math.round(kcals.reduce((x, y) => x + y, 0) / kcals.length) : null,
+    kcalDaysLogged: kcals.length,
+    proteinTargetG: plan.proteinPerLb && bw ? Math.round(+plan.proteinPerLb * bw) : null,
     template: plan.stempl || "operator",
     protocol: plan.cproto || "black",
     startMonday: plan.startMonday || null,
@@ -609,6 +640,7 @@ async function coachState(env, user) {
 }
 
 function safeParse(s) { try { return JSON.parse(s) } catch { return null } }
+function nextDay(d) { return new Date(Date.parse(d) + 86400000).toISOString().slice(0, 10) }
 
 // Calls this calendar month, which is what the cap is measured against.
 async function coachUsed(env, user) {
