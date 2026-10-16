@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.3',date:'2026-10-16',title:'Two conditioning days in a row is allowed',items:[
+    'The calendar refused to put two hard conditioning days together. It should not have. Tactical Barbell II: \u201cYour HIC and E can be done on any day, not just days 2, 4, and 6. You can do two days in a row, or whatever. As long as you\u2019re hitting your weekly minimums.\u201d',
+    'Same for Base Building\u2019s circuits, which were also blocked on our reasoning rather than the book\u2019s. Block I\u2019s guidelines are weekly counts and a rest day, and say nothing about which days.',
+    '<b>One rule is left, and it is the book\u2019s:</b> not the same strength session two days running. Zulu\u2019s A and B are different sessions, so those still sit together as intended.',
+    'The app still arranges conditioning apart when the week allows \u2014 that is a preference and it says so now, with a note rather than a refusal when you put two together.']},
   {v:'3.2',date:'2026-10-16',title:'Drag a day, and pick what the move means',items:[
     'In <b>Plan \u2192 Calendar \u2192 Rearrange days</b> you can now drag a session onto another day instead of tapping twice. Tapping still works and does the same thing.',
     'A drop asks what you meant: <b>swap the two days</b> so nothing else moves, <b>move it and shift the rest</b> so the week still works, or <b>do both on the same day</b>. Before, it always did the second one.',

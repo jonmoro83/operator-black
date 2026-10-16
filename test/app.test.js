@@ -3197,41 +3197,30 @@ test("a distance you measure yourself follows the units you chose", () => {
   }
 });
 
-test("two strength-endurance circuits cannot be pushed onto consecutive days", () => {
+test("two strength-endurance circuits may be put together, and the app says so", () => {
   const x = app({ now: "2026-10-08" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
   x.plan.inserts = { "2026-10-12": "bb" }; x.bump();
   const bb = x.weeks(30).find((w) => w.kind === "bb");
   a.ok(bb, "a Base Building block is scheduled");
 
-  // Block I's week is two circuits with three days between them.
+  // Block I's own week still spreads them: three days between the two circuits.
   const kinds = [...Array(7)].map((_, i) => x.sessKind(x.dayPlan(x.addDays(bb.monday, i))));
   a.equal(kinds.filter((k) => k === "se").length, 2, "two circuits");
-  a.ok(!kinds.some((k, i) => i && k === "se" && kinds[i - 1] === "se"), "not next to each other");
+  a.ok(!kinds.some((k, i) => i && k === "se" && kinds[i - 1] === "se"), "not next to each other by default");
 
-  // They used to be invisible to the adjacency rules, so the Move tool would allow it.
-  // Build the one arrangement Block I forbids: the second circuit moved up next to the
-  // first. ord maps weekday -> slot, so this puts slot 3 (Thursday's circuit) on Tuesday.
-  const se = kinds.map((k, i) => (k === "se" ? i : -1)).filter((i) => i >= 0);
-  a.deepEqual(se, [0, 3], "the circuits start on Monday and Thursday");
+  // But putting them together is allowed. TB II's guidelines for Block I are weekly
+  // counts and a rest day -- "2-3 Strength-Endurance circuits per week", "Rest
+  // completely at least one day per week" -- and say nothing about which days.
   const bad = [0, 3, 1, 2, 4, 5, 6];
   a.equal(x.sessKind(x.dayPlanSlot(bb.monday, bad[0])), "se");
   a.equal(x.sessKind(x.dayPlanSlot(bb.monday, bad[1])), "se", "now back to back");
-  const issues = x.orderIssues(bb.monday, bad);
-  a.ok(issues.some((i) => i.kind === "se"), `the clash is reported: ${JSON.stringify(issues)}`);
-  a.equal(x.kindName("se"), "strength-endurance", "and it is named in words");
-
-  // bestOrder refuses to produce it.
-  for (let day = 0; day < 7; day++) {
-    for (let slot = 0; slot < 7; slot++) {
-      const r = x.bestOrder(bb.monday, day, slot);
-      if (!r) continue;
-      const ks = r.ord.map((s) => x.sessKind(x.dayPlanSlot(x.addDays(bb.monday, 0), s)));
-      a.ok(!ks.some((k, i) => i && k === "se" && ks[i - 1] === "se"), "no arrangement doubles them up");
-    }
-  }
+  a.deepEqual(x.orderIssues(bb.monday, bad), [], "which is not a clash");
+  // It is still worth remarking on, which is a different thing from refusing it.
+  const near = x.orderCrowding(bb.monday, bad);
+  a.ok(near.some((i) => i.kind === "se"), `reported as crowding: ${JSON.stringify(near)}`);
+  a.equal(x.kindName("se"), "strength-endurance", "and named in words");
 });
-
 test("a retest splits the cluster across two days once it is bigger than a pair", () => {
   const x = app({ now: "2026-10-08" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
@@ -6174,4 +6163,56 @@ test("applying a choice does what the choice said, and nothing else", () => {
   a.equal(x.calApply(), false);
   a.equal((x.plan.order || {})[mon], undefined, "and nothing was written");
   a.equal(x.stackTo(mon), null);
+});
+
+test("conditioning may run on consecutive days, which is what the book says", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.stempl = "operator"; x.plan.cproto = "black"; x.bump();
+
+  // TB II, on moving conditioning around: "Your HIC and E can be done on any day, not
+  // just days 2, 4, and 6. You can do two days in a row, or whatever. As long as
+  // you're hitting your weekly minimums." The app used to refuse exactly that.
+  a.deepEqual(x.ADJACENT_BAN, ["strength", "strengthA", "strengthB"], "only strength is banned");
+  a.equal(x.clashes("hic", "hic"), false, "two hard conditioning days are not a clash");
+  a.equal(x.clashes("se", "se"), false);
+  a.equal(x.clashes("strength", "strength"), true, "the book's one rule still holds");
+  a.equal(x.clashes("strengthA", "strengthB"), false, "Zulu's halves are different sessions");
+
+  // Swapping two lifting days apart is still refused, and says it is the book's rule.
+  const refused = x.swapOrder(mon, 1, 2);
+  a.ok(refused.why); a.match(refused.why, /the one arrangement the book rules out/);
+
+  // A swap that doubles up conditioning goes through, with a remark rather than a veto.
+  const ok = x.swapOrder(mon, 4, 5);
+  a.ok(ok.ord, "allowed");
+  a.match(ok.warn, /both become hard conditioning/);
+  a.match(ok.warn, /two days in a row, or whatever/, "quoting the book that permits it");
+  a.deepEqual(x.orderIssues(mon, ok.ord), [], "and it is a legal week");
+  a.ok(x.orderCrowding(mon, ok.ord).length, "just a crowded one");
+
+  // The chooser offers it rather than greying it out, and carries the remark.
+  x.calRe = true; x.calMove = { from: x.addDays(mon, 4), to: x.addDays(mon, 5) };
+  const h = x.calChooser();
+  a.ok(!/data-k="swap"[^>]*disabled/.test(h), "swap is available");
+  a.match(h, /both become hard conditioning/, "with the warning shown");
+});
+
+test("spreading conditioning out is still preferred when the week allows it", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.bump();
+
+  // Allowed is not the same as chosen. Left to itself the week still alternates, and
+  // bestOrder keeps preferring that -- crowding costs more than any amount of
+  // shuffling, so it is only taken when nothing else fits.
+  const kinds = [0, 1, 2, 3, 4, 5, 6].map((i) => x.sessKind(x.dayPlanSlot(x.addDays(mon, i), i)));
+  a.ok(!kinds.some((k, i) => i && k === "hic" && kinds[i - 1] === "hic"), "the default week spreads them");
+  a.deepEqual(x.orderCrowding(mon, x.dayOrder(mon)), [], "nothing to remark on");
+
+  // Asking to move a lifting day still returns a week that avoids crowding if it can.
+  const r = x.bestOrder(mon, 1, 0);
+  a.ok(r, "an arrangement exists");
+  a.deepEqual(x.orderIssues(mon, r.ord), [], "legal");
+  a.deepEqual(x.orderCrowding(mon, r.ord), [], "and uncrowded, because it could be");
 });

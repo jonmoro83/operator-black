@@ -71,11 +71,14 @@ function swapOrder(mon,a,b){
   const ord=dayOrder(mon).slice();
   const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
   const bad=orderIssues(mon,ord);
-  // Say which rule it breaks. In a full week most straight swaps do, and "unavailable"
-  // with no reason is the kind of thing that makes a tool feel broken.
-  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}. Shifting the week around it would work.`};
-  return {ord,moved:2};
+  // The one rule the books state is no two of the same strength session running, so
+  // that is the only refusal. Everything else is the app's preference, and a
+  // preference belongs in a warning.
+  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}, which is the one arrangement the book rules out. Shifting the week around it would work.`};
+  const near=orderCrowding(mon,ord);
+  return near.length?{ord,moved:2,warn:`${near[0].a} and ${near[0].b} both become ${kindName(near[0].kind)}. The book allows it — "two days in a row, or whatever" — but spread them out if the week lets you.`}:{ord,moved:2};
 }
+const CROWD=20;        // dearer than rearranging the whole week, cheaper than failing
 function bestOrder(mon,fixDay,fixSlot){
   const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
   const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
@@ -83,7 +86,7 @@ function bestOrder(mon,fixDay,fixSlot){
   let best=null, bestCost=99;
   (function go(i,prev,cost){
     if(cost>=bestCost) return;
-    if(i===7){ if(clashes(prev,nextK)) return; best=ord.slice(); bestCost=cost; return }
+    if(i===7){ if(clashes(prev,nextK)) return; const c=cost+(crowds(prev,nextK)?CROWD:0); if(c>=bestCost) return; best=ord.slice(); bestCost=c; return }
     for(let sl=0;sl<7;sl++){
       if(used[sl]) continue;
       if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
@@ -91,7 +94,9 @@ function bestOrder(mon,fixDay,fixSlot){
       if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
       const k=K[sl]; if(clashes(k,prev)) continue;
       used[sl]=true; ord[i]=sl;
-      go(i+1,k,cost+(cur[i]===sl?0:1));
+      // Two conditioning days touching is allowed but not preferred, so it costs more
+      // than any amount of shuffling and is only chosen when nothing else fits.
+      go(i+1,k,cost+(cur[i]===sl?0:1)+(crowds(k,prev)?CROWD:0));
       used[sl]=false;
     }
   })(0,prevK,0);

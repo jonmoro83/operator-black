@@ -155,6 +155,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The back-to-back rules were mostly ours, and mostly wrong (2026-10-16)**
+- Reported that the calendar refuses two conditioning days running. Checked the books
+  before removing anything, and they are not ambiguous.
+- **TB II:** "Your HIC and E can be done on any day, not just days 2, 4, and 6. You can
+  do two days in a row, or whatever. As long as you're hitting your weekly minimums."
+  So `hic` and `se` should never have been in `ADJACENT_BAN`. Removed.
+- **TB1, on rearranging:** "It's not set in stone. As long as you adhere to the
+  principles — one rest day. No back to back same sessions. Completed within 7 days."
+  That is the one rule, and it is about the *same* session: Zulu's A and B are
+  different sessions and are meant to touch, which the kinds already handle.
+- Base Building's circuits were banned from touching too, on our reasoning that Block I
+  is "built to avoid" it. The book's Block I guidelines are weekly counts and a rest
+  day — "2-3 Strength-Endurance circuits per week", "Rest completely at least one day
+  per week" — and say nothing about which days. Also removed.
+- **Preferring is not refusing**, which is where this went wrong. `orderCrowding` is
+  the new soft list, reported separately from `orderIssues`; `bestOrder` prices a
+  crowded week above any amount of shuffling so it still spreads sessions when it can;
+  and a swap that crowds now returns the order with a warning instead of a reason it
+  cannot be done. Collapsing the two lists is exactly how a preference became a veto.
+- The Guide now quotes both passages instead of asserting a rule the book does not have.
+- 310 tests, 6 mutants, all caught.
+
 **Three ways to move a day, and dragging to do it (2026-10-16)**
 - The calendar already had a Rearrange mode: tap a session, tap a day, see the week
   previewed, apply. It only ever did one thing — shift the week around the request —

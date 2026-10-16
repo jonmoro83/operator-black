@@ -165,7 +165,8 @@ let calRe=false, calMove=null;
 function calOrd(mon){return calMove&&calMove.ord&&mondayOf(calMove.from)===mon?calMove.ord:dayOrder(mon)}
 /* The three things a drop can mean, each with the reason it is unavailable rather
    than just being greyed out. In a full week most straight swaps break the rule
-   against two hard days running, and being told that is more use than being refused.
+   against the same strength session running twice, and being told which rule and why
+   is more use than being refused with no explanation.
 
    Combining is the stacking already built for the day view, so it answers to the same
    rule: everything may share a day except two lifting sessions, which is a different
@@ -179,7 +180,7 @@ function calOptions(from,to){
   const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
   return [
     {k:'swap',  label:'Swap the two days',
-     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.`, ...sw},
+     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.${sw.warn?' '+esc(sw.warn):''}`, ...sw},
     {k:'shift', label:'Move it and shift the rest',
      sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.`:'',
      ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
@@ -668,7 +669,8 @@ function vGuide(){
   <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${tplDays(v,{w:1}).length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
-  <li><b>Conditioning fills what is left</b>, keeping hard days apart. Easy aerobic days can sit next to anything, which is what Green's own template does.</li>
+  <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
+  <li><b>The one arrangement it will not make</b> is the same strength session on consecutive days, which is the book’s own principle for moving things around: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” Zulu’s A and B are different sessions, so they are allowed to touch — and are meant to.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>

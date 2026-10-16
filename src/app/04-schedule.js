@@ -189,8 +189,25 @@ function sessKind(dp){
 function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'strength-endurance':'hard conditioning'}
 // Kinds that must not land on consecutive days. One list, used by the arranger and by
 // the warning it shows, because when those two disagree the arranger silently wins.
-const ADJACENT_BAN=['strength','strengthA','strengthB','hic','se'];
+/* What must not land on consecutive days.
+
+   Only strength, and only the same session twice. That is the book's own principle
+   for moving things around, stated as a principle: "It's not set in stone. As long as
+   you adhere to the principles - one rest day. No back to back same sessions.
+   Completed within 7 days." (TB1). Zulu's A and B are different sessions, which is why
+   they carry their own kinds and are allowed to touch.
+
+   Conditioning used to be in here and should never have been. TB II could not be
+   plainer: "Your HIC and E can be done on any day, not just days 2, 4, and 6. You can
+   do two days in a row, or whatever. As long as you're hitting your weekly minimums."
+   Spreading them out is still the better default, so `weekShape` and `bestOrder` go on
+   preferring it -- but preferring is not refusing, and the app was refusing. */
+const ADJACENT_BAN=['strength','strengthA','strengthB'];
 function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
+// Worth avoiding when there is a choice, without being a reason to refuse an
+// arrangement the books allow.
+const ADJACENT_SOFT=['hic','se'];
+function crowds(a,b){return !!a&&a===b&&ADJACENT_SOFT.includes(a)}
 // Conflicts a proposed order would create, including the days either side of the week.
 function orderIssues(monday,ord){
   const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
@@ -199,6 +216,18 @@ function orderIssues(monday,ord){
   K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
   const out=[];
   for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
+  return out;
+}
+/* The same walk, for the arrangements that are allowed but not ideal. Kept separate
+   from `orderIssues` on purpose: one is a refusal and the other is a remark, and
+   collapsing them is how the app ended up refusing what the book permits. */
+function orderCrowding(monday,ord){
+  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
+  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
+  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
+  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
+  const out=[];
+  for(let i=1;i<K.length;i++) if(crowds(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
   return out;
 }
 // Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than

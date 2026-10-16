@@ -2240,8 +2240,25 @@ function sessKind(dp){
 function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'strength-endurance':'hard conditioning'}
 // Kinds that must not land on consecutive days. One list, used by the arranger and by
 // the warning it shows, because when those two disagree the arranger silently wins.
-const ADJACENT_BAN=['strength','strengthA','strengthB','hic','se'];
+/* What must not land on consecutive days.
+
+   Only strength, and only the same session twice. That is the book's own principle
+   for moving things around, stated as a principle: "It's not set in stone. As long as
+   you adhere to the principles - one rest day. No back to back same sessions.
+   Completed within 7 days." (TB1). Zulu's A and B are different sessions, which is why
+   they carry their own kinds and are allowed to touch.
+
+   Conditioning used to be in here and should never have been. TB II could not be
+   plainer: "Your HIC and E can be done on any day, not just days 2, 4, and 6. You can
+   do two days in a row, or whatever. As long as you're hitting your weekly minimums."
+   Spreading them out is still the better default, so `weekShape` and `bestOrder` go on
+   preferring it -- but preferring is not refusing, and the app was refusing. */
+const ADJACENT_BAN=['strength','strengthA','strengthB'];
 function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
+// Worth avoiding when there is a choice, without being a reason to refuse an
+// arrangement the books allow.
+const ADJACENT_SOFT=['hic','se'];
+function crowds(a,b){return !!a&&a===b&&ADJACENT_SOFT.includes(a)}
 // Conflicts a proposed order would create, including the days either side of the week.
 function orderIssues(monday,ord){
   const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
@@ -2250,6 +2267,18 @@ function orderIssues(monday,ord){
   K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
   const out=[];
   for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
+  return out;
+}
+/* The same walk, for the arrangements that are allowed but not ideal. Kept separate
+   from `orderIssues` on purpose: one is a refusal and the other is a remark, and
+   collapsing them is how the app ended up refusing what the book permits. */
+function orderCrowding(monday,ord){
+  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
+  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
+  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
+  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
+  const out=[];
+  for(let i=1;i<K.length;i++) if(crowds(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
   return out;
 }
 // Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
@@ -3038,11 +3067,14 @@ function swapOrder(mon,a,b){
   const ord=dayOrder(mon).slice();
   const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
   const bad=orderIssues(mon,ord);
-  // Say which rule it breaks. In a full week most straight swaps do, and "unavailable"
-  // with no reason is the kind of thing that makes a tool feel broken.
-  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}. Shifting the week around it would work.`};
-  return {ord,moved:2};
+  // The one rule the books state is no two of the same strength session running, so
+  // that is the only refusal. Everything else is the app's preference, and a
+  // preference belongs in a warning.
+  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}, which is the one arrangement the book rules out. Shifting the week around it would work.`};
+  const near=orderCrowding(mon,ord);
+  return near.length?{ord,moved:2,warn:`${near[0].a} and ${near[0].b} both become ${kindName(near[0].kind)}. The book allows it — "two days in a row, or whatever" — but spread them out if the week lets you.`}:{ord,moved:2};
 }
+const CROWD=20;        // dearer than rearranging the whole week, cheaper than failing
 function bestOrder(mon,fixDay,fixSlot){
   const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
   const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
@@ -3050,7 +3082,7 @@ function bestOrder(mon,fixDay,fixSlot){
   let best=null, bestCost=99;
   (function go(i,prev,cost){
     if(cost>=bestCost) return;
-    if(i===7){ if(clashes(prev,nextK)) return; best=ord.slice(); bestCost=cost; return }
+    if(i===7){ if(clashes(prev,nextK)) return; const c=cost+(crowds(prev,nextK)?CROWD:0); if(c>=bestCost) return; best=ord.slice(); bestCost=c; return }
     for(let sl=0;sl<7;sl++){
       if(used[sl]) continue;
       if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
@@ -3058,7 +3090,9 @@ function bestOrder(mon,fixDay,fixSlot){
       if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
       const k=K[sl]; if(clashes(k,prev)) continue;
       used[sl]=true; ord[i]=sl;
-      go(i+1,k,cost+(cur[i]===sl?0:1));
+      // Two conditioning days touching is allowed but not preferred, so it costs more
+      // than any amount of shuffling and is only chosen when nothing else fits.
+      go(i+1,k,cost+(cur[i]===sl?0:1)+(crowds(k,prev)?CROWD:0));
       used[sl]=false;
     }
   })(0,prevK,0);
@@ -6240,7 +6274,8 @@ let calRe=false, calMove=null;
 function calOrd(mon){return calMove&&calMove.ord&&mondayOf(calMove.from)===mon?calMove.ord:dayOrder(mon)}
 /* The three things a drop can mean, each with the reason it is unavailable rather
    than just being greyed out. In a full week most straight swaps break the rule
-   against two hard days running, and being told that is more use than being refused.
+   against the same strength session running twice, and being told which rule and why
+   is more use than being refused with no explanation.
 
    Combining is the stacking already built for the day view, so it answers to the same
    rule: everything may share a day except two lifting sessions, which is a different
@@ -6254,7 +6289,7 @@ function calOptions(from,to){
   const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
   return [
     {k:'swap',  label:'Swap the two days',
-     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.`, ...sw},
+     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.${sw.warn?' '+esc(sw.warn):''}`, ...sw},
     {k:'shift', label:'Move it and shift the rest',
      sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.`:'',
      ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
@@ -6743,7 +6778,8 @@ function vGuide(){
   <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${tplDays(v,{w:1}).length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
-  <li><b>Conditioning fills what is left</b>, keeping hard days apart. Easy aerobic days can sit next to anything, which is what Green's own template does.</li>
+  <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
+  <li><b>The one arrangement it will not make</b> is the same strength session on consecutive days, which is the book’s own principle for moving things around: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” Zulu’s A and B are different sessions, so they are allowed to touch — and are meant to.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>
