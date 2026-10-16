@@ -3,7 +3,7 @@
    anything, and the card says so rather than leaving you to wonder. Suggestions come
    back as their own items so that turning them into one-tap actions later is a change
    to this file, not to the contract with the server. */
-let coach={q:'',busy:false,err:null,last:null,hist:null,web:false,loaded:false};
+let coach={q:'',busy:false,err:null,last:null,hist:null,loaded:false};
 
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
@@ -13,7 +13,7 @@ function coachLoad(){
 function coachAsk(){
   const q=coach.q.trim(); if(!q||coach.busy) return false;
   coach.busy=true; coach.err=null; render();
-  api('POST','/coach',{q,web:coach.web})
+  api('POST','/coach',{q})
     .then(r=>{ coach.last=r; coach.used=r.used; coach.q=''; coach.busy=false;
       coach.hist=[{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}].concat(coach.hist||[]).slice(0,20);
       render() })
@@ -37,7 +37,7 @@ function vCoach(){
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`<label class="f">Ask<textarea id="coach-q" data-coachq="1" rows="3" placeholder="e.g. I have missed two HICs this week, what should I drop?">${esc(coach.q)}</textarea></label>
   <div class="row" style="gap:14px;align-items:center"><button class="btn primary" data-act="coachask" ${coach.busy||!coach.q.trim()?'disabled':''}>${coach.busy?'Thinking…':'Ask'}</button>
-  <label class="check"><input type="checkbox" id="coach-web" data-act-change="coachweb" ${coach.web?'checked':''}> Let it search the web too</label></div>`;
+  <span class="small muted">It searches the web by itself if the books do not cover it.</span></div>`;
   if(coach.err) h+=`<div class="banner warn"><div class="small">${esc(coach.err)}</div></div>`;
   h+=`</div>`;
 
@@ -48,6 +48,8 @@ function vCoach(){
     h+=`<div class="card"><div class="small muted">${esc(fmtD(new Date(x.asked_at).toISOString().slice(0,10),true))}</div>
     <div style="font-weight:650;margin:2px 0 6px">${esc(x.question)}</div>
     <div class="coach-a">${mdLite(x.answer)}</div>`;
+    if(coach.last&&coach.last.id===x.id&&coach.last.truncated)
+      h+=`<div class="small muted">That answer hit its length limit, so it stops short. Ask for the rest, or ask something narrower.</div>`;
     const sugg=coach.last&&coach.last.id===x.id?coach.last.suggestions:null;
     if(sugg&&sugg.length){
       h+=`<div class="small muted" style="font-weight:650;margin-top:8px">Worth considering</div>`;

@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.4',date:'2026-10-16',title:'The coach answers, or says why not',items:[
+    'A question came back with the sources listed and no answer above them. The sources come from the app\u2019s own search of your books, so they showed up even though the coach had said nothing \u2014 which made a failure look like a reply. Now an empty answer is an error you can see, and it is not counted against your monthly questions.',
+    'Answers also had a length limit they could hit without warning. The limit is nearly twice as high, the coach is asked to keep under about 250 words, and an answer that still runs out says so instead of trailing off.',
+    '<b>The web search box is gone.</b> The coach now decides for itself: it reads your books first and searches only when they do not cover the question, and it tells you when an answer came from the web rather than from a book.']},
   {v:'3.3',date:'2026-10-16',title:'Two conditioning days in a row is allowed',items:[
     'The calendar refused to put two hard conditioning days together. It should not have. Tactical Barbell II: \u201cYour HIC and E can be done on any day, not just days 2, 4, and 6. You can do two days in a row, or whatever. As long as you\u2019re hitting your weekly minimums.\u201d',
     'Same for Base Building\u2019s circuits, which were also blocked on our reasoning rather than the book\u2019s. Block I\u2019s guidelines are weekly counts and a rest day, and say nothing about which days.',

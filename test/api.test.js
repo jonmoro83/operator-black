@@ -477,7 +477,7 @@ function fakeDB() {
       return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 1).length }];
     if (/^INSERT INTO coach_log/.test(q)) {
       coachRows.push({ id: a[0], user: a[1], asked_at: a[2], question: a[3], answer: a[4],
-        cites: a[5], model: a[6], tokens_in: a[7], tokens_out: a[8], ok: a[9] });
+        cites: a[5], model: a[6], tokens_in: a[7], tokens_out: a[8], ok: a[9], stop: a[10] });
       return [];
     }
     if (/^SELECT id, asked_at, question, answer, cites FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
@@ -1307,7 +1307,10 @@ test("the coach is grounded in the plan and the books before it answers", async 
     a.match(sent.body.system, /THE BOOKS/);
     a.match(sent.body.system, /books don't address this/);
     a.match(sent.body.system, /Never say you have adjusted/, "and it must not claim to have acted");
-    a.ok(!sent.body.tools, "no web search unless asked for");
+    // Always offered and never asked for: the model decides per question, which is a
+    // judgement the person could not make before seeing the answer.
+    a.equal(sent.body.tools[0].name, "web_search", "the tool is always on the table");
+    a.match(sent.body.system, /Do not reach for it when the books answer the question/);
   } finally { globalThis.fetch = orig }
 });
 
@@ -1383,16 +1386,16 @@ test("the coach copes with a model that does not return clean JSON", async () =>
   } finally { globalThis.fetch = orig }
 });
 
-test("web search is opt-in and the question is bounded", async () => {
+test("web search is the model's call, and the question is bounded", async () => {
   const k = await setupKeys(); const env = await coachEnv();
   const tok = await mint(k.a);
   const orig = globalThis.fetch;
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
-    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "latest research on plyometrics", web: true }) }, tok);
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "latest research on plyometrics" }) }, tok);
     const tools = globalThis.fetch.calls[0].body.tools;
-    a.equal(tools[0].name, "web_search", "asked for, so offered");
-    a.ok(tools[0].max_uses <= 3, "and bounded");
+    a.equal(tools[0].name, "web_search", "offered without being asked for");
+    a.ok(tools[0].max_uses <= 3, "and bounded, so one question cannot run up a bill");
 
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "x".repeat(5000) }) }, tok);
     const q = globalThis.fetch.calls[1].body.messages[0].content;
@@ -1503,5 +1506,54 @@ test("goals that were never filled in are absent, not empty", async () => {
     const state = JSON.parse(globalThis.fetch.calls[0].body.messages[0].content.match(/<state>(.*?)<\/state>/s)[1]);
     // An object of nulls reads as "asked and left blank"; absent reads as "not asked".
     a.equal(state.goals, null);
+  } finally { globalThis.fetch = orig }
+});
+
+test("an answer that came back empty is an error, not a blank card", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  try {
+    // The citations are built from our own retrieval, so they render whether or not
+    // the model said anything. That is how a blank answer looked like a reply.
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, stop_reason: "end_turn", content: [] });
+    let res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
+    a.equal(res.status, 502);
+    a.match((await res.json()).error, /replied with nothing/);
+
+    // Valid JSON with no answer in it is the same failure wearing a hat.
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, content: [{ type: "text", text: '{"answer":"","suggestions":[]}' }] });
+    res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
+    a.equal(res.status, 502);
+
+    // Running out of room says so, because "ask something narrower" is actionable and
+    // "the coach replied with nothing" is not.
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, stop_reason: "max_tokens", content: [{ type: "text", text: '{"answer":"' }] });
+    res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
+    a.equal(res.status, 502);
+    a.match((await res.json()).error, /ran past its length limit/);
+
+    // None of those are charged for, and none appear in the history.
+    const hist = await (await call2(env, "coach", {}, tok)).json();
+    a.equal(hist.used, 0, "not counted");
+    a.deepEqual(hist.history, [], "and not shown as if they were answers");
+    // But they are recorded, with why, or there is nothing to diagnose from.
+    a.equal(env.DB.coachRows.length, 3);
+    a.deepEqual(env.DB.coachRows.map((r) => r.stop), ["end_turn", "", "max_tokens"]);
+  } finally { globalThis.fetch = orig }
+});
+
+test("a truncated answer is shown, and labelled", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  try {
+    // Partial JSON that cannot be parsed: better to show the prose than nothing.
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, stop_reason: "max_tokens",
+      content: [{ type: "text", text: "Ruck instead of the HIC today. That is fine, and here is why it" }] });
+    const r = await (await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok)).json();
+    a.match(r.answer, /^Ruck instead of the HIC today/);
+    a.equal(r.truncated, true, "and flagged, rather than trailing off as if finished");
+    a.equal((await (await call2(env, "coach", {}, tok)).json()).used, 1, "this one did answer, so it counts");
   } finally { globalThis.fetch = orig }
 });

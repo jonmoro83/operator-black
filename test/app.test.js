@@ -2728,13 +2728,14 @@ test("the coach calls the API the way the API is actually shaped", async () => {
     a.equal(seen[0].url, "/api/coach", "at the route the Worker serves");
     a.equal(seen[0].method, "GET");
 
-    x.coach.q = "how much protein"; x.coach.web = true;
+    x.coach.q = "how much protein";
     a.equal(x.coachAsk(), true, "the ask goes out");
     await new Promise((r) => setImmediate(r));
     const post = seen[1];
     a.equal(post.url, "/api/coach");
     a.equal(post.method, "POST");
-    a.deepEqual(post.body, { q: "how much protein", web: true }, "a real object, stringified once");
+    a.deepEqual(post.body, { q: "how much protein" }, "a real object, stringified once");
+    a.ok(!("web" in post.body), "the client no longer decides about searching");
 
     // Nothing to ask is not a request.
     const before = seen.length;

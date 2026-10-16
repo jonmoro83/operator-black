@@ -155,6 +155,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A coach answer that came back empty (2026-10-16)**
+- Reported: a question returned the citations and no text. The citations are built
+  from our own retrieval, not from the model, so they render whether or not it said
+  anything — which is how a blank answer looked like a successful reply.
+- Now: three chances at an answer, and nothing is an error rather than an empty card.
+  A reply that was meant to be JSON and got cut off is **not** used as prose: a test
+  caught that fallback showing `{"answer":"` as the answer, which is worse than
+  admitting nothing came back.
+- `stop_reason` is logged (migration 0009). Without it an empty answer and a truncated
+  one are indistinguishable, and the first time it happened there was nothing to look
+  at. Running out of room now says so, because "ask something narrower" is actionable.
+- `max_tokens` 1400 → 2600, and the prompt asks for under 250 words, so the ceiling is
+  not discovered mid-sentence. A truncated answer is still shown, and labelled.
+- Failures are logged but not counted against the monthly cap.
+- **Web search is no longer a checkbox.** Asked for 2026-10-16: the tool is always
+  offered and the model decides per question, told to reach for it only where the books
+  do not cover the question and to name the source when it does. Whether the books
+  answer something is a judgement that can only be made after reading them, which is
+  not a thing to ask the person before they ask.
+- 312 tests, 6 mutants, all caught.
+
 **The back-to-back rules were mostly ours, and mostly wrong (2026-10-16)**
 - Reported that the calendar refuses two conditioning days running. Checked the books
   before removing anything, and they are not ambiguous.

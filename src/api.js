@@ -563,7 +563,9 @@ GROUNDING, in order of authority:
 2. THE PLAN. <state> is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
 3. YOUR OWN REASONING, last. If the books do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's.
 
-If you used web search, name the source in the sentence that relies on it. A forum post does not carry the weight of a book and should not be written as though it does.
+WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
+
+When you do use it, name the source in the sentence that relies on it, and say that it is not from the books. A forum post does not carry the weight of a book and must not be written as though it does.
 
 WHAT THEY ARE TRAINING FOR:
 <state>.goals is what they wrote down in Setup. Use it. Advice that ignores a stated goal is worse than no advice.
@@ -578,6 +580,8 @@ HOW TO WRITE:
 - If the honest answer is "keep doing what you're doing", say that.
 - Do not invent sessions, percentages or book content. If you are unsure, say so.
 - You cannot change anything. Never say you have adjusted, moved or updated anything — suggest, and they decide.
+
+Keep the answer under about 250 words. It has a hard length limit and an answer that runs past it is lost, not trimmed.
 
 Reply with JSON only, no other text:
 {"answer": "markdown, a few short paragraphs", "suggestions": [{"title": "short imperative", "detail": "one or two sentences"}]}
@@ -700,14 +704,17 @@ async function askCoach(request, env, user) {
 
   const payload = {
     model: COACH_MODEL,
-    max_tokens: 1400,
+    max_tokens: 2600,
     system: COACH_SYSTEM,
     messages: [{
       role: "user",
       content: `<state>${JSON.stringify(state)}</state>\n\n<library>${passages || "(nothing in the books matched this question)"}</library>\n\n${q}`,
     }],
   };
-  if (body.web) payload.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+  // Always offered, never asked for. The books are the authority and the model is told
+  // to reach for the web only when they do not cover the question -- which is a
+  // judgement it can make per question and the person could not make in advance.
+  payload.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
 
   const id = crypto.randomUUID();
   let res, data;
@@ -735,15 +742,37 @@ async function askCoach(request, env, user) {
   }
 
   const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
-  const parsed = safeParse(text) || safeParse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")) || { answer: text, suggestions: [] };
+  const parsed = safeParse(text) || safeParse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")) || {};
+  // Three chances at an answer: the JSON field, then whatever text came back, then
+  // nothing -- and nothing is an error, not an empty card. The citations come from our
+  // own retrieval, so they render whether or not the model said anything, which is how
+  // a blank answer managed to look like a successful reply.
+  // Falling back to the raw text is for a model that answered in prose. Text that was
+  // meant to be JSON and got cut off is not prose, and showing `{"answer":"` as the
+  // answer is worse than admitting nothing came back.
+  const looksJson = /^\s*[`{]/.test(text);
+  const answer = String(parsed.answer || "").trim() || (looksJson ? "" : text);
   const cites = (lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }));
   const usage = data.usage || {};
-  await logCoach(env, { id, user, q, answer: parsed.answer || "", cites, model: data.model || COACH_MODEL,
-    ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 1 });
+  const stop = data.stop_reason || "";
+
+  if (!answer) {
+    await logCoach(env, { id, user, q, answer: "", cites, model: data.model || COACH_MODEL,
+      ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 0, stop });
+    return json({ error: stop === "max_tokens"
+      ? "The answer ran past its length limit before any of it came back. Ask for something narrower and it will fit."
+      : "The coach replied with nothing. Ask again \u2014 that one is on us, and it has not been counted." }, 502);
+  }
+
+  await logCoach(env, { id, user, q, answer, cites, model: data.model || COACH_MODEL,
+    ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 1, stop });
 
   return json({
     id,
-    answer: parsed.answer || "",
+    answer,
+    // A truncated answer is still worth reading, but say so rather than letting it
+    // trail off mid-sentence as though that were the whole thought.
+    truncated: stop === "max_tokens" || undefined,
     suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [],
     cites,
     used: used + 1,
@@ -753,9 +782,9 @@ async function askCoach(request, env, user) {
 
 function logCoach(env, x) {
   return env.DB.prepare(
-    `INSERT INTO coach_log (id, user, asked_at, question, answer, cites, model, tokens_in, tokens_out, ok)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
-  ).bind(x.id, x.user, Date.now(), x.q, x.answer, JSON.stringify(x.cites), x.model, x.ti, x.to, x.ok).run();
+    `INSERT INTO coach_log (id, user, asked_at, question, answer, cites, model, tokens_in, tokens_out, ok, stop)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`
+  ).bind(x.id, x.user, Date.now(), x.q, x.answer, JSON.stringify(x.cites), x.model, x.ti, x.to, x.ok, x.stop || "").run();
 }
 
 async function coachHistory(env, user, n) {
