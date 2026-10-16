@@ -250,6 +250,105 @@ function energyCard(t){
   h+=`<div class="small muted">The body-fat estimate is the US Navy tape method: typically within 3–4 points, and more useful as a direction than a number. Measure at the same time of day, relaxed.</div>`;
   return h+`</div>`;
 }
+/* The three lines at the top of Status: a verdict apiece, not a number apiece. Each
+   one follows the book rather than dashboard convention, and where it does not, the
+   comment says so.
+
+   TB2 on consistency: "Don't miss a single conditioning session, and don't miss a
+   single strength session... Many overestimate how consistent they are, and tend to
+   miss more sessions then they think." So Keeping up counts them against a standard
+   of none, and says what the standard is.
+
+   TB2 on judging progress: "Compare yourself with yourself no earlier than every six
+   months. Make no judgments until six months are up... Anything less is a waste of
+   time. No changes of importance will happen in the short term." A four-week progress
+   verdict is exactly the line a fitness app draws here and exactly the one the book
+   forbids, so the second line is a clock and an inventory of what has actually been
+   measured instead.
+
+   TB2 again: "Think long term. Consistency is king. Progress takes time." */
+const VERDICT_WIN=28;                 // four weeks, the window the rest of Status uses
+const ASSESS_DAYS=182;                // six months, the book's own interval
+// Ours, not the book's. The book's standard is none missed; a red line for one missed
+// session in four weeks would be noise inside a week, so two is the grace.
+const MISS_GRACE=2;
+// Ours. Readiness is a 0-100 scale, so ten points is a visible move rather than drift.
+const READY_DROP=10;
+// A program three days old has two sessions behind it, and calling one of them missed
+// before the app was even installed is not a verdict, it is a nag.
+const MISS_FLOOR=4;
+function keepingUp(t){
+  let n0=0,d0=0;
+  for(let i=VERDICT_WIN;i>=1;i--){const d=addDays(t,-i);if(d<plan.startMonday)continue;const st=sessState(d,t);if(st==='rest')continue;n0++;if(st==='done')d0++}
+  if(n0<MISS_FLOOR) return {cls:'muted',v:'Nothing to count yet',w:`${n0?`${d0} of ${n0} so far. `:''}Four sessions have to be behind you before this says anything worth hearing.`};
+  const miss=n0-d0;
+  if(!miss) return {cls:'ok',v:'Nothing missed',w:`All ${n0} sessions in the last four weeks. That is the standard the book sets — not a single strength or conditioning session — and you are holding it.`};
+  return {cls:miss<=MISS_GRACE?'warn':'off',v:`${miss} missed`,w:`${d0} of ${n0} sessions in the last four weeks. The book asks for none missed, and warns that most people think they miss fewer than they do.`};
+}
+// Only a max somebody entered counts as measured. A projected max is the increment
+// doing arithmetic, and a locked one is that arithmetic frozen; neither is evidence.
+function measuredLifts(curC){
+  const out=[];
+  for(const k of activeLifts()){
+    const base=maxFor(1)[k]; if(!base) continue;
+    // The latest cycle anybody typed a number into. Cycle 1 is the starting point
+    // rather than a retest, so it is where the comparison runs to, not from.
+    let hit=null;
+    for(let c=curC;c>=2;c--){ const m=maxFor(c)[k]; if(m&&m.src==='set'){ hit={c,v:m.v}; break } }
+    if(hit) out.push({k,c:hit.c,d:hit.v-base.v});
+  }
+  return out;
+}
+function assessClock(t){
+  const since=Math.round((D(t)-D(plan.startMonday))/864e5);
+  const period=Math.max(0,Math.floor(since/ASSESS_DAYS));
+  const at=addDays(plan.startMonday,(period+1)*ASSESS_DAYS);
+  // For the four weeks after each six-month mark, the answer is "now".
+  return {since,period,at,due:period>=1&&since-period*ASSESS_DAYS<VERDICT_WIN,left:Math.round((D(at)-D(t))/864e5)};
+}
+function progressLine(t){
+  const wk=weekOf(t), curC=wk?(wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle)):1;
+  const got=measuredLifts(curC), up=got.filter(x=>x.d>0), c=assessClock(t);
+  const said=got.length
+    ? `${got.length} lift${got.length===1?'':'s'} retested since you started${up.length?`, ${up.length} of ${got.length===up.length?'them':got.length} up on where ${up.length===1?'it':'they'} began`:', none of them up yet'}.`
+    : 'Nothing has been retested yet, so none of the maxes on this page are measured — they are the increment doing arithmetic.';
+  const wks=Math.floor(c.since/7);
+  if(c.due) return {cls:'ok',v:`${c.period*6} months in — compare`,w:`${said} The book's interval is up: look at where you were on ${fmtD(addDays(plan.startMonday,(c.period-1)*ASSESS_DAYS))} against where you are now, and re-assess.`};
+  if(c.since<7) return {cls:'muted',v:'Just started',w:`${said} The book asks for no judgment until six months are up, which is ${fmtD(c.at,true)}.`};
+  if(c.period) return {cls:'muted',v:`${wks} weeks in`,w:`${said} You passed the ${c.period*6}-month mark on ${fmtD(addDays(plan.startMonday,c.period*ASSESS_DAYS))}. The next comparison the book asks for is ${fmtD(c.at,true)}, ${c.left} day${c.left===1?'':'s'} away.`};
+  return {cls:'muted',v:`${wks} week${wks===1?'':'s'} in`,w:`${said} The book asks you to make no judgment until six months are up — ${fmtD(c.at,true)}, ${c.left} day${c.left===1?'':'s'} away. Keep plodding.`};
+}
+function watchLine(t){
+  const from=addDays(t,-(VERDICT_WIN-1)), out=[];
+  const flags=progLogs().filter(([d,L])=>d>=from&&d<=t&&(L.pain==='sharp'||L.pain==='niggle'));
+  const sharp=flags.filter(([,L])=>L.pain==='sharp').length;
+  if(flags.length){
+    const where={}; for(const [,L] of flags) for(const w of painAt(L)) where[w]=(where[w]||0)+1;
+    const spots=Object.entries(where).sort((a,b)=>b[1]-a[1]).map(([k,c])=>((PAIN_AT[k]||{}).name||k)+' ×'+c).join(' · ');
+    out.push({r:sharp?3:2,v:sharp?'Sharp pain logged':'Something hurting',
+      w:`${flags.length} session${flags.length===1?'':'s'} with something hurting in the last four weeks${sharp?`, ${sharp} of them sharp`:''}${spots?` — ${spots}`:''}. ${sharp?'Sharp pain holds that lift back at the end of the cycle.':'Noted, not acted on — worth watching if it keeps appearing.'}`});
+  }
+  const mean=xs=>xs.reduce((a,b)=>a+b,0)/xs.length;
+  const now=[],was=[];
+  for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)now.push(r)}
+  for(let i=7;i<14;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)was.push(r)}
+  if(now.length>=3&&was.length>=3){
+    const drop=Math.round(mean(was)-mean(now));
+    if(drop>=READY_DROP) out.push({r:2,v:'Readiness falling',
+      w:`Down ${drop} points on the week before. The book's answer to that is the rest day, not a harder session: rest periodically, and do not ignore it.`});
+  }
+  let gr=0; for(let i=VERDICT_WIN;i>=0;i--){const L=lg(addDays(t,-i));for(const x of Object.values(L.lifts||{})) if(x&&x.grinder) gr++}
+  if(gr>=3) out.push({r:1,v:'Sets are grinding',
+    w:`${gr} grinder sets in four weeks. That is what the end-of-cycle review reads when it decides whether a max goes up, and it usually means the max is already where it should be.`});
+  if(!out.length) return {cls:'ok',v:'Nothing flagged',w:'No pain logged in four weeks, readiness holding, nothing grinding.'};
+  out.sort((a,b)=>b.r-a.r);
+  return {cls:out[0].r>=3?'off':'warn',v:out[0].v,w:out.map(x=>x.w).join(' ')};
+}
+function verdictBlock(t){
+  const rows=[['Keeping up',keepingUp(t)],['Progress',progressLine(t)],['Watch',watchLine(t)]];
+  return `<div class="card"><div class="vb">${rows.map(([l,x])=>
+    `<div class="vb-r"><div class="vb-h"><span class="vb-l">${l}</span><span class="vb-v ${x.cls}">${x.v}</span></div><div class="vb-w">${x.w}</div></div>`).join('')}</div></div>`;
+}
 // Status answers "how am I doing", History answers "what happened". Every trend line
 // that was here as well as there has gone to History: maxes by cycle, readiness,
 // results per activity, jumps. What stays is the current number and its direction.
@@ -271,6 +370,8 @@ function vStatus(){
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
   const list=weeks(), ci0=wk.idx;
   let h='';
+  // The answer leads; the orientation and the evidence follow it.
+  h+=verdictBlock(t);
   // --- where you are
   const wt=weekTitle(wk);
   h+=`<div class="card"><div class="lift-h"><h2>${wt.t}</h2><span class="chip ${wt.cls}">${wt.chip}</span></div>`;
@@ -286,16 +387,6 @@ function vStatus(){
   h+=`<div class="miles">${mile('Next cycle',nc,w=>'Cycle '+w.cycle+' · '+fmtD(w.monday,true))}${mile('Next deload',nd,w=>fmtD(w.monday,true))}${mile('Next retest',nt,w=>fmtD(w.monday,true))}</div>`;
   const trained=list.slice(0,ci0).filter(w=>w.kind==='cycle').length;
   h+=`<div class="small muted">${trained} training week${trained===1?'':'s'} completed since ${fmtD(plan.startMonday)}.</div></div>`;
-  // --- anything hurting comes before the numbers, not four cards below them
-  {
-    const since=addDays(t,-27), flags=progLogs().filter(([d,L])=>d>=since&&d<=t&&(L.pain==='sharp'||L.pain==='niggle'));
-    if(flags.length){
-      const sharp=flags.filter(([,L])=>L.pain==='sharp').length, where={};
-      for(const [,L] of flags) for(const w of painAt(L)) where[w]=(where[w]||0)+1;
-      const spots=Object.entries(where).sort((a,b)=>b[1]-a[1]).map(([k,c])=>((PAIN_AT[k]||{}).name||k)+' ×'+c).join(' · ');
-      h+=`<div class="banner ${sharp?'alert':'warn'}"><div class="small"><b>${flags.length} session${flags.length===1?'':'s'} with something hurting</b> in the last 4 weeks${sharp?`, ${sharp} of them sharp`:''}.${spots?' '+esc(spots)+'.':''} ${sharp?'Sharp pain holds that lift back at the end of the cycle.':'Noted, not acted on — worth watching if it keeps appearing.'}</div></div>`;
-    }
-  }
   // --- this week + adherence
   const mon=mondayOf(t);
   let wd='';for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t),p=dayPlan(d);wd+=`<div><i class="${st}" aria-label="${DAYN[i]}: ${st}">${st==='done'?'✓':st==='missed'?'✕':st==='rest'?'–':'•'}</i>${DAYN[i]}<span style="font-size:10px">${esc(p.short||'')}</span></div>`}

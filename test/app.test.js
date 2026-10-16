@@ -6701,3 +6701,139 @@ test("what you log daily comes before what you review monthly", () => {
   a.ok(at(">This week<") < at(">Macros<"), "this week stays at the top");
   a.ok(at(">Strength<") < at(">Conditioning<"), "strength before conditioning");
 });
+
+// --- The three verdicts at the top of Status ---------------------------------------
+// Two of the three follow a line from the books rather than dashboard convention, and
+// the tests are written against the book's standard, not against a round number.
+
+function run(now, start, f) {
+  const x = app({ now });
+  x.plan.startMonday = start; x.plan.bridge = false;
+  if (f) f(x);
+  x.bump();
+  return x;
+}
+// Every scheduled session in the window, done or skipped as `done` says.
+function logWeeks(x, now, days, done) {
+  const s = {};
+  for (let i = days; i >= 1; i--) {
+    const d = x.addDays(now, -i);
+    if (x.dayPlan(d).t === "off") continue;
+    s[d] = { date: d, done: done(i) };
+  }
+  x.seed(s);
+}
+
+test("TB2 asks for no missed sessions, so Keeping up counts them against none", () => {
+  const now = "2026-11-11";
+  const perfect = run(now, "2026-10-05", (x) => logWeeks(x, now, 37, () => true));
+  const k = perfect.keepingUp(now);
+  a.equal(k.cls, "ok");
+  a.equal(k.v, "Nothing missed");
+  a.match(k.w, /standard the book sets/, "it names the standard rather than a percentage");
+
+  // 16 of 24 is 67%, which a dashboard would call "needs work". The book calls it missed.
+  const slack = run(now, "2026-10-05", (x) => logWeeks(x, now, 37, (i) => i % 3 !== 0));
+  const s = slack.keepingUp(now);
+  a.equal(s.cls, "off");
+  a.match(s.v, /^\d+ missed$/);
+  a.match(s.w, /none missed/, "and says what the standard is when you are under it");
+});
+
+test("a three-day-old program is not told it has already missed two sessions", () => {
+  const now = "2026-11-11";
+  const k = run(now, "2026-11-09").keepingUp(now);
+  a.equal(k.cls, "muted");
+  a.equal(k.v, "Nothing to count yet");
+  // Four weeks later the same program, still untouched, is judged.
+  const later = run("2026-12-09", "2026-11-09").keepingUp("2026-12-09");
+  a.equal(later.cls, "off");
+});
+
+test("TB2 forbids judging progress inside six months, so Progress is a clock", () => {
+  const now = "2026-11-11";
+  const x = run(now, "2026-10-05", (x2) => logWeeks(x2, now, 37, () => true));
+  const p = x.progressLine(now);
+  a.equal(p.cls, "muted", "five good weeks is not a verdict");
+  a.match(p.v, /weeks in/);
+  a.match(p.w, /six months/, "it says why it is not judging");
+  a.ok(!/working|improving|on track/i.test(p.w), "and makes no claim either way");
+
+  // Six months and a day: the book's interval is up and the line changes its job.
+  const due = run(now, "2026-05-11", (x2) => { x2.plan.cycleMaxes = { 4: { squat: 325 } } });
+  const d = due.progressLine(now);
+  a.equal(d.cls, "ok");
+  a.match(d.v, /compare/);
+  a.match(d.w, /re-assess/);
+});
+
+test("a projected max is arithmetic, not evidence, so Progress will not count it", () => {
+  const now = "2026-11-11";
+  // Nothing retested: every max past cycle 1 is the increment applied over and over.
+  const proj = run(now, "2026-05-11");
+  a.deepEqual(proj.measuredLifts(5), [], "projections count for nothing");
+  a.match(proj.progressLine(now).w, /increment doing arithmetic/);
+
+  // A number typed into the cycle-maxes table is what a retest leaves behind.
+  const real = run(now, "2026-05-11", (x) => { x.plan.cycleMaxes = { 4: { squat: 325, bench: 190 } } });
+  const m = real.measuredLifts(5);
+  a.equal(m.length, 2, "both entered lifts count");
+  a.equal(m.find((y) => y.k === "squat").d, 25, "measured against cycle 1, not the cycle before");
+  a.equal(m.find((y) => y.k === "bench").d, -10, "a retest that went down counts too");
+});
+
+test("Watch leads with the most serious thing and keeps the rest", () => {
+  const now = "2026-11-11";
+  const quiet = run(now, "2026-10-05", (x) => logWeeks(x, now, 37, () => true));
+  a.equal(quiet.watchLine(now).cls, "ok");
+  a.equal(quiet.watchLine(now).v, "Nothing flagged");
+
+  const hurt = run(now, "2026-10-05", (x) => {
+    const s = {}; let sharp = false;
+    for (let i = 20; i >= 1; i--) {
+      const d = x.addDays(now, -i);
+      if (x.dayPlan(d).t === "off") continue;     // a rest day cannot carry a session
+      const L = { date: d, done: true };
+      if (i % 7 === 0) { L.pain = "niggle"; L.painAt = ["knee"] }
+      if (i <= 5 && !sharp) { L.pain = "sharp"; L.painAt = ["shoulder"]; sharp = true }
+      s[d] = L;
+    }
+    a.ok(sharp, "the fixture actually logged the sharp session");
+    x.seed(s);
+  });
+  const w = hurt.watchLine(now);
+  a.equal(w.cls, "off", "sharp pain is the red one");
+  a.equal(w.v, "Sharp pain logged");
+  a.match(w.w, /Shoulder/, "and the detail survives being summarised");
+});
+
+test("Watch ranks a falling readiness above sets that ground, and says both", () => {
+  const now = "2026-11-11";
+  const x = run(now, "2026-10-05", (x2) => {
+    const s = {}, good = { sleepH: 8, sleepQ: 5, energy: 5, soreness: 1, stress: 1 },
+      bad = { sleepH: 5, sleepQ: 2, energy: 2, soreness: 4, stress: 4 };
+    let gr = 0;
+    for (let i = 20; i >= 0; i--) {
+      const d = x2.addDays(now, -i);
+      const L = { date: d, checkin: i < 7 ? bad : good };
+      // Three grinder sets, which is what the end-of-cycle review reads.
+      if (x2.dayPlan(d).t === "lift" && gr < 3) { L.done = true; L.lifts = { squat: { grinder: true } }; gr++ }
+      s[d] = L;
+    }
+    a.equal(gr, 3, "the fixture logged three grinders");
+    x2.seed(s);
+  });
+  const w = x.watchLine(now);
+  a.equal(w.v, "Readiness falling", "the bigger signal leads");
+  a.equal(w.cls, "warn", "neither is red on its own");
+  a.match(w.w, /Down \d+ points/, "it says how far");
+  a.match(w.w, /grinder sets/, "and the smaller flag is kept, not dropped");
+});
+
+test("the verdicts are the first thing on Status, above the orientation", () => {
+  const h = lived("2026-11-11").vStatus();
+  const vb = h.indexOf('class="vb"');
+  a.ok(vb > 0 && vb < h.indexOf("Cycle 2"), "the answer comes before the week number");
+  for (const l of ["Keeping up", "Progress", "Watch"]) a.ok(h.includes(">" + l + "<"), l);
+  a.ok(!/class="banner (alert|warn)"/.test(h), "the pain banner folded into Watch");
+});

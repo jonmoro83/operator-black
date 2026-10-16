@@ -79,11 +79,6 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
 
 ## Next up
 
-- **Status, pass two: the verdict block.** The cuts and the reorder shipped 2026-10-16.
-  What is left is the part that answers the question instead of presenting the evidence:
-  three lines at the top of Status — keeping up, working, watch — in words and in
-  color, with the cards below as the backing. The same move the Macros card made.
-
 - **TB book coverage is done**, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
@@ -195,6 +190,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The three verdicts at the top of Status (2026-10-16)**
+- Pass two. Status presented evidence and left the reading to you; it now answers
+  three questions first and keeps the evidence underneath.
+- **Keeping up.** TB2: *"Don't miss a single conditioning session, and don't miss a
+  single strength session... Many overestimate how consistent they are, and tend to
+  miss more sessions then they think."* So it counts missed sessions against a
+  standard of none and says what the standard is, rather than grading 67% as
+  "needs work". Ours: two missed in four weeks is yellow rather than red, and a
+  program with fewer than four sessions behind it is not judged at all.
+- **Progress.** TB2: *"Compare yourself with yourself no earlier than every six
+  months. Make no judgments until six months are up... Anything less is a waste of
+  time."* A four-week progress verdict is exactly what a fitness app would draw here
+  and exactly what the book forbids, so this line is a clock to the six-month mark
+  plus an inventory of what has actually been measured. At the mark it changes job
+  and says compare.
+- **A projected max is not evidence.** Only a number someone entered counts as
+  measured — a `proj` max is the increment doing arithmetic and a `lock` is that
+  arithmetic frozen. The line says so when nothing has been retested.
+- **Watch.** Pain, a readiness drop of ten or more against the week before, and three
+  or more grinder sets. The most serious leads and the rest are kept in the sentence.
+  The standalone pain banner folded into this.
+- The rest-day flag was designed and then dropped: you cannot mark a scheduled rest
+  day done, so it would have been dead code.
+- Six tests, twelve mutants, all caught. Two survived the first pass — nothing
+  exercised the readiness drop, and the ordering test had only one flag in it.
 
 **Status says where you are, History says what happened (2026-10-16)**
 - First of two passes on the Status tab. The tab had become ten cards and twenty trend

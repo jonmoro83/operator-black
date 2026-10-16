@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.15',date:'2026-10-16',title:'Status answers three questions first',items:[
+    'Status used to hand you the evidence and leave the reading to you. It now opens with three lines: whether you are keeping up, where you are against the book\u2019s six-month mark, and anything worth watching.',
+    '<b>Keeping up</b> counts missed sessions against the book\u2019s standard, which is none. The book also warns that most people think they miss fewer than they do, so it shows the real count rather than a percentage that sounds fine.',
+    '<b>Progress</b> deliberately does not tell you whether four weeks went well. The book says to compare yourself with yourself no earlier than every six months and to make no judgment before then, so this is a clock to that date plus a list of what has actually been retested. A max that was never retested is the increment doing arithmetic, and it says so.',
+    '<b>Watch</b> picks up pain, readiness falling off the week before, and sets that are grinding. The most serious one leads. The old pain banner is part of this now rather than sitting on its own.']},
   {v:'3.14',date:'2026-10-16',title:'Status and History stop overlapping',items:[
     'Status had ten cards and twenty charts on one scroll, and most of those lines were already in History as tables. Status now answers how you are doing and History answers what happened. Maxes by cycle, readiness over 28 days, results per activity and the broad jump all moved to History, which is where the full tables already were.',
     'Strength is five rows instead of five little charts: the lift, your current max, and green or red for where it has gone since cycle 1. The heaviest set you completed moved to History with the maxes table it explains.',
