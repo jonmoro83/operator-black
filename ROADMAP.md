@@ -158,6 +158,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Macro averages, over a window you choose (2026-10-16)**
+- The figure under each target said "200 g eaten", which reads as today and was not:
+  it was a fourteen-day average, explained only in a line below that is easy to miss.
+- It now reads **avg 200 · 40 short**, and the line under the card leads with
+  <b>Averages are of days already eaten, not today</b> — grams are logged the morning
+  after, so today's can never be in it. That sentence is the whole fix for the
+  ambiguity; the rest is making the number more useful.
+- **Three windows:** this week, 14 days, this block. A block counts back to week one
+  of the cycle, so it answers "am I on track for this block" rather than "how was
+  Tuesday". They disagree by design — a good week inside a bad fortnight should look
+  like both of those things depending on what is asked.
+- On target or short is said in words against each macro, with a five percent band so
+  being two grams out does not read as a miss.
+- The card says how many days in the window actually have grams, and says plainly when
+  there are too few to read much into. Four entries in a fourteen-day window is a
+  different claim from fourteen, and an average that hides which is worse than none.
+- `setMacroWin` is a named function rather than an assignment in the click handler,
+  because a test could not otherwise change the window — the first version of this
+  looked like it worked and all three windows were returning the same number.
+- 318 tests, 7 mutants, all caught.
+
 **A warning before the rest ends, and macros for the coach (2026-10-16)**
 - **A short low tone ten seconds out**, so you are back under the bar rather than
   finding out you are late. Off / 5 / 10 / 15 / 30 in Setup → Sound, defaulting to the

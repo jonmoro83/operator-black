@@ -122,6 +122,33 @@ function macroMean(t,days){
   const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
   return {p:mean(got.p),c:mean(got.c),f:mean(got.f),days:Math.max(got.p.length,got.c.length,got.f.length)};
 }
+/* The windows worth averaging over, and how many days back each one reaches.
+
+   `logged` is the days in the window that actually have grams, which is the number
+   that makes an average honest: four days entered out of a fourteen-day window is a
+   different claim from fourteen out of fourteen, and the card has to say which. */
+let macroWin='week';
+const MACRO_WINS=[['week','This week'],['14','14 days'],['cycle','This block']];
+function setMacroWin(v){ if(!MACRO_WINS.some(([k])=>k===v)) return false; macroWin=v; return true }
+function macroWinDays(t){
+  if(macroWin==='14') return 14;
+  if(macroWin==='cycle'){
+    const wk=weekOf(t);
+    if(wk&&wk.kind==='cycle'){
+      // Back to the first week of this cycle, however many weeks in we are.
+      const back=(wk.w-1)*7+dow(t)+1;
+      return Math.max(1,Math.min(back,70));
+    }
+    return 7+dow(t)+1;
+  }
+  return dow(t)+1;                      // Monday to today
+}
+function macroWinLabel(t){
+  const d=macroWinDays(t);
+  if(macroWin==='week') return d===1?'today':`the ${d} days since Monday`;
+  if(macroWin==='14') return 'the last 14 days';
+  return `the ${d} days of this block so far`;
+}
 /* The book's answer to a scale that will not move: "If you're not putting on weight
    after a month or two, add another 500 calories per day using the same ratio."
    Only offered on real evidence -- a fortnight of weigh-ins going the wrong way --
@@ -139,23 +166,30 @@ function macroAdvice(t){
   return null;
 }
 function macroCard(t){
-  const tgt=macroTarget(t), got=macroMean(t,14), adv=macroAdvice(t);
+  const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t)), adv=macroAdvice(t);
   const lb=bwLb(t);
   let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="small muted">${tgt.src==='tb3'?'Tactical Barbell III':'the app’s own'}</span>`:''}</div>`;
   if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
   if(!tgt) return h+`<p class="small muted" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
 
+  h+=`<div class="restsel"><span>Average over</span><div class="seg">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${l}</button>`).join('')}</div></div>`;
   h+=`<div class="miles">`;
   for(const [k,lbl] of [['p','Protein'],['c','Carbs'],['f','Fat']]){
-    const a=got[k];
+    const a=got[k], gap=a==null?null:a-tgt[k];
+    // The big number is what to aim at; underneath is how the days so far have gone
+    // against it. Never "eaten" on its own, which reads as today and is not.
     h+=`<div class="mile"><span class="l">${lbl}</span><span class="big">${tgt[k]}<small style="font-size:14px;color:var(--muted);margin-left:2px">g</small></span>
-    <span class="small muted">${a!=null?`${a} g eaten`:'not logged'}</span></div>`;
+    <span class="small muted">${a==null?'none logged yet'
+      :`avg ${a} \u00b7 ${Math.abs(gap)<=Math.max(5,tgt[k]*0.05)?'on target':`${Math.abs(gap)} ${gap<0?'short':'over'}`}`}</span></div>`;
   }
   h+=`</div>`;
   h+=`<div class="small">That is <b class="mono">${n(tgt.kcal)}</b> calories a day${tgt.bump?` — including ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} you have added`:''}.
   ${tgt.src==='tb3'?`The book's formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`:`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}</div>`;
-  if(got.days) h+=`<div class="small muted">Eaten is the average of the ${got.days} day${got.days===1?'':'s'} in the last fortnight you logged grams for.</div>`;
-  else h+=`<div class="small muted">Nothing logged yet. The three boxes are in the daily check-in, under yesterday's eating.</div>`;
+  if(got.days){
+    const win=macroWinDays(t);
+    h+=`<div class="small muted"><b>Averages are of days already eaten</b>, not today — grams are logged the morning after, so today's are not in yet. ${got.days} of ${esc(macroWinLabel(t))} ${got.days===1?'has':'have'} grams against ${win===got.days?'them all':'them'}.${got.days<win/2?' Too few to read much into.':''}</div>`;
+  }
+  else h+=`<div class="small muted">Nothing logged over ${esc(macroWinLabel(t))}. The three boxes are in the daily check-in, under yesterday's eating — they are for the day before, so today's go in tomorrow.</div>`;
   if(adv) h+=`<div class="banner info"><div class="small">${esc(adv.text)}</div><div class="row" style="gap:8px;margin-top:6px">
     <button class="btn sm" data-act="macrobump" data-v="${adv.dir}">${adv.dir>0?'Add':'Take off'} 500 a day</button></div></div>`;
   else if(tgt.bump) h+=`<div class="row" style="align-items:baseline"><span class="small muted">Target adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div>`;

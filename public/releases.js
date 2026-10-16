@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.7',date:'2026-10-16',title:'Macro averages, and what they average',items:[
+    'The number under each target said \u201c200 g eaten\u201d, which reads as today \u2014 it never was. Grams are logged the morning after, so today\u2019s are never in it. It now says <b>avg 200 \u00b7 40 short</b>, and the card leads with the fact that averages are of days already eaten.',
+    '<b>Three windows to average over:</b> this week, 14 days, or this block. The block one counts back to the first week of the cycle, so you can ask whether you are on track for the block rather than how yesterday went.',
+    'Each macro says whether you are on target or how far off, with a little tolerance so being two grams out does not read as a miss. The card also says how many days in the window actually have numbers \u2014 and says so plainly when that is too few to mean much.']},
   {v:'3.6',date:'2026-10-16',title:'A warning before the rest ends',items:[
     'A short low tone ten seconds before a rest runs out, so you are back under the bar rather than finding out you are late. <b>Setup \u2192 Sound</b> has it at off, 5, 10, 15 or 30 seconds.',
     'It does not sound like the end of the rest, on purpose: one low note against the finish\u2019s three rising ones, and one short buzz against its long-short-long. You should not have to look at the phone to tell which just happened.',

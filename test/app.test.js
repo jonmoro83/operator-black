@@ -6290,3 +6290,58 @@ test("the rest timer warns before it ends, and does not sound like the end", asy
   a.equal(x.beepWarn().tones, "silent");
   a.equal(x.audio.tones.length, 0, "nothing played");
 });
+
+test("the macro averages say what they average, and over which days", () => {
+  const x = app({ now: "2026-10-16" });                     // a Friday
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false;
+  x.plan.goal = "gain"; x.plan.proteinPerLb = 0;
+  // Five recent days at target, the rest well under, so the windows must disagree.
+  const seed = {};
+  for (let i = 27; i >= 0; i--) {
+    const d = x.addDays("2026-10-16", -i);
+    seed[d] = { checkin: { bw: 185, proG: i < 5 ? 240 : 150, carbG: 300, fatG: 90 } };
+  }
+  x.seed(seed); x.bump();
+
+  a.equal(x.setMacroWin("week"), true);
+  a.equal(x.macroWinDays("2026-10-16"), 5, "Monday to Friday");
+  a.equal(x.setMacroWin("14"), true);
+  a.equal(x.macroWinDays("2026-10-16"), 14);
+  a.equal(x.setMacroWin("cycle"), true);
+  a.ok(x.macroWinDays("2026-10-16") > 7, "a block reaches past this week");
+  a.equal(x.setMacroWin("nonsense"), false, "and only the three exist");
+
+  // Each window gives its own answer, which is the point of having three.
+  const avg = (w) => { x.setMacroWin(w); x.bump(); return x.macroMean("2026-10-16", x.macroWinDays("2026-10-16")).p };
+  a.equal(avg("week"), 240, "the good week reads as on target");
+  a.ok(avg("14") < 200, "a fortnight including the bad days does not");
+  a.ok(avg("cycle") < 200);
+
+  // The card never says "eaten" alone, which reads as today and is not: grams are
+  // logged the morning after, so today's are never in the average.
+  x.setMacroWin("week"); x.bump();
+  const h = x.macroCard("2026-10-16");
+  a.match(h, /avg 240/, "it is labelled an average");
+  a.match(h, /<b>Averages are of days already eaten<\/b>, not today/);
+  a.match(h, /4 of the 5 days since Monday/, "and says how many days are behind it");
+  a.ok(!/\d+ g eaten/.test(h), "never a bare 'eaten' figure");
+
+  // On target versus short is the question being asked, so it is answered in words.
+  a.match(h, /Protein[\s\S]{0,260}on target/);
+  x.setMacroWin("14"); x.bump();
+  a.match(x.macroCard("2026-10-16"), /Protein[\s\S]{0,260}\d+ short/, "and short when it is short");
+
+  // A window with hardly anything in it says so rather than averaging two days.
+  const y = app({ now: "2026-10-16" });
+  y.plan.startMonday = "2026-10-05"; y.plan.bridge = false; y.plan.goal = "gain"; y.plan.proteinPerLb = 0;
+  y.seed({ "2026-10-16": { checkin: { bw: 185, proG: 240, carbG: 300, fatG: 90 } } }); y.bump();
+  y.setMacroWin("14"); y.bump();
+  a.match(y.macroCard("2026-10-16"), /Too few to read much into/);
+
+  // Nothing at all explains where the boxes are, and that they are a day behind.
+  const z = app({ now: "2026-10-16" });
+  z.plan.goal = "gain"; z.plan.bodyweight = 185; z.plan.proteinPerLb = 0; z.bump();
+  const zh = z.macroCard("2026-10-16");
+  a.match(zh, /Nothing logged over/);
+  a.match(zh, /they are for the day before, so today's go in tomorrow/);
+});
