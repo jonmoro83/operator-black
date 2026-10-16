@@ -468,6 +468,8 @@ function vSetup(){
         .map(([v,t,d])=>`<button class="btn${sm===v?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="soundmode" data-v="${v}" aria-pressed="${sm===v}"><span><b>${sm===v?'\u2713 ':''}${t}</b><br><span class="small">${d}</span></span></button>`).join('')}
     </div>
     ${sm==='silent'?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
+    <div class="restsel" style="margin-top:10px"><span>Warning</span><div class="seg">${REST_WARNS.map(v=>`<button class="segb${restWarnSecs()===v?' on':''}" data-act="restwarn" data-v="${v}" aria-pressed="${restWarnSecs()===v}">${v?v+'s':'Off'}</button>`).join('')}</div></div>
+    <div class="small muted">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
     <div class="small muted">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
     <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>

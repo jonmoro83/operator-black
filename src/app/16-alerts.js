@@ -95,7 +95,11 @@ function tickRest(){
   document.getElementById('rest-next').textContent=left>0?(rest.next?'Next: '+rest.next:''):(rest.next?'Go: '+rest.next:'Rest done');
   document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
   el.classList.toggle('done',left===0);
-  if(left===10&&rest.dur>20&&!rest.said10){rest.said10=true;say('Ten seconds')}
+  // The warning: a beep, and the spoken cue if that is on. Only when the rest is at
+  // least twice the warning, or a short one would announce itself the moment it began.
+  if(restWarnDue(rest,left)){
+    rest.warned=true; LS.set('ob.rest',rest); beepWarn(); say(restWarnSecs()+' seconds');
+  }
   if(left===0&&!rest.done){
     rest.done=true;LS.set('ob.rest',rest);beep();syncScreen();
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }

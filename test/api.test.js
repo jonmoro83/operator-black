@@ -1449,7 +1449,8 @@ test("the coach is told the bodyweight and calories that are actually logged", a
     a.equal(state.bodyweightLoggedOn, "2026-10-15");
     a.equal(state.bodyweightReadings, 5);
     a.equal(state.bodyweightPerWeek, 7, "a pound a day reads as seven a week");
-    a.equal(state.proteinTargetG, Math.round(1.3 * 184), "and the target follows the real weight");
+    a.equal(state.macroTarget.protein, Math.round(1.3 * 184 / 5) * 5, "and the target follows the real weight");
+    a.equal(state.macroTarget.from, "Tactical Barbell III", "with whose formula it is");
 
     // Calories are asked for the morning after, so a day's figure belongs to the day
     // before. Logged on the 12th means eaten on the 11th.
@@ -1639,4 +1640,59 @@ test("a thread is bounded, and is only ever your own", async () => {
       { method: "POST", body: JSON.stringify({ q: "hi", thread: "../../etc/passwd" }) }, tok)).json();
     a.match(r.thread, /^[0-9a-f-]{36}$/, "a fresh one is minted instead");
   } finally { globalThis.fetch = orig }
+});
+
+test("the coach sees the macros that were logged, and the target for them", async () => {
+  const k = await setupKeys();
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main",
+    data: JSON.stringify({ unit: "lb", goal: "gain", macroBump: 0 }), updated_at: 1 });
+  const days = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15"];
+  days.forEach((d, i) => env.DB.docs.push({ user: "lifter@example.com", path: "logs/" + d,
+    data: JSON.stringify({ checkin: { bw: 185, kcal: 3000, proG: 200 + i, carbG: 300, fatG: 80 } }), updated_at: 1 }));
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "am I eating enough" }) }, tok);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+
+    // Grams follow the calories: logged the morning after, counted to the day before.
+    const byDay = Object.fromEntries(state.recentDays.map((x) => [x.d, x.checkin && x.checkin.grams]));
+    a.deepEqual(byDay["2026-10-12"], { protein: 201, carbs: 300, fat: 80 }, "the 13th's entry is the 12th's eating");
+    a.equal(byDay["2026-10-15"], undefined, "and the last day has no morning-after yet");
+    a.deepEqual(state.macroMean, { protein: 202, carbs: 300, fat: 80 }, "averaged over the days that have them");
+
+    // The target goes with them, or "202 g of protein" means nothing.
+    a.equal(state.macroTarget.protein, 240, "185 x 1.3, to the nearest five");
+    a.equal(state.macroTarget.carbs, 370);
+    a.equal(state.macroTarget.fat, 95);
+    a.equal(state.macroTarget.from, "Tactical Barbell III");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the Worker's macro formula is the app's, and a test says so out loud", async () => {
+  // The Worker cannot import the app bundle, so the formula exists twice. This is the
+  // guard that stops the copies drifting: it reads both and compares them.
+  const { loadApp } = require("./harness.js");
+  const app = loadApp({ now: "2026-10-16" });
+  const api2 = await load();
+  const bw = 185;
+
+  for (const goal of ["gain", "lose", "maintain"]) {
+    a.deepEqual(
+      { p: app.MACRO[goal].p, f: app.MACRO[goal].f, c: app.MACRO[goal].c, src: app.MACRO[goal].src },
+      { p: api2.MACRO_W[goal].p, f: api2.MACRO_W[goal].f, c: api2.MACRO_W[goal].c, src: api2.MACRO_W[goal].src },
+      goal + ": the two copies of the multipliers agree");
+  }
+  a.equal(app.MACRO_STEP, api2.MACRO_STEP_W, "and the 500-calorie step");
+
+  // And the numbers they produce for building, which is where the book's formula is.
+  app.seed(Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((i) => [app.addDays("2026-10-10", i), { checkin: { bw } }])));
+  app.plan.goal = "gain"; app.plan.proteinPerLb = 0; app.bump();
+  const mine = app.macroTarget("2026-10-16");
+  const theirs = api2.macroTargetFor({ goal: "gain", proteinPerLb: 0, macroBump: 0 }, bw);
+  a.deepEqual([theirs.protein, theirs.carbs, theirs.fat], [mine.p, mine.c, mine.f], "same grams");
+  a.equal(theirs.kcal, mine.kcal, "same calories");
 });

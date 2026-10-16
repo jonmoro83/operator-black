@@ -140,6 +140,45 @@ function beepTones(){
   }
   go(); return 'running';
 }
+// How long before the end to give a warning, in seconds. 0 is off.
+const REST_WARNS=[0,5,10,15,30];
+function restWarnSecs(){ const v=+plan.restWarn; return REST_WARNS.includes(v)?v:10 }
+/* Is this the tick that warns? Its own function because the tick runs four times a
+   second and the two guards are the whole behaviour: once only, and never on a rest
+   so short the warning would land on top of its own start. */
+function restWarnDue(r,left){
+  const warn=restWarnSecs();
+  return !!(warn&&r&&left===warn&&r.dur>=warn*2&&!r.warned);
+}
+/* The heads-up, deliberately not the same sound as the end of the rest.
+
+   One short low tone against the finish's three rising ones, and a single short buzz
+   against its long-short-long. If the warning and the finish sounded alike you would
+   have to look at the phone to tell which had happened, which is the thing a beep is
+   there to save you. No media clip either: that exists to beat the ring switch at the
+   cost of pausing music, and paying that twice per rest is not worth a warning. */
+function beepWarn(){
+  let vib=false;
+  try{ vib=!!(navigator.vibrate&&navigator.vibrate(120)) }catch(e){}
+  if(quiet()) return {vib,tones:'silent'};
+  return {vib,tones:warnTone()};
+}
+function warnTone(){
+  if(!audioCtx) unlockAudio();
+  if(!audioCtx) return 'no-context';
+  const go=()=>{ try{
+    const t0=audioCtx.currentTime, o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type='sine'; o.frequency.value=587;
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(0.35,t0+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.18);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t0); o.stop(t0+0.22);
+  }catch(e){} };
+  // Same resume-then-schedule order as the finish beep, and for the same reason: a
+  // context WebKit has parked at 'interrupted' has a clock that is not running.
+  if(audioCtx.state!=='running'){ try{ audioCtx.resume().then(go,()=>{}) }catch(e){ return 'no-resume' } return 'resumed' }
+  go(); return 'played';
+}
 function beep(){
   // Buzz first and unconditionally. Silent mode exists so iOS does not take the audio
   // session off your music; vibration never touches audio, so suppressing it as well

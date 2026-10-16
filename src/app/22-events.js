@@ -230,6 +230,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // compounds if the scale still will not move a month later.
   if(a==='macrobump'){const d=+b.dataset.v;mutatePlan(p=>{p.macroBump=d===0?0:(+p.macroBump||0)+d});render();return}
   if(a==='coachask'){coachAsk();return}
+  if(a==='restwarn'){setPlan('restWarn',+b.dataset.v);render();return}
   if(a==='coachnew'){coachNew();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}

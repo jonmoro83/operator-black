@@ -1229,7 +1229,7 @@ const DEF={
      off these -- they exist so the coach knows what you are training for, and so that
      you had to write it down once. `sticking` is keyed by lift. */
   programGoals:{aim:'',by:'',sticking:{},notes:''},
-  rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
+  rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3}, restWarn:10,
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'}, fobbit:'kb',
   askDeload:true, voice:false, guideAuto:true,
@@ -4375,6 +4375,45 @@ function beepTones(){
   }
   go(); return 'running';
 }
+// How long before the end to give a warning, in seconds. 0 is off.
+const REST_WARNS=[0,5,10,15,30];
+function restWarnSecs(){ const v=+plan.restWarn; return REST_WARNS.includes(v)?v:10 }
+/* Is this the tick that warns? Its own function because the tick runs four times a
+   second and the two guards are the whole behaviour: once only, and never on a rest
+   so short the warning would land on top of its own start. */
+function restWarnDue(r,left){
+  const warn=restWarnSecs();
+  return !!(warn&&r&&left===warn&&r.dur>=warn*2&&!r.warned);
+}
+/* The heads-up, deliberately not the same sound as the end of the rest.
+
+   One short low tone against the finish's three rising ones, and a single short buzz
+   against its long-short-long. If the warning and the finish sounded alike you would
+   have to look at the phone to tell which had happened, which is the thing a beep is
+   there to save you. No media clip either: that exists to beat the ring switch at the
+   cost of pausing music, and paying that twice per rest is not worth a warning. */
+function beepWarn(){
+  let vib=false;
+  try{ vib=!!(navigator.vibrate&&navigator.vibrate(120)) }catch(e){}
+  if(quiet()) return {vib,tones:'silent'};
+  return {vib,tones:warnTone()};
+}
+function warnTone(){
+  if(!audioCtx) unlockAudio();
+  if(!audioCtx) return 'no-context';
+  const go=()=>{ try{
+    const t0=audioCtx.currentTime, o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type='sine'; o.frequency.value=587;
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(0.35,t0+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.18);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t0); o.stop(t0+0.22);
+  }catch(e){} };
+  // Same resume-then-schedule order as the finish beep, and for the same reason: a
+  // context WebKit has parked at 'interrupted' has a clock that is not running.
+  if(audioCtx.state!=='running'){ try{ audioCtx.resume().then(go,()=>{}) }catch(e){ return 'no-resume' } return 'resumed' }
+  go(); return 'played';
+}
 function beep(){
   // Buzz first and unconditionally. Silent mode exists so iOS does not take the audio
   // session off your music; vibration never touches audio, so suppressing it as well
@@ -5539,7 +5578,11 @@ function tickRest(){
   document.getElementById('rest-next').textContent=left>0?(rest.next?'Next: '+rest.next:''):(rest.next?'Go: '+rest.next:'Rest done');
   document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
   el.classList.toggle('done',left===0);
-  if(left===10&&rest.dur>20&&!rest.said10){rest.said10=true;say('Ten seconds')}
+  // The warning: a beep, and the spoken cue if that is on. Only when the rest is at
+  // least twice the warning, or a short one would announce itself the moment it began.
+  if(restWarnDue(rest,left)){
+    rest.warned=true; LS.set('ob.rest',rest); beepWarn(); say(restWarnSecs()+' seconds');
+  }
   if(left===0&&!rest.done){
     rest.done=true;LS.set('ob.rest',rest);beep();syncScreen();
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
@@ -6577,6 +6620,8 @@ function vSetup(){
         .map(([v,t,d])=>`<button class="btn${sm===v?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="soundmode" data-v="${v}" aria-pressed="${sm===v}"><span><b>${sm===v?'\u2713 ':''}${t}</b><br><span class="small">${d}</span></span></button>`).join('')}
     </div>
     ${sm==='silent'?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
+    <div class="restsel" style="margin-top:10px"><span>Warning</span><div class="seg">${REST_WARNS.map(v=>`<button class="segb${restWarnSecs()===v?' on':''}" data-act="restwarn" data-v="${v}" aria-pressed="${restWarnSecs()===v}">${v?v+'s':'Off'}</button>`).join('')}</div></div>
+    <div class="small muted">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
     <div class="small muted">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
     <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
@@ -7566,6 +7611,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // compounds if the scale still will not move a month later.
   if(a==='macrobump'){const d=+b.dataset.v;mutatePlan(p=>{p.macroBump=d===0?0:(+p.macroBump||0)+d});render();return}
   if(a==='coachask'){coachAsk();return}
+  if(a==='restwarn'){setPlan('restWarn',+b.dataset.v);render();return}
   if(a==='coachnew'){coachNew();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}

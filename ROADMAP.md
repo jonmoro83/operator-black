@@ -33,9 +33,12 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
   never both, and the web has no `mixWithOthers`), making it a three-way choice
   defaulting to ducking, undoing the `playback` regression 1.79 introduced, and fixing a
   real fault where an `interrupted` AudioContext was never woken.
-  - With the ring switch **off** it is silent, and no web app can change that. The
-    answer there is the Apple Watch tap through the existing rest-alert push —
-    deferred, not unknown.
+  - **Correction, 2026-10-16: it is audible with the ring switch off as well.** The
+    entry above said that was impossible for a web app, which is what the research
+    said and is apparently not what happens on this device — reported after a real
+    session. Not chased further: the `takeover` mode's media clip exists precisely to
+    beat the switch, and a home-screen web app may be treated differently from a tab.
+    The Apple Watch tap is no longer needed as a workaround.
 - **Checked against TB1 (3rd ed.) and TB2 on 2026-10-02:**
   - Wave weeks 5–6 are **3×5 @ 85%** and **3×2 @ 95%**. `plan.wave` matches the Operator
     table row for row; the disputed alternative was wrong.
@@ -154,6 +157,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**A warning before the rest ends, and macros for the coach (2026-10-16)**
+- **A short low tone ten seconds out**, so you are back under the bar rather than
+  finding out you are late. Off / 5 / 10 / 15 / 30 in Setup → Sound, defaulting to the
+  ten that was asked for.
+- Deliberately not the finishing sound: one note at 587 Hz against the finish's three
+  rising to 1320, and a single 120 ms buzz against its long-short-long. If the two
+  sounded alike you would have to look at the phone to tell which had happened, which
+  is the thing a beep is there to save you. No media clip either — that exists to beat
+  the ring switch by taking the speaker, and paying that twice a rest is not worth a
+  warning.
+- Skipped when the rest is shorter than twice the warning, or it would land on top of
+  its own start. `restWarnDue` is its own function because the tick runs four times a
+  second and those two guards are the whole behaviour — and because two mutants
+  survived until it existed.
+- **The coach could not see the macros**, the same omission as the bodyweight: the
+  fields were added and never sent. Grams now go over per day, attributed to the day
+  they were eaten, with the fortnight's mean and the target to compare them against.
+- The target had to be computed in the Worker, which cannot import the app bundle. So
+  the formula exists twice, and there is a test that loads both and asserts the
+  multipliers and the output agree. Duplication with a guard beats duplication without
+  one, and beats asking a model to apply a formula.
+- 317 tests, 11 mutants, all caught.
 
 **The coach holds a conversation (2026-10-16)**
 - Each question used to be an island: no history, so "why?" meant nothing. Threads now

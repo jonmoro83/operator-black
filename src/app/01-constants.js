@@ -610,7 +610,7 @@ const DEF={
      off these -- they exist so the coach knows what you are training for, and so that
      you had to write it down once. `sticking` is keyed by lift. */
   programGoals:{aim:'',by:'',sticking:{},notes:''},
-  rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3},
+  rest:{squat:3,bench:3,pull:2,ohp:3,wpu:3,dead:3}, restWarn:10,
   warmRest:{squat:90,bench:90,pull:90,ohp:90,wpu:90,dead:90},
   cardio:{def:'echo'}, fobbit:'kb',
   askDeload:true, voice:false, guideAuto:true,

@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.6',date:'2026-10-16',title:'A warning before the rest ends',items:[
+    'A short low tone ten seconds before a rest runs out, so you are back under the bar rather than finding out you are late. <b>Setup \u2192 Sound</b> has it at off, 5, 10, 15 or 30 seconds.',
+    'It does not sound like the end of the rest, on purpose: one low note against the finish\u2019s three rising ones, and one short buzz against its long-short-long. You should not have to look at the phone to tell which just happened.',
+    'Skipped on a rest too short for it to mean anything \u2014 a fifteen-second rest would otherwise warn you as it started.',
+    '<b>The coach can see your macros now.</b> The boxes were there and the numbers were not reaching it, the same way your bodyweight was not a fortnight ago. It gets the grams per day, the two-week average and the target to judge them against.']},
   {v:'3.5',date:'2026-10-16',title:'The coach holds a conversation',items:[
     'It remembers the rest of the exchange, so you can follow up. \u201cWhy?\u201d, \u201cwhat if I ruck instead\u201d, \u201cand the week after?\u201d all work now \u2014 before, every question started from nothing.',
     'The screen reads top to bottom like a conversation, with the box at the bottom. Your question shows up the moment you send it, so a slow answer looks like thinking rather than like nothing happening, and if it fails the text comes back rather than disappearing.',

@@ -6247,3 +6247,46 @@ test("spreading conditioning out is still preferred when the week allows it", ()
   a.deepEqual(x.orderIssues(mon, r.ord), [], "legal");
   a.deepEqual(x.orderCrowding(mon, r.ord), [], "and uncrowded, because it could be");
 });
+
+test("the rest timer warns before it ends, and does not sound like the end", async () => {
+  const x = app({ now: "2026-10-16" });
+  a.equal(x.restWarnSecs(), 10, "ten seconds by default, which is what was asked for");
+  x.plan.restWarn = 0; x.bump(); a.equal(x.restWarnSecs(), 0, "and can be turned off");
+  x.plan.restWarn = 99; x.bump(); a.equal(x.restWarnSecs(), 10, "a value off the list falls back");
+  x.plan.restWarn = 15; x.bump(); a.equal(x.restWarnSecs(), 15);
+
+  // The warning is one short low tone; the finish is three rising ones. If they
+  // sounded alike you would have to look at the phone to tell them apart, which is
+  // the thing a beep exists to save you.
+  x.plan.soundMode = "duck"; x.plan.quietTimer = false; x.bump();
+  x.unlockAudio();
+  await settle();                                  // the context resumes asynchronously
+  x.audio.tones.length = 0; x.buzzes.length = 0;
+  x.beepWarn();
+  const warn = x.audio.tones.slice();
+  x.audio.tones.length = 0;
+  x.beep();
+  const done = x.audio.tones.slice();
+  a.equal(warn.length, 1, "one note");
+  a.ok(done.length > warn.length, "against the finish's several");
+  a.ok(warn[0].hz < Math.max(...done.map((t) => t.hz)), `lower than the finish: ${warn[0].hz} vs ${done.map((t) => t.hz)}`);
+  a.deepEqual(x.buzzes[0], 120, "a single short buzz, not the finish's long-short-long");
+
+  // Once, and not on a rest too short for it to mean anything.
+  x.plan.restWarn = 10; x.plan.soundMode = "duck"; x.bump();
+  a.equal(x.restWarnDue({ dur: 180 }, 10), true, "a three-minute rest warns at ten");
+  a.equal(x.restWarnDue({ dur: 180 }, 11), false, "not before");
+  a.equal(x.restWarnDue({ dur: 180 }, 9), false, "and not after, so it cannot repeat");
+  a.equal(x.restWarnDue({ dur: 180, warned: true }, 10), false, "already warned");
+  a.equal(x.restWarnDue({ dur: 20 }, 10), true, "twenty seconds is exactly twice, so it still warns");
+  a.equal(x.restWarnDue({ dur: 15 }, 10), false, "but a fifteen-second rest would warn as it began");
+  x.plan.restWarn = 0; x.bump();
+  a.equal(x.restWarnDue({ dur: 180 }, 10), false, "off is off");
+  x.plan.restWarn = 10; x.bump();
+
+  // Silent means silent, for the warning as much as the finish.
+  x.setSoundMode("silent"); x.bump();
+  x.audio.tones.length = 0;
+  a.equal(x.beepWarn().tones, "silent");
+  a.equal(x.audio.tones.length, 0, "nothing played");
+});

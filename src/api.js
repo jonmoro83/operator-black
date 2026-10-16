@@ -47,7 +47,7 @@ function realDate(s) {
 const MAX_BYTES = 256 * 1024;
 const LEGACY = "__legacy__";
 
-export { ftsQuery, libSearch };
+export { ftsQuery, libSearch, MACRO_W, MACRO_STEP_W, macroTargetFor };
 export async function handleApi(request, env) {
   const auth = await authorize(request, env);
   if (auth instanceof Response) return auth;
@@ -602,15 +602,19 @@ async function coachState(env, user) {
   // what was eaten the day before. Attribute it to the day it covers or every reading
   // is a day out, which matters most for exactly the question it gets asked about.
   const kcalFor = (d) => num(((logs[nextDay(d)] || {}).checkin || {}).kcal);
+  const gramsFor = (d) => {
+    const c = (logs[nextDay(d)] || {}).checkin || {};
+    return tidy({ protein: num(c.proG), carbs: num(c.carbG), fat: num(c.fatG) });
+  };
 
   const recent = days.map((d) => {
     const L = logs[d], c = L.checkin || {}, out = { d };
     if (L.lifts) out.lifts = Object.fromEntries(Object.entries(L.lifts)
       .map(([k, v]) => [k, (v.sets || []).filter(Boolean).length + (v.grinder ? " (grinder)" : "")]));
     if (L.hic) out.cond = { fmt: L.hic.format, mod: L.hic.mod, min: num(L.hic.min), bouts: num(L.hic.rounds) };
-    const ate = kcalFor(d);
+    const ate = kcalFor(d), g = gramsFor(d);
     const ck = {
-      bodyweight: num(c.bw), kcal: ate,
+      bodyweight: num(c.bw), kcal: ate, grams: g,
       sleepHours: num(c.sleepH), sleepQuality: num(c.sleepQ), energy: num(c.energy),
       soreness: num(c.soreness), stress: num(c.stress),
       hitProtein: c.protein || null, ate: c.fuel || null,
@@ -625,6 +629,10 @@ async function coachState(env, user) {
   // than making the model do arithmetic over 28 rows it may get wrong.
   const bws = days.map((d) => ({ d, v: num((logs[d].checkin || {}).bw) })).filter((x) => x.v != null);
   const kcals = days.map(kcalFor).filter((v) => v != null);
+  const gramMean = (k) => {
+    const xs = days.map((d) => (gramsFor(d) || {})[k]).filter((v) => v != null);
+    return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+  };
   const first = bws[0], last = bws[bws.length - 1];
   const span = first && last && last.d !== first.d
     ? (Date.parse(last.d) - Date.parse(first.d)) / 86400000 : 0;
@@ -640,7 +648,8 @@ async function coachState(env, user) {
     bodyweightReadings: bws.length,
     kcalMean: kcals.length ? Math.round(kcals.reduce((x, y) => x + y, 0) / kcals.length) : null,
     kcalDaysLogged: kcals.length,
-    proteinTargetG: plan.proteinPerLb && bw ? Math.round(+plan.proteinPerLb * bw) : null,
+    macroTarget: macroTargetFor(plan, bw),
+    macroMean: tidy({ protein: gramMean("protein"), carbs: gramMean("carbs"), fat: gramMean("fat") }),
     template: plan.stempl || "operator",
     protocol: plan.cproto || "black",
     startMonday: plan.startMonday || null,
@@ -673,6 +682,39 @@ function tidy(o) {
   }
   return Object.keys(out).length ? out : null;
 }
+/* The macro target, worked out the same way the app's own card works it out.
+
+   Duplicated on purpose and guarded by a test: the Worker cannot import the app
+   bundle, and sending the model the inputs and a formula to apply would be asking it
+   to do arithmetic that has to be right. `test/api.test.js` asserts these multipliers
+   against the app's MACRO constant, so the two cannot drift apart quietly.
+
+   Building is the book's formula (TB III p.108). Losing and holding are the app's own
+   and are labelled as such here too, because the coach should not present our numbers
+   as the book's. */
+const MACRO_W = {
+  gain:     { src: "tb3",  p: 1.3, c: 2,    f: 0.5 },
+  lose:     { src: "ours", p: 1.1, c: null, f: 0.4 },
+  maintain: { src: "ours", p: 1.0, c: null, f: 0.4 },
+};
+const MACRO_STEP_W = 500;
+function macroTargetFor(plan, bw) {
+  if (!bw) return null;
+  const g = MACRO_W[plan.goal] ? plan.goal : "maintain";
+  const M = MACRO_W[g], r = (n) => Math.round(n / 5) * 5;
+  const own = +plan.proteinPerLb > 0 ? +plan.proteinPerLb : null;
+  const bump = +plan.macroBump || 0;
+  if (g === "gain") {
+    const k = 1 + (bump * MACRO_STEP_W) / (bw * (M.p * 4 + M.c * 4 + M.f * 9));
+    const P = r(bw * (own || M.p) * k), C = r(bw * M.c * k), F = r(bw * M.f * k);
+    return { protein: P, carbs: C, fat: F, kcal: P * 4 + C * 4 + F * 9, from: "Tactical Barbell III", goal: g };
+  }
+  // Losing and holding start from a calorie figure the Worker does not have, so only
+  // the parts that come off bodyweight are sent. Saying less is better than guessing.
+  return { protein: r(bw * (own || M.p)), fatFloor: r(bw * M.f), from: "the app's own", goal: g,
+    note: "carbohydrate fills the rest of the calorie target; the app computes that from measured burn" };
+}
+
 /* The accessory slots the app actually has. Sent so that a suggestion for a sticking
    point names something the person can switch on in Setup, rather than a movement the
    app has never heard of. */
