@@ -6578,3 +6578,64 @@ test("morph falls back to replacing when there is no real DOM to walk", () => {
   a.equal(x.morph(stub, "<p>hello</p>"), false, "it reports that it could not morph");
   a.equal(stub.innerHTML, "<p>hello</p>", "and replaced instead, so nothing is lost");
 });
+
+test("anything you tap is big enough to tap", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "public", "app.css"), "utf8");
+  // 44px is Apple's figure and the one worth holding to here: this app is used
+  // standing, between sets, often with chalk on. Measured before the fix, the primary
+  // button was 38, the small one 30, the segmented control 36 and a checkbox 18.
+  const MIN = 40;
+
+  // Things that carry cursor:pointer but are not themselves the target.
+  const notTargets = [
+    ".ch-hit",      // a transparent band inside an SVG chart, sized by the chart
+    ".crow-n",      // the name inside a row whose whole height is already the target
+    ".acct",        // the header avatar, a fixed 32px brand element with a 44px parent
+    "#status.link", // a word inside a sentence, not a control
+    ".libinfo",     // a wrapper around a button that has its own size
+  ];
+
+  // Braces on both sides of the body, so an @media wrapper is skipped and the
+  // rules inside it are matched on their own.
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => [
+    sel.replace(/\/\*[\s\S]*?\*\//g, "").trim(),
+    body,
+  ]);
+  // The leading ; or start matters: without it line-height reads as a height.
+  const HEIGHT = /(?:^|;)\s*(?:min-)?height:\s*(\d+)px/;
+  const tall = (body, sel) => {
+    const mh = +(body.match(/(?:^|;)\s*min-height:\s*(\d+)px/) || [])[1] || 0;
+    const h = +(body.match(/(?:^|;)\s*height:\s*(\d+)px/) || [])[1] || 0;
+    // A control may keep its drawn size and carry the hit area on a ::after instead.
+    const hit = rules.find(([s2, b2]) => s2 === sel + "::after" && /height:\s*\d+px/.test(b2));
+    return Math.max(mh, h, hit ? +hit[1].match(/height:\s*(\d+)px/)[1] : 0);
+  };
+
+  const bases = rules
+    .filter(([sel, body]) => /cursor:\s*pointer/.test(body))
+    .map(([sel]) => sel)
+    .filter((sel) => !notTargets.some((n) => sel.includes(n)));
+  a.ok(bases.length > 15, "found the interactive rules");
+
+  // A variant is the same element with a class, state or attribute added — .btn.sm,
+  // not .btn .icon and not .btn::after, both of which are something inside it.
+  const VARIANT = /^(?:\.[\w-]+|:(?!:)[\w-]+(?:\([^)]*\))?|\[[^\]]*\])*$/;
+  const small = [];
+  for (const base of bases) {
+    // A selector may be declared across several rules; the size can be in any of them.
+    const px = Math.max(
+      ...rules.filter(([sel]) => sel === base).map(([sel, body]) => tall(body, sel)),
+    );
+    if (px < MIN) small.push(`${base} (${px || "unset"})`);
+  }
+  for (const [sel, body] of rules) {
+    // A later rule that resizes a variant of a control carries no cursor of its own,
+    // so the scan above misses it: .btn.sm is how the small button got to 30px.
+    if (bases.includes(sel) || !HEIGHT.test(body)) continue;
+    const base = bases.find((b) => sel.startsWith(b) && VARIANT.test(sel.slice(b.length)));
+    if (!base) continue;
+    const px = tall(body, sel);
+    if (px < MIN) small.push(`${sel} (${px})`);
+  }
+  a.deepEqual(small, [], `tap targets under ${MIN}px: ${small.join("; ")}`);
+});

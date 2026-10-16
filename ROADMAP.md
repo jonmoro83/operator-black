@@ -118,6 +118,13 @@ within each group, roughly in order of how useful they'd be.
   its own card. Parked rather than dropped — it is a change of character, not of
   styling, so it should be done to every card at once or not at all.
 
+- **The grey wall.** 312 of the app's lines are `small muted` — 13px grey — so the
+  evidence, the explanation and the aside all read at one weight, and the eye has
+  nowhere to land. Worth doing with the type scale at the same time: the stylesheet
+  currently uses 25 distinct font sizes including 9.5, 10.5, 11.5, 12.5, 13.5, 14.5
+  and 15.5px, which is a scale by accretion rather than by decision. 11/12/13/14/15
+  would cover all of it.
+
 - **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
   then the session. Once a session is under way the cards above it are noise — collapse
   them, or jump straight to the first lift.
@@ -183,6 +190,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Everything you tap is big enough to tap (2026-10-16)**
+- Asked for UI/UX recommendations for the app as a whole, not just the Macros card.
+  Measured first: the primary button was 38px tall, the small one 30, the segmented
+  control 36, a checkbox 18, the week-strip days 30. The guideline is 44, and it
+  matters more here than in most apps — this is used standing, between sets, one
+  handed, sometimes with chalk on.
+- Nineteen selectors raised to a 44px minimum: buttons and small buttons, the
+  segmented control, checkboxes and their boxes, nav tabs, the week strip, the
+  calendar days, every `<summary>` that acts as a control, set buttons, aims, the
+  timer buttons, the account rows and the warm-up remove.
+- The silent-mode pill keeps its pill size and carries a 44px hit area on a
+  `::after` instead, because a 44px-tall lozenge around 11px text is not the same
+  design.
+- Five `cursor:pointer` rules are deliberately exempt and the test says why for each:
+  a chart's hit band, a row's own name, the 32px header avatar, a word inside a
+  sentence and a wrapper around a button.
+- **A test reads the stylesheet and fails on anything under 40px.** Widening it
+  mattered more than writing it: the first version missed `.btn.sm` entirely, because
+  a variant rule carries no `cursor` of its own, and the first height probe matched
+  `line-height`. Six mutants, all caught.
 
 **The Macros card, treatment A (2026-10-16)**
 - Chosen off three mockups on a canvas. Same tokens, same information, nothing

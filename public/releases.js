@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.13',date:'2026-10-16',title:'Everything is big enough to tap',items:[
+    'Measured every button in the app and most of them were too small for a thumb. The main button was 38 pixels tall, the small one 30, the segmented pickers 36, a checkbox 18, the days in the week strip 30. The guideline is 44, and it matters here more than in most apps because you are standing up between sets with one hand on the bar.',
+    'Nineteen of them are now at least 44 pixels: buttons, pickers, checkboxes, the nav tabs, the week strip, the calendar days, the set buttons, the aims, the timer buttons. Nothing moved or changed color, so it should look the same and just stop missing.',
+    'A test reads the stylesheet and fails if anything you can tap is under 40 pixels, so it cannot quietly come back.']},
   {v:'3.12',date:'2026-10-16',title:'The Macros card, redrawn',items:[
     'Three numbers at the same weight did not answer the question the card is actually asked, which is whether you are short. Each macro is now a row \u2014 target, then <b>40 short</b> or <b>On target</b> in words and in color, with the average underneath as the evidence rather than the headline.',
     'The two explanations fold behind one link instead of sitting open under every card, the week picker fills the width, and <b>Add 500 a day</b> is a proper button rather than a small one.']},
