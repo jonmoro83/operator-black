@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.9',date:'2026-10-16',title:'Readable section headers',items:[
+    'The new Setup section headers shipped as black text on a black bar. The styling referred to two colors that do not exist in this app, so it fell back to hardcoded dark values and painted them over dark text.',
+    'Fixed, and the stylesheet now has no hardcoded color fallbacks at all \u2014 a fallback can only ever hide a mistake like that one. A test reads the stylesheet and fails if any color it uses is not one it defines.']},
   {v:'3.8',date:'2026-10-16',title:'Setup, in sections',items:[
     'Setup had become twenty-seven cards on one long scroll, in the order they were written \u2014 your maxes near the top, the wave and the cycle rules twenty cards below. It is six sections now: Program, Training, Alerts and sound, About you, Your data, This app. Program is open when you arrive, and it remembers which one you left open.',
     'Three different cards were called some form of \u201cProgram\u201d. They are <b>Programs and archive</b>, <b>Template and protocol</b> and <b>Start and units</b>.',

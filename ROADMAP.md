@@ -178,6 +178,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Unreadable section headers, and the reason (2026-10-16)**
+- Shipped in 3.8 as near-black text on a near-black bar. The CSS I wrote used
+  `var(--card,#1c1c1e)` and `var(--fg,#fff)`, and **neither token exists** — this
+  stylesheet calls them `--surface` and `--ink`. So the hardcoded fallbacks won, and a
+  dark bar got the light theme's dark text.
+- The fallbacks were the whole problem. Without them an invented token inherits and
+  usually still looks fine; with them it confidently paints the wrong color. Every
+  `var()` fallback is now gone from the stylesheet, because every token here is always
+  defined and a fallback can therefore only ever be a typo waiting to happen.
+- **A test now reads the stylesheet** and asserts that every variable used is one the
+  stylesheet defines, that no fallbacks exist, and that the light and dark themes
+  define the same set. Checked against the bug: putting `var(--card,#1c1c1e)` back
+  fails it.
+- Contrast after the fix: 16.7:1 light, 14.0:1 dark, against a 4.5 requirement.
+- Worth remembering for the rest of the theme work: I cannot see the rendered page, so
+  anything visual needs either a measurement or a pair of eyes. This one was
+  measurable and I did not measure it.
+- 319 tests.
+
 **Setup in sections, and one tab fewer (2026-10-16)**
 - Setup had grown to 27 cards on one scroll, in the order they happened to be
   written: Maxes near the top, the wave and the cycle rules twenty cards below it,

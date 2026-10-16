@@ -6366,3 +6366,28 @@ test("the macro averages say what they average, and over which days", () => {
   a.match(zh, /Nothing logged over/);
   a.match(zh, /they are for the day before, so today's go in tomorrow/);
 });
+
+test("every CSS variable the stylesheet uses is one the stylesheet defines", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "public", "app.css"), "utf8");
+  // An invented token is invisible until someone looks at it: `var(--card)` with no
+  // fallback inherits, and with a wrong fallback it paints. That is how the Setup
+  // section headers shipped as black text on a near-black bar -- `--card` does not
+  // exist, so the hardcoded #1c1c1e behind it won in light mode.
+  const defined = new Set([...css.matchAll(/(--[a-z][\w-]*)\s*:/g)].map((m) => m[1]));
+  const used = [...css.matchAll(/var\((--[a-z][\w-]*)/g)].map((m) => m[1]);
+  const missing = [...new Set(used)].filter((v) => !defined.has(v));
+  a.deepEqual(missing, [], `used but never defined: ${missing.join(", ")}`);
+
+  // And no fallbacks: every token here is always defined, so a fallback can only ever
+  // be a wrong color waiting for the token to be misspelled.
+  const fallbacks = [...css.matchAll(/var\(--[a-z][\w-]*\s*,[^)]+\)/g)].map((m) => m[0]);
+  a.deepEqual(fallbacks, [], `hardcoded fallbacks hide a typo: ${fallbacks.join(" ")}`);
+
+  // The themes must agree on what exists, or a token works in one and not the other.
+  const blocks = css.split(/@media|\[data-theme/).filter((b) => b.includes("--ink:"));
+  a.ok(blocks.length >= 2, "there is a light theme and a dark one");
+  const names = blocks.map((b) => new Set([...b.matchAll(/(--[a-z][\w-]*)\s*:/g)].map((m) => m[1])));
+  const base = [...names[0]].filter((n) => !/^--f-|^--r$/.test(n));
+  for (let i = 1; i < names.length; i++)
+    for (const n of base) a.ok(names[i].has(n), `theme ${i} is missing ${n}`);
+});
