@@ -6046,3 +6046,132 @@ test("goals are written once in Setup and kept out of the way", () => {
   a.equal(typeof x.plan.goal, "string");
   a.equal(typeof x.plan.programGoals, "object");
 });
+
+test("a day dropped on another offers three things, and says why not", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.stempl = "operator"; x.plan.cproto = "black"; x.bump();
+  // Operator + Black: lift, HIC, lift, HIC, lift, HIC, off.
+  const day = (i) => x.addDays(mon, i);
+  const opt = (a, b) => Object.fromEntries(x.calOptions(day(a), day(b)).map((o) => [o.k, o]));
+
+  // Two conditioning days: everything is on the table.
+  let o = opt(1, 3);
+  a.ok(o.swap.ord, "swap works between two like days");
+  a.equal(o.swap.moved, 2, "and moves only the two");
+  a.ok(o.shift.ord, "so does shifting");
+  a.equal(o.stack.stack, true, "and they can share a day");
+
+  // Two lifting days: the first two work, combining does not, and it says why.
+  o = opt(0, 2);
+  a.ok(o.swap.ord); a.ok(o.shift.ord);
+  a.ok(!o.stack.stack, "two lifting sessions cannot be combined");
+  a.match(o.stack.why, /Two lifting sessions in one day/);
+
+  // A swap that would put two hard days together is refused with the rule it breaks,
+  // not silently greyed out -- in a full week that is most straight swaps.
+  o = opt(0, 1);
+  a.ok(!o.swap.ord, "lift onto the next day would clash");
+  a.match(o.swap.why, /would put strength on/);
+  a.match(o.swap.why, /Shifting the week around it would work/, "and points at the option that does");
+  a.ok(o.shift.ord, "which it does");
+
+  // Across weeks there is nothing to offer.
+  a.equal(x.calOptions(day(0), x.addDays(mon, 7)), null);
+
+  // A day already gone this week is not a candidate at either end: the session was
+  // either done or missed, and moving it now would rewrite history.
+  const y = app({ now: x.addDays(mon, 3) });            // it is Thursday
+  y.plan.startMonday = mon; y.plan.bridge = false; y.bump();
+  const past = (i, j) => Object.fromEntries(y.calOptions(y.addDays(mon, i), y.addDays(mon, j)).map((o) => [o.k, o]));
+  a.match(past(1, 5).swap.why, /already passed/, "Tuesday cannot be dragged anywhere");
+  a.match(past(5, 1).swap.why, /already passed/, "nor can anything be dropped on it");
+  a.ok(past(5, 6).swap.ord, "but two days still ahead swap freely");
+});
+
+test("tapping and dragging reach the same three choices", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.bump();
+  x.calRe = true;
+
+  // calTarget is the single entry point: the click handler calls it, and so does the
+  // end of a drag. One set of rules rather than two.
+  a.equal(x.calTarget(x.addDays(mon, 1)), true, "first tap picks a source");
+  a.equal(x.calMove.from, x.addDays(mon, 1));
+  a.ok(!x.calMove.to, "and nothing is chosen yet");
+
+  a.equal(x.calTarget(x.addDays(mon, 3)), true, "second names the target");
+  a.equal(x.calMove.to, x.addDays(mon, 3));
+  a.ok(!x.calMove.mode, "still nothing applied");
+
+  // Tapping the source again cancels.
+  x.calMove = { from: x.addDays(mon, 1) };
+  a.equal(x.calTarget(x.addDays(mon, 1)), true);
+  a.equal(x.calMove, null);
+
+  // A different week is refused rather than starting a cross-week move.
+  x.calMove = { from: x.addDays(mon, 1) };
+  a.equal(x.calTarget(x.addDays(mon, 8)), false);
+  a.equal(x.calMove.to, undefined, "and nothing was set");
+
+  // Nothing is written to the plan by any of this.
+  a.deepEqual(x.plan.order || {}, {}, "choosing is not applying");
+});
+
+test("the chooser shows all three and disables what cannot be done", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.bump();
+  x.calRe = true;
+  x.calMove = { from: mon, to: x.addDays(mon, 2) };        // lift onto lift
+  const h = x.calChooser();
+  for (const k of ["swap", "shift", "stack"]) a.match(h, new RegExp(`data-act="calmode" data-k="${k}"`), k + " is offered");
+  // The one that cannot happen is disabled and carries the reason, not just dimmed.
+  a.match(h, /data-k="stack"[^>]*disabled|disabled[^>]*data-k="stack"/, "combining is disabled");
+  a.match(h, /Two lifting sessions in one day/);
+  // And it closes without doing anything.
+  a.match(h, /data-act="calcancel"/);
+  // Once a mode is chosen the chooser gets out of the way for the preview.
+  x.calMove = { from: mon, to: x.addDays(mon, 2), mode: "swap", ord: [2, 1, 0, 3, 4, 5, 6], moved: 2 };
+  a.equal(x.calChooser(), "");
+});
+
+test("applying a choice does what the choice said, and nothing else", () => {
+  const mon = "2026-10-19";
+  const fresh = () => { const x = app({ now: mon }); x.plan.startMonday = mon; x.plan.bridge = false; x.calRe = true; x.bump(); return x };
+
+  // Swap moves exactly two days and leaves the rest of the order alone.
+  let x = fresh();
+  const before = x.dayOrder(mon).slice();
+  x.calMove = { from: x.addDays(mon, 1), to: x.addDays(mon, 3) };
+  a.equal(x.calSetMode("swap"), true); a.equal(x.calApply(), true);
+  const after = x.plan.order[mon];
+  a.deepEqual([after[1], after[3]], [before[3], before[1]], "the two traded");
+  a.deepEqual(after.filter((_, i) => i !== 1 && i !== 3), before.filter((_, i) => i !== 1 && i !== 3), "and nothing else moved");
+  a.deepEqual(x.orderIssues(mon, after), [], "still a legal week");
+
+  // Shifting is allowed to move more, which is the difference between the two.
+  x = fresh();
+  x.calMove = { from: mon, to: x.addDays(mon, 1) };
+  a.equal(x.calSetMode("shift"), true); a.equal(x.calApply(), true);
+  a.deepEqual(x.orderIssues(mon, x.plan.order[mon]), [], "and it is still legal");
+  a.equal(x.slotOf(x.addDays(mon, 1)), 0, "the session landed where it was dropped");
+
+  // Combining writes a stack, not an order, and the source day reads as moved.
+  x = fresh();
+  x.calMove = { from: x.addDays(mon, 1), to: x.addDays(mon, 3) };
+  a.equal(x.calSetMode("stack"), true); a.equal(x.calApply(), true);
+  a.equal((x.plan.order || {})[mon], undefined, "the week order is untouched");
+  a.equal(x.stackTo(x.addDays(mon, 1)), x.addDays(mon, 3), "the session rides along");
+  a.equal(x.dayPlan(x.addDays(mon, 1)).t, "off", "and its own day is clear");
+
+  // A mode that is unavailable cannot be applied by asking for it directly.
+  x = fresh();
+  x.calMove = { from: mon, to: x.addDays(mon, 2) };          // two lifting days
+  a.equal(x.calSetMode("stack"), false, "refused");
+  a.ok(!x.calMove.mode);
+  a.equal(x.calApply(), false);
+  a.equal((x.plan.order || {})[mon], undefined, "and nothing was written");
+  a.equal(x.stackTo(mon), null);
+});

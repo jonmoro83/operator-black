@@ -56,6 +56,26 @@ function edgeKinds(mon){
 }
 // The valid week order that moves the fewest days, optionally forcing one day's session.
 // Days already gone in the current week stay where they are.
+/* Swapping two days: the plainest of the three, and the one people expect from a
+   drag. Only the two days touched move, which is the whole appeal -- `bestOrder` below
+   will happily rearrange four days to honour one request, and sometimes that is a
+   surprise rather than a help.
+
+   A day already past this week cannot be either end of it. Returns null if the swap
+   is not allowed or would put two hard days together, so the caller can grey it out
+   rather than offer something that will be refused. */
+function swapOrder(mon,a,b){
+  if(a===b) return {why:'Pick a different day.'};
+  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
+  if(a<pinTo||b<pinTo) return {why:'That day has already passed this week.'};
+  const ord=dayOrder(mon).slice();
+  const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
+  const bad=orderIssues(mon,ord);
+  // Say which rule it breaks. In a full week most straight swaps do, and "unavailable"
+  // with no reason is the kind of thing that makes a tool feel broken.
+  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}. Shifting the week around it would work.`};
+  return {ord,moved:2};
+}
 function bestOrder(mon,fixDay,fixSlot){
   const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
   const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;

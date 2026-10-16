@@ -3023,6 +3023,26 @@ function edgeKinds(mon){
 }
 // The valid week order that moves the fewest days, optionally forcing one day's session.
 // Days already gone in the current week stay where they are.
+/* Swapping two days: the plainest of the three, and the one people expect from a
+   drag. Only the two days touched move, which is the whole appeal -- `bestOrder` below
+   will happily rearrange four days to honour one request, and sometimes that is a
+   surprise rather than a help.
+
+   A day already past this week cannot be either end of it. Returns null if the swap
+   is not allowed or would put two hard days together, so the caller can grey it out
+   rather than offer something that will be refused. */
+function swapOrder(mon,a,b){
+  if(a===b) return {why:'Pick a different day.'};
+  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
+  if(a<pinTo||b<pinTo) return {why:'That day has already passed this week.'};
+  const ord=dayOrder(mon).slice();
+  const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
+  const bad=orderIssues(mon,ord);
+  // Say which rule it breaks. In a full week most straight swaps do, and "unavailable"
+  // with no reason is the kind of thing that makes a tool feel broken.
+  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}. Shifting the week around it would work.`};
+  return {ord,moved:2};
+}
 function bestOrder(mon,fixDay,fixSlot){
   const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
   const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
@@ -6218,6 +6238,71 @@ function startProgram(){
 // whole week previewed, then apply. calMove = {from, to, ord, moved}.
 let calRe=false, calMove=null;
 function calOrd(mon){return calMove&&calMove.ord&&mondayOf(calMove.from)===mon?calMove.ord:dayOrder(mon)}
+/* The three things a drop can mean, each with the reason it is unavailable rather
+   than just being greyed out. In a full week most straight swaps break the rule
+   against two hard days running, and being told that is more use than being refused.
+
+   Combining is the stacking already built for the day view, so it answers to the same
+   rule: everything may share a day except two lifting sessions, which is a different
+   program rather than a rearranged week. */
+function calOptions(from,to){
+  const mon=mondayOf(from);
+  if(mondayOf(to)!==mon) return null;
+  const sw=swapOrder(mon,dow(from),dow(to));
+  const sh=bestOrder(mon,dow(to),slotOf(from));
+  const why=stackWhyNot(from,to);
+  const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
+  return [
+    {k:'swap',  label:'Swap the two days',
+     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.`, ...sw},
+    {k:'shift', label:'Move it and shift the rest',
+     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.`:'',
+     ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
+    {k:'stack', label:'Do both on the same day',
+     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.`,
+     ...(why?{why}:{stack:true})},
+  ];
+}
+/* Both a tap and a drop land here, so the keyboard path and the drag path offer the
+   same three choices and there is only one place for the rules to live. */
+function calTarget(d){
+  if(!d) return false;
+  if(!calMove||calMove.mode||calMove.to){ calMove={from:d}; render(); return true }
+  if(calMove.from===d){ calMove=null; render(); return true }
+  if(mondayOf(calMove.from)!==mondayOf(d)) return false;
+  calMove={from:calMove.from,to:d};
+  render(); return true;
+}
+/* Choosing and applying live here rather than in the click handler, so both are
+   reachable from a test. A mode that is unavailable cannot be set, which is what
+   stops a stale chooser from applying something the rules refused. */
+function calSetMode(k){
+  if(!calMove||!calMove.to) return false;
+  const o=(calOptions(calMove.from,calMove.to)||[]).find(x=>x.k===k);
+  if(!o||o.why) return false;
+  calMove=Object.assign({},calMove,{mode:o.k,ord:o.ord||null,moved:o.moved||0});
+  return true;
+}
+function calApply(){
+  if(!calMove||!calMove.mode) return false;
+  const from=calMove.from, to=calMove.to, mode=calMove.mode, ord=calMove.ord, mon=mondayOf(from);
+  offerUndo('Days moved',snapPlan());
+  if(mode==='stack'){ if(!setStack(from,to)) return false }
+  else mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:ord})});
+  calMove=null; openWarm.clear(); openPx.clear();
+  return true;
+}
+function calChooser(){
+  if(!calMove||!calMove.to||calMove.mode) return '';
+  const opts=calOptions(calMove.from,calMove.to);
+  if(!opts) return '';
+  let h=`<div class="banner info"><div class="small" style="font-weight:650;margin-bottom:6px">${esc(fmtD(calMove.from,true))} onto ${esc(fmtD(calMove.to,true))}</div><div class="stack" style="gap:6px">`;
+  for(const o of opts){
+    h+=`<button class="btn sm${o.why?' ghost':''}" ${o.why?'disabled':''} data-act="calmode" data-k="${o.k}" style="justify-content:flex-start;text-align:left;height:auto;padding:8px 10px">
+      <span><b>${esc(o.label)}</b><br><span class="small">${o.why?esc(o.why):o.sub}</span></span></button>`;
+  }
+  return h+`</div><div class="row" style="margin-top:6px"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div></div>`;
+}
 function calCard(){
   const t=realToday(), thisMon=mondayOf(t);
   if(!calMonth) calMonth=(viewing?viewing.end:(sel||t)).slice(0,7);
@@ -6225,8 +6310,11 @@ function calCard(){
   const first=S(Date.UTC(y,m-1,1)), last=S(Date.UTC(y,m,0)), start=mondayOf(first);
   const rows=Math.round(((D(mondayOf(last))-D(start))/864e5)/7)+1;
   const re=calRe&&!viewing;
+  // The class the drag CSS hangs off, so touch-action only changes while rearranging.
+  if(document.body) document.body.classList.toggle('rearranging',!!re);
   let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">‹</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">›</button></div>`;
   if(!viewing) h+=`<div class="row between"><button class="btn sm${re?' primary':''}" data-act="calre">${re?'✓ Rearranging':'Rearrange days'}</button>${calMonth!==t.slice(0,7)?`<button class="btn sm ghost" data-act="calm" data-v="0">This month</button>`:''}</div>`;
+  if(re) h+=calChooser();
   if(re) h+=`<div class="banner info"><div class="small">${calMove?(calMove.ord?`<b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'Session')}</b> moves to ${fmtD(calMove.to,true)}${calMove.moved>1?`, and ${calMove.moved-1} other day${calMove.moved>2?'s':''} shift`:' with no other changes'}. The preview is below.`:`Tap the day to move <b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'')}</b> to. Grayed days can’t take it without doubling up strength or hard conditioning.`):'Tap a session, then tap the day you want to do it on. The week keeps all seven sessions and never lands two strength days or two hard conditioning days together.'}</div>${calMove?`<div class="row">${calMove.ord?`<button class="btn sm primary" data-act="calapply">Apply</button>`:''}<button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
   h+=`<div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
   for(let r=0;r<rows;r++){
@@ -7456,23 +7544,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
   if(a==='calre'){calRe=!calRe;calMove=null;render();return}
   if(a==='calcancel'){calMove=null;render();return}
-  if(a==='calpick'){
-    const d=b.dataset.date, mon=mondayOf(d);
-    if(!calMove||calMove.ord){calMove={from:d};render();return}
-    if(calMove.from===d){calMove=null;render();return}
-    if(mondayOf(calMove.from)!==mon) return;
-    const r=bestOrder(mon,dow(d),slotOf(calMove.from));
-    if(!r) return;
-    calMove={from:calMove.from,to:d,ord:r.ord,moved:r.moved};
-    render(); return;
-  }
-  if(a==='calapply'){
-    if(!calMove||!calMove.ord) return;
-    const mon=mondayOf(calMove.from), ord=calMove.ord;
-    offerUndo('Days moved',snapPlan());
-    mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:ord})});
-    calMove=null; openWarm.clear(); openPx.clear(); render(); return;
-  }
+  if(a==='calpick'){ calTarget(b.dataset.date); return }
+  // Which of the three a drop meant. Chosen after the drop rather than before, so the
+  // reasons the other two are unavailable are visible at the moment of deciding.
+  if(a==='calmode'){ calSetMode(b.dataset.k); render(); return }
+  if(a==='calapply'){ calApply(); render(); return }
   if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
   if(a==='move'){moveOpen=!moveOpen;render();return}
   if(a==='movex'){moveOpen=false;render();return}
@@ -7588,6 +7664,62 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}
 });
+
+/* ---------------- dragging days in the calendar ----------------
+   Pointer events, not the HTML5 drag API, which iOS Safari does not implement -- and
+   this is a phone-first app, so the drag API would have shipped a feature that works
+   only on the desktop nobody uses it from.
+
+   A drag is only a second way to reach `calTarget`. Tapping still works and is the
+   keyboard and screen-reader path; both end at the same three choices, so there is one
+   set of rules rather than two. Nothing is written until a choice is made and applied.  */
+const calDrag={id:null,from:null,x:0,y:0,on:false,el:null};
+function calCell(x,y){
+  const el=document.elementFromPoint&&document.elementFromPoint(x,y);
+  return el&&el.closest?el.closest('.cal-d'):null;
+}
+function calDragEnd(){
+  if(calDrag.el&&calDrag.el.remove) calDrag.el.remove();
+  document.querySelectorAll&&document.querySelectorAll('.cal-d.over').forEach(e=>e.classList.remove('over'));
+  const was=calDrag.on;
+  calDrag.id=null; calDrag.from=null; calDrag.on=false; calDrag.el=null;
+  document.body&&document.body.classList.remove('dragging');
+  return was;
+}
+document.addEventListener('pointerdown',e=>{
+  if(!calRe||viewing||e.button) return;
+  const c=e.target.closest&&e.target.closest('.cal-d');
+  if(!c||c.disabled||!c.dataset.date) return;
+  calDrag.id=e.pointerId; calDrag.from=c.dataset.date; calDrag.x=e.clientX; calDrag.y=e.clientY; calDrag.on=false;
+});
+document.addEventListener('pointermove',e=>{
+  if(calDrag.id!==e.pointerId||!calDrag.from) return;
+  if(!calDrag.on){
+    // A few pixels of slop, so a tap with a shaky thumb is still a tap.
+    if(Math.abs(e.clientX-calDrag.x)+Math.abs(e.clientY-calDrag.y)<8) return;
+    calDrag.on=true;
+    document.body&&document.body.classList.add('dragging');
+    const d=document.createElement('div');
+    d.className='cal-ghost'; d.textContent=fmtD(calDrag.from,true);
+    document.body&&document.body.appendChild(d); calDrag.el=d;
+    // Picking the source up front means the drop only has to name the target.
+    if(!calMove||calMove.to||calMove.mode||calMove.from!==calDrag.from){ calMove={from:calDrag.from}; render() }
+  }
+  e.preventDefault();
+  if(calDrag.el&&calDrag.el.style){ calDrag.el.style.left=e.clientX+'px'; calDrag.el.style.top=e.clientY+'px' }
+  const over=calCell(e.clientX,e.clientY);
+  document.querySelectorAll&&document.querySelectorAll('.cal-d.over').forEach(x=>x.classList.remove('over'));
+  if(over&&over.dataset.date!==calDrag.from&&mondayOf(over.dataset.date)===mondayOf(calDrag.from)) over.classList.add('over');
+},{passive:false});
+document.addEventListener('pointerup',e=>{
+  if(calDrag.id!==e.pointerId) return;
+  const from=calDrag.from, cell=calDrag.on?calCell(e.clientX,e.clientY):null;
+  if(!calDragEnd()) return;                       // never moved: let the click handler have it
+  if(cell&&cell.dataset.date&&cell.dataset.date!==from) calTarget(cell.dataset.date);
+  else { calMove=null; render() }
+});
+document.addEventListener('pointercancel',()=>{ if(calDragEnd()){ calMove=null; render() } });
+
 
 applyTheme();
 loadLocal();

@@ -262,23 +262,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
   if(a==='calre'){calRe=!calRe;calMove=null;render();return}
   if(a==='calcancel'){calMove=null;render();return}
-  if(a==='calpick'){
-    const d=b.dataset.date, mon=mondayOf(d);
-    if(!calMove||calMove.ord){calMove={from:d};render();return}
-    if(calMove.from===d){calMove=null;render();return}
-    if(mondayOf(calMove.from)!==mon) return;
-    const r=bestOrder(mon,dow(d),slotOf(calMove.from));
-    if(!r) return;
-    calMove={from:calMove.from,to:d,ord:r.ord,moved:r.moved};
-    render(); return;
-  }
-  if(a==='calapply'){
-    if(!calMove||!calMove.ord) return;
-    const mon=mondayOf(calMove.from), ord=calMove.ord;
-    offerUndo('Days moved',snapPlan());
-    mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:ord})});
-    calMove=null; openWarm.clear(); openPx.clear(); render(); return;
-  }
+  if(a==='calpick'){ calTarget(b.dataset.date); return }
+  // Which of the three a drop meant. Chosen after the drop rather than before, so the
+  // reasons the other two are unavailable are visible at the moment of deciding.
+  if(a==='calmode'){ calSetMode(b.dataset.k); render(); return }
+  if(a==='calapply'){ calApply(); render(); return }
   if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
   if(a==='move'){moveOpen=!moveOpen;render();return}
   if(a==='movex'){moveOpen=false;render();return}
@@ -394,6 +382,62 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}
 });
+
+/* ---------------- dragging days in the calendar ----------------
+   Pointer events, not the HTML5 drag API, which iOS Safari does not implement -- and
+   this is a phone-first app, so the drag API would have shipped a feature that works
+   only on the desktop nobody uses it from.
+
+   A drag is only a second way to reach `calTarget`. Tapping still works and is the
+   keyboard and screen-reader path; both end at the same three choices, so there is one
+   set of rules rather than two. Nothing is written until a choice is made and applied.  */
+const calDrag={id:null,from:null,x:0,y:0,on:false,el:null};
+function calCell(x,y){
+  const el=document.elementFromPoint&&document.elementFromPoint(x,y);
+  return el&&el.closest?el.closest('.cal-d'):null;
+}
+function calDragEnd(){
+  if(calDrag.el&&calDrag.el.remove) calDrag.el.remove();
+  document.querySelectorAll&&document.querySelectorAll('.cal-d.over').forEach(e=>e.classList.remove('over'));
+  const was=calDrag.on;
+  calDrag.id=null; calDrag.from=null; calDrag.on=false; calDrag.el=null;
+  document.body&&document.body.classList.remove('dragging');
+  return was;
+}
+document.addEventListener('pointerdown',e=>{
+  if(!calRe||viewing||e.button) return;
+  const c=e.target.closest&&e.target.closest('.cal-d');
+  if(!c||c.disabled||!c.dataset.date) return;
+  calDrag.id=e.pointerId; calDrag.from=c.dataset.date; calDrag.x=e.clientX; calDrag.y=e.clientY; calDrag.on=false;
+});
+document.addEventListener('pointermove',e=>{
+  if(calDrag.id!==e.pointerId||!calDrag.from) return;
+  if(!calDrag.on){
+    // A few pixels of slop, so a tap with a shaky thumb is still a tap.
+    if(Math.abs(e.clientX-calDrag.x)+Math.abs(e.clientY-calDrag.y)<8) return;
+    calDrag.on=true;
+    document.body&&document.body.classList.add('dragging');
+    const d=document.createElement('div');
+    d.className='cal-ghost'; d.textContent=fmtD(calDrag.from,true);
+    document.body&&document.body.appendChild(d); calDrag.el=d;
+    // Picking the source up front means the drop only has to name the target.
+    if(!calMove||calMove.to||calMove.mode||calMove.from!==calDrag.from){ calMove={from:calDrag.from}; render() }
+  }
+  e.preventDefault();
+  if(calDrag.el&&calDrag.el.style){ calDrag.el.style.left=e.clientX+'px'; calDrag.el.style.top=e.clientY+'px' }
+  const over=calCell(e.clientX,e.clientY);
+  document.querySelectorAll&&document.querySelectorAll('.cal-d.over').forEach(x=>x.classList.remove('over'));
+  if(over&&over.dataset.date!==calDrag.from&&mondayOf(over.dataset.date)===mondayOf(calDrag.from)) over.classList.add('over');
+},{passive:false});
+document.addEventListener('pointerup',e=>{
+  if(calDrag.id!==e.pointerId) return;
+  const from=calDrag.from, cell=calDrag.on?calCell(e.clientX,e.clientY):null;
+  if(!calDragEnd()) return;                       // never moved: let the click handler have it
+  if(cell&&cell.dataset.date&&cell.dataset.date!==from) calTarget(cell.dataset.date);
+  else { calMove=null; render() }
+});
+document.addEventListener('pointercancel',()=>{ if(calDragEnd()){ calMove=null; render() } });
+
 
 applyTheme();
 loadLocal();

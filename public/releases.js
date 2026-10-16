@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.2',date:'2026-10-16',title:'Drag a day, and pick what the move means',items:[
+    'In <b>Plan \u2192 Calendar \u2192 Rearrange days</b> you can now drag a session onto another day instead of tapping twice. Tapping still works and does the same thing.',
+    'A drop asks what you meant: <b>swap the two days</b> so nothing else moves, <b>move it and shift the rest</b> so the week still works, or <b>do both on the same day</b>. Before, it always did the second one.',
+    'Combining follows the rule the day view already had: anything can share a day except two lifting sessions, which is a different program rather than a rearranged week.',
+    'Where an option is not possible it says why rather than going grey. In a busy week most straight swaps would put two hard days together, and the app names which two and points you at shifting instead.']},
   {v:'3.1',date:'2026-10-16',title:'Goals',items:[
     'A <b>Goals</b> card in Setup: what you are working toward, a date if there is one, where each lift stalls, and anything else worth knowing. Nothing here changes the program \u2014 the coach reads it, so its advice is about your goals rather than about training in general.',
     '<b>Where each lift stalls is the useful one.</b> Write \u201cstalls just off the chest\u201d and the coach can name an accessory for that part of the lift, and the slot to put it in, from the ones the app already offers. It is told not to invent movements that are not there.',

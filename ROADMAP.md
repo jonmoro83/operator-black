@@ -65,14 +65,6 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
   conditioning sessions. The only book content left out is AA's Base Building, declined
   by request, and I/A's floating schedule. Whatever comes next is new ground.
-- **A week calendar with drag-and-drop**, replacing the per-day Move tool. Asked for
-  2026-10-16: rearranging a week means opening each day in turn and picking what goes
-  there, which is the wrong shape for a week-level change. The data model already
-  supports it — `plan.order[monday]` is a seven-element permutation — so this is a
-  front end, not a schema change. Two things to get right: HTML5 drag-and-drop does not
-  work in iOS Safari, so it has to be pointer events; and the existing picker should
-  stay as the keyboard and accessibility path rather than being replaced. `orderIssues`
-  should run live during a drag so a clash is visible before the drop, not after.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -162,6 +154,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Three ways to move a day, and dragging to do it (2026-10-16)**
+- The calendar already had a Rearrange mode: tap a session, tap a day, see the week
+  previewed, apply. It only ever did one thing — shift the week around the request —
+  and it was tap-only.
+- A drop now asks what it meant: **swap the two days**, **move it and shift the rest**,
+  or **do both on the same day**. All three already existed in the model; `swapOrder`
+  is the only new one, and combining is the stacking built for the day view, so it
+  answers to the same rule that everything may share a day except two lifting sessions.
+- **Each unavailable option carries its reason.** In a full week most straight swaps
+  break the rule against two hard days running, and "greyed out" with no explanation is
+  what makes a tool feel broken. The swap refusal names the two days and points at
+  shifting, which usually does work.
+- **Pointer events, not the HTML5 drag API**, which iOS Safari does not implement — on
+  a phone-first app that would have shipped a feature working only on the desktop
+  nobody uses it from. `touch-action:none` only while rearranging, or the browser
+  claims the gesture for scrolling and the drag never starts.
+- Tapping still works and is the keyboard path. Both end at `calTarget`, so there is
+  one set of rules rather than two, and the choices are identical either way.
+- `calSetMode` and `calApply` are named functions rather than click-handler bodies, so
+  a test can reach them. A mode the rules refused cannot be set, which is what stops a
+  stale chooser applying something that was never on offer.
+- 308 tests, 8 mutants, all caught after adding the past-day case.
 
 **Goals, for the coach to read (2026-10-16)**
 - A **Goals** card in Setup: what you are working toward, a date if there is one, where

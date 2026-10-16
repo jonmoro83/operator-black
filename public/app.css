@@ -491,3 +491,13 @@ button.sename:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .acc-super{border-left:3px solid var(--line);padding-left:10px;margin:8px 0;display:flex;flex-direction:column;gap:6px}
 .ls-accblk{display:flex;flex-direction:column;gap:6px;padding:6px 0}
 .ls-accblk+.ls-accblk{border-top:1px solid var(--line)}
+
+/* Dragging a day in the calendar. `touch-action` matters more than it looks: without
+   it the browser claims the gesture for scrolling and the drag never starts on a
+   phone, which is the only place this is used. */
+body.rearranging .cal-d{touch-action:none}
+body.dragging{user-select:none;-webkit-user-select:none}
+.cal-d.over{outline:2px solid var(--accent,#4a90d9);outline-offset:-2px}
+.cal-ghost{position:fixed;z-index:60;transform:translate(-50%,-140%);pointer-events:none;
+  background:var(--card,#1c1c1e);color:var(--fg,#fff);border:1px solid var(--line,#3a3a3c);
+  border-radius:8px;padding:4px 8px;font-size:12px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.4)}
