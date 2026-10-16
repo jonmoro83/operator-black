@@ -7,6 +7,10 @@ node_modules/
 .dev.vars
 *.log
 
+# The private library: extracted book text and the SQL built from it. Same reason as
+# the PDFs below -- this is the books' content, just in another shape.
+library/
+
 # No PDFs in the repo. Books, programs, references: all of it stays on disk.
 # No exceptions -- the repo is public, and an exception is how two commercial
 # books ended up in it.

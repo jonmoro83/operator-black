@@ -436,7 +436,19 @@ statements src/api.js actually issues, over real rows. Narrow on purpose: it ans
 queries this code sends and throws on anything it does not recognise, so a new query
 cannot pass by being quietly ignored. */
 function fakeDB() {
-  const docs = [], feeds = [], adminLog = [], cat = [];
+  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [];
+  // A stand-in for FTS5 MATCH, honest about the only two shapes the code builds:
+  // quoted terms joined by AND or by OR. Score is -(matches), so ordering ascending
+  // puts the best first, which is the direction bm25() works in.
+  const fts = (match) => {
+    const terms = (match.match(/"([^"]+)"/g) || []).map((t) => t.slice(1, -1).toLowerCase());
+    const every = / AND /.test(match);
+    return libChunk
+      .map((c) => ({ c, hits: terms.filter((t) => c.body.toLowerCase().includes(t)).length }))
+      .filter((x) => (every ? x.hits === terms.length : x.hits > 0))
+      .sort((p, q) => q.hits - p.hits)
+      .map((x) => ({ doc: x.c.doc, ref: x.c.ref, body: x.c.body, score: -x.hits }));
+  };
   const norm = (s) => s.replace(/\s+/g, " ").trim();
   const exec = (sql, a) => {
     const q = norm(sql);
@@ -461,6 +473,10 @@ function fakeDB() {
       docs.length = 0; docs.push(...keep);
       return [];
     }
+    if (/^SELECT id, title, short, chunks, updated_at FROM lib_doc ORDER BY id$/.test(q))
+      return libDoc.slice().sort((x, y) => (x.id < y.id ? -1 : 1));
+    if (/^SELECT doc, ref, body, bm25\(lib_chunk\) AS score FROM lib_chunk WHERE lib_chunk MATCH \?1 ORDER BY score LIMIT \?2$/.test(q))
+      return fts(a[0]).slice(0, a[1]);
     if (/^SELECT token, updated_at FROM cal_feeds WHERE user = \?1$/.test(q))
       return feeds.filter((f) => f.user === a[0]).map((f) => ({ token: f.token, updated_at: f.updated_at }));
     if (/^SELECT ics FROM cal_feeds WHERE token = \?1$/.test(q))
@@ -513,8 +529,11 @@ function fakeDB() {
     throw new Error("fakeDB does not know this query: " + q);
   };
   const batches = [];
+  // The library is loaded by wrangler rather than through the API, so tests seed it.
+  const seedLib = (d, cs) => { libDoc.push({ ...d, chunks: cs.length });
+    for (const c of cs) libChunk.push({ doc: d.id, ...c }) };
   return {
-    docs, feeds, adminLog, cat, batches,
+    docs, feeds, adminLog, cat, batches, seedLib,
     prepare(sql) {
       // A statement can be run with or without parameters, like the real binding.
       const made = (args) => ({
@@ -1132,4 +1151,85 @@ test("the catalogue refuses nonsense, and every change is audited", async () => 
   const log = (await (await call2(env, "admin/log", {}, await mint(k.a))).json()).log;
   a.deepEqual(log.map((e) => e.action).sort(), ["catalog-add", "catalog-remove"], "both recorded");
   a.ok(log.every((e) => e.actor === "lifter@example.com"));
+});
+
+/* ---------------- the private library ---------------- */
+
+const LIB = [
+  { ref: "p63", body: "9. FOBBIT INTERVALS. Treadmill Run/Row/Skip x 2 Minutes, Kettlebell Swings x 20, Run x 2 Minutes, Kettlebell Snatch x 10/arm. Repeat x 20 Minutes." },
+  { ref: "p95", body: "Like the Fobbits found in Tactical Barbell II with one caveat - duration is 15-20 minutes, no longer. You are not restricted to kettlebell swings for the work interval." },
+  { ref: "p108", body: "The standard mass-building formula is simple. Multiply your bodyweight x 1.3 for grams of protein, and x 2 for carb. Divide your bodyweight in half for fat." },
+  { ref: "p140", body: "I do stay entirely away from barbells and HIC during recovery weeks. Keep it to no more than two workouts that week, and remember to keep the workouts easy." },
+];
+
+test("the library lists what is loaded, and never the text", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  env.DB.seedLib({ id: "tb2", title: "Tactical Barbell II: Conditioning", short: "TB2", updated_at: 1 }, LIB.slice(0, 1));
+  env.DB.seedLib({ id: "tb3", title: "Tactical Barbell III: Mass Protocol", short: "TB III", updated_at: 2 }, LIB.slice(1, 3));
+
+  const res = await call2(env, "library", {}, await mint(k.a));
+  a.equal(res.status, 200);
+  const body = await res.json();
+  a.deepEqual(body.docs.map((d) => d.id), ["tb2", "tb3"], "listed by id");
+  a.deepEqual(body.docs.map((d) => d.chunks), [1, 2], "with their sizes");
+  // The point of a listing is that it is safe to show. It must not carry the books.
+  a.ok(!JSON.stringify(body).includes("Kettlebell Swings"), "and not a word of the text");
+});
+
+test("a library search finds the passage, and widens only when it has to", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  env.DB.seedLib({ id: "tb2", title: "TB2", short: "TB2", updated_at: 1 }, LIB.slice(0, 1));
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 2 }, LIB.slice(1));
+  const find = async (q) => (await (await call2(env, "library/search?q=" + encodeURIComponent(q), {}, await mint(k.a))).json());
+
+  // Every term present: the strict pass answers and the question is about one passage.
+  const bb = await find("bodyweight formula for grams of protein and carb");
+  a.equal(bb.hits[0].ref, "p108", "the macro formula");
+  a.match(bb.hits[0].body, /x 1\.3 for grams of protein/);
+
+  // Terms that never co-occur: strict finds nothing, so it widens rather than failing.
+  const wide = await find("protein snatch");
+  a.equal(wide.matched, "loose", "it widened");
+  a.ok(wide.hits.length >= 2, "and still returned something to go on");
+
+  // Stopwords must not decide the ranking. "What is a FOBBIT" is about one word.
+  const fob = await find("what is a FOBBIT and how long does it go on for");
+  a.ok(fob.hits.every((h) => /fobbit/i.test(h.body)), "only passages that mention it");
+  a.ok(fob.hits.length >= 2, "both books that do");
+
+  // Nothing to search for is not an error.
+  const none = await find("the and for");
+  a.deepEqual(none.hits, []);
+  a.equal(none.matched, "none");
+});
+
+test("library search survives whatever is typed into it", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  const find = async (q) => await call2(env, "library/search?q=" + encodeURIComponent(q), {}, await mint(k.a));
+
+  // FTS5 reads its input as syntax, so a stray quote or operator is a thrown query
+  // rather than an empty result. None of these may reach MATCH unescaped.
+  for (const q of ['protein" OR 1=1 --', "NEAR(a b)", "recovery AND", '"', "*", "^foo", "a-b", "''"]) {
+    const res = await find(q);
+    a.equal(res.status, 200, "no crash on: " + q);
+    a.ok(Array.isArray((await res.json()).hits), "and still a list: " + q);
+  }
+
+  // The result count is bounded whatever is asked for, which needs more chunks than
+  // the cap to mean anything.
+  env.DB.seedLib({ id: "bulk", title: "Bulk", short: "B", updated_at: 1 },
+    Array.from({ length: 40 }, (_, i) => ({ ref: "p" + i, body: "protein appears here too, chunk " + i })));
+  const many = await (await call2(env, "library/search?q=protein&n=999", {}, await mint(k.a))).json();
+  a.ok(many.hits.length > 20, "plenty to return");
+  a.equal(many.hits.length, 25, "and capped at twenty-five");
+});
+
+test("the library needs a login like everything else", async () => {
+  const env = dbEnv();
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  for (const route of ["library", "library/search?q=protein"]) {
+    const res = await call2(env, route, {}, null);
+    a.equal(res.status, 401, route + " is not public");
+  }
 });

@@ -155,6 +155,36 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**A private library of the books (2026-10-15)**
+- Groundwork for the coach: it should answer from what the books say, not from a
+  model's recollection of them.
+- **The content is not in the repo and cannot get there.** `library/` is gitignored
+  alongside the PDFs, for the same reason and with the same note. What is committed is
+  the machinery: `tools/pdfextract.py`, `tools/pdftext_cmap.py`, `tools/library.py`,
+  and a migration. Text goes from a local PDF straight into D1, which sits behind
+  Access.
+- Both extractors are committed now rather than living in a scratchpad, because which
+  one a book needs is a property of the book and that knowledge kept getting lost.
+  TB_MP has a `/ToUnicode` map and wants the CMap reader; TB_V3 has none and wants
+  `pdfextract.py --glyph=29`, its glyphs running 29 below ASCII.
+- **The extractor choice is not cosmetic.** The first pass at TB III came out with no
+  spaces between words, which FTS5 cannot tokenize — so the one book that answers
+  "how much protein" was the one book the search could not find it in. The CMap reader
+  fixed it, and the macro question now returns TB III first.
+- Storage is FTS5 in D1, which it supports. 577 chunks across four books, chunked by
+  page with short pages folded forward, each keeping the page it came from so an
+  answer can be checked.
+- Search is two-pass: AND the terms, and widen to OR only if that came back with fewer
+  than three. One pass does not work — AND alone returns nothing the moment a word is
+  missing, OR alone ranks whichever chunk uses the most ordinary words. Stopwords are
+  dropped for the same reason.
+- Every term is quoted before it reaches MATCH. FTS5 reads its input as syntax, so a
+  stray quote or the word NEAR is a thrown query rather than an empty result; there is
+  a test that feeds it eight such strings.
+- Known and left: TB1's decode renders apostrophes as `ä`. It is cosmetic — FTS splits
+  on non-alphanumerics either way — and guessing at a mapping was worse than leaving it.
+- 288 tests, 6 mutants, all caught after fixing a vacuous cap assertion.
+
 **The bout count, where you can see it (2026-10-14)**
 - A placeholder in a field is easy to miss, and it was the only place the number
   appeared. Now it is in three, all off the one source (`specRounds`):

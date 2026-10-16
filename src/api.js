@@ -47,6 +47,7 @@ function realDate(s) {
 const MAX_BYTES = 256 * 1024;
 const LEGACY = "__legacy__";
 
+export { ftsQuery, libSearch };
 export async function handleApi(request, env) {
   const auth = await authorize(request, env);
   if (auth instanceof Response) return auth;
@@ -76,6 +77,29 @@ export async function handleApi(request, env) {
     const meta = env.CF_VERSION_METADATA || {};
     return json({ page: etag, deployedAt: meta.timestamp || null, tag: meta.tag || null }, 200, { "cache-control": "no-store" });
   }
+  if (route === "library" || route.startsWith("library/")) {
+    const op = route === "library" ? "" : route.slice(8);
+
+    // What is loaded. Titles and counts only -- never the text, which is what makes
+    // this safe to show on a settings screen.
+    if (op === "" && request.method === "GET") {
+      const { results } = await env.DB.prepare(
+        "SELECT id, title, short, chunks, updated_at FROM lib_doc ORDER BY id"
+      ).all();
+      return json({ docs: results || [] }, 200, { "cache-control": "no-store" });
+    }
+
+    if (op === "search" && request.method === "GET") {
+      const u = new URL(request.url);
+      const q = ftsQuery(u.searchParams.get("q") || "");
+      const n = Math.min(Math.max(+u.searchParams.get("n") || 8, 1), 25);
+      if (!q.terms.length) return json({ hits: [], matched: "none" }, 200, { "cache-control": "no-store" });
+      return json(await libSearch(env, q, n), 200, { "cache-control": "no-store" });
+    }
+
+    return json({ error: "not found" }, 404);
+  }
+
   if (route === "calendar" || route.startsWith("calendar/")) {
     const op = route === "calendar" ? "" : route.slice(9);
     const row = await env.DB.prepare("SELECT token, updated_at FROM cal_feeds WHERE user = ?1").bind(user).first();
@@ -472,6 +496,50 @@ What an admin can see is deliberately narrow. Counts, dates and whether a backup
 are enough to run the thing. Reading somebody's training log is not administration, so
 there is no route for it — the export exists for handing their data back, and it hands
 back the whole file rather than offering a window onto it. */
+// Words that match nearly every chunk, so including them buries the terms that matter.
+const LIB_STOP = new Set(("the and for you your that this with are was were have has had not but all can " +
+  "will would should could how what when where why who which much many long more most some any one two " +
+  "from into out off over under then than they them their there here does did doing done get got make " +
+  "made just like also only very too about these those been being its it's").split(" "));
+
+/* Turn whatever was typed into queries FTS5 will accept. Raw input reaches MATCH as
+   syntax -- a stray quote, a hyphen, the word NEAR -- and throws rather than finding
+   nothing, so every term is quoted.
+
+   Two of them, because one does not do the job. ANDing the terms finds the passage
+   that is actually about the question, but returns nothing the moment one word is
+   missing; ORing always returns something but ranks a chunk that happens to use a lot
+   of ordinary words above the one that answers you. So: ask strictly, and widen only
+   if that came back thin. */
+function ftsQuery(raw) {
+  const terms = String(raw).toLowerCase().match(/[a-z0-9']+/g) || [];
+  const keep = [...new Set(terms.filter((t) => t.length > 2 && !LIB_STOP.has(t)))].slice(0, 12);
+  const q = keep.map((t) => `"${t.replace(/'/g, "")}"`);
+  return { strict: q.join(" AND "), loose: q.join(" OR "), terms: keep };
+}
+
+/* Strict first, widening only if it came back with too little to go on. Three is the
+   threshold: fewer than that and an answer is being built on one lucky passage. */
+async function libSearch(env, q, n) {
+  // bm25() is most negative for the best match, so ascending is best-first.
+  const run = async (match) => {
+    if (!match) return [];
+    const { results } = await env.DB.prepare(
+      `SELECT doc, ref, body, bm25(lib_chunk) AS score FROM lib_chunk
+       WHERE lib_chunk MATCH ?1 ORDER BY score LIMIT ?2`
+    ).bind(match, n).all();
+    return results || [];
+  };
+  const strict = await run(q.strict);
+  if (strict.length >= 3) return { hits: strict, matched: "strict" };
+  const loose = await run(q.loose);
+  // Keep the strict hits in front: they matched every term and the loose pass cannot
+  // know that. Dedupe on the chunk's own text.
+  const seen = new Set(strict.map((h) => h.doc + h.ref + h.body.slice(0, 40)));
+  const merged = strict.concat(loose.filter((h) => !seen.has(h.doc + h.ref + h.body.slice(0, 40))));
+  return { hits: merged.slice(0, n), matched: strict.length ? "both" : "loose" };
+}
+
 function isAdmin(env, user) {
   const list = (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   return list.includes(String(user || "").toLowerCase());
