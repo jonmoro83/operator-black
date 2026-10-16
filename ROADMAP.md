@@ -178,6 +178,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Setup in sections, and one tab fewer (2026-10-16)**
+- Setup had grown to 27 cards on one scroll, in the order they happened to be
+  written: Maxes near the top, the wave and the cycle rules twenty cards below it,
+  and three separate cards called some form of "Program".
+- Six collapsible sections — Program, Training, Alerts and sound, About you, Your
+  data, This app — with Program open on arrival, and which one you left open
+  remembered per device. Six shut drawers would be worse than the scroll, because
+  then you cannot even see what is in there.
+- **Account stays above the sections.** It is who you are signed in as and where you
+  sign out, which should not be two taps inside a collapsed group.
+- The three "Program" cards are now **Programs and archive**, **Template and
+  protocol** and **Start and units**.
+- Done with a sentinel rather than a rewrite: each card is preceded by a NUL-delimited
+  marker naming its section and the finished HTML is split on those and regrouped.
+  Reordering two hundred lines of string building by hand is how you lose a card, and
+  a NUL cannot occur in anything `esc()` produces, so the split cannot be fooled by
+  content. The test asserts the section counts add up to every card.
+- **The Guide moved off the tab bar** into the account menu, next to What's new. Eight
+  tabs is about 48px each at phone width; it is reference material rather than a daily
+  destination, and it was the only one of the eight nobody opens mid-session.
+- 318 tests, 6 mutants, all caught.
+
 **Macro averages, over a window you choose (2026-10-16)**
 - The figure under each target said "200 g eaten", which reads as today and was not:
   it was a fourteen-day average, explained only in a line below that is easy to miss.

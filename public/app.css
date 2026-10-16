@@ -508,3 +508,15 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .coach-q{font-weight:650;border-left:3px solid var(--line,#3a3a3c);padding-left:9px;margin-bottom:8px;white-space:pre-wrap}
 .coach-a p{margin:0 0 8px}
 .coach-a p:last-child{margin-bottom:0}
+
+/* Setup's sections. A summary is a row you tap, so it gets the same hit area and
+   padding as a card rather than a browser default disclosure line. */
+.setup-sec{margin:0 0 10px}
+.setup-sec>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  cursor:pointer;list-style:none;padding:13px 14px;border:1px solid var(--line,#3a3a3c);
+  border-radius:12px;background:var(--card,#1c1c1e);font-size:16px}
+.setup-sec>summary::-webkit-details-marker{display:none}
+.setup-sec>summary::after{content:"\203A";transform:rotate(90deg);color:var(--muted);font-size:20px;line-height:1}
+.setup-sec[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
+.setup-sec[open]>summary::after{transform:rotate(-90deg)}
+.setup-sec[open]>summary+*{margin-top:10px}

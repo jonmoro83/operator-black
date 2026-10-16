@@ -72,6 +72,12 @@ document.addEventListener('change',e=>{ const t=e.target;
     render(); return;
   }
   if(t.dataset&&t.dataset.actVar){ const k=t.dataset.actVar,v=t.value; if(v!==varOf(k,sel)){ const cur=(lg(sel).var)||{}; setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v})); openWarm.clear(); } render(); return; } });
+/* Remember which Setup section was open. Per device, like the theme: it is about how
+   you are using this phone right now, not a property of the program. */
+document.addEventListener('toggle',e=>{
+  const d=e.target; if(!d||!d.dataset||!d.dataset.sec) return;
+  if(d.open) setSetupOpen(d.dataset.sec);
+},true);
 document.addEventListener('change',e=>{ const t0=e.target; if(t0.dataset&&t0.dataset.actChange){ if(t0.dataset.actChange==='wzbb'){ if(wz){wz.bb=t0.checked; render()} return } if(t0.dataset.actChange==='wzplyo'){ if(wz){wz.plyo=t0.checked; render()} return } setLog(sel,'hic.iv.'+(t0.dataset.actChange==='ivwarm'?'warm':'cool'),t0.checked); render(); return; } });
 document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.calc||t.dataset.accday||t.dataset.mobday||t.dataset.trvday||t.dataset.np) render(); });
 // Top-level navigation: the tabs and the account menu. Remembers the tab across loads.

@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.8',date:'2026-10-16',title:'Setup, in sections',items:[
+    'Setup had become twenty-seven cards on one long scroll, in the order they were written \u2014 your maxes near the top, the wave and the cycle rules twenty cards below. It is six sections now: Program, Training, Alerts and sound, About you, Your data, This app. Program is open when you arrive, and it remembers which one you left open.',
+    'Three different cards were called some form of \u201cProgram\u201d. They are <b>Programs and archive</b>, <b>Template and protocol</b> and <b>Start and units</b>.',
+    'Your account stays at the top, outside the sections \u2014 signing out should not be two taps inside a closed drawer.',
+    '<b>The Guide has moved off the tab bar</b> to the account menu, next to What\u2019s new. Seven tabs fit a phone; eight did not, and the Guide is the one you read on the sofa rather than between sets.']},
   {v:'3.7',date:'2026-10-16',title:'Macro averages, and what they average',items:[
     'The number under each target said \u201c200 g eaten\u201d, which reads as today \u2014 it never was. Grams are logged the morning after, so today\u2019s are never in it. It now says <b>avg 200 \u00b7 40 short</b>, and the card leads with the fact that averages are of days already eaten.',
     '<b>Three windows to average over:</b> this week, 14 days, or this block. The block one counts back to the first week of the cycle, so you can ask whether you are on track for the block rather than how yesterday went.',

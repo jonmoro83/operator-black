@@ -163,12 +163,29 @@ test("Setup still has every card it is supposed to", () => {
   const x = app();
   x.me = "jon@example.com";
   const h = x.vSetup();
-  for (const title of ["Maxes", "Programs", "Appearance", "Program", "Lift 3", "Rest alerts",
-    "Spoken cues", "Mobility", "Accessories", "Conditioning", "Recovery and nutrition",
-    "The wave", "Cycles, deloads and retests", "About this app", "Backups",
-    "Export to a spreadsheet"]) {
+  // Three cards used to be called some form of "Program", which is why they are now
+  // named for what they hold.
+  for (const title of ["Maxes", "Programs and archive", "Appearance", "Template and protocol",
+    "Start and units", "Lift 3", "Rest alerts", "Spoken cues", "Mobility", "Accessories",
+    "Conditioning", "Recovery and nutrition", "The wave", "Cycles, deloads and retests",
+    "About this app", "Backups", "Export to a spreadsheet"]) {
     a.ok(h.includes(`<h2>${title}</h2>`), `Setup is missing the "${title}" card`);
   }
+  // Grouping must not lose one. Every card ends up inside exactly one section.
+  a.equal((h.match(/class="card/g) || []).length, (h.match(/<h2>/g) || []).length,
+    "every card still has its heading");
+  a.ok(!h.includes("\u0000"), "and no section marker survives into the output");
+  const secs = [...h.matchAll(/<summary><b>([^<]*)<\/b><span class="small muted">(\d+) setting/g)];
+  a.deepEqual(secs.map((m) => m[1]), ["Program", "Training", "Alerts and sound", "About you", "Your data", "This app"]);
+  // Account sits above the sections on purpose: signing out should not be two taps
+  // inside a collapsed group. So the section counts are every card but that one.
+  a.equal(secs.reduce((n, m) => n + +m[2], 0), (h.match(/<h2>/g) || []).length - 1,
+    "the counts on the section headers add up to every card but Account");
+  a.ok(h.indexOf('id="account"') < h.indexOf("<details class=\"setup-sec\""), "and it comes first");
+  // Program is open on arrival. A screen of six shut drawers is worse than the scroll
+  // it replaced, because now you cannot even see what is in there.
+  a.match(h, /data-sec="program" open|open data-sec="program"/, "Program starts open");
+  a.equal((h.match(/<details class="setup-sec" open/g) || []).length, 1, "and only one does");
   a.match(h, /jon@example\.com/, "About this app shows who is signed in");
   a.match(h, /data-view="releases"/, "and links to the release notes");
 });
@@ -2783,7 +2800,11 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   a.match(nav, /data-view="admin"[^>]*hidden/, "it ships hidden, not absent");
   a.ok(!/data-act=/.test(nav), "the header navigates by view, never by action");
   const tabs = [...nav.matchAll(/data-view="([a-z]+)"/g)].map((m) => m[1]);
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "coach", "guide", "admin"], "admin is last");
+  // Guide is reference rather than a daily destination, so it moved to the account
+  // menu to get the tab bar back under a thumb's width.
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "coach", "admin"], "admin is last");
+  const acct = html.slice(html.indexOf('id="acct-m"'), html.indexOf('<nav id="nav"'));
+  a.match(acct, /data-view="guide"/, "and the Guide is still reachable");
 
   // Every tab the nav offers has a view behind it.
   x.view = "admin"; x.amAdmin = true; x.loaded = true;
