@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-14.
+Update it as things ship. Last updated 2026-10-16.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -12,16 +12,29 @@ Setup → About this app → What's new.
 Genuinely open: things that still need doing or confirming.
 
 - **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
-  stays awake for a whole session, and the interval timer on the bike. Confirmed so
-  far: home-screen install, Access login in the installed app, the update banner, rest
-  alerts arriving on the lock screen, spoken cues through AirPods with the app open,
-  and the rest beep with the ring switch on (2026-10-14).
+  stays awake for a whole session, and the interval timer on the bike. Confirmed:
+  home-screen install, Access login in the installed app, the update banner, rest
+  alerts on the lock screen, spoken cues through AirPods with the app open, and the
+  rest beep in a real session — **with the ring switch off as well as on**
+  (2026-10-16), which the research said was impossible.
+- **Is the calendar workable now?** Reported 2026-10-16 as not working well. The
+  likeliest cause was the adjacency rules refusing most swaps, and those are gone
+  (3.3), but that was a guess and it was never confirmed. If it is still awkward the
+  next suspect is the month grid: seven cells across a phone is a poor drag target,
+  and a week view with full-width rows would be the answer.
+- **Does the coach give good advice?** The agreed gate for letting it apply changes
+  rather than only suggest them. It cannot be settled from here — it needs a few weeks
+  of reading what it said against what happened.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically, so this
   only bites on hand-edited history.
+- **TB1's extract renders apostrophes as `ä`.** Cosmetic: FTS splits on
+  non-alphanumerics either way, so retrieval is unaffected, but it shows in a coach
+  quotation from that book. Left because guessing at a mapping was worse than leaving
+  it; the fix is finding the real glyph for the code rather than inventing one.
 - **Not separately confirmed, and minor:** that the beep ducks music rather than
-  stopping it, and that a real rest timer mid-session sounds the same as the test
-  button. Both run the same path, so this is a note rather than a doubt.
+  stopping it. The mid-session half of this is now confirmed — the rest timer sounds
+  in a real session, not just from the test button.
 
 ## Settled, for the record
 
@@ -73,9 +86,13 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
   missed-set / heavy-week-RPE thresholds suggested sensible next maxes, and adjust
   `recommend()` if they did not.
-- **Zulu's A/B pairs and `orderIssues`.** Closed by 1.77's `strengthA`/`strengthB`, but
-  worth a look once Zulu has actually been run: the Move tool's warnings are the part
-  most likely to read oddly on a four-day template.
+- **Zulu's A/B pairs and `orderIssues`.** Closed by 1.77's `strengthA`/`strengthB`, and
+  most of what made the warnings noisy went with the adjacency rules in 3.3. Still
+  worth a look once Zulu has actually been run, since a four-day template is where the
+  remaining strength rule gets the most exercise.
+- **Decide on one-tap apply for the coach.** Built read-only on purpose, with the
+  response already shaped to carry structured suggestions, so the work is a view
+  change rather than a rewrite. Waiting on a verdict about the advice, not on effort.
 
 ## Ideas
 
