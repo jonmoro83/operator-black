@@ -112,6 +112,12 @@ within each group, roughly in order of how useful they'd be.
 
 ### Training and UX
 
+- **Macro card treatment B**, mocked up 2026-10-16 and liked: eaten becomes the
+  headline number with the target as its caption, because eaten is what changes;
+  progress bars so short-or-on-target reads without reading; the advice splits into
+  its own card. Parked rather than dropped — it is a change of character, not of
+  styling, so it should be done to every card at once or not at all.
+
 - **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
   then the session. Once a session is under way the cards above it are noise — collapse
   them, or jump straight to the first lift.
@@ -177,6 +183,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The Macros card, treatment A (2026-10-16)**
+- Chosen off three mockups on a canvas. Same tokens, same information, nothing
+  invented — the design system applied more decisively rather than replaced.
+- **Rows, not a column of three big numbers.** The card is asked "am I short", and
+  three headline figures at equal weight did not answer it. Each row is now
+  label · target · verdict, with the verdict in words and in color: green for on
+  target, red for short or over. The average drops to a caption under it, since it is
+  the evidence rather than the answer.
+- Both explanations fold behind one disclosure instead of sitting open under every
+  card, and the window picker fills the width.
+- The 500-calorie action is a full-width primary button rather than a small one.
+- **Not a `<details>`.** Open state kept in the DOM does not survive a render — the
+  rule the mobility panels already encode — and morph syncs attributes, so an `open`
+  the render does not know about would be stripped anyway. It is a button with
+  `aria-expanded` and a flag in JS.
+- Treatment B — eaten as the headline with the target as caption, progress bars,
+  advice split into its own card — is liked and parked, not rejected. It is a change
+  of character rather than of styling, so it wants doing to every card at once or not
+  at all.
+- 323 tests, 6 mutants. Two survived until the color of the verdict and the
+  disclosure's own state were asserted rather than just its text.
 
 **Morphing the DOM instead of replacing it (2026-10-16)**
 - Every render was `main.innerHTML = html`, which throws the screen away and builds it

@@ -165,34 +165,55 @@ function macroAdvice(t){
     text:'Weight is holding rather than coming down. Five hundred calories a day off the target is the usual next step — ours, not the book’s, which only covers building.'};
   return null;
 }
+/* Whether the "where these numbers come from" note is showing.
+
+   In JS, not a <details>: open state kept in the DOM does not survive a render, which
+   is the rule the mobility panels already encode. morph() preserves a node, but it
+   also syncs attributes, so an `open` the render does not know about would be stripped
+   off anyway. */
+let macroWhy=false;
+function setMacroWhy(v){ macroWhy=!!v; return macroWhy }
+function macroRow(lbl,target,avg){
+  // Verdict first, number second. "40 short" is the thing being looked for; 200 is
+  // only the evidence for it, so it is the caption and not the headline.
+  const gap=avg==null?null:avg-target;
+  const near=gap!=null&&Math.abs(gap)<=Math.max(5,target*0.05);
+  const word=gap==null?'':near?'On target':`${Math.abs(gap)} ${gap<0?'short':'over'}`;
+  const tone=gap==null?'muted':near?'ok':'off';
+  return `<div class="mrow">
+    <span class="mrow-l">${esc(lbl)}</span>
+    <span class="mrow-n mono">${target}<span class="mrow-u">g</span></span>
+    <span class="mrow-r">${avg==null?`<span class="small muted">none logged</span>`
+      :`<span class="mrow-v ${tone}">${esc(word)}</span><span class="small muted">avg ${avg}</span>`}</span>
+  </div>`;
+}
 function macroCard(t){
   const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t)), adv=macroAdvice(t);
   const lb=bwLb(t);
-  let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="small muted">${tgt.src==='tb3'?'Tactical Barbell III':'the app’s own'}</span>`:''}</div>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="chip ${tgt.src==='tb3'?'light':''}">${tgt.src==='tb3'?'TB III':'Ours'}</span>`:''}</div>`;
   if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
   if(!tgt) return h+`<p class="small muted" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
 
-  h+=`<div class="restsel"><span>Average over</span><div class="seg">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${l}</button>`).join('')}</div></div>`;
-  h+=`<div class="miles">`;
-  for(const [k,lbl] of [['p','Protein'],['c','Carbs'],['f','Fat']]){
-    const a=got[k], gap=a==null?null:a-tgt[k];
-    // The big number is what to aim at; underneath is how the days so far have gone
-    // against it. Never "eaten" on its own, which reads as today and is not.
-    h+=`<div class="mile"><span class="l">${lbl}</span><span class="big">${tgt[k]}<small style="font-size:14px;color:var(--muted);margin-left:2px">g</small></span>
-    <span class="small muted">${a==null?'none logged yet'
-      :`avg ${a} \u00b7 ${Math.abs(gap)<=Math.max(5,tgt[k]*0.05)?'on target':`${Math.abs(gap)} ${gap<0?'short':'over'}`}`}</span></div>`;
+  h+=`<div class="seg wide">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${esc(l)}</button>`).join('')}</div>`;
+  h+=`<div class="mrows">`;
+  for(const [k,lbl] of [['p','Protein'],['c','Carbs'],['f','Fat']]) h+=macroRow(lbl,tgt[k],got[k]);
+  h+=`</div>`;
+  h+=`<div class="mtot"><span class="small muted">Calories a day</span><span class="mono">${n(tgt.kcal)}${tgt.bump?` <span class="small muted">incl. ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP}</span>`:''}</span></div>`;
+
+  // One disclosure for the two explanations that used to sit open under every card.
+  h+=`<div><button class="linkb" data-act="macrowhy" aria-expanded="${macroWhy}">Where these numbers come from</button>`;
+  if(macroWhy){
+    h+=`<div class="small muted" style="margin-top:6px;line-height:1.45">${tgt.src==='tb3'
+      ?`The book’s formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`
+      :`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}
+      ${got.days?`<b>Averages are of days already eaten</b>, not today — grams are logged the morning after, so today’s are not in yet. ${got.days} of ${esc(macroWinLabel(t))} ${got.days===1?'has':'have'} grams against ${macroWinDays(t)===got.days?'them all':'them'}.${got.days<macroWinDays(t)/2?' Too few to read much into.':''}`
+        :`Nothing logged over ${esc(macroWinLabel(t))}. The three boxes are in the daily check-in, under yesterday’s eating — they are for the day before, so today’s go in tomorrow.`}</div>`;
   }
   h+=`</div>`;
-  h+=`<div class="small">That is <b class="mono">${n(tgt.kcal)}</b> calories a day${tgt.bump?` — including ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} you have added`:''}.
-  ${tgt.src==='tb3'?`The book's formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`:`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}</div>`;
-  if(got.days){
-    const win=macroWinDays(t);
-    h+=`<div class="small muted"><b>Averages are of days already eaten</b>, not today — grams are logged the morning after, so today's are not in yet. ${got.days} of ${esc(macroWinLabel(t))} ${got.days===1?'has':'have'} grams against ${win===got.days?'them all':'them'}.${got.days<win/2?' Too few to read much into.':''}</div>`;
-  }
-  else h+=`<div class="small muted">Nothing logged over ${esc(macroWinLabel(t))}. The three boxes are in the daily check-in, under yesterday's eating — they are for the day before, so today's go in tomorrow.</div>`;
-  if(adv) h+=`<div class="banner info"><div class="small">${esc(adv.text)}</div><div class="row" style="gap:8px;margin-top:6px">
-    <button class="btn sm" data-act="macrobump" data-v="${adv.dir}">${adv.dir>0?'Add':'Take off'} 500 a day</button></div></div>`;
-  else if(tgt.bump) h+=`<div class="row" style="align-items:baseline"><span class="small muted">Target adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div>`;
+
+  if(adv) h+=`<div class="banner info"><div class="small">${esc(adv.text)}</div>
+    <button class="btn primary wide" data-act="macrobump" data-v="${adv.dir}" style="margin-top:8px">${adv.dir>0?'Add':'Take off'} 500 a day</button></div>`;
+  else if(tgt.bump) h+=`<div class="row between"><span class="small muted">Target adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div>`;
   return h+`</div>`;
 }
 function energyCard(t){

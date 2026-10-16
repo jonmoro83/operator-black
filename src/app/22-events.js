@@ -237,6 +237,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='macrobump'){const d=+b.dataset.v;mutatePlan(p=>{p.macroBump=d===0?0:(+p.macroBump||0)+d});render();return}
   if(a==='coachask'){coachAsk();return}
   if(a==='macrowin'){setMacroWin(b.dataset.v);render();return}
+  if(a==='macrowhy'){setMacroWhy(!macroWhy);render();return}
   if(a==='restwarn'){setPlan('restWarn',+b.dataset.v);render();return}
   if(a==='coachnew'){coachNew();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}

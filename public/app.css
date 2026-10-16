@@ -521,3 +521,26 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .setup-sec[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
 .setup-sec[open]>summary::after{transform:rotate(-90deg)}
 .setup-sec[open]>summary+*{margin-top:10px}
+
+/* The macro rows. A verdict and a number per line, aligned down the card, because
+   "am I short" is what the card is asked and a column of three big numbers does not
+   answer it. */
+.mrows{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mrow{display:flex;align-items:center;gap:12px;background:var(--surface);padding:11px 12px}
+.mrow-l{width:66px;font-size:14px;font-weight:650;flex:none}
+.mrow-n{font-size:22px;letter-spacing:-.02em}
+.mrow-u{font-size:13px;color:var(--muted)}
+.mrow-r{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:1px;text-align:right}
+.mrow-v{font-size:14px;font-weight:650}
+.mrow-v.ok{color:var(--green)}
+.mrow-v.off{color:var(--red)}
+.mrow-v.muted{color:var(--muted)}
+.mtot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.mtot .mono{font-size:18px}
+/* A segmented control that fills the card, and a button that does, for the one action
+   on a card worth making easy to hit with a thumb. */
+.seg.wide{display:flex}
+.seg.wide .segb{flex:1;text-align:center;justify-content:center}
+.btn.wide{display:flex;width:100%}
+/* A disclosure that is a button, not a <details>: open state has to survive a render. */
+.linkb{all:unset;cursor:pointer;font-size:13px;font-weight:650;color:var(--accent);text-decoration:underline;text-underline-offset:2px}

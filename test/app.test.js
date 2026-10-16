@@ -2671,7 +2671,10 @@ test("losing and holding are the app's own numbers, and say so", () => {
     a.equal(t.p, Math.round(185 * x.MACRO[goal].p / 5) * 5);
     a.equal(t.f, Math.round(185 * x.MACRO[goal].f / 5) * 5);
     a.ok(Math.abs(t.kcal - x.kcalTarget("2026-10-15")) <= 30, goal + " splits up the calorie target");
+    x.setMacroWhy(true);
     a.match(x.macroCard("2026-10-15"), /so these are ours/, goal + " says whose they are on the card");
+    a.match(x.macroCard("2026-10-15"), /<span class="chip ">Ours<\/span>/, goal + " is badged as ours, not as the book's");
+    x.setMacroWhy(false);
   }
   // Losing eats less than holding, which is the whole point of the goal setting.
   x.plan.goal = "lose"; x.bump(); const lose = x.macroTarget("2026-10-15");
@@ -2722,7 +2725,7 @@ test("the 500-calorie step is offered on evidence and applied in the book's rati
   for (const k of ["p", "c", "f"]) a.ok(ratio(k) > 1, k + " went up");
   a.ok(Math.abs(ratio("p") - ratio("c")) < 0.03, "protein and carbs move together");
   a.ok(Math.abs(ratio("c") - ratio("f")) < 0.06, "and fat with them, within gram rounding");
-  a.match(x.macroCard("2026-10-15"), /including \+500 you have added/);
+  a.match(x.macroCard("2026-10-15"), /incl\. \+500/, "and the total says it includes the step");
 
   // Holding is never nagged, and losing gets our wording rather than the book's.
   x.mutatePlan((p) => { p.macroBump = 0 });
@@ -6368,28 +6371,44 @@ test("the macro averages say what they average, and over which days", () => {
   x.setMacroWin("week"); x.bump();
   const h = x.macroCard("2026-10-16");
   a.match(h, /avg 240/, "it is labelled an average");
-  a.match(h, /<b>Averages are of days already eaten<\/b>, not today/);
-  a.match(h, /4 of the 5 days since Monday/, "and says how many days are behind it");
   a.ok(!/\d+ g eaten/.test(h), "never a bare 'eaten' figure");
+  // The explanations are behind one disclosure now rather than open under every card.
+  a.match(h, /data-act="macrowhy" aria-expanded="false"/);
+  a.ok(!/Averages are of days already eaten/.test(h), "folded away by default");
+  x.setMacroWhy(true);
+  const why = x.macroCard("2026-10-16");
+  a.match(why, /<b>Averages are of days already eaten<\/b>, not today/);
+  a.match(why, /4 of the 5 days since Monday/, "and says how many days are behind it");
+  x.setMacroWhy(false);
 
   // On target versus short is the question being asked, so it is answered in words.
-  a.match(h, /Protein[\s\S]{0,260}on target/);
+  a.match(h, /Protein[\s\S]{0,260}On target/);
+  // The verdict carries color as well as words: on a card read between sets, green
+  // and red are what gets seen, and a tone that never changes says nothing.
+  a.match(h, /class="mrow-v ok">On target/);
+  a.match(h, /aria-expanded="false"/, "and the note reports itself shut");
+  x.setMacroWhy(true);
+  a.match(x.macroCard("2026-10-16"), /aria-expanded="true"/, "and open when it is");
+  x.setMacroWhy(false);
   x.setMacroWin("14"); x.bump();
   a.match(x.macroCard("2026-10-16"), /Protein[\s\S]{0,260}\d+ short/, "and short when it is short");
+  a.match(x.macroCard("2026-10-16"), /class="mrow-v off">\d+ short/, "in the color that says so");
 
   // A window with hardly anything in it says so rather than averaging two days.
   const y = app({ now: "2026-10-16" });
   y.plan.startMonday = "2026-10-05"; y.plan.bridge = false; y.plan.goal = "gain"; y.plan.proteinPerLb = 0;
   y.seed({ "2026-10-16": { checkin: { bw: 185, proG: 240, carbG: 300, fatG: 90 } } }); y.bump();
   y.setMacroWin("14"); y.bump();
+  y.setMacroWhy(true);
   a.match(y.macroCard("2026-10-16"), /Too few to read much into/);
 
   // Nothing at all explains where the boxes are, and that they are a day behind.
   const z = app({ now: "2026-10-16" });
   z.plan.goal = "gain"; z.plan.bodyweight = 185; z.plan.proteinPerLb = 0; z.bump();
+  z.setMacroWhy(true);
   const zh = z.macroCard("2026-10-16");
   a.match(zh, /Nothing logged over/);
-  a.match(zh, /they are for the day before, so today's go in tomorrow/);
+  a.match(zh, /they are for the day before, so today[’']s go in tomorrow/);
 });
 
 test("every CSS variable the stylesheet uses is one the stylesheet defines", () => {

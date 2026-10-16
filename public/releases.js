@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.12',date:'2026-10-16',title:'The Macros card, redrawn',items:[
+    'Three numbers at the same weight did not answer the question the card is actually asked, which is whether you are short. Each macro is now a row \u2014 target, then <b>40 short</b> or <b>On target</b> in words and in color, with the average underneath as the evidence rather than the headline.',
+    'The two explanations fold behind one link instead of sitting open under every card, the week picker fills the width, and <b>Add 500 a day</b> is a proper button rather than a small one.']},
   {v:'3.11',date:'2026-10-16',title:'The screen stops being rebuilt',items:[
     'Every change used to throw the whole screen away and build it again, which is why typing in a field could lose your place in it, and why panels had to be taught to stay open. The app now changes only the parts that actually differ.',
     'You should notice it as things holding still: the caret stays where you left it, the page does not jump, and nothing closes under you while you type.',
