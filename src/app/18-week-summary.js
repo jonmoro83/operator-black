@@ -55,7 +55,9 @@ function weekSummaryCard(){
   if(!r.tot&&!r.prs.length) return '';
   const wk=weekOf(mon), wt=wk?weekTitle(wk):null, lv=r.avg!=null?rLevel(r.avg):null;
   const ahead=[];
-  if(wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy') ahead.push('A heavy week: singles or doubles near the top. Accessories are off.');
+  // "Accessories are off" was the same invented rule the card used to state. What the
+  // week ahead can honestly say is what the book says: judge them by the main lifts.
+  if(wk&&wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy') ahead.push('A heavy week: singles or doubles near the top. Accessories still run \u2014 cut them back if they start costing you the main lifts.');
   if(wk&&wk.kind==='deload') ahead.push('A deload: easy lifting, steady conditioning, half the plyo contacts.');
   if(wk&&wk.kind==='test') ahead.push('Retest week: three easy days, then heavy singles.');
   if(wk&&wk.kind==='cycle') ahead.push('Plyos: '+plyoPhase(wk).name+'.');

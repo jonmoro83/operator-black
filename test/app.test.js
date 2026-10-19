@@ -7134,3 +7134,55 @@ test("a light week shows the accessories with no heavy-week note at all", () => 
   a.doesNotMatch(card, /Heavy week/, "nothing to say about a light week");
   a.match(card, /acc-slot/);
 });
+
+/* The card was fixed first and the walkthrough was not, so on a heavy week the
+   accessories were on the day's card and absent from session mode. Worse, session mode
+   dropped them for a template that programs its own supplementary work, which the card
+   had always been careful not to do: Grey Man's prescribed sets vanished on weeks 3
+   and 6. Both of those were the same invented rule, in a second place. */
+function liftDayIn(x, tierWanted) {
+  const wk = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === tierWanted);
+  a.ok(wk, `a ${tierWanted} week exists`);
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  a.ok(d, "with a lifting day in it");
+  return { wk, d };
+}
+function accSteps(x, d) { x.sel = d; return x.lsSteps(d).filter((s) => s.type === "acc") }
+
+test("session mode walks the accessories on a heavy week, same as the card", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  const heavy = liftDayIn(x, "heavy"), light = liftDayIn(x, "light");
+  a.ok(accSteps(x, light.d).length > 0, "a light week has them, as it always did");
+  a.equal(accSteps(x, heavy.d).length, accSteps(x, light.d).length,
+    "and the heavy week has exactly as many — the week does not decide");
+});
+
+test("session mode honours the day's skip, which is the decision that does count", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  const { d } = liftDayIn(x, "heavy");
+  a.ok(accSteps(x, d).length > 0);
+  x.seed({ [d]: { date: d, acc: { skip: true } } }); x.bump();
+  a.equal(accSteps(x, d).length, 0, "skipped on the card means skipped in the walkthrough");
+});
+
+test("a template that programs its supplementary work keeps it on a heavy week", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.stempl = "greyman";
+  x.plan.waves.greyman = x.clone(x.STEMPL.greyman.wave);
+  x.plan.waves.greyman[2].p = 90; x.bump();
+  const { d } = liftDayIn(x, "heavy");
+  a.ok(accSteps(x, d).length > 0, "the book programmed this work, so the walkthrough runs it");
+});
+
+test("the week ahead no longer tells you the accessories are off", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "src", "app", "18-week-summary.js"), "utf8");
+  // The pushed string, not the file: a comment explaining the removal mentions the
+  // old wording, and matching that would make this pass for the wrong reason.
+  const said = [...src.matchAll(/ahead\.push\('([^']*)'\)/g)].map((m) => m[1]).join(" | ");
+  a.ok(said.includes("A heavy week:"), "the heavy-week line is still said");
+  a.ok(!said.includes("Accessories are off"), "but not that one, which was our rule as the book's");
+  a.ok(said.includes("costing you the main lifts"), "replaced by the test the book gives");
+});

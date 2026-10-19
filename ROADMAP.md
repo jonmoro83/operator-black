@@ -191,6 +191,22 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The same rule, in the two places I missed (2026-10-19)**
+- The card stopped gating accessories on the heavy week; session mode and the week
+  summary did not, so on weeks 3 and 6 the accessories were on the day's card and
+  absent from the walkthrough. Fixing a rule in one of its three homes is not fixing
+  it, and only the card had a test.
+- `lsSteps` dropped the accessory steps on any heavy week — and, unlike the card,
+  dropped them for a template that programs its own supplementary work too, so Grey
+  Man's prescribed sets disappeared from the walkthrough on weeks 3 and 6.
+- It respects the day's skip instead, which is the decision that actually exists: skip
+  them on the card and the walkthrough does not march you through them.
+- The week-ahead line said "Accessories are off." It now says they still run, and to
+  cut them back if they start costing you the main lifts — TB1's test rather than ours.
+- Four tests, three mutants, all caught. The first version of the week-summary test
+  passed for the wrong reason: it searched the whole file, and the comment explaining
+  the removal contains the old wording, so it now reads the pushed string instead.
+
 **The TB1 extraction, and two things it got wrong (2026-10-19)**
 - Asked whether the books say to skip accessories on the 3×3 weeks. They do not, and
   finding that out turned up why two earlier answers were wrong.

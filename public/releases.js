@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.19',date:'2026-10-19',title:'Accessories really are back on heavy weeks',items:[
+    'The last release took the heavy-week rule off the accessories card but left it in two other places, so on weeks 3 and 6 the accessories were on the day\u2019s card and still missing from session mode. They are in the walkthrough now, the same as any other week.',
+    'Session mode was also dropping them for Grey Man, which is a template that prescribes its own supplementary work \u2014 so the book\u2019s own sets were vanishing on those weeks. Fixed.',
+    'What the walkthrough does respect is the skip button on the day. Skip them on the card and session mode will not walk you through them.',
+    'The week-ahead summary said "Accessories are off" on a heavy week. It now says they still run, and to cut them back if they start costing you the main lifts.']},
   {v:'3.18',date:'2026-10-19',title:'What the first book actually says',items:[
     'You asked whether the books say to skip accessories on the 3\u00d73 weeks. They do not. That was our rule and it was written to look like theirs, so it is gone. On a heavy week the accessories are still there, with what TB1 actually says next to them: cut them back if they are costing you the main lifts. That is a judgment about how you feel, not about which week it is, and there is now a button to skip them for the day when you make it.',
     'Finding that out turned up why it was wrong in the first place. The extracted text of the first book was saved in a way that made it unreadable to the tools that search it, so searching it for a word returned nothing and the nothing looked like an answer. That file is repaired and reloaded, and a test now refuses a book file that is not readable text.',

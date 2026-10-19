@@ -51,8 +51,15 @@ function lsSteps(date){
     const nS=r.sMax;
     for(let j=0;j<nS;j++) steps.push({k,type:'work',j,n:nS,w:T,r:r.r,opt:j>=r.s,pct:r.p});
   }
-  const heavy=wk.kind==='cycle'&&tier(+wkRx(wk).p)==='heavy';
-  if(!dp.deload&&!heavy&&dp.acc) for(const g of accGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
+  /* Session mode used to drop the accessories on a heavy week, which is the rule the
+     card used to state and no book actually gives. It also dropped them for a template
+     that programs its own supplementary work, which the card was careful not to do, so
+     Grey Man's prescribed sets vanished from the walkthrough on weeks 3 and 6.
+
+     What it respects instead is the skip on the day: if you decided this morning that
+     they were costing you the main lifts, the walkthrough should not march you through
+     them anyway. */
+  if(!dp.deload&&!accSkipped(date)&&dp.acc) for(const g of accGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
   steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
