@@ -20,28 +20,37 @@ practices without naming products, so neither adds an entry here.
 `when` is daily or pre: the two pre-session ones have a window in front of training and
 belong on the session card, not in the evening check-in. */
 const SUPP={
-  creatine:{name:'Creatine monohydrate',lvl:1,ctx:'mass',when:'daily',src:'TB3',
-    dose:'5 to 10 g once a day, training days and rest days alike',
-    note:'The book is blunt about giving up early: you are not a non-responder until you have taken it for a month or two without skipping doses, and most people who say they are have not. Monohydrate, and Creapure if you can get it.'},
-  protein:{name:'Protein powder',lvl:1,ctx:'both',when:'daily',src:'TB3 and TB2',
-    dose:'whatever it takes to reach 1 to 2 g of protein per lb of bodyweight',
-    note:'Only there to make up the difference food did not. TB3: if you can eat four or five steaks a day and get it all from whole food, do that and skip this.'},
-  multi:{name:'Multivitamin',lvl:1,ctx:'mass',when:'daily',src:'TB3',
-    dose:'one a day, a quality brand',
-    note:'Not recommended across the board — the book puts it on the mass list because gaining twenty or thirty pounds of muscle is a demanding job and the processes doing it need the raw material.'},
-  caffeine:{name:'Caffeine',lvl:2,ctx:'mass',when:'pre',src:'TB3',
+  creatine:{name:'Creatine monohydrate',lvl:1,ctx:'both',when:'daily',src:'TB1 and TB3',rec:'highly recommended',
+    dose:'5 g a day in TB1, 5 to 10 g in TB3 — training days and rest days alike',
+    note:'TB1 puts it in the post-workout shake on training days and takes it on its own otherwise. TB3 is blunt about giving up early: you are not a non-responder until you have taken it for a month or two without skipping doses, and most people who say they are have not. Monohydrate, and Creapure if you can get it.'},
+  magnesium:{name:'Magnesium or magnesium/potassium',lvl:2,ctx:'both',when:'daily',src:'TB1, TB2 and TB3',rec:'highly recommended for the active',
+    dose:'200 to 300 mg a day; glycinate or malate, or a combined magnesium/potassium',
+    note:'TB1 calls it "a big one" — ATP generation, heart muscle, blood pressure — and notes that deficiencies are common among the active because of stimulant and energy-drink use. TB2 adds that potassium, magnesium and sodium go quickly in sweat on long work. Some people react badly to glycinate and feel flat the next day; try malate before giving up on it.'},
+  caffeine:{name:'Caffeine',lvl:2,ctx:'both',when:'pre',src:'TB1 and TB3',rec:'one of the two things that made the most difference in TB1',
     dose:'100 to 200 mg, 20 to 30 minutes before training',
-    note:'Level 1 for many people, but the book says that if you have never trained on caffeine there is no reason to start: it does not drive mass gain. Tablets are a cheaper and cleaner substitute for a pre-workout.'},
-  citrulline:{name:'Citrulline malate',lvl:2,ctx:'mass',when:'pre',src:'TB3',
+    note:'TB3 says that if you have never trained on caffeine there is no reason to start: it does not drive mass gain. TB1 is honest that it may do nothing for strength but definitely moves mood and perceived energy, which is what gets you into the gym after a long shift. Tablets are a cheaper and cleaner substitute for a pre-workout.'},
+  multi:{name:'Multivitamin',lvl:1,ctx:'mass',when:'daily',src:'TB3',rec:'the books disagree about this one',
+    dose:'one a day while building mass; TB1 takes one every couple of days as insurance',
+    note:'TB3 puts it on the mass list because gaining twenty or thirty pounds of muscle is a demanding job and the processes doing it need the raw material. TB1 is on the fence — "I am just not sure that is worth it" — and suggests it only if your diet is not as nutrient dense as it should be. Watch the zinc in it if you also take ZMA.'},
+  zinc:{name:'Zinc or ZMA',lvl:null,ctx:'both',when:'daily',src:'TB1',rec:'controversial, and the book says so',
+    dose:'as directed; ZMA is zinc, magnesium and vitamin B6 together',
+    note:'Marketed as a testosterone booster, which it is not. A zinc deficiency lowers testosterone, and people who train regularly can become deficient, so it addresses a deficiency rather than pushing you past normal. The author reports a difference in mood, libido and energy.'},
+  vitamind:{name:'Vitamin D',lvl:null,ctx:'both',when:'daily',src:'TB1',rec:'the author is skeptical',
+    dose:'about 1000 to 2000 every other day, and get your level tested first',
+    note:'"I am skeptical that Vitamin D is the cure all that it is being made out to be." The research still points to testing your level and supplementing until it is reasonable. Avoid mega-dosing.'},
+  bcomplex:{name:'B complex',lvl:null,ctx:'both',when:'daily',src:'TB1',rec:'occasionally, not daily',
+    dose:'once every two or three days, or after a hard session',
+    note:'A noticeable difference in energy sometimes. The book says not to overdo it.'},
+  fishoil:{name:'Fish oil or EFAs',lvl:null,ctx:'both',when:'daily',src:'TB1',rec:'the author is skeptical',
+    dose:'as directed — avoid mega-dosing',
+    note:'"I prefer eating fish a couple times a week. Again, I am a little skeptical that fish oil is the magic it is made out to be."'},
+  citrulline:{name:'Citrulline malate',lvl:2,ctx:'mass',when:'pre',src:'TB3',rec:'worth having, not necessary',
     dose:'4 to 6 g, 30 to 45 minutes before training',
     note:'For work capacity and delaying fatigue. Less than 4 g may do nothing. Beet powder or extract is the alternative the book offers.'},
-  magnesium:{name:'Magnesium',lvl:2,ctx:'both',when:'daily',src:'TB3 and TB2',
-    dose:'200 to 300 mg a day; glycinate or malate',
-    note:'Depleted by stimulants, stress and a high training load. Glycinate relaxes and malate energizes. Some people react badly to glycinate and feel flat the next day — try malate before giving up on it.'},
-  beets:{name:'Beets or TMG',lvl:2,ctx:'cond',when:'daily',src:'TB2',
+  beets:{name:'Beets or TMG',lvl:null,ctx:'cond',when:'daily',src:'TB2',rec:'worth having, not necessary',
     dose:'a couple of glasses of blended beets a day; TMG (betaine) if you would rather not',
     note:'The author’s own: noticeably more in the tank on long work, and fatigue taking longer to arrive. Canned sliced beets are fine.'},
-  electrolyte:{name:'Electrolytes',lvl:2,ctx:'cond',when:'daily',src:'TB2',
+  electrolyte:{name:'Electrolytes',lvl:null,ctx:'cond',when:'daily',src:'TB2',rec:'worth having, not necessary',
     dose:'magnesium, potassium and sodium, around long sessions',
     note:'Potassium, magnesium and sodium go quickly in sweat on long work, and caffeine and other diuretics speed it up.'},
 };
@@ -53,8 +62,13 @@ function suppCtx(){ return MASS_TEMPLATES.includes(plan.stempl)?'mass':'cond' }
 // written for, so outside that context it is on offer and nothing more.
 function suppStanding(id){
   const s=SUPP[id]; if(!s) return '';
-  if(s.ctx!=='both'&&s.ctx!==suppCtx()) return `${s.src} ${SUPP_LVL[s.lvl]}, for ${s.ctx==='mass'?'building mass':'a conditioning load'}`;
-  return s.lvl===1?`${s.src} Level 1 — the book calls it mandatory`:`${s.src} Level 2 — worth having, not necessary`;
+  // Written for the other context: on offer, but not prescribed for what you run.
+  if(s.ctx!=='both'&&s.ctx!==suppCtx()) return `${s.src}${s.lvl?' '+SUPP_LVL[s.lvl]:''}, for ${s.ctx==='mass'?'building mass':'a conditioning load'}`;
+  // "Mandatory" is TB3's word, from TB3's Level 1, and TB3 wrote that list for
+  // building mass. Off a mass template the same supplement is recommended by TB1,
+  // which has no level scheme and does not mandate anything, so the rec stands alone.
+  if(s.lvl===1&&suppCtx()==='mass') return `TB3 Level 1 \u2014 the book calls it mandatory`;
+  return `${s.src} \u00b7 ${s.rec}`;
 }
 /* Yours: anything the books do not cover. No dose and no level, because inventing
    either would be putting words in the book's mouth. */
@@ -103,6 +117,7 @@ function suppSetupCard(){
   const book=Object.entries(SUPP), fits=book.filter(([,s])=>s.ctx==='both'||s.ctx===ctx), rest=book.filter(([,s])=>!(s.ctx==='both'||s.ctx===ctx));
   let h=`<div class="card"><h2>Supplements</h2>
   <p class="small muted" style="margin:0">The list is the books’, doses included. TB3: <i>"There are supplements that work, supplements that work for some people, and supplements that probably don’t work for anyone."</i> Tick what you take and it appears in the daily check-in and on session days. Tracking what you take is ours; none of the doses are.</p>
+  <p class="small muted" style="margin:0">Protein powder is not on this list even though both books put it on theirs. It is food rather than a supplement, and the app already tracks protein as a macro with a target of its own \u2014 ticking it here as well would count the same thing twice. <b>Ours.</b></p>
   <p class="small muted" style="margin:0"><b>The book’s own caveat, kept:</b> Level 1 is mandatory <i>if you have the budget and are cleared by your physician</i>. This is general training guidance, not medical advice.</p>`;
   h+=`<div class="small" style="font-weight:650;margin-top:4px">For what you are running — ${ctx==='mass'?'a mass template, so TB3’s list applies':'a conditioning load, so TB2’s list applies'}</div>`;
   h+=`<div class="supps">${fits.map(([k,s])=>suppRow(k,s)).join('')}</div>`;

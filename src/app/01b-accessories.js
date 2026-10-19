@@ -236,6 +236,8 @@ function accDone(date,slot){
   return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
+// Skipping is a decision about today, so it lives on the day rather than in the plan.
+function accSkipped(date){ const A=lg(date).acc; return !!(A&&!Array.isArray(A)&&A.skip) }
 
 /* The last time you did this movement, so the sets in front of you have something to
    beat. Matched on the exercise rather than the slot: swap the lat pulldown for a

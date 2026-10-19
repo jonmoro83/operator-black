@@ -597,14 +597,20 @@ Leave suggestions empty if you have none worth acting on. Never pad it.`;
    the coach can say "creatine" rather than read out an id. Anything not in here came
    from the user's own list and its name travels with it in plan.suppCustom. */
 const SUPP_NAMES = {
-  creatine: "creatine monohydrate", protein: "protein powder", multi: "multivitamin",
-  caffeine: "caffeine", citrulline: "citrulline malate", magnesium: "magnesium",
-  beets: "beets or TMG", electrolyte: "electrolytes",
+  creatine: "creatine monohydrate", multi: "multivitamin",
+  caffeine: "caffeine", citrulline: "citrulline malate",
+  magnesium: "magnesium or magnesium/potassium", beets: "beets or TMG",
+  electrolyte: "electrolytes", zinc: "zinc or ZMA", vitamind: "vitamin D",
+  bcomplex: "B complex", fishoil: "fish oil or EFAs",
 };
 function suppsFor(plan, logs, days) {
   const taking = plan.supps || {};
   const mine = Array.isArray(plan.suppCustom) ? plan.suppCustom : [];
-  const ids = Object.keys(taking).filter((k) => taking[k]);
+  // An id in neither list is one the catalogue used to carry and no longer does --
+  // protein powder, dropped because it is food and already tracked as a macro. Sending
+  // it would describe it as the user's own, which it is not, so it is left out.
+  const ids = Object.keys(taking).filter((k) =>
+    taking[k] && (SUPP_NAMES[k] || mine.some((x) => x && x.id === k)));
   if (!ids.length) return null;
   return ids.map((id) => ({
     name: SUPP_NAMES[id] || (mine.find((x) => x && x.id === id) || {}).name || id,

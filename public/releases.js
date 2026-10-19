@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.18',date:'2026-10-19',title:'What the first book actually says',items:[
+    'You asked whether the books say to skip accessories on the 3\u00d73 weeks. They do not. That was our rule and it was written to look like theirs, so it is gone. On a heavy week the accessories are still there, with what TB1 actually says next to them: cut them back if they are costing you the main lifts. That is a judgment about how you feel, not about which week it is, and there is now a button to skip them for the day when you make it.',
+    'Finding that out turned up why it was wrong in the first place. The extracted text of the first book was saved in a way that made it unreadable to the tools that search it, so searching it for a word returned nothing and the nothing looked like an answer. That file is repaired and reloaded, and a test now refuses a book file that is not readable text.',
+    'Same mistake had made the supplements list wrong. TB1 has a full supplements chapter and it is the general one, not the mass one. Creatine, protein, magnesium and caffeine are no longer marked as being for building mass only. Zinc, vitamin D, B complex and fish oil are added, with the author\u2019s own doubts about the last two kept rather than tidied away.',
+    'Level 1 and Level 2 are TB3\u2019s idea, so they no longer appear on entries from the other books, and nothing is called mandatory unless you are running a mass template.',
+    'Protein powder has come off the list. The books put it on theirs, but it is food, and protein already has a macro target of its own \u2014 having it in both places was counting it twice.']},
   {v:'3.17',date:'2026-10-19',title:'Supplements, with the books\u2019 doses',items:[
     'Tactical Barbell III has a whole chapter on this and TB2 has its own list for conditioning, so the list in Setup is theirs, doses and timing included. Tick what you take and it shows up where you can tick it off.',
     'Level 1 is only mandatory in the context the book wrote it for. On a mass template creatine says the book calls it mandatory. On an Operator cycle it says it is TB3 Level 1 for building mass, which is on offer rather than prescribed, and TB2\u2019s conditioning list takes its place.',

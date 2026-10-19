@@ -267,13 +267,28 @@ function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.len
 function accCard(wk,dp){
   if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
   const v=wkRx(wk), arx=accRxFor(wk,dp.day);
-  // A program that prescribes its supplementary work means it, heavy week or not.
-  if(!arx&&wk.kind==='cycle'&&tier(+v.p)==='heavy') return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">Skip them. Heavy week.</p></div>`;
+  /* No book says to skip accessories on a heavy week. That rule was ours and it read
+     like the book's. What TB1 gives is a test, and it is about recovery rather than the
+     calendar: "If your accessory work is interfering with your recovery to the point
+     it's affecting your main lifts, then you're not doing it right. Cut back or
+     eliminate it. Leave the main lifts unaffected." Its only weeks-3-and-6 concession
+     is to the main lift -- drop a set of the prescribed work if the volume is too much
+     -- and the reason it gives is a gruelling conditioning session, not accessories.
+     TB1 from the other side: "But if you want to throw in supplementary push-ups,
+     pull-ups, ab work etc. go for it."
+
+     So the week no longer decides. The note says what the book says, the judgment is
+     yours, and the skip is one tap when you make it. A program that prescribes its
+     supplementary work still means it, heavy week or not. */
   const day=dp.acc; if(!day) return '';
   const slots=accSlots(day), done=accDoneCount(sel,day);
+  const heavy=!arx&&wk.kind==='cycle'&&tier(+v.p)==='heavy';
+  const skipped=accSkipped(sel);
   const title=arx?'Supplementary':'Accessories';
   let h=`<div class="card"><div class="lift-h"><h3>${title}</h3>${arx?`<span class="rx">${arx.s}${arx.sMax?'\u2013'+arx.sMax:''} \u00d7 ${arx.r} @ ${arx.p}%</span>`:''}<span class="small muted">${done} of ${slots.length} done</span></div>
   <p class="muted small" style="margin:0">${arx?`Every one of these, ${arx.sMax?`${arx.s} or ${arx.sMax}`:arx.s} sets of ${arx.r}. The percentage is of your own best for that movement \u2014 if you have never tested it, take ${arx.r} reps you could have done a couple more of.`:'Two or three sets each, a couple of reps short of failure. Nothing that leaves you sore for tomorrow\u2019s HIC.'}</p>`;
+  if(heavy) h+=`<div class="banner info"><div class="small"><b>Heavy week.</b> The books do not say to drop these. TB1\u2019s test is whether the work is costing you the main lifts: \u201cif your accessory work is interfering with your recovery to the point it\u2019s affecting your main lifts, then you\u2019re not doing it right. Cut back or eliminate it.\u201d <b>Ours:</b> a heavy week is where that bites first, so cut the accessories back before you cut the lifts.</div></div>`;
+  if(skipped) return h+`<div class="row between" style="margin-top:4px"><span class="small muted">Skipped today.</span><button class="btn sm ghost" data-act="accskip">Bring them back</button></div></div>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
   for(const g of accGroups(day)){
     if(g.length>1) h+=`<div class="acc-super"><div class="small" style="font-weight:650">Superset \u00b7 ${esc(g.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
@@ -281,6 +296,7 @@ function accCard(wk,dp){
       ${g.map(sl=>accSlotRow(sel,sl)).join('')}</div>`;
     else h+=accSlotRow(sel,g[0]);
   }
+  if(!viewing&&slots.length) h+=`<div class="row" style="margin-top:10px"><button class="btn sm ghost" data-act="accskip">Skip these today</button></div>`;
   return h+`</div>`;
 }
 

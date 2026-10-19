@@ -5076,14 +5076,25 @@ test("a prescribed supplementary cluster is not skipped on a heavy week", () => 
   a.doesNotMatch(card, /Skip them/, "Grey Man programmes it, so it happens");
   a.match(card, /Supplementary/, "and it is called what the book calls it");
   a.match(card, /4 × 8 @ 65%/, "with the numbers on it");
+  // And no note weighing up whether to drop them: the book programmed this work, so
+  // there is nothing for the reader to judge and nothing for us to say about it.
+  a.doesNotMatch(card, /Heavy week\./, "a programmed template is told nothing about cutting back");
 
-  // Operator's accessories are still the unprogrammed kind, and still skipped.
+  // Operator's accessories are the unprogrammed kind. They used to be hidden on a
+  // heavy week on our say-so; no book says that, so they are shown with what the book
+  // does say and the decision is left where TB1 leaves it.
   x.plan.stempl = "operator"; x.bump();
   const oh = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
   const od = [0, 1, 2, 3, 4, 5, 6].map((d) => x.addDays(oh.monday, d))
     .find((dt) => x.dayPlan(dt).t === "lift");
   x.sel = od;
-  a.match(x.accCard(oh, x.dayPlan(od)), /Skip them/, "Operator's rule is untouched");
+  const ocard = x.accCard(oh, x.dayPlan(od));
+  a.doesNotMatch(ocard, /Skip them\. Heavy week/, "the week does not decide any more");
+  a.match(ocard, /Heavy week\./, "it is still flagged as one");
+  a.match(ocard, /affecting your main lifts/, "with TB1's actual test");
+  a.match(ocard, /<b>Ours:<\/b>/, "and our part of it labelled as ours");
+  a.match(ocard, /data-act="accskip"/, "and one tap to skip if the test is failed");
+  a.match(ocard, /acc-slot/, "the accessories themselves are there to do");
   a.equal(x.accRxFor(oh), null, "because it prescribes nothing");
 });
 
@@ -6931,11 +6942,21 @@ test("the supplement list is the books', with the doses they give", () => {
   const x = supps();
   // Every entry names its source and gives the book's own dose. Nothing is ours.
   for (const [id, s] of Object.entries(x.SUPP)) {
-    a.ok(s.name && s.dose && s.src, `${id} is fully attributed`);
-    a.match(s.src, /^TB[23]/, `${id} comes from a book`);
-    a.ok(s.lvl === 1 || s.lvl === 2, `${id} has the book's level`);
+    a.ok(s.name && s.dose && s.src && s.rec, `${id} is fully attributed`);
+    a.match(s.src, /^TB[123]/, `${id} comes from a book`);
+    // Only TB3 has a level scheme. TB1 recommends in prose and mandates nothing, so
+    // a TB1-only entry carries no level rather than being assigned one.
+    if (s.lvl != null) a.ok(s.lvl === 1 || s.lvl === 2, `${id} has TB3's level`);
+    // Level 1 and Level 2 are TB3's scheme and nobody else's: TB1 recommends in prose
+    // and TB2 says only that supplements "can be helpful and give you a bit of an
+    // edge". Stamping a level on their entries would be inventing the book's opinion.
+    if (s.lvl != null) a.match(s.src, /TB3/, `${id} only has a level because TB3 gave it one`);
     a.ok(["daily", "pre"].includes(s.when), `${id} says when`);
   }
+  // TB1 has a supplements chapter of its own and it is the general one, not mass-only.
+  a.match(x.SUPP.creatine.src, /TB1/, "TB1 recommends creatine too");
+  a.match(x.SUPP.vitamind.src, /TB1/);
+  a.match(x.SUPP.vitamind.rec, /skeptical/, "and its skepticism is carried, not dropped");
   a.match(x.SUPP.creatine.dose, /5 to 10 g/, "TB3's creatine dose");
   a.match(x.SUPP.citrulline.dose, /4 to 6 g, 30 to 45 minutes before/, "TB3's citrulline dose and window");
   a.match(x.SUPP.magnesium.dose, /200 to 300 mg/, "TB3's magnesium dose");
@@ -6947,15 +6968,19 @@ test("TB3's Level 1 is mandatory for building mass, and says so only then", () =
   a.equal(x.suppCtx(), "mass");
   a.match(x.suppStanding("creatine"), /Level 1 — the book calls it mandatory/);
 
-  // The same supplement on an Operator cycle: on offer, but the book did not
-  // prescribe it for what you are running, and the card does not pretend otherwise.
+  // Off a mass template, "mandatory" is gone -- that is TB3's word for TB3's list,
+  // written for building mass. TB1 recommends creatine to everyone on the program, so
+  // what is left is TB1's standing rather than nothing at all.
   x.plan.stempl = "operator"; x.bump();
   a.equal(x.suppCtx(), "cond");
-  a.match(x.suppStanding("creatine"), /for building mass/);
-  a.ok(!/mandatory/.test(x.suppStanding("creatine")), "not claimed as mandatory off the mass list");
+  a.ok(!/mandatory/.test(x.suppStanding("creatine")), "not mandated off the mass list");
+  a.match(x.suppStanding("creatine"), /TB1 and TB3 . highly recommended/, "but still recommended");
+  // A multivitamin is the one the books disagree about: TB3 Level 1 for mass, TB1 on
+  // the fence. So off a mass template it stays marked as the mass list's.
+  a.match(x.suppStanding("multi"), /for building mass/);
   // TB2's conditioning entries are the ones that apply instead.
-  a.match(x.suppStanding("beets"), /TB2 Level 2/);
-  a.ok(!/for a conditioning load/.test(x.suppStanding("beets")), "and they are in context here");
+  a.match(x.suppStanding("beets"), /^TB2 . worth having/, "TB2's entries are in context here");
+  a.ok(!/Level/.test(x.suppStanding("beets")), "and carry no level, because TB2 gives none");
 });
 
 test("your own supplements carry no dose, because the books do not give one", () => {
@@ -7023,4 +7048,89 @@ test("a supplement you stop offering keeps the days you already logged it on", (
   x.plan.suppCustom = []; delete x.plan.supps["mine-x"]; x.bump();
   a.deepEqual(x.suppOn("daily"), [], "no longer offered");
   a.equal(x.suppTook(now, "mine-x"), true, "but the day it was taken still says so");
+});
+
+/* An extracted book that is not readable text is worse than one that is missing.
+
+   `library/` is gitignored, so this test is a no-op on a machine that has not built
+   the library -- but on the machine that has, it is the guard that was absent when it
+   mattered. tb1.txt carried its special characters as BEL- and NUL-escaped sequences,
+   which made the file binary. `file` called it "data" and plain grep printed nothing
+   for every pattern, so searching the book for "accessory", "creatine" or "90%"
+   returned zero matches and read as an answer. Two conclusions were drawn from those
+   zeros and both were wrong. A control byte in a book file now fails here instead. */
+test("every extracted book is readable text, not something grep will skip", () => {
+  const dir = path.join(__dirname, "..", "library");
+  if (!fs.existsSync(dir)) return;                       // nothing built on this machine
+  const books = fs.readdirSync(dir).filter((f) => f.endsWith(".txt"));
+  if (!books.length) return;
+  const bad = [];
+  for (const f of books) {
+    const text = fs.readFileSync(path.join(dir, f), "utf8");
+    // Tab and newline are the only control characters that belong in extracted text.
+    const ctrl = (text.match(/[\x00-\x08\x0b-\x1f\x7f]/g) || []).length;
+    if (ctrl) bad.push(`${f}: ${ctrl} control characters — run tools/tb1repair.py`);
+    // A replacement character means the bytes were not the encoding we read them as.
+    const repl = (text.match(/�/g) || []).length;
+    if (repl) bad.push(`${f}: ${repl} replacement characters, so the encoding is wrong`);
+  }
+  a.deepEqual(bad, [], bad.join("; "));
+});
+
+test("the books kept the characters their doses and percentages are written with", () => {
+  const dir = path.join(__dirname, "..", "library");
+  const tb1 = path.join(dir, "tb1.txt");
+  if (!fs.existsSync(tb1)) return;
+  const t = fs.readFileSync(tb1, "utf8");
+  // Each of these was absent from the file while it was escaped, which is how a
+  // percentage in TB1 became unfindable by search and by the coach.
+  a.ok(/90%/.test(t), "percentages survived");
+  a.ok(/\)/.test(t), "closing brackets survived");
+  a.equal((t.match(/\(/g) || []).length, (t.match(/\)/g) || []).length, "and they balance");
+  a.ok(/’/.test(t), "apostrophes are apostrophes");
+});
+
+test("every supplement the app offers has a name on the Worker side too", () => {
+  // The catalogue lives in the client and the Worker holds only the names, so a new
+  // entry in one and not the other reaches the coach as a raw id like "vitamind".
+  const api = fs.readFileSync(path.join(__dirname, "..", "src", "api.js"), "utf8");
+  const block = api.match(/const SUPP_NAMES = \{([\s\S]*?)\};/)[1];
+  const known = new Set([...block.matchAll(/(\w+):/g)].map((m) => m[1]));
+  const x = app({});
+  const missing = Object.keys(x.SUPP).filter((k) => !known.has(k));
+  a.deepEqual(missing, [], `the coach would read these as ids: ${missing.join(", ")}`);
+});
+
+test("skipping the accessories is a choice about today, not a rule about the week", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  x.sel = d;
+  a.equal(x.accSkipped(d), false);
+  a.match(x.accCard(wk, x.dayPlan(d)), /acc-slot/, "there to do until you say otherwise");
+
+  x.seed({ [d]: { date: d, acc: { skip: true } } }); x.bump();
+  a.equal(x.accSkipped(d), true);
+  const card = x.accCard(wk, x.dayPlan(d));
+  a.match(card, /Skipped today/);
+  a.match(card, /Bring them back/, "and it is reversible");
+  a.doesNotMatch(card, /acc-slot/, "the slots are out of the way once skipped");
+
+  // It is today's decision, so tomorrow starts clean.
+  const next = x.addDays(d, 1);
+  a.equal(x.accSkipped(next), false, "a skip does not carry to the next day");
+});
+
+test("a light week shows the accessories with no heavy-week note at all", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "light");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  x.sel = d;
+  const card = x.accCard(wk, x.dayPlan(d));
+  a.doesNotMatch(card, /Heavy week/, "nothing to say about a light week");
+  a.match(card, /acc-slot/);
 });

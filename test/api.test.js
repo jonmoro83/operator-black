@@ -1703,7 +1703,8 @@ test("the coach sees what you take and how often you actually take it", async ()
   env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
   env.DB.docs.push({ user: "lifter@example.com", path: "plan/main",
     data: JSON.stringify({ unit: "lb",
-      supps: { creatine: true, caffeine: true, "mine-fish-1": true, magnesium: false },
+      supps: { creatine: true, caffeine: true, "mine-fish-1": true, magnesium: false,
+               protein: true },
       suppCustom: [{ id: "mine-fish-1", name: "Fish oil", when: "daily" }] }), updated_at: 1 });
   // Creatine every day, caffeine on two of them, fish oil never.
   const days = ["2026-10-12", "2026-10-13", "2026-10-14"];
@@ -1726,6 +1727,10 @@ test("the coach sees what you take and how often you actually take it", async ()
     // So the coach does not hand back the user's own supplement as the book's advice.
     a.equal(by["creatine monohydrate"].fromTheBooks, true);
     a.equal(by["Fish oil"].fromTheBooks, false);
+    // Protein powder was in the catalogue and was taken back out: it is food, and the
+    // app already tracks protein as a macro. A tick left over from then is not the
+    // user's own supplement and is not described as one.
+    a.equal(by.protein, undefined, "a tick for something no longer offered is dropped");
   } finally { globalThis.fetch = orig }
 });
 

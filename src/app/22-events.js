@@ -181,6 +181,7 @@ document.getElementById('main').addEventListener('click',e=>{
     // The days you already logged it on keep it; this only stops it being offered.
     mutatePlan(p=>{p.suppCustom=(Array.isArray(p.suppCustom)?p.suppCustom:[]).filter(x=>x&&x.id!==id);if(p.supps)delete p.supps[id]});
     return}
+  if(a==='accskip'){ setLog(sel,'acc.skip',accSkipped(sel)?null:true); render(); return }
   if(a==='accdone'){
     const sl=b.dataset.slot;
     setLog(sel,'acc.done.'+sl,accDone(sel,sl)?null:true);

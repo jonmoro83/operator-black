@@ -191,6 +191,52 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The TB1 extraction, and two things it got wrong (2026-10-19)**
+- Asked whether the books say to skip accessories on the 3×3 weeks. They do not, and
+  finding that out turned up why two earlier answers were wrong.
+- **Root cause.** `library/tb1.txt` carried its special characters as BEL- and
+  NUL-escaped sequences, which made the file binary. `file` called it *data* and plain
+  `grep` printed nothing for every pattern. Zero matches read as an answer. Two
+  conclusions were drawn from those zeros and both were wrong: that TB1 says nothing
+  about accessories (it has 18 mentions) and that it prescribes no supplements (it has
+  a full chapter).
+- `tools/tb1repair.py` maps the eight sequences back. The mapping is pinned rather than
+  guessed: the file held 51 `(` and no `)` against exactly 51 NUL-\f, and no `%` at all
+  against 53 NUL-\b, in contexts like *"4 sets of 3 reps at 90[%] of your maximum"*.
+  It also restores the 777 spaces lost after punctuation and digits. ~139 lowercase
+  word joins are left and deliberately not touched: splitting them needs a vocabulary,
+  and a vocabulary gets *counterproductive* wrong as readily as it gets *strengthmay*
+  right. The library was rebuilt and reloaded into D1: 117 chunks.
+- **A test now fails on a control character in any book file**, and a second asserts
+  TB1 still contains `90%`, balanced brackets and real apostrophes. Both no-op where
+  `library/` has not been built.
+- **Accessories on a heavy week.** The skip was ours and read like the book's. TB1's
+  actual rule is a test about recovery, not a calendar slot: *"If your accessory work
+  is interfering with your recovery to the point it's affecting your main lifts, then
+  you're not doing it right. Cut back or eliminate it."* Its only weeks-3-and-6
+  concession is to the **main lift** — drop a set if the volume is too much — and the
+  reason it gives is a gruelling conditioning session. So the week no longer decides:
+  the accessories are shown with the book's test quoted, our part labelled **Ours**,
+  and a one-tap skip on the day. A template that programs its supplementary work gets
+  no note, because the book already decided.
+- **Supplements, corrected.** TB1's chapter is the general one, not mass-specific, so
+  creatine, protein, magnesium and caffeine are no longer mass-only — on an Operator
+  cycle creatine now reads *TB1 and TB3 · highly recommended* instead of *for building
+  mass*. Four entries added from TB1: zinc/ZMA, vitamin D, B complex, fish oil, with
+  the author's own skepticism on the last two carried rather than smoothed off.
+  Multivitamin stays mass-scoped because the books genuinely disagree — TB3 Level 1,
+  TB1 *"I am just not sure that is worth it."*
+- **Level 1 and Level 2 are TB3's scheme and nobody else's.** TB1 recommends in prose
+  and TB2 says only that supplements "can be helpful"; both had been stamped with TB3
+  levels. A test now fails if an entry carries a level without TB3 in its source, and
+  "mandatory" only appears on a mass template.
+- **Protein powder is off the list**, by request: it is food rather than a supplement,
+  and the app already tracks protein as a macro with a target of its own, so ticking it
+  here counted the same thing twice. The books do list it, so the card says why it is
+  absent and labels the decision as ours. A tick left over from before is ignored
+  rather than sent to the coach as something the user added themselves.
+- Nine tests, twelve mutants, all caught.
+
 **Supplements, out of the books (2026-10-19)**
 - Asked for, and the books turned it from a checkbox list into something with content:
   TB3 has a whole Supplements chapter with Level 1 and Level 2, doses and timing, and
