@@ -79,19 +79,6 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
 
 ## Next up
 
-- **The Easy Week principle is in the books and barely implemented.** TB2, under
-  *Black Protocol — Easy Week Principle*: "Every third week, (3, 6, 9) make your
-  conditioning sessions easy. **Cut the number of rounds in half**, lower the duration
-  and/or intensity. Don't strain — just 'grease the groove' with little effort." It
-  also says the easy week "purposely coincides with Tactical Barbell's strength
-  training heavy weeks (90%-95% loads)", which is how the app finds it, so the timing
-  is right. The amount is not: `ease` picks the **lowest prescribed option** rather
-  than halving, and for `map`, `anaerobic`, `threshold` and `long` the lowest option
-  *is* the default — so on four of seven formats the easy week currently changes
-  nothing at all. LISS goes 35 to 25 minutes, which is 29% rather than half.
-  Found 2026-10-19 while checking the deload rule. Not yet changed: it is a real cut
-  to training volume and wants deciding, not assuming.
-
 - **TB book coverage is done**, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
@@ -203,6 +190,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The Easy Week Principle, at the book's number (2026-10-19)**
+- TB2, under *Black Protocol — Easy Week Principle*: "Every third week, (3, 6, 9)
+  make your conditioning sessions easy. **Cut the number of rounds in half**, lower
+  the duration and/or intensity. Don't strain — just 'grease the groove' with little
+  effort."
+- The timing was already right. The same page says the easy week "purposely coincides
+  with Tactical Barbell's strength training heavy weeks (90%-95% loads)", which is
+  exactly how `easyCondWeek` finds it. The amount was wrong: `ease` took the lowest
+  **prescribed option**, and for `map`, `anaerobic`, `threshold` and `long` the lowest
+  option is the default — so on four of seven formats the easy week changed nothing
+  while the card said *"fewer rounds, shorter sessions. This is deliberate."*
+- `easeRounds` separates the two reasons to go easier, which had been one flag.
+  **Halving is the book's**, for the easy week. **The lowest option is ours**, for a
+  day when readiness came back under par. When both apply the lower wins, so a soft
+  day in an easy week is not harder than either alone.
+- It halves *your* round count, not the book's default, so a number set in Setup is
+  still the thing that gets cut.
+- Odd counts round up: the book says grease the groove, not stop.
+- FOBBITs were already fine — they are chosen in minutes from a short list the book
+  gives, and the shortest is genuinely below the default in every case, so an easy
+  week has always shortened them.
+- Four tests, five mutants, all caught.
 
 **The deload rule, checked (2026-10-19)**
 - Same audit as the heavy week, opposite result. Both books that use the word mean a

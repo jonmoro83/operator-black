@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.21',date:'2026-10-19',title:'Easy weeks are actually easy now',items:[
+    'TB2 has a rule for this: every third week, cut the number of rounds in half, lower the duration, and do not strain. The app was picking the lowest round count the format offers instead of halving \u2014 and for four of the seven interval formats the lowest is also the normal one, so your easy week was identical to a normal week while the card told you it had been eased off.',
+    'Rounds are halved now. On a heavy lifting week a 8-round MAP session is 4, anaerobic is 3, threshold is 2, long is 3. TB2 puts the easy week on the heavy lifting weeks on purpose, which is where the app already had it.',
+    'A day when your check-in comes back under par is a separate, gentler easing, and that is ours rather than the book\u2019s. If both land on the same day you get the lighter of the two, not both stacked.',
+    'If you set your own round count in Setup, that is the number that gets halved.']},
   {v:'3.20',date:'2026-10-19',title:'The deload rule, checked against the books',items:[
     'Same check as the heavy week, opposite answer. The accessories still come off on a deload, because both books that use the word mean a harder stop than we do \u2014 TB3\u2019s deload is a week off altogether and Ageless Athlete takes a complete break from lifting. Three light sessions with no accessories is the gentler version of that, so it stays.',
     'What changed is the wording. The card used to say "None this week. Deload." as if the book had said it. It now says that this is our call, and that the deload week itself is ours too, since the first book prescribes no strength deload at all.']},

@@ -7206,3 +7206,62 @@ test("the deload still drops the accessories, and admits whose idea that is", ()
   // Session mode agrees with the card, which is the thing that went wrong last time.
   a.equal(x.lsSteps(d).filter((s) => s.type === "acc").length, 0, "and the walkthrough matches");
 });
+
+/* TB2, BLACK PROTOCOL - EASY WEEK PRINCIPLE: "Every third week, (3, 6, 9) make your
+   conditioning sessions easy. Cut the number of rounds in half, lower the duration
+   and/or intensity." The timing was already right -- the same page says the easy week
+   "purposely coincides with Tactical Barbell's strength training heavy weeks (90%-95%
+   loads)" -- but the amount was the lowest prescribed option rather than half, and for
+   four of the seven formats the lowest option IS the default. */
+test("the easy week halves the rounds, which is the number TB2 gives", () => {
+  const x = app({ now: "2026-11-11" });
+  for (const [fmt, r] of Object.entries(x.IV)) {
+    if (!r.rounds) continue;
+    const base = r.def || r.rounds[0];
+    a.equal(x.easeRounds(r, fmt, false, false), base, `${fmt} is untouched normally`);
+    a.equal(x.easeRounds(r, fmt, false, true), Math.max(1, Math.round(base / 2)),
+      `${fmt} is halved on an easy week`);
+  }
+  // The four that used to change by nothing at all.
+  for (const fmt of ["map", "anaerobic", "threshold", "long"]) {
+    const r = x.IV[fmt], base = r.def || r.rounds[0];
+    a.ok(x.easeRounds(r, fmt, false, true) < base, `${fmt} actually comes down now`);
+    a.equal(x.easeRounds(r, fmt, true, false), r.rounds[0], "a soft day is still the low option");
+  }
+});
+
+test("a soft day and an easy week together take the lower of the two", () => {
+  const x = app({ now: "2026-11-11" });
+  // hillsprint is the one where our soft-day rule bites harder than the book's half.
+  const hs = x.IV.hillsprint;
+  a.equal(x.easeRounds(hs, "hillsprint", true, false), 3, "soft picks the lowest option");
+  a.equal(x.easeRounds(hs, "hillsprint", false, true), 3, "half of six is three as well");
+  // sprints is the one where halving bites harder than the lowest option.
+  const sp = x.IV.sprints;
+  a.equal(x.easeRounds(sp, "sprints", true, false), 5);
+  a.equal(x.easeRounds(sp, "sprints", false, true), 4, "half of eight");
+  a.equal(x.easeRounds(sp, "sprints", true, true), 4, "both: the lower one wins");
+});
+
+test("your own round count is what gets halved, not the book's default", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.ivRounds = { map: 10 }; x.bump();
+  a.equal(x.easeRounds(x.IV.map, "map", false, false), 10, "your setting stands normally");
+  a.equal(x.easeRounds(x.IV.map, "map", false, true), 5, "and it is yours that is halved");
+});
+
+test("the easy week reaches the session, not just the helper", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const heavy = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  const light = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "light");
+  const hicDay = (wk) => [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i))
+    .find((d) => x.dayPlan(d).t === "hic" && x.effFmt(d) && x.effFmt(d) !== "liss");
+  const hd = hicDay(heavy), ld = hicDay(light);
+  a.ok(hd && ld, "both weeks have an interval session");
+  const hf = x.effFmt(hd), lf = x.effFmt(ld);
+  a.ok(x.ivOpts(hd, hf).rounds < x.ivOpts(ld, lf).rounds || hf !== lf,
+    "the heavy week's session is shorter");
+  a.equal(x.ivOpts(hd, hf).rounds, Math.max(1, Math.round(x.ivOpts(ld, hf).rounds / 2)),
+    "and it is half, for the same format");
+});

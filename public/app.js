@@ -4129,7 +4129,7 @@ function hicCard(dp,note){
     if(r&&r.lead) h+=`<div class="restsel"><span>Session</span><div class="seg">${(o.minOpts||[]).map(v=>`<button class="segb${o.mins===v?' on':''}" data-act="ivopt" data-k="mins" data-v="${v}" aria-pressed="${o.mins===v}">${v} min</button>`).join('')}</div></div>`
       +`<div class="small muted">${o.rounds} \u00d7 ${esc(secsLabel(o.every))} of base${o.count==='total'?', with the bouts counted in':''}. ${o.isE?'<b>Over 30 minutes, so this counts as an E session rather than a HIC</b> \u2014 that is the book\u2019s line, not ours.':'Under 30 minutes, so it counts as a HIC.'}</div>`;
     else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
-    if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week, so the conditioning comes down to leave the energy for them — fewer rounds, shorter sessions. This is deliberate, not a missed week.</div>`;
+    if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week. TB2 asks for the rounds cut in half here \u2014 \u201cdon\u2019t strain, just grease the groove with little effort\u201d \u2014 and says the easy week is meant to land on the heavy lifting weeks. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;
     if(plan.quietTimer) h+=`<div class="small muted">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
@@ -5501,9 +5501,36 @@ const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds
     mv:[['Sprint 50 to 100 m',{s:15}]]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
+/* Two different reasons to go easier, and only one of them is the book's.
+
+   TB2, under BLACK PROTOCOL - EASY WEEK PRINCIPLE: "Every third week, (3, 6, 9) make
+   your conditioning sessions easy. Cut the number of rounds in half, lower the
+   duration and/or intensity. Don't strain -- just 'grease the groove' with little
+   effort." The same page says the easy week "purposely coincides with Tactical
+   Barbell's strength training heavy weeks (90%-95% loads)", which is how `easyCondWeek`
+   finds it, so the timing was already right. The amount was not: this used to take the
+   lowest prescribed option, and for map, anaerobic, threshold and long the lowest
+   option is the default -- so on four of seven formats the easy week changed nothing
+   while the card said it had.
+
+   A soft day is ours: readiness came back under par, so drop to the lowest option the
+   format offers. That is a smaller cut than halving, and when both apply the lower of
+   the two wins.
+
+   Odd numbers round up, because the book says to grease the groove rather than to
+   stop, and three rounds of five is nearer that than two. */
+function easeRounds(r,fmt,soft,easyWk){
+  const base=((plan.ivRounds||{})[fmt])||r.def||r.rounds[0];
+  const cuts=[];
+  if(soft) cuts.push(r.rounds[0]);
+  if(easyWk) cuts.push(Math.max(1,Math.round(base/2)));
+  return cuts.length?Math.min(...cuts):base;
+}
 function ivOpts(date,fmt){
   const o=((lg(date).hic||{}).iv)||{}, r=IV[fmt];
-  const ease=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))))||easyCondWeek(date);
+  const soft=(lv0=>!!(lv0&&lv0.k!=='go'))(rLevel(readiness(ci(date))));
+  const easyWk=easyCondWeek(date);
+  const ease=soft||easyWk;
   // A FOBBIT is picked in minutes, because that is the number the sources argue about
   // and the number that decides whether it is a HIC or an E. Rounds fall out of it.
   if(r&&r.lead){
@@ -5517,7 +5544,7 @@ function ivOpts(date,fmt){
       warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
       bouts:specBouts(F,ease,(lg(date).hic||{}).what)};
   }
-  const def=r?(ease?r.rounds[0]:(((plan.ivRounds||{})[fmt])||r.def||r.rounds[0])):null;
+  const def=r?easeRounds(r,fmt,soft,easyWk):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
