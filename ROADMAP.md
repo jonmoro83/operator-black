@@ -191,6 +191,21 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Last time, next to this time (2026-10-19)**
+- Accessory sets were logged and never read back, so every session started from
+  nothing and progressive overload was a memory exercise. Each slot now carries one
+  line: *Last time, Fri 11/6: 50 × 12 · 45 × 10*, sitting above the set rows where
+  the numbers get typed.
+- **Matched on the movement, not the slot.** Swap the lat pulldown for a chin-up and
+  the pulldown's numbers would be the wrong thing to chase, so a swapped slot shows
+  nothing rather than something misleading.
+- A session where the rows were added and left blank is skipped, so an abandoned entry
+  does not become the number you are trying to beat. The most recent real session wins.
+- Reads the way a set would be written: `60 × 8`, `12 reps` for unloaded bodyweight,
+  `+25 × 8` for a loaded one.
+- Five tests, six mutants, all caught. One survived the first pass: with a single
+  session on file, newest-wins and oldest-wins are the same answer.
+
 **The three verdicts at the top of Status (2026-10-16)**
 - Pass two. Status presented evidence and left the reading to you; it now answers
   three questions first and keeps the evidence underneath.

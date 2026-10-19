@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.16',date:'2026-10-19',title:'Accessories remember last time',items:[
+    'You have been logging accessory reps and weights and nothing ever read them back, so every session started from a blank slate. Each accessory now shows one line above its sets: what you did the last time you did that movement, and when.',
+    'It matches on the movement rather than the slot. If you swapped the lat pulldown for a chin-up, it shows nothing rather than showing you the pulldown numbers to chase.',
+    'A session where you added the rows and never filled them in is skipped, so an abandoned entry does not become the thing you are trying to beat.']},
   {v:'3.15',date:'2026-10-16',title:'Status answers three questions first',items:[
     'Status used to hand you the evidence and leave the reading to you. It now opens with three lines: whether you are keeping up, where you are against the book\u2019s six-month mark, and anything worth watching.',
     '<b>Keeping up</b> counts missed sessions against the book\u2019s standard, which is none. The book also warns that most people think they miss fewer than they do, so it shows the real count rather than a percentage that sounds fine.',

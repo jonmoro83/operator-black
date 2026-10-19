@@ -6837,3 +6837,85 @@ test("the verdicts are the first thing on Status, above the orientation", () => 
   for (const l of ["Keeping up", "Progress", "Watch"]) a.ok(h.includes(">" + l + "<"), l);
   a.ok(!/class="banner (alert|warn)"/.test(h), "the pain banner folded into Watch");
 });
+
+// --- what you did last time, next to what you are about to do ----------------------
+// Finds an accessory day with a slot on it, and the accessory day before it.
+function accDays(x, now, back) {
+  const out = [];
+  for (let i = back; i >= 0; i--) { const d = x.addDays(now, -i); if (x.dayPlan(d).acc) out.push(d) }
+  a.ok(out.length >= 3, "the fixture has accessory days in it");
+  return out;
+}
+
+test("an accessory shows what you lifted for it last time", () => {
+  const now = "2026-11-11";
+  const x = app({ now }); x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const days = accDays(x, now, 30), prev = days[days.length - 3], today = days[days.length - 1];
+  const slot = x.accSlots(x.dayPlan(prev).acc)[0], id = x.accOn(prev, slot);
+  const older = days[days.length - 5];
+  x.seed({
+    [older]: { date: older, done: true, acc: { sets: { [slot]: [{ w: 40, r: 15 }] } } },
+    [prev]: { date: prev, done: true, acc: { sets: { [slot]: [{ w: 50, r: 12 }, { w: 45, r: 10 }] } } },
+  });
+  x.bump();
+
+  const last = x.accLast(today, slot, id);
+  a.equal(last.d, prev, "the most recent session, not the first one on file");
+  a.ok(!x.accLastLine(today, slot, id).includes("40 × 15"), "the older one is not what you are chasing");
+  a.equal(last.sets.length, 2);
+  const line = x.accLastLine(today, slot, id);
+  a.match(line, /Last time/);
+  a.match(line, new RegExp(x.fmtD(prev, true).replace("/", "\\/")), "and says which day");
+  a.match(line, /50 × 12 · 45 × 10/, "every set, in order");
+  // Nothing to compare against on the day it was first done.
+  a.equal(x.accLastLine(older, slot, id), "", "no line before there is a last time");
+  a.match(x.accLastLine(prev, slot, id), /40 × 15/, "and the first session is the second one's target");
+});
+
+test("swapping the movement does not compare you against the one you dropped", () => {
+  const now = "2026-11-11";
+  const x = app({ now }); x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const days = accDays(x, now, 30), prev = days[days.length - 3], today = days[days.length - 1];
+  const slot = x.accSlots(x.dayPlan(prev).acc)[0], id = x.accOn(prev, slot);
+  const other = x.accFor(slot, id).find((k) => k !== id);
+  a.ok(other, "the slot has more than one movement in it");
+  x.seed({ [prev]: { date: prev, done: true, acc: { sets: { [slot]: [{ w: 50, r: 12 }] } } } });
+  x.bump();
+  a.match(x.accLastLine(today, slot, id), /50 × 12/, "same movement, compared");
+  a.equal(x.accLastLine(today, slot, other), "", "different movement, nothing claimed");
+});
+
+test("a session with the slot left empty is not the one you have to beat", () => {
+  const now = "2026-11-11";
+  const x = app({ now }); x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const days = accDays(x, now, 40), real = days[days.length - 4], blank = days[days.length - 2],
+    today = days[days.length - 1];
+  const slot = x.accSlots(x.dayPlan(real).acc)[0], id = x.accOn(real, slot);
+  x.seed({
+    [real]: { date: real, done: true, acc: { sets: { [slot]: [{ w: 60, r: 8 }] } } },
+    // Added the rows and never filled them in, which is not a session.
+    [blank]: { date: blank, done: true, acc: { sets: { [slot]: [{}, { w: "", r: "" }] } } },
+  });
+  x.bump();
+  a.equal(x.accLast(today, slot, id).d, real, "it skips back past the empty one");
+  a.match(x.accLastLine(today, slot, id), /60 × 8/);
+});
+
+test("the comparison reads the way the set would be written down", () => {
+  const x = app({ now: "2026-11-11" });
+  a.equal(x.accSetText({ w: 60, r: 8 }, false), "60 × 8");
+  a.equal(x.accSetText({ r: 12 }, true), "12 reps", "an unloaded bodyweight set is reps");
+  a.equal(x.accSetText({ w: 25, r: 8 }, true), "+25 × 8", "a loaded one says so with a plus");
+  a.equal(x.accSetText({ w: 60 }, false), "60", "a weight with no reps yet");
+  a.equal(x.accSetText({}, false), "", "and an empty set says nothing");
+});
+
+test("the accessory card carries the comparison into the session", () => {
+  const now = "2026-11-11";
+  const x = app({ now }); x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const days = accDays(x, now, 30), prev = days[days.length - 3], today = days[days.length - 1];
+  const slot = x.accSlots(x.dayPlan(prev).acc)[0];
+  x.seed({ [prev]: { date: prev, done: true, acc: { sets: { [slot]: [{ w: 50, r: 12 }] } } } });
+  x.bump();
+  a.match(x.accSlotRow(today, slot), /Last time/, "the row the session renders shows it");
+});

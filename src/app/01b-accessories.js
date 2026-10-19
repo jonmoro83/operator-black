@@ -237,6 +237,37 @@ function accDone(date,slot){
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
 
+/* The last time you did this movement, so the sets in front of you have something to
+   beat. Matched on the exercise rather than the slot: swap the lat pulldown for a
+   chin-up and comparing against the pulldown would be comparing against nothing.
+   Days with the slot empty are skipped, so a session you did not log does not become
+   the thing you are trying to match. */
+function accLast(date,slot,id){
+  let best=null;
+  for(const [d,L] of progLogs()){
+    if(d>=date) continue;
+    const A=L.acc; if(!A||Array.isArray(A)) continue;      // the old by-position shape
+    const raw=(A.sets||{})[slot]; if(!Array.isArray(raw)) continue;
+    const sets=raw.filter(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
+    if(!sets.length||accOn(d,slot)!==id) continue;
+    if(!best||d>best.d) best={d,sets};
+  }
+  return best;
+}
+// A loaded bodyweight movement reads as +25 x 8, which is how it would be written down.
+function accSetText(x,bw){
+  const w=x.w!=null&&x.w!==''?n(x.w):null, r=x.r!=null&&x.r!==''?n(x.r):null;
+  if(w==null) return r==null?'':`${r} reps`;
+  const lbl=bw?'+'+w:w;
+  return r==null?String(lbl):`${lbl} \u00d7 ${r}`;
+}
+function accLastLine(date,slot,id){
+  const p=accLast(date,slot,id); if(!p) return '';
+  const txt=p.sets.map(x=>accSetText(x,isBWAcc(id))).filter(Boolean).join(' \u00b7 ');
+  if(!txt) return '';
+  return `<div class="small muted">Last time, ${fmtD(p.d,true)}: <b class="mono">${txt}</b></div>`;
+}
+
 /* ---------------- bands ----------------
 A band has no number on it, only a color, and the color means different things by
 brand. Worse, it means different things within one brand: Rogue's own Monster chart
