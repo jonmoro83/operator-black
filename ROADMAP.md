@@ -191,6 +191,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Descriptions for the Agile 8 (2026-10-19)**
+- Asked for a description of every movement in both routines. Ours already had one:
+  all fourteen resolve to a movement-library entry with setup, execution, cues and
+  common errors, reached from the little **i** on the row. Agile 8 had none, which is
+  almost certainly why it looked as though neither did.
+- Eight entries added, and the sourcing is the point. DeFranco describes the two foam
+  rolls, the tennis-ball position, the groiner cue (*"use your upper arms to push your
+  knees outward while you drop your butt down"*) and the one-side-at-a-time hip flexor
+  hold, so those follow his text. His note on the glute release is kept whole: *"Feel
+  free to cry."*
+- **The rollovers, the fire hydrants and the mountain climbers he shows in a video
+  rather than describing**, so those three carry the standard form of a common
+  movement and their note says exactly that instead of passing it off as his. A test
+  asserts the disclaimer is on those three and on no others.
+- Last release said writing cues for someone else's routine would be inventing them.
+  That still holds — the answer was to source them rather than to go without.
+- They sit in the Guide as one group, *Agile 8 · Joe DeFranco*, rather than scattered
+  through the existing ones, because it is one named routine by one author.
+- Nothing is invented for a movement you typed in yourself: a custom warm-up movement
+  has no entry and no panel, and a test asserts it.
+- Three tests, four mutants, all caught. The existing "every entry is reachable from
+  the Guide" test caught the new entries before I noticed they were orphaned.
+
 **The warm-up is a choice now, and says whose it is (2026-10-19)**
 - Asked how we decided the warm-up. We did not — **it is entirely ours**, and nothing
   said so. None of the fourteen movements appears in any of the four books: zero hits

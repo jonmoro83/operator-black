@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.23',date:'2026-10-19',title:'Every Agile 8 movement explains itself',items:[
+    'Tap the small i next to any movement in the warm-up and you get how to set it up, how to do it, what to feel for and how it usually goes wrong. Our routine always had that. Agile 8 did not, which is probably why it looked like neither did. It does now, all eight.',
+    'Where DeFranco describes a movement himself the description follows his text, including his note on the tennis-ball glute release, which is "Feel free to cry." Three of them he shows in a video instead of writing down, so those carry the standard version of the movement and say so rather than pretending the wording is his.',
+    'They are in the Guide too, kept together under his name rather than mixed into the rest.']},
   {v:'3.22',date:'2026-10-19',title:'Pick your warm-up',items:[
     'You asked where the warm-up came from. It came from us \u2014 none of its movements are in any of the four books, and the card never said so. TB1 asks for ten minutes of easy work and your warm-up sets, and Ageless Athlete says to bring your own mobility routine if you have one, so the gap was always meant to be filled by you.',
     'There are three to pick from in Setup now: ours, Joe DeFranco\u2019s Agile 8 at his own doses, and one you type in yourself, a movement per line with the dose after a comma.',

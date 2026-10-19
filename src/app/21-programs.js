@@ -842,6 +842,9 @@ function vGuide(){
     ['Hips',['hip9090','lean9090','couch','frog','wgs','fig4','pigeon','quadstand']],
     ['Hamstrings and posterior chain',['fold','seatedfold','hamstring']],
     ['Ankles and feet',['calfstraight','calfbent','kneewall','footroll']],
-    ['Activation',['legswing','bandpull','glutebridge']]
+    ['Activation',['legswing','bandpull','glutebridge']],
+    // Agile 8 is its own group rather than scattered through the others: it is one
+    // named routine by one author, and splitting it up would hide that.
+    ['Agile 8 \u00b7 Joe DeFranco',['a8itb','a8add','a8glute','a8roll','a8hydrant','a8mtn','a8groiner','a8hipflex']]
   ].map(([g,ids])=>`<div><h4 class="sub-h">${esc(g)}</h4><div class="stack" style="gap:6px;margin-top:6px">${ids.map(id=>`<details class="px" data-px="ml-${id}"${openPx.has('ml-'+id)?' open':''}><summary><span>${esc(MLIB[id].name)}</span></summary>${libBody(MLIB[id])}</details>`).join('')}</div></div>`).join('')}</div></div>`;
 }

@@ -1576,7 +1576,55 @@ const MLIB={
     exec:'Two to three minutes of slow nasal breathing, long exhales.',
     cues:'Nothing to achieve. Let the legs be heavy and make the out-breath longer than the in-breath.',
     errors:'Checking your phone. Treating it as a stretch and pushing the hamstrings.',
-    note:'The best-value two minutes on an off day: it is the one block that is purely about coming down.'}
+    note:'The best-value two minutes on an off day: it is the one block that is purely about coming down.'},
+  /* Agile 8. The descriptions follow DeFranco's own text where he gives one. For the
+     rollovers, the fire hydrants and the mountain climbers he shows the movement in a
+     video instead of describing it, so those three are the standard form of a common
+     movement and their notes say so rather than putting words in his mouth. */
+  a8itb:{name:'Foam roll IT band',
+    setup:'On your side on the roller, the outer thigh on it, top leg forward for balance and weight on the forearm.',
+    exec:'Start just under the hip and roll up and down to mid-thigh ten to fifteen times. Then roll from mid-thigh down to the outside of the knee, another ten to fifteen. Work the tight spots.',
+    cues:'Slow. The roller should move about an inch a second, not sweep the whole leg.',
+    errors:'Rolling fast enough that nothing changes. Rolling straight over the knee or the hip bone rather than stopping short of both.'},
+  a8add:{name:'Foam roll adductors',
+    setup:'Face down with the roller under the inside of one thigh, that leg out to the side at about ninety degrees.',
+    exec:'Start just below the groin crease, roll up and down to mid-thigh ten to fifteen times, then from mid-thigh to the inside of the knee for another ten to fifteen. Same method as the IT band.',
+    cues:'Let the leg be heavy. Shift your weight onto the roller rather than pressing with the arms.',
+    errors:'Staying too far from the groin, which is usually where the tight part is.'},
+  a8glute:{name:'Glute and piriformis release, tennis ball',
+    setup:'Sitting on the ball on one cheek, tilted slightly onto that side, with that leg crossed over the other knee.',
+    exec:'Roll around for about thirty seconds, then switch sides.',
+    cues:'Crossing the leg is what opens the glute up to the ball. Hunt for the spot rather than rolling evenly.',
+    errors:'Sitting square, which puts the ball on bone rather than muscle.',
+    note:'DeFranco’s whole note on this one: “Feel free to cry.”'},
+  a8roll:{name:'Rollovers into V-sits',
+    setup:'Sitting on the floor, knees tucked, hands on the floor behind you.',
+    exec:'Roll backwards onto your shoulders and take the knees to the ears, then roll forward into a straddle and reach for the toes. Ten reps, continuous.',
+    cues:'Use the momentum of the roll to get into the straddle rather than hauling yourself up.',
+    errors:'Rolling onto the neck instead of the upper back. Going so fast the forward reach never happens.',
+    note:'DeFranco shows this one in a video rather than describing it, so this is the standard movement, not his wording.'},
+  a8hydrant:{name:'Fire hydrant circles',
+    setup:'On hands and knees, back flat, weight even.',
+    exec:'Lift one knee out to the side and draw a circle with it, ten forward and ten backward, then the other leg.',
+    cues:'Make the circle at the hip. The knee stays bent throughout.',
+    errors:'Rotating the whole torso to get a bigger circle. Letting the low back arch.',
+    note:'DeFranco shows this one in a video rather than describing it, so this is the standard movement, not his wording.'},
+  a8mtn:{name:'Mountain climbers',
+    setup:'A push-up position, hands under the shoulders, body in a line.',
+    exec:'Drive one knee to the chest and switch feet, twenty in total. Brisk, not a sprint — this is a warm-up.',
+    cues:'Hips stay low and level. The shoulders should not travel back over the hands.',
+    errors:'Letting the hips ride up. Treating it as conditioning and arriving at the bar out of breath.',
+    note:'DeFranco shows this one in a video rather than describing it, so this is the standard movement, not his wording.'},
+  a8groiner:{name:'Groiners',
+    setup:'A push-up position.',
+    exec:'Jump both feet up outside the hands, then back. Ten reps, and hold the last one for ten seconds.',
+    cues:'In the hold, use your upper arms to push the knees outward while you drop your butt down. That is DeFranco’s own cue.',
+    errors:'Landing with the feet behind the hands, which gives you none of the hip opening.'},
+  a8hipflex:{name:'Static hip flexor stretch',
+    setup:'Half-kneeling, back knee on a pad, front foot flat, and tuck the pelvis under before you start.',
+    exec:'Three holds of ten seconds on one leg, then all three on the other. Finish one side before switching.',
+    cues:'The stretch comes from the pelvic tuck and squeezing the back glute, not from pushing the hips forward.',
+    errors:'Arching the low back to feel more. Alternating sides instead of doing three in a row, which is not what the routine asks for.'},
 };
 // The names in WARMUP and MOB are editable text, so entries are matched by a normalized
 // name through this table. A test asserts every built-in item still resolves.
@@ -1594,6 +1642,10 @@ const MLIB_ALIAS={};
     ['leg swings both directions','legswing'],['band pull aparts shoulder dislocates','bandpull'],
     ['glute bridge or bodyweight squat','glutebridge'],['figure 4 glute stretch','fig4'],
     ['childs pose with lat reach','childlat'],['dead hang from the bar','deadhang'],['dead hang','deadhang'],
+    ['foam roll it band','a8itb'],['foam roll adductors','a8add'],
+    ['glute and piriformis release tennis ball','a8glute'],['rollovers into v sits','a8roll'],
+    ['fire hydrant circles','a8hydrant'],['mountain climbers','a8mtn'],
+    ['groiners','a8groiner'],['static hip flexor stretch','a8hipflex'],
     ['standing forward fold soft knees','fold'],['supine hamstring stretch strap or doorway','hamstring'],
     ['standing quad stretch','quadstand'],['straight leg calf stretch against a wall','calfstraight'],
     ['straight leg calf stretch gastroc','calfstraight'],['bent knee calf stretch soleus','calfbent'],
@@ -7558,7 +7610,10 @@ function vGuide(){
     ['Hips',['hip9090','lean9090','couch','frog','wgs','fig4','pigeon','quadstand']],
     ['Hamstrings and posterior chain',['fold','seatedfold','hamstring']],
     ['Ankles and feet',['calfstraight','calfbent','kneewall','footroll']],
-    ['Activation',['legswing','bandpull','glutebridge']]
+    ['Activation',['legswing','bandpull','glutebridge']],
+    // Agile 8 is its own group rather than scattered through the others: it is one
+    // named routine by one author, and splitting it up would hide that.
+    ['Agile 8 \u00b7 Joe DeFranco',['a8itb','a8add','a8glute','a8roll','a8hydrant','a8mtn','a8groiner','a8hipflex']]
   ].map(([g,ids])=>`<div><h4 class="sub-h">${esc(g)}</h4><div class="stack" style="gap:6px;margin-top:6px">${ids.map(id=>`<details class="px" data-px="ml-${id}"${openPx.has('ml-'+id)?' open':''}><summary><span>${esc(MLIB[id].name)}</span></summary>${libBody(MLIB[id])}</details>`).join('')}</div></div>`).join('')}</div></div>`;
 }
 

@@ -7346,3 +7346,44 @@ test("every reader of the warm-up walks the routine that is selected", () => {
   a.ok(!card.includes("Couch stretch"), "and nothing from the routine that is not picked");
 });
 function esc0(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }
+
+test("every movement in every warm-up routine explains itself", () => {
+  const x = app({});
+  // Including yours, which cannot be explained and so must not pretend to be.
+  for (const k of ["ours", "agile8"]) {
+    x.plan.warmRoutine = k; x.bump();
+    for (const w of x.warmItems()) {
+      const e = x.mlibEntry(w.n);
+      a.ok(e, `${k}: ${w.n} has an entry`);
+      for (const f of ["setup", "exec", "cues", "errors"]) a.ok(e[f], `${k}: ${w.n} has ${f}`);
+    }
+  }
+  x.plan.warmRoutine = "mine"; x.plan.warmCustom = [["Hip airplane", "8 per side"]]; x.bump();
+  a.equal(x.mlibEntry("Hip airplane"), null, "nothing invented for a movement you typed in");
+});
+
+test("the Agile 8 descriptions are DeFranco's where he gave one, and say so where not", () => {
+  const x = app({});
+  // His own text covers these: the roll method, the cross-legged ball position, the
+  // groiner cue and the one-side-at-a-time hip flexor hold.
+  a.match(x.MLIB.a8itb.exec, /just under the hip/);
+  a.match(x.MLIB.a8add.exec, /just below the groin crease/);
+  a.match(x.MLIB.a8glute.note, /Feel free to cry/, "his whole note on it, kept");
+  a.match(x.MLIB.a8groiner.cues, /push the knees outward/);
+  a.match(x.MLIB.a8hipflex.exec, /Finish one side before switching/);
+  // These three he shows in a video instead, so the description is the standard
+  // movement and the note refuses to pass it off as his.
+  for (const id of ["a8roll", "a8hydrant", "a8mtn"])
+    a.match(x.MLIB[id].note, /shows this one in a video rather than describing it/,
+      `${id} says where its description came from`);
+  // And the ones he did describe make no such disclaimer.
+  for (const id of ["a8itb", "a8add", "a8groiner", "a8hipflex"])
+    a.ok(!/video/.test(x.MLIB[id].note || ""), `${id} needs no disclaimer`);
+});
+
+test("the Guide keeps Agile 8 together and names its author", () => {
+  const g = app({}).vGuide();
+  a.match(g, /Agile 8 · Joe DeFranco/, "one group, attributed");
+  for (const id of ["a8itb", "a8add", "a8glute", "a8roll", "a8hydrant", "a8mtn", "a8groiner", "a8hipflex"])
+    a.ok(g.includes(`data-px="ml-${id}"`), `${id} is reachable from the Guide`);
+});
