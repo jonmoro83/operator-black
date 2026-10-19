@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.22',date:'2026-10-19',title:'Pick your warm-up',items:[
+    'You asked where the warm-up came from. It came from us \u2014 none of its movements are in any of the four books, and the card never said so. TB1 asks for ten minutes of easy work and your warm-up sets, and Ageless Athlete says to bring your own mobility routine if you have one, so the gap was always meant to be filled by you.',
+    'There are three to pick from in Setup now: ours, Joe DeFranco\u2019s Agile 8 at his own doses, and one you type in yourself, a movement per line with the dose after a comma.',
+    '90/90 breathing and the 90/90 hip switches are in all three whichever you pick.',
+    'The card, the guided walkthrough and session mode all follow whichever one you chose.']},
   {v:'3.21',date:'2026-10-19',title:'Easy weeks are actually easy now',items:[
     'TB2 has a rule for this: every third week, cut the number of rounds in half, lower the duration, and do not strain. The app was picking the lowest round count the format offers instead of halving \u2014 and for four of the seven interval formats the lowest is also the normal one, so your easy week was identical to a normal week while the card told you it had been eased off.',
     'Rounds are halved now. On a heavy lifting week a 8-round MAP session is 4, anaerobic is 3, threshold is 2, long is 3. TB2 puts the easy week on the heavy lifting weeks on purpose, which is where the app already had it.',

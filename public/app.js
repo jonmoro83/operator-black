@@ -1096,6 +1096,41 @@ const WARMUP=[
   {g:'Activate',n:'Band pull-aparts + shoulder dislocates',d:'15 each',s:1},
   {g:'Activate',n:'Glute bridge or bodyweight squat',d:'10 reps'}
 ];
+
+/* Asked for: whichever routine is running, these two are in it. They are already in
+   the list above, in their own positions, so that list is left exactly as it was and
+   every tick logged against it on a past day still lines up. The other routines get
+   them prepended. */
+const WARM_CORE=[
+  {g:'Always',n:'90/90 breathing (back, feet on bench or wall)',d:'5 breaths',s:1},
+  {g:'Always',n:'90/90 hip switches, seated',d:'10 switches',s:1}
+];
+/* Joe DeFranco's Agile 8, from his own "Training Rules for Washed-up Meatheads", with
+   his doses. Not Tactical Barbell and not ours -- the books prescribe no mobility
+   routine at all, and Ageless Athlete says to bring your own: "If you have a
+   flexibility or mobility protocol you like to follow (not a bad idea), incorporate
+   that as much as you like."
+
+   Copies of this routine differ. Several swap in frog jumps or a bent-knee iron cross;
+   the original has mountain climbers and no iron cross, so that is what is here. */
+const AGILE8=[
+  {g:'Roll',n:'Foam roll IT band',d:'10\u201315 passes per leg'},
+  {g:'Roll',n:'Foam roll adductors',d:'10\u201315 passes per leg'},
+  {g:'Roll',n:'Glute and piriformis release, tennis ball',d:'30 sec per side'},
+  {g:'Move',n:'Rollovers into V-sits',d:'10 reps'},
+  {g:'Move',n:'Fire hydrant circles',d:'10 forward + 10 back per leg'},
+  {g:'Move',n:'Mountain climbers',d:'20 total'},
+  {g:'Move',n:'Groiners',d:'10 reps, hold the last 10 sec'},
+  {g:'Stretch',n:'Static hip flexor stretch',d:'3 \u00d7 10 sec per leg'}
+];
+const WARM_ROUTINES={
+  ours:{name:'Ours',mins:'12\u201315 min',short:'7 min',items:()=>WARMUP,core:false,
+    note:'Built for this app, not taken from the books \u2014 none of them prescribe a mobility routine. Breathing and t-spine first, then hips, then something to switch the glutes on.'},
+  agile8:{name:'Agile 8',mins:'10\u201315 min',items:()=>AGILE8,
+    note:'Joe DeFranco\u2019s, from \u201cTraining Rules for Washed-up Meatheads\u201d, at his doses. Needs a foam roller and a tennis ball.'},
+  mine:{name:'Mine',mins:'',items:()=>warmMine(),
+    note:'Yours. One movement per line, dose after a comma.'}
+};
 // Mobility to finish each session. The program notes keep deep holds out of the warm-up
 // and put them after training, so each session type ends with what it actually loaded.
 const MOB={
@@ -3591,15 +3626,32 @@ function checkRow(bind,on,name,dose){
 }
 
 
+/* Which routine, and the list it comes to. `mine` is stored the way the mobility
+   lists are: an array of [name, dose] pairs edited as one textarea.
+
+   The core pair is prepended to everything except ours, which already contains it in
+   its own positions -- see WARM_CORE. Ticks are an index into whatever this returns,
+   so switching routine clears the day's ticks rather than leaving them pointing at
+   movements they were never ticked against. */
+function warmKey(){ const k=plan.warmRoutine; return WARM_ROUTINES[k]?k:'ours' }
+function warmMine(){ const a=plan.warmCustom; return Array.isArray(a)?a.filter(x=>x&&(Array.isArray(x)?x[0]:x)).map(x=>Array.isArray(x)?{n:x[0],d:x[1]||''}:{n:x,d:''}):[] }
+function warmRoutine(){ return WARM_ROUTINES[warmKey()] }
+function warmItems(){
+  const r=warmRoutine(), items=r.items()||[];
+  return r.core===false?items:WARM_CORE.concat(items);
+}
 function warmupCard(date){
-  const W=lg(date).warmup||[], short=!!lg(date).warmShort;
-  const idx=WARMUP.map((x,i)=>i).filter(i=>!short||WARMUP[i].s);
+  const W=lg(date).warmup||[], ITEMS=warmItems(), R=warmRoutine();
+  // A short version is the routine's to declare, not something inferred from the items:
+  // the core pair is marked short, so inferring it would offer an empty one on Agile 8.
+  const hasShort=!!R.short, short=hasShort&&!!lg(date).warmShort;
+  const idx=ITEMS.map((x,i)=>i).filter(i=>!short||ITEMS[i].s);
   const done=idx.filter(i=>W[i]).length;
   let rows='', g=null;
-  for(const i of idx){ const x=WARMUP[i]; if(x.g!==g){g=x.g;rows+=`<h4 class="sub-h">${esc(g)}</h4>`} rows+=checkRow('warmup.'+i,W[i],x.n,x.d); }
-  return `<details class="plain card" data-px="gwu"${openPx.has('gwu')?' open':''}><summary><b>Warm-up</b> · ${done} of ${idx.length} done · ${short?'7 min':'12–15 min'}</summary>
+  for(const i of idx){ const x=ITEMS[i]; if(x.g!==g){g=x.g;rows+=`<h4 class="sub-h">${esc(g)}</h4>`} rows+=checkRow('warmup.'+i,W[i],x.n,x.d); }
+  return `<details class="plain card" data-px="gwu"${openPx.has('gwu')?' open':''}><summary><b>Warm-up</b> \u00b7 ${esc(R.name)} \u00b7 ${done} of ${idx.length} done${short?' \u00b7 '+esc(R.short||''):(R.mins?' \u00b7 '+esc(R.mins):'')}</summary>
   <div class="stack" style="margin-top:10px">
-    <div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full · 12–15 min</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short · 7 min</button></div></div>
+    ${hasShort?`<div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full \u00b7 ${esc(R.mins)}</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short \u00b7 ${esc(R.short)}</button></div></div>`:''}
     ${rows}
     <div class="small muted">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
     <div class="row"><button class="btn" data-act="guide" data-k="warmup">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="wclear">Clear</button>`:''}</div>
@@ -4286,9 +4338,10 @@ const AIMS_LIFT = [
     } },
   { id: 'warmup', label: 'Do the full warm-up, not the short one', check(d) {
       const L = lg(d), flags = Array.isArray(L.warmup) ? L.warmup : [];
-      const idx = WARMUP.map((x, i) => i).filter(i => !L.warmShort || WARMUP[i].s);
+      const ITEMS = warmItems(), hasShort = !!warmRoutine().short;
+      const idx = ITEMS.map((x, i) => i).filter(i => !(hasShort && L.warmShort) || ITEMS[i].s);
       const got = idx.filter(i => flags[i]).length;
-      if (L.warmShort) return { ok: false, detail: `The short version, ${got} of ${idx.length}.` };
+      if (hasShort && L.warmShort) return { ok: false, detail: `The short version, ${got} of ${idx.length}.` };
       return { ok: got >= idx.length, detail: `${got} of ${idx.length}.` };
     } },
   { id: 'technique', label: 'Keep technique tight — no ugly reps' },
@@ -5089,8 +5142,10 @@ function wzFinish(){
 let guide=LS.get('ob.guide'), gdTick=null;
 function gdItems(kind,date){
   if(kind==='warmup'){
-    const short=!!lg(date).warmShort;
-    return WARMUP.map((x,i)=>({i,name:x.n,dose:x.d,grp:x.g})).filter(x=>!short||WARMUP[x.i].s);
+    // warmItems(), not WARMUP: the routine is a choice now, and the walkthrough has to
+    // walk the one that is selected or it contradicts the card it was opened from.
+    const I=warmItems(), short=!!warmRoutine().short&&!!lg(date).warmShort;
+    return I.map((x,i)=>({i,name:x.n,dose:x.d,grp:x.g})).filter(x=>!short||I[x.i].s);
   }
   return mobList(mobKind(dayPlan(date))).map(([nm,d],i)=>({i,name:nm,dose:d,grp:MOB[mobKind(dayPlan(date))].name}));
 }
@@ -5325,8 +5380,9 @@ function lsRender(){
   } else if(st.type==='pullups'){
     h+=`<div class="ls-card"><div class="ls-lift">Max pull-ups</div><div class="small muted">One all-out set, full hang to chin over bar.</div><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-pu" data-lsin="pullups" value="${lg(ls.date).pullups??''}"></label></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
   } else if(st.type==='gwarm'||st.type==='mob'){
-    const isW=st.type==='gwarm', short=!!lg(ls.date).warmShort;
-    const items=isW?WARMUP.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||WARMUP[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
+    const isW=st.type==='gwarm', W=warmItems();
+    const short=!!warmRoutine().short&&!!lg(ls.date).warmShort;
+    const items=isW?W.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||W[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
     const flags=(isW?lg(ls.date).warmup:lg(ls.date).mobility)||[], done=items.filter(([i])=>flags[i]).length;
     h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
       <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
@@ -6662,7 +6718,7 @@ async function exportCsv(which){
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','supps','suppCustom','stempl','cproto'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','supps','suppCustom','warmRoutine','warmCustom','stempl','cproto'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -6759,6 +6815,26 @@ function accSetupCard(){
 
   const legacy=Object.values(plan.acc||{}).some(a=>Array.isArray(a)&&a.length);
   if(legacy) h+=`<div class="banner info"><div class="small">Your old typed-in accessory lists have been replaced by the jobs above. Nothing was lost \u2014 they are still in your plan, and what you ticked on past days still shows on those days.</div></div>`;
+  return h+`</div>`;
+}
+
+/* The books prescribe no mobility routine. TB1's warm-up is ten minutes of jogging or
+   skipping plus warm-up sets; TB3 says to do warm-up sets as required, and to stretch
+   a little longer if you are sore. Ageless Athlete is the only one to raise the
+   subject and it hands the choice over: "If you have a flexibility or mobility
+   protocol you like to follow (not a bad idea), incorporate that as much as you like."
+   So this card offers a choice rather than a prescription, and says whose each one is. */
+function warmSetupCard(){
+  const cur=warmKey();
+  const lines=warmMine().map(x=>x.d?x.n+', '+x.d:x.n).join('\n');
+  let h=`<div class="card"><h2>Warm-up</h2>
+  <p class="small muted" style="margin:0">None of the four books prescribe a mobility routine \u2014 TB1 asks for ten minutes of easy work and your warm-up sets, and <i>Ageless Athlete</i> says to bring a protocol of your own if you have one. So pick one.</p>
+  <div class="seg wide">${Object.entries(WARM_ROUTINES).map(([k,r])=>`<button class="segb" data-act="warmroutine" data-v="${k}" aria-pressed="${k===cur}">${esc(r.name)}</button>`).join('')}</div>
+  <div class="small muted">${esc(WARM_ROUTINES[cur].note)}</div>`;
+  if(cur==='mine') h+=`<label class="f">Your warm-up<textarea id="warm-mine" data-warmmine rows="8" placeholder="Bike or rower, 5 min\nHip airplane, 8 per side">${esc(lines)}</textarea></label>`;
+  h+=`<div class="small muted"><b>90/90 breathing</b> and <b>90/90 hip switches</b> are in every one of these, including yours \u2014 they are the two we keep whatever else changes.</div>`;
+  const items=warmItems();
+  h+=`<div class="small muted">${items.length} movement${items.length===1?'':'s'}: ${esc(items.map(x=>x.n).join(' \u00b7 '))}</div>`;
   return h+`</div>`;
 }
 
@@ -7259,6 +7335,7 @@ function vSetup(){
   h+=SEC('training')+`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=SEC('you')+suppSetupCard();
+  h+=SEC('training')+warmSetupCard();
   h+=SEC('training')+accSetupCard();
   h+=SEC('training')+bandsCard();
   h+=SEC('training')+`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
@@ -7989,6 +8066,12 @@ document.addEventListener('input',e=>{
   if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
   if(t.dataset.suppnew){ suppNew[t.dataset.suppnew]=t.value; render(); return; }
+  if(t.hasAttribute&&t.hasAttribute('data-warmmine')){
+    // Same shape as the mobility lists: "movement, dose" a line.
+    const rows=t.value.split('\n').map(l=>l.trim()).filter(Boolean)
+      .map(l=>{const i=l.indexOf(',');return i<0?[l,'']:[l.slice(0,i).trim(),l.slice(i+1).trim()]});
+    setPlan('warmCustom',rows); return;
+  }
   if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
@@ -8146,6 +8229,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='accmineRm'){
     const id=b.dataset.id;
     mutatePlan(p=>{p.accCustom=(Array.isArray(p.accCustom)?p.accCustom:[]).filter(x=>x&&x.id!==id)});
+    return}
+  if(a==='warmroutine'){
+    // Ticks are an index into the routine's own list, so they do not survive a swap.
+    if(b.dataset.v!==warmKey()) setLog(sel,'warmup',null);
+    mutatePlan(p=>{p.warmRoutine=b.dataset.v});
     return}
   if(a==='suppadd'){
     const name=(suppNew.name||'').trim(); if(!name) return;

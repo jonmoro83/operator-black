@@ -10,6 +10,12 @@ document.addEventListener('input',e=>{
   if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
   if(t.dataset.suppnew){ suppNew[t.dataset.suppnew]=t.value; render(); return; }
+  if(t.hasAttribute&&t.hasAttribute('data-warmmine')){
+    // Same shape as the mobility lists: "movement, dose" a line.
+    const rows=t.value.split('\n').map(l=>l.trim()).filter(Boolean)
+      .map(l=>{const i=l.indexOf(',');return i<0?[l,'']:[l.slice(0,i).trim(),l.slice(i+1).trim()]});
+    setPlan('warmCustom',rows); return;
+  }
   if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
@@ -167,6 +173,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='accmineRm'){
     const id=b.dataset.id;
     mutatePlan(p=>{p.accCustom=(Array.isArray(p.accCustom)?p.accCustom:[]).filter(x=>x&&x.id!==id)});
+    return}
+  if(a==='warmroutine'){
+    // Ticks are an index into the routine's own list, so they do not survive a swap.
+    if(b.dataset.v!==warmKey()) setLog(sel,'warmup',null);
+    mutatePlan(p=>{p.warmRoutine=b.dataset.v});
     return}
   if(a==='suppadd'){
     const name=(suppNew.name||'').trim(); if(!name) return;

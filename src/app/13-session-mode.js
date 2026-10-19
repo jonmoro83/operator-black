@@ -138,8 +138,9 @@ function lsRender(){
   } else if(st.type==='pullups'){
     h+=`<div class="ls-card"><div class="ls-lift">Max pull-ups</div><div class="small muted">One all-out set, full hang to chin over bar.</div><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-pu" data-lsin="pullups" value="${lg(ls.date).pullups??''}"></label></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
   } else if(st.type==='gwarm'||st.type==='mob'){
-    const isW=st.type==='gwarm', short=!!lg(ls.date).warmShort;
-    const items=isW?WARMUP.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||WARMUP[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
+    const isW=st.type==='gwarm', W=warmItems();
+    const short=!!warmRoutine().short&&!!lg(ls.date).warmShort;
+    const items=isW?W.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||W[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
     const flags=(isW?lg(ls.date).warmup:lg(ls.date).mobility)||[], done=items.filter(([i])=>flags[i]).length;
     h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
       <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>

@@ -5,8 +5,10 @@
 let guide=LS.get('ob.guide'), gdTick=null;
 function gdItems(kind,date){
   if(kind==='warmup'){
-    const short=!!lg(date).warmShort;
-    return WARMUP.map((x,i)=>({i,name:x.n,dose:x.d,grp:x.g})).filter(x=>!short||WARMUP[x.i].s);
+    // warmItems(), not WARMUP: the routine is a choice now, and the walkthrough has to
+    // walk the one that is selected or it contradicts the card it was opened from.
+    const I=warmItems(), short=!!warmRoutine().short&&!!lg(date).warmShort;
+    return I.map((x,i)=>({i,name:x.n,dose:x.d,grp:x.g})).filter(x=>!short||I[x.i].s);
   }
   return mobList(mobKind(dayPlan(date))).map(([nm,d],i)=>({i,name:nm,dose:d,grp:MOB[mobKind(dayPlan(date))].name}));
 }

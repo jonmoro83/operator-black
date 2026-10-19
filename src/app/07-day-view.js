@@ -295,15 +295,32 @@ function checkRow(bind,on,name,dose){
 }
 
 
+/* Which routine, and the list it comes to. `mine` is stored the way the mobility
+   lists are: an array of [name, dose] pairs edited as one textarea.
+
+   The core pair is prepended to everything except ours, which already contains it in
+   its own positions -- see WARM_CORE. Ticks are an index into whatever this returns,
+   so switching routine clears the day's ticks rather than leaving them pointing at
+   movements they were never ticked against. */
+function warmKey(){ const k=plan.warmRoutine; return WARM_ROUTINES[k]?k:'ours' }
+function warmMine(){ const a=plan.warmCustom; return Array.isArray(a)?a.filter(x=>x&&(Array.isArray(x)?x[0]:x)).map(x=>Array.isArray(x)?{n:x[0],d:x[1]||''}:{n:x,d:''}):[] }
+function warmRoutine(){ return WARM_ROUTINES[warmKey()] }
+function warmItems(){
+  const r=warmRoutine(), items=r.items()||[];
+  return r.core===false?items:WARM_CORE.concat(items);
+}
 function warmupCard(date){
-  const W=lg(date).warmup||[], short=!!lg(date).warmShort;
-  const idx=WARMUP.map((x,i)=>i).filter(i=>!short||WARMUP[i].s);
+  const W=lg(date).warmup||[], ITEMS=warmItems(), R=warmRoutine();
+  // A short version is the routine's to declare, not something inferred from the items:
+  // the core pair is marked short, so inferring it would offer an empty one on Agile 8.
+  const hasShort=!!R.short, short=hasShort&&!!lg(date).warmShort;
+  const idx=ITEMS.map((x,i)=>i).filter(i=>!short||ITEMS[i].s);
   const done=idx.filter(i=>W[i]).length;
   let rows='', g=null;
-  for(const i of idx){ const x=WARMUP[i]; if(x.g!==g){g=x.g;rows+=`<h4 class="sub-h">${esc(g)}</h4>`} rows+=checkRow('warmup.'+i,W[i],x.n,x.d); }
-  return `<details class="plain card" data-px="gwu"${openPx.has('gwu')?' open':''}><summary><b>Warm-up</b> · ${done} of ${idx.length} done · ${short?'7 min':'12–15 min'}</summary>
+  for(const i of idx){ const x=ITEMS[i]; if(x.g!==g){g=x.g;rows+=`<h4 class="sub-h">${esc(g)}</h4>`} rows+=checkRow('warmup.'+i,W[i],x.n,x.d); }
+  return `<details class="plain card" data-px="gwu"${openPx.has('gwu')?' open':''}><summary><b>Warm-up</b> \u00b7 ${esc(R.name)} \u00b7 ${done} of ${idx.length} done${short?' \u00b7 '+esc(R.short||''):(R.mins?' \u00b7 '+esc(R.mins):'')}</summary>
   <div class="stack" style="margin-top:10px">
-    <div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full · 12–15 min</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short · 7 min</button></div></div>
+    ${hasShort?`<div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full \u00b7 ${esc(R.mins)}</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short \u00b7 ${esc(R.short)}</button></div></div>`:''}
     ${rows}
     <div class="small muted">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
     <div class="row"><button class="btn" data-act="guide" data-k="warmup">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="wclear">Clear</button>`:''}</div>

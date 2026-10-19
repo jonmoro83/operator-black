@@ -191,6 +191,43 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The warm-up is a choice now, and says whose it is (2026-10-19)**
+- Asked how we decided the warm-up. We did not — **it is entirely ours**, and nothing
+  said so. None of the fourteen movements appears in any of the four books: zero hits
+  for 90/90, couch stretch, cat/cow, thread the needle, open book, world's greatest
+  stretch. It predates the source-file split, so no commit explains it either.
+- What the books give: TB1 a general temperature raise and warm-up *sets* (*"Kane jogs
+  slowly on the treadmill for about ten minutes"*), TB3 *"do warm-up sets as
+  required"* plus stretch longer if sore, TB2 nothing. Ageless Athlete is the only one
+  to raise the subject and it hands the choice over: *"If you have a flexibility or
+  mobility protocol you like to follow (not a bad idea), incorporate that as much as
+  you like."* So ours contradicts nothing — it fills a gap the books leave open on
+  purpose, which AA sanctions. It just never said so.
+- **Three routines**: ours, DeFranco's Agile 8, and your own. Setup picks one and the
+  card names it.
+- **Agile 8 is the original**, from *Training Rules for Washed-up Meatheads*, at his
+  doses. Checked against three sources because copies disagree: several swap in frog
+  jumps or a bent-knee iron cross, and the first page I found had frog jumps. The
+  original has mountain climbers and neither of those. A test fails if a variant's
+  movement drifts in.
+- **90/90 breathing and the hip switches are in every routine**, by request. Ours
+  already contains them in their own positions, so that list is byte-identical and
+  every tick logged against it on a past day still lines up; the other two get them
+  prepended.
+- **Your own** is stored like the mobility lists — one movement per line, dose after
+  a comma. No dose guidance and no short version invented for it.
+- The short version belongs to the routine, not to whichever items carry the flag: the
+  core pair is marked short, so inferring it would have offered Agile 8 an empty
+  *"Short · "* button.
+- **Four readers, all moved together**: the card, the guided walkthrough, session mode
+  and the warm-up aim. A test asserts they agree, because the heavy-week rule shipped
+  broken from being fixed in one of its three homes.
+- Switching routine clears the day's ticks, since they are an index into the list.
+- Agile 8's movements have no entry in the movement library, so they carry no cue
+  panel. Deliberate: writing coaching cues for someone else's routine would be
+  inventing them.
+- Five tests, six mutants, all caught.
+
 **The Easy Week Principle, at the book's number (2026-10-19)**
 - TB2, under *Black Protocol — Easy Week Principle*: "Every third week, (3, 6, 9)
   make your conditioning sessions easy. **Cut the number of rounds in half**, lower

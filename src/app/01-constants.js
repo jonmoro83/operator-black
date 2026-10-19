@@ -477,6 +477,41 @@ const WARMUP=[
   {g:'Activate',n:'Band pull-aparts + shoulder dislocates',d:'15 each',s:1},
   {g:'Activate',n:'Glute bridge or bodyweight squat',d:'10 reps'}
 ];
+
+/* Asked for: whichever routine is running, these two are in it. They are already in
+   the list above, in their own positions, so that list is left exactly as it was and
+   every tick logged against it on a past day still lines up. The other routines get
+   them prepended. */
+const WARM_CORE=[
+  {g:'Always',n:'90/90 breathing (back, feet on bench or wall)',d:'5 breaths',s:1},
+  {g:'Always',n:'90/90 hip switches, seated',d:'10 switches',s:1}
+];
+/* Joe DeFranco's Agile 8, from his own "Training Rules for Washed-up Meatheads", with
+   his doses. Not Tactical Barbell and not ours -- the books prescribe no mobility
+   routine at all, and Ageless Athlete says to bring your own: "If you have a
+   flexibility or mobility protocol you like to follow (not a bad idea), incorporate
+   that as much as you like."
+
+   Copies of this routine differ. Several swap in frog jumps or a bent-knee iron cross;
+   the original has mountain climbers and no iron cross, so that is what is here. */
+const AGILE8=[
+  {g:'Roll',n:'Foam roll IT band',d:'10\u201315 passes per leg'},
+  {g:'Roll',n:'Foam roll adductors',d:'10\u201315 passes per leg'},
+  {g:'Roll',n:'Glute and piriformis release, tennis ball',d:'30 sec per side'},
+  {g:'Move',n:'Rollovers into V-sits',d:'10 reps'},
+  {g:'Move',n:'Fire hydrant circles',d:'10 forward + 10 back per leg'},
+  {g:'Move',n:'Mountain climbers',d:'20 total'},
+  {g:'Move',n:'Groiners',d:'10 reps, hold the last 10 sec'},
+  {g:'Stretch',n:'Static hip flexor stretch',d:'3 \u00d7 10 sec per leg'}
+];
+const WARM_ROUTINES={
+  ours:{name:'Ours',mins:'12\u201315 min',short:'7 min',items:()=>WARMUP,core:false,
+    note:'Built for this app, not taken from the books \u2014 none of them prescribe a mobility routine. Breathing and t-spine first, then hips, then something to switch the glutes on.'},
+  agile8:{name:'Agile 8',mins:'10\u201315 min',items:()=>AGILE8,
+    note:'Joe DeFranco\u2019s, from \u201cTraining Rules for Washed-up Meatheads\u201d, at his doses. Needs a foam roller and a tennis ball.'},
+  mine:{name:'Mine',mins:'',items:()=>warmMine(),
+    note:'Yours. One movement per line, dose after a comma.'}
+};
 // Mobility to finish each session. The program notes keep deep holds out of the warm-up
 // and put them after training, so each session type ends with what it actually loaded.
 const MOB={

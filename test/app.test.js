@@ -7265,3 +7265,84 @@ test("the easy week reaches the session, not just the helper", () => {
   a.equal(x.ivOpts(hd, hf).rounds, Math.max(1, Math.round(x.ivOpts(ld, hf).rounds / 2)),
     "and it is half, for the same format");
 });
+
+// --- warm-up routines --------------------------------------------------------------
+test("90/90 breathing and hip switches are in every routine, whichever is picked", () => {
+  const x = app({});
+  for (const k of Object.keys(x.WARM_ROUTINES)) {
+    x.plan.warmRoutine = k;
+    if (k === "mine") x.plan.warmCustom = [["Hip airplane", "8 per side"]];
+    x.bump();
+    const names = x.warmItems().map((i) => i.n);
+    a.ok(names.some((n) => /90\/90 breathing/.test(n)), `${k} has 90/90 breathing`);
+    a.ok(names.some((n) => /90\/90 hip switches/.test(n)), `${k} has the hip switches`);
+    a.equal(new Set(names).size, names.length, `${k} lists nothing twice`);
+  }
+});
+
+test("Agile 8 is DeFranco's, at his doses, and is not claimed as the book's", () => {
+  const x = app({});
+  const names = x.AGILE8.map((i) => i.n).join(" | ");
+  // The original, from "Training Rules for Washed-up Meatheads". Copies of this routine
+  // differ: several swap in frog jumps or a bent-knee iron cross. The original has
+  // mountain climbers and neither of those, so a copy drifting in should fail here.
+  a.equal(x.AGILE8.length, 8, "eight, as the name says");
+  for (const m of ["Foam roll IT band", "Foam roll adductors", "Rollovers into V-sits",
+    "Fire hydrant circles", "Mountain climbers", "Groiners"])
+    a.ok(names.includes(m), `${m} is in it`);
+  a.ok(!/frog jump|iron cross/i.test(names), "and the variants' movements are not");
+  const dose = (n) => x.AGILE8.find((i) => i.n.includes(n)).d;
+  a.match(dose("Rollovers"), /^10 reps$/);
+  a.match(dose("Mountain climbers"), /^20 total$/);
+  a.match(dose("Groiners"), /10 reps, hold the last 10 sec/);
+  a.match(dose("Static hip flexor"), /3 × 10 sec per leg/);
+  a.match(x.WARM_ROUTINES.agile8.note, /DeFranco/, "attributed to him, not to the books");
+  for (const i of x.AGILE8) a.ok(i.d, `${i.n} carries its dose`);
+});
+
+test("your own warm-up is yours, parsed the way the mobility lists are", () => {
+  const x = app({});
+  x.plan.warmRoutine = "mine";
+  x.plan.warmCustom = [["Hip airplane", "8 per side"], ["Dead hang", ""], null, ["", "x"]];
+  x.bump();
+  const mine = x.warmMine();
+  a.deepEqual(mine.map((i) => i.n), ["Hip airplane", "Dead hang"], "blanks are dropped");
+  a.equal(mine[0].d, "8 per side");
+  a.equal(mine[1].d, "", "a movement with no dose is still a movement");
+  a.equal(x.warmItems().length, 4, "two of yours on top of the two that are always there");
+  // Nothing is invented for it: no dose guidance, no short version.
+  a.equal(x.WARM_ROUTINES.mine.short, undefined);
+});
+
+test("a short version belongs to the routine, not to whichever items are flagged", () => {
+  const x = app({});
+  // The core pair is marked short, so inferring from the items would offer Agile 8 an
+  // empty "Short · " button.
+  a.ok(x.WARM_CORE.every((i) => i.s), "the core pair is in the short version");
+  a.equal(x.WARM_ROUTINES.ours.short, "7 min");
+  a.equal(x.WARM_ROUTINES.agile8.short, undefined);
+  x.plan.warmRoutine = "agile8"; x.bump();
+  const card = x.warmupCard("2026-11-11");
+  a.ok(!/Short · <\/button>|Short · "/.test(card), "no empty short button");
+  a.ok(!/data-act="wshort"/.test(card), "and no version toggle at all");
+  x.plan.warmRoutine = "ours"; x.bump();
+  a.match(x.warmupCard("2026-11-11"), /data-act="wshort"/, "ours still has one");
+});
+
+/* The heavy-week rule was fixed in one of its three homes and shipped broken. The
+   warm-up list has four readers, so this asserts they agree rather than trusting that
+   I found them all. */
+test("every reader of the warm-up walks the routine that is selected", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.warmRoutine = "agile8";
+  x.bump();
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays("2026-11-09", i))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  x.sel = d;
+  const want = x.warmItems().map((i) => i.n);
+  a.deepEqual(x.gdItems("warmup", d).map((i) => i.name), want, "the guided walkthrough");
+  const card = x.warmupCard(d);
+  for (const n of want) a.ok(card.includes(esc0(n)), `the card lists ${n}`);
+  a.ok(!card.includes("Couch stretch"), "and nothing from the routine that is not picked");
+});
+function esc0(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") }

@@ -27,9 +27,10 @@ const AIMS_LIFT = [
     } },
   { id: 'warmup', label: 'Do the full warm-up, not the short one', check(d) {
       const L = lg(d), flags = Array.isArray(L.warmup) ? L.warmup : [];
-      const idx = WARMUP.map((x, i) => i).filter(i => !L.warmShort || WARMUP[i].s);
+      const ITEMS = warmItems(), hasShort = !!warmRoutine().short;
+      const idx = ITEMS.map((x, i) => i).filter(i => !(hasShort && L.warmShort) || ITEMS[i].s);
       const got = idx.filter(i => flags[i]).length;
-      if (L.warmShort) return { ok: false, detail: `The short version, ${got} of ${idx.length}.` };
+      if (hasShort && L.warmShort) return { ok: false, detail: `The short version, ${got} of ${idx.length}.` };
       return { ok: got >= idx.length, detail: `${got} of ${idx.length}.` };
     } },
   { id: 'technique', label: 'Keep technique tight — no ugly reps' },
