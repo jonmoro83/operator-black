@@ -593,6 +593,27 @@ Leave suggestions empty if you have none worth acting on. Never pad it.`;
 /* What the coach is told about the person. Deliberately a summary rather than the raw
    log: the whole history is far more than the question needs, costs more to send, and
    buries the few facts that matter. */
+/* The client holds the supplement catalogue; the Worker only needs the names, so that
+   the coach can say "creatine" rather than read out an id. Anything not in here came
+   from the user's own list and its name travels with it in plan.suppCustom. */
+const SUPP_NAMES = {
+  creatine: "creatine monohydrate", protein: "protein powder", multi: "multivitamin",
+  caffeine: "caffeine", citrulline: "citrulline malate", magnesium: "magnesium",
+  beets: "beets or TMG", electrolyte: "electrolytes",
+};
+function suppsFor(plan, logs, days) {
+  const taking = plan.supps || {};
+  const mine = Array.isArray(plan.suppCustom) ? plan.suppCustom : [];
+  const ids = Object.keys(taking).filter((k) => taking[k]);
+  if (!ids.length) return null;
+  return ids.map((id) => ({
+    name: SUPP_NAMES[id] || (mine.find((x) => x && x.id === id) || {}).name || id,
+    // Said so the model does not treat a supplement the user added as book-prescribed.
+    fromTheBooks: !!SUPP_NAMES[id],
+    daysTakenOfLast: days.filter((d) => (((logs[d] || {}).supps) || {})[id]).length,
+  }));
+}
+
 async function coachState(env, user) {
   const all = await readAll(env, user);
   const plan = all.plan || {}, logs = all.logs || {};
@@ -650,6 +671,8 @@ async function coachState(env, user) {
     kcalDaysLogged: kcals.length,
     macroTarget: macroTargetFor(plan, bw),
     macroMean: tidy({ protein: gramMean("protein"), carbs: gramMean("carbs"), fat: gramMean("fat") }),
+    supplements: suppsFor(plan, logs, days),
+    supplementWindow: days.length,
     template: plan.stempl || "operator",
     protocol: plan.cproto || "black",
     startMonday: plan.startMonday || null,

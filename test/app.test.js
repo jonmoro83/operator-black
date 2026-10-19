@@ -2907,7 +2907,7 @@ test("an input that survives a re-render has an id, or the caret jumps out of it
   const src = files.map((f) => fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8")).join("\n");
 
   // Attributes whose handler calls render(). Keep this list in step with 22-events.js.
-  const RERENDERS = ["data-bind", "data-pbind", "data-adminconfirm", "data-accnew", "data-cmax", "data-calc"];
+  const RERENDERS = ["data-bind", "data-pbind", "data-adminconfirm", "data-accnew", "data-suppnew", "data-cmax", "data-calc"];
   const bad = [];
   for (const tag of src.match(/<(?:input|select|textarea)\b[^>]*>/g) || []) {
     if (!RERENDERS.some((d) => tag.includes(d + "=") || tag.includes(d + " ") || tag.includes(d + ">"))) continue;
@@ -6918,4 +6918,109 @@ test("the accessory card carries the comparison into the session", () => {
   x.seed({ [prev]: { date: prev, done: true, acc: { sets: { [slot]: [{ w: 50, r: 12 }] } } } });
   x.bump();
   a.match(x.accSlotRow(today, slot), /Last time/, "the row the session renders shows it");
+});
+
+// --- supplements -------------------------------------------------------------------
+function supps(o) {
+  const x = app(o || { now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  return x;
+}
+
+test("the supplement list is the books', with the doses they give", () => {
+  const x = supps();
+  // Every entry names its source and gives the book's own dose. Nothing is ours.
+  for (const [id, s] of Object.entries(x.SUPP)) {
+    a.ok(s.name && s.dose && s.src, `${id} is fully attributed`);
+    a.match(s.src, /^TB[23]/, `${id} comes from a book`);
+    a.ok(s.lvl === 1 || s.lvl === 2, `${id} has the book's level`);
+    a.ok(["daily", "pre"].includes(s.when), `${id} says when`);
+  }
+  a.match(x.SUPP.creatine.dose, /5 to 10 g/, "TB3's creatine dose");
+  a.match(x.SUPP.citrulline.dose, /4 to 6 g, 30 to 45 minutes before/, "TB3's citrulline dose and window");
+  a.match(x.SUPP.magnesium.dose, /200 to 300 mg/, "TB3's magnesium dose");
+});
+
+test("TB3's Level 1 is mandatory for building mass, and says so only then", () => {
+  const x = supps();
+  x.plan.stempl = "mass"; x.bump();
+  a.equal(x.suppCtx(), "mass");
+  a.match(x.suppStanding("creatine"), /Level 1 — the book calls it mandatory/);
+
+  // The same supplement on an Operator cycle: on offer, but the book did not
+  // prescribe it for what you are running, and the card does not pretend otherwise.
+  x.plan.stempl = "operator"; x.bump();
+  a.equal(x.suppCtx(), "cond");
+  a.match(x.suppStanding("creatine"), /for building mass/);
+  a.ok(!/mandatory/.test(x.suppStanding("creatine")), "not claimed as mandatory off the mass list");
+  // TB2's conditioning entries are the ones that apply instead.
+  a.match(x.suppStanding("beets"), /TB2 Level 2/);
+  a.ok(!/for a conditioning load/.test(x.suppStanding("beets")), "and they are in context here");
+});
+
+test("your own supplements carry no dose, because the books do not give one", () => {
+  const x = supps();
+  x.plan.suppCustom = [{ id: "mine-fish-oil-1", name: "Fish oil", when: "daily" }];
+  x.plan.supps = { "mine-fish-oil-1": true };
+  x.bump();
+  const e = x.suppAll()["mine-fish-oil-1"];
+  a.equal(e.name, "Fish oil");
+  a.equal(e.mine, true);
+  a.equal(e.dose, undefined, "no dose invented");
+  a.equal(e.lvl, undefined, "and no level claimed");
+  a.deepEqual(x.suppOn("daily"), ["mine-fish-oil-1"]);
+  const card = x.suppSetupCard();
+  a.match(card, /Fish oil/);
+  a.match(card, /books do not cover/, "and the card says why there is no dose");
+});
+
+test("pre-training supplements are on the session, daily ones in the day's log", () => {
+  const x = supps();
+  x.plan.supps = { creatine: true, caffeine: true, citrulline: true };
+  x.bump();
+  a.deepEqual(x.suppOn("daily"), ["creatine"]);
+  a.deepEqual(x.suppOn("pre"), ["caffeine", "citrulline"]);
+  const pre = x.suppCard("2026-11-11", "pre");
+  a.match(pre, /20 to 30 minutes before training/, "the window travels with it");
+  a.ok(!/Creatine/.test(pre), "the daily one is not on the session card");
+  a.ok(!/Caffeine/.test(x.suppCard("2026-11-11", "daily")), "and the reverse");
+  a.equal(x.suppCard("2026-11-11", "pre") && x.suppOn("pre").length > 0, true);
+});
+
+test("nothing ticked means no supplement cards at all", () => {
+  const x = supps();
+  a.equal(x.suppCard("2026-11-11", "daily"), "");
+  a.equal(x.suppCard("2026-11-11", "pre"), "");
+});
+
+test("creatine is counted as a run of days, which is what TB3 cares about", () => {
+  const now = "2026-11-11";
+  const x = supps({ now });
+  x.plan.supps = { creatine: true };
+  const s = {};
+  for (let i = 1; i <= 20; i++) { const d = x.addDays(now, -i); s[d] = { date: d, supps: { creatine: true } } }
+  x.seed(s); x.bump();
+  a.equal(x.suppStreak(now, "creatine"), 20, "today is still open, so it does not break the run");
+  x.seed({ [now]: { date: now, supps: { creatine: true } } }); x.bump();
+  a.equal(x.suppStreak(now, "creatine"), 21, "and ticking today extends it");
+
+  // One skipped day ends the run, because a skipped dose is the thing the book warns about.
+  const gap = x.addDays(now, -5);
+  x.seed({ [gap]: { date: gap, supps: {} } }); x.bump();
+  a.equal(x.suppStreak(now, "creatine"), 5, "the run is only as long as the unbroken tail");
+  a.match(x.suppCard(now, "daily"), /5 days.*unbroken/, "and the card says it");
+  a.match(x.suppCard(now, "daily"), /month or two without skipping/, "with the book's reason");
+});
+
+test("a supplement you stop offering keeps the days you already logged it on", () => {
+  const now = "2026-11-11";
+  const x = supps({ now });
+  x.plan.suppCustom = [{ id: "mine-x", name: "Fish oil", when: "daily" }];
+  x.plan.supps = { "mine-x": true };
+  x.seed({ [now]: { date: now, supps: { "mine-x": true } } }); x.bump();
+  a.equal(x.suppTook(now, "mine-x"), true);
+  // What removing it from Setup does, without going through the click handler.
+  x.plan.suppCustom = []; delete x.plan.supps["mine-x"]; x.bump();
+  a.deepEqual(x.suppOn("daily"), [], "no longer offered");
+  a.equal(x.suppTook(now, "mine-x"), true, "but the day it was taken still says so");
 });

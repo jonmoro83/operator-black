@@ -191,6 +191,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Supplements, out of the books (2026-10-19)**
+- Asked for, and the books turned it from a checkbox list into something with content:
+  TB3 has a whole Supplements chapter with Level 1 and Level 2, doses and timing, and
+  TB2 has its own list for carrying a conditioning load. TB1 prescribes none and AA
+  names the practice without naming products, so neither adds an entry.
+- **Level 1 is mandatory only in the context it was written for.** TB3's list is
+  explicitly "in the context of building mass", so on a mass template creatine reads
+  *the book calls it mandatory* and on an Operator cycle it reads *TB3 Level 1, for
+  building mass* — on offer, not prescribed. TB2's conditioning entries swap in.
+- **Free text, by request.** Anything the books do not cover goes in a list of yours,
+  marked *Yours*, with no dose and no level, because inventing either would be putting
+  words in the book's mouth. The card says that is why.
+- **Pre-training ones are on the session card**, not the check-in: caffeine and
+  citrulline have windows in front of training (20–30 and 30–45 minutes) and a tick
+  in the evening would mean nothing.
+- **Creatine gets a streak** because that is what the book ties it to: *"you won't
+  know you're a non-responder unless you try it for at least a month or two without
+  skipping doses."* Today does not break the run until the day is over.
+- The physician caveat is carried through from the book rather than dropped.
+- The coach sees what you take and how many of the last 28 days you actually took it,
+  with names rather than ids, and a flag saying whether each came from the books — so
+  it cannot hand your own supplement back to you as the book's advice.
+- Removing one from Setup stops it being offered and leaves the days you already
+  logged it on alone.
+- Ten tests across both suites, eight mutants, all caught.
+
 **Last time, next to this time (2026-10-19)**
 - Accessory sets were logged and never read back, so every session started from
   nothing and progressive overload was a memory exercise. Each slot now carries one

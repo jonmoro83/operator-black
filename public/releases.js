@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.17',date:'2026-10-19',title:'Supplements, with the books\u2019 doses',items:[
+    'Tactical Barbell III has a whole chapter on this and TB2 has its own list for conditioning, so the list in Setup is theirs, doses and timing included. Tick what you take and it shows up where you can tick it off.',
+    'Level 1 is only mandatory in the context the book wrote it for. On a mass template creatine says the book calls it mandatory. On an Operator cycle it says it is TB3 Level 1 for building mass, which is on offer rather than prescribed, and TB2\u2019s conditioning list takes its place.',
+    'You can add your own. Those are marked as yours and carry no dose, because the books do not give one for them and the app should not make one up.',
+    'Caffeine and citrulline sit on the session card instead of the check-in, since both have a window in front of training. Creatine gets a run of unbroken days, because the book\u2019s point about it is the doses you do not skip.',
+    'The coach can see what you take and how often you actually take it, and knows which came from the books and which are yours.']},
   {v:'3.16',date:'2026-10-19',title:'Accessories remember last time',items:[
     'You have been logging accessory reps and weights and nothing ever read them back, so every session started from a blank slate. Each accessory now shows one line above its sets: what you did the last time you did that movement, and when.',
     'It matches on the movement rather than the slot. If you swapped the lat pulldown for a chin-up, it shows nothing rather than showing you the pulldown numbers to chase.',

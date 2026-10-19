@@ -9,6 +9,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.coachq){ coach.q=t.value; const btn=document.querySelector('[data-act="coachask"]'); if(btn) btn.disabled=!t.value.trim()||coach.busy; return; }
   if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
+  if(t.dataset.suppnew){ suppNew[t.dataset.suppnew]=t.value; render(); return; }
   if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
@@ -166,6 +167,19 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='accmineRm'){
     const id=b.dataset.id;
     mutatePlan(p=>{p.accCustom=(Array.isArray(p.accCustom)?p.accCustom:[]).filter(x=>x&&x.id!==id)});
+    return}
+  if(a==='suppadd'){
+    const name=(suppNew.name||'').trim(); if(!name) return;
+    const id='mine-'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)+'-'+Math.random().toString(36).slice(2,6);
+    const when=suppNew.when==='pre'?'pre':'daily';
+    // Added means taken: nobody types a supplement in to leave it unticked.
+    mutatePlan(p=>{p.suppCustom=[...(Array.isArray(p.suppCustom)?p.suppCustom:[]),{id,name,when}];p.supps=Object.assign({},p.supps||{},{[id]:true})});
+    suppNew={name:'',when}; render();
+    return}
+  if(a==='supprm'){
+    const id=b.dataset.id;
+    // The days you already logged it on keep it; this only stops it being offered.
+    mutatePlan(p=>{p.suppCustom=(Array.isArray(p.suppCustom)?p.suppCustom:[]).filter(x=>x&&x.id!==id);if(p.supps)delete p.supps[id]});
     return}
   if(a==='accdone'){
     const sl=b.dataset.slot;

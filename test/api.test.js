@@ -1696,3 +1696,51 @@ test("the Worker's macro formula is the app's, and a test says so out loud", asy
   a.deepEqual([theirs.protein, theirs.carbs, theirs.fat], [mine.p, mine.c, mine.f], "same grams");
   a.equal(theirs.kcal, mine.kcal, "same calories");
 });
+
+test("the coach sees what you take and how often you actually take it", async () => {
+  const k = await setupKeys();
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main",
+    data: JSON.stringify({ unit: "lb",
+      supps: { creatine: true, caffeine: true, "mine-fish-1": true, magnesium: false },
+      suppCustom: [{ id: "mine-fish-1", name: "Fish oil", when: "daily" }] }), updated_at: 1 });
+  // Creatine every day, caffeine on two of them, fish oil never.
+  const days = ["2026-10-12", "2026-10-13", "2026-10-14"];
+  days.forEach((d, i) => env.DB.docs.push({ user: "lifter@example.com", path: "logs/" + d,
+    data: JSON.stringify({ supps: { creatine: true, caffeine: i < 2 } }), updated_at: 1 }));
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "should I keep taking creatine" }) }, tok);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const by = Object.fromEntries(state.supplements.map((s) => [s.name, s]));
+
+    a.deepEqual(Object.keys(by).sort(), ["caffeine", "creatine monohydrate", "Fish oil"].sort(),
+      "ids are turned into names, and an unticked one is not sent");
+    a.equal(by["creatine monohydrate"].daysTakenOfLast, 3);
+    a.equal(by.caffeine.daysTakenOfLast, 2);
+    a.equal(by["Fish oil"].daysTakenOfLast, 0, "ticked in Setup but never logged");
+
+    // So the coach does not hand back the user's own supplement as the book's advice.
+    a.equal(by["creatine monohydrate"].fromTheBooks, true);
+    a.equal(by["Fish oil"].fromTheBooks, false);
+  } finally { globalThis.fetch = orig }
+});
+
+test("a coach state with no supplements ticked does not mention them", async () => {
+  const k = await setupKeys();
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main",
+    data: JSON.stringify({ unit: "lb" }), updated_at: 1 });
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "hi" }) }, tok);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    a.equal(state.supplements, null, "nothing invented for someone who takes none");
+  } finally { globalThis.fetch = orig }
+});

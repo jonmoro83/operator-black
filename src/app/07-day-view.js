@@ -49,6 +49,10 @@ function vToday(){
   h+=banners(wk,dp);
   if(sel===todayStr()){const rc=reviewCycleFor(sel);if(rc) h+=reviewCard(rc);const dc=deloadCheckCycle(sel);if(dc) h+=deloadCheckCard(dc)}
   h+=checkinCard(sel);
+  // The pre-training ones have a window in front of the session, so they go above it;
+  // the daily tick-list sits with the rest of the day's logging, below.
+  if(!['off','pre','convert'].includes(dp.t)) h+=suppCard(sel,'pre');
+  h+=suppCard(sel,'daily');
   h+=sessionHtml(wk,dp);
   return h;
 }
