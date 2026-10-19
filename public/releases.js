@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.20',date:'2026-10-19',title:'The deload rule, checked against the books',items:[
+    'Same check as the heavy week, opposite answer. The accessories still come off on a deload, because both books that use the word mean a harder stop than we do \u2014 TB3\u2019s deload is a week off altogether and Ageless Athlete takes a complete break from lifting. Three light sessions with no accessories is the gentler version of that, so it stays.',
+    'What changed is the wording. The card used to say "None this week. Deload." as if the book had said it. It now says that this is our call, and that the deload week itself is ours too, since the first book prescribes no strength deload at all.']},
   {v:'3.19',date:'2026-10-19',title:'Accessories really are back on heavy weeks',items:[
     'The last release took the heavy-week rule off the accessories card but left it in two other places, so on weeks 3 and 6 the accessories were on the day\u2019s card and still missing from session mode. They are in the walkthrough now, the same as any other week.',
     'Session mode was also dropping them for Grey Man, which is a template that prescribes its own supplementary work \u2014 so the book\u2019s own sets were vanishing on those weeks. Fixed.',

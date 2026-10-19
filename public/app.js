@@ -3980,7 +3980,15 @@ function checkinCard(date){
 }
 function accList(day){const a=(plan.acc||{})[day];return Array.isArray(a)&&a.length?a:ACC[day]}
 function accCard(wk,dp){
-  if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. Deload.</p></div>`;
+  /* Unlike the heavy-week rule this one is not contradicted by anything: both books
+     that use the word mean a harder stop than we do. TB3's deload is the bridge week,
+     "simply taking a week off in between Blocks", and Ageless Athlete takes "a
+     complete deload from lifting (and a deep reduction of conditioning)". Dropping the
+     supplementary work while keeping three light sessions is the gentler version of
+     the same idea, not a departure from it. The deload week itself is ours though --
+     TB1 has no strength deload at all -- so the card says so rather than stating it
+     flat, the way the heavy-week rule used to. */
+  if(dp.deload) return `<div class="card"><h3>Accessories</h3><p class="muted" style="margin:0">None this week. A deload is for recovering, so the supplementary work comes off with the rest of the volume.</p><p class="small muted" style="margin:0"><b>Ours</b>, and so is the deload week \u2014 TB1 prescribes no strength deload, TB3\u2019s is a bridge week off altogether, and <i>Ageless Athlete</i> takes a complete break from lifting. Three light sessions is our lighter reading of all three.</p></div>`;
   const v=wkRx(wk), arx=accRxFor(wk,dp.day);
   /* No book says to skip accessories on a heavy week. That rule was ours and it read
      like the book's. What TB1 gives is a test, and it is about recovery rather than the

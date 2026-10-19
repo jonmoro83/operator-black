@@ -7186,3 +7186,23 @@ test("the week ahead no longer tells you the accessories are off", () => {
   a.ok(!said.includes("Accessories are off"), "but not that one, which was our rule as the book's");
   a.ok(said.includes("costing you the main lifts"), "replaced by the test the book gives");
 });
+
+test("the deload still drops the accessories, and admits whose idea that is", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.deloadEvery = 1; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "deload");
+  a.ok(wk, "a deload week exists");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i))
+    .find((dt) => x.dayPlan(dt).t === "lift");
+  x.sel = d;
+  const card = x.accCard(wk, x.dayPlan(d));
+  a.match(card, /None this week/, "checked against the books and kept: both mean a harder stop");
+  a.doesNotMatch(card, /acc-slot/);
+  // The difference from the heavy-week rule, which was stated as though it were the
+  // book's: this one says out loud that it is ours, and so is the deload week.
+  a.match(card, /<b>Ours<\/b>/);
+  a.match(card, /TB1 prescribes no strength deload/);
+  // Session mode agrees with the card, which is the thing that went wrong last time.
+  a.equal(x.lsSteps(d).filter((s) => s.type === "acc").length, 0, "and the walkthrough matches");
+});
