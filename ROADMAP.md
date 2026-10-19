@@ -191,6 +191,26 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**The movement library, mid-session (2026-10-19)**
+- The descriptions existed but only on the day's card. Asked for them during a
+  session, which is the screen you are actually looking at while doing the movement.
+- **In the guided walkthrough**: a *How to do it* button under the timer, opening the
+  same setup / execution / cues / errors panel. Off by default so it does not push the
+  timer off a phone, and the choice follows you from one movement to the next —
+  someone learning a routine wants it the whole way through, someone who knows it
+  never wants it. Capped at 34vh and scrollable so a long entry cannot bury the
+  controls.
+- A movement with no entry gets no button rather than an empty panel, so a warm-up
+  movement you typed in yourself offers nothing and claims nothing.
+- Session mode's warm-up step keeps its list, since it already has *Guide me ›* to
+  reach the one-at-a-time screen. It did still print "12–15 min" for every routine,
+  left over from before routines existed; it asks the routine now.
+- `gdHow` is a named function rather than a line in the click handler, which is the
+  same lesson as `calSetMode` and `setMacroWin`: a handler is unreachable from the
+  harness, and the mutant that stopped the toggle working survived until it was
+  pulled out.
+- Four tests, five mutants, all caught.
+
 **Descriptions for the Agile 8 (2026-10-19)**
 - Asked for a description of every movement in both routines. Ours already had one:
   all fourteen resolve to a movement-library entry with setup, execution, cues and

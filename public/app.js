@@ -1588,7 +1588,7 @@ const MLIB={
     errors:'Rolling fast enough that nothing changes. Rolling straight over the knee or the hip bone rather than stopping short of both.'},
   a8add:{name:'Foam roll adductors',
     setup:'Face down with the roller under the inside of one thigh, that leg out to the side at about ninety degrees.',
-    exec:'Start just below the groin crease, roll up and down to mid-thigh ten to fifteen times, then from mid-thigh to the inside of the knee for another ten to fifteen. Same method as the IT band.',
+    exec:'Same method as the IT band, on the inner thigh. Start just below the groin crease, roll up and down to mid-thigh ten to fifteen times, then from mid-thigh to the inside of the knee for another ten to fifteen.',
     cues:'Let the leg be heavy. Shift your weight onto the roller rather than pressing with the arms.',
     errors:'Staying too far from the groin, which is usually where the tight part is.'},
   a8glute:{name:'Glute and piriformis release, tennis ball',
@@ -5202,6 +5202,9 @@ function gdItems(kind,date){
   return mobList(mobKind(dayPlan(date))).map(([nm,d],i)=>({i,name:nm,dose:d,grp:MOB[mobKind(dayPlan(date))].name}));
 }
 function gdField(){return guide.kind==='warmup'?'warmup':'mobility'}
+// Named rather than inline in the click handler, because a handler is unreachable from
+// the test harness and this one carries the only state the panel has.
+function gdHow(){ if(!guide) return false; guide.how=!guide.how; LS.set('ob.guide',guide); return guide.how }
 function gdTickOff(idx){
   const f=gdField(), A=[...(lg(guide.date)[f]||[])];
   A[idx]=true; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false;
@@ -5270,6 +5273,14 @@ function gdRender(){
   <div class="gd-name">${esc(it.name)}</div>
   ${timed?`<div class="gd-time">${Math.floor(left/60)}:${pad(left%60)}</div>${guide.sides>1?`<div class="gd-side">Side ${guide.side} of ${guide.sides}</div>`:''}`:`<div class="gd-dose">${esc(it.dose||'')}</div>`}
   ${guide.wait?`<button class="btn primary" style="padding:16px;font-size:18px;width:min(100%,460px);margin:0 auto" data-gd="go">${guide.wait==='side'?'Start side '+(guide.side+1)+' ›':(next?'Next: '+esc(next.name)+' ›':'Finish ›')}</button>`:timed?'':`<button class="btn primary" style="padding:16px;font-size:18px;width:min(100%,460px);margin:0 auto" data-gd="done">Done</button>`}
+  ${(()=>{
+    // The movement library, on the screen you are actually looking at while doing it.
+    // Off by default so it does not push the timer out of view, and the choice sticks
+    // from one movement to the next -- someone learning a routine wants it all the way
+    // through, someone who knows it never wants it.
+    const e=mlibEntry(it.name); if(!e) return '';
+    return `<button class="btn sm ghost" style="margin:0 auto" data-gd="how" aria-expanded="${guide.how?'true':'false'}">${guide.how?'Hide how':'How to do it'}</button>${guide.how?`<div class="gd-how">${libBody(e)}</div>`:''}`;
+  })()}
   ${guide.wait?'':`<div class="gd-next">${next?'Next: '+esc(next.name):'Last one'}</div>`}
   <div class="gd-btns"><button class="btn" data-gd="back" ${guide.pos===0?'disabled':''}>‹ Back</button>${timed&&!guide.wait?`<button class="btn" data-gd="pause">${paused?'Resume':'Pause'}</button>`:''}<button class="btn" data-gd="skip">Skip ›</button></div>
   <button class="btn sm ghost" style="margin:0 auto" data-gd="auto">Auto-advance: ${auto?'on':'off'}</button>`;
@@ -5277,6 +5288,7 @@ function gdRender(){
 document.getElementById('gd').addEventListener('click',e=>{
   const b=e.target.closest('[data-gd]'); if(!b||!guide) return; const a=b.dataset.gd; unlockAudio();
   if(a==='close') return gdClose();
+  if(a==='how'){ gdHow(); return gdRender() }
   if(a==='back') return gdGo(guide.pos-1);
   if(a==='skip') return gdGo(guide.pos+1);
   if(a==='done'){ gdTickOff(gdItems(guide.kind,guide.date)[guide.pos].i); return gdGo(guide.pos+1) }
@@ -5437,7 +5449,7 @@ function lsRender(){
     const items=isW?W.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||W[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
     const flags=(isW?lg(ls.date).warmup:lg(ls.date).mobility)||[], done=items.filter(([i])=>flags[i]).length;
     h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
-      <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
+      <div class="ls-kind">${done} of ${items.length} done · ${isW?esc(short?(warmRoutine().short||''):(warmRoutine().mins||'')):esc(MOB[mobKind(dp)].name)}</div>
       ${isW?`<div class="seg"><button class="segb${short?'':' on'}" data-ls="wfull">Full</button><button class="segb${short?' on':''}" data-ls="wshort">Short</button></div>`:`<div class="small muted">${esc(MOB[mobKind(dp)].why)}</div>`}
       <div class="stack">${items.map(([i,n,d])=>{const hs=holdSecs(d);
         return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>

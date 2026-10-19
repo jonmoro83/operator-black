@@ -143,7 +143,7 @@ function lsRender(){
     const items=isW?W.map((x,i)=>[i,x.n,x.d,x.g]).filter(([i])=>!short||W[i].s):mobList(mobKind(dp)).map(([n,d],i)=>[i,n,d,'']);
     const flags=(isW?lg(ls.date).warmup:lg(ls.date).mobility)||[], done=items.filter(([i])=>flags[i]).length;
     h+=`<div class="ls-card"><div class="ls-lift">${isW?'Warm-up':'Mobility'}</div>
-      <div class="ls-kind">${done} of ${items.length} done · ${isW?(short?'7 min':'12–15 min'):esc(MOB[mobKind(dp)].name)}</div>
+      <div class="ls-kind">${done} of ${items.length} done · ${isW?esc(short?(warmRoutine().short||''):(warmRoutine().mins||'')):esc(MOB[mobKind(dp)].name)}</div>
       ${isW?`<div class="seg"><button class="segb${short?'':' on'}" data-ls="wfull">Full</button><button class="segb${short?' on':''}" data-ls="wshort">Short</button></div>`:`<div class="small muted">${esc(MOB[mobKind(dp)].why)}</div>`}
       <div class="stack">${items.map(([i,n,d])=>{const hs=holdSecs(d);
         return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>

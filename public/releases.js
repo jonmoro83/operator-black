@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.24',date:'2026-10-19',title:'How to do it, while you are doing it',items:[
+    'The movement descriptions were only on the day\u2019s card. In the guided warm-up and mobility walkthrough there is now a <b>How to do it</b> button under the timer that opens the same panel for whichever movement you are on.',
+    'It stays open as you move through the routine, so if you are learning one you can read your way through it and then switch it off for good. It starts closed so the timer keeps the screen.',
+    'A movement you typed in yourself has nothing to show, so it offers no button rather than an empty panel.']},
   {v:'3.23',date:'2026-10-19',title:'Every Agile 8 movement explains itself',items:[
     'Tap the small i next to any movement in the warm-up and you get how to set it up, how to do it, what to feel for and how it usually goes wrong. Our routine always had that. Agile 8 did not, which is probably why it looked like neither did. It does now, all eight.',
     'Where DeFranco describes a movement himself the description follows his text, including his note on the tennis-ball glute release, which is "Feel free to cry." Three of them he shows in a video instead of writing down, so those carry the standard version of the movement and say so rather than pretending the wording is his.',

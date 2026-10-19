@@ -13,6 +13,9 @@ function gdItems(kind,date){
   return mobList(mobKind(dayPlan(date))).map(([nm,d],i)=>({i,name:nm,dose:d,grp:MOB[mobKind(dayPlan(date))].name}));
 }
 function gdField(){return guide.kind==='warmup'?'warmup':'mobility'}
+// Named rather than inline in the click handler, because a handler is unreachable from
+// the test harness and this one carries the only state the panel has.
+function gdHow(){ if(!guide) return false; guide.how=!guide.how; LS.set('ob.guide',guide); return guide.how }
 function gdTickOff(idx){
   const f=gdField(), A=[...(lg(guide.date)[f]||[])];
   A[idx]=true; for(let j=0;j<A.length;j++) if(A[j]==null) A[j]=false;
@@ -81,6 +84,14 @@ function gdRender(){
   <div class="gd-name">${esc(it.name)}</div>
   ${timed?`<div class="gd-time">${Math.floor(left/60)}:${pad(left%60)}</div>${guide.sides>1?`<div class="gd-side">Side ${guide.side} of ${guide.sides}</div>`:''}`:`<div class="gd-dose">${esc(it.dose||'')}</div>`}
   ${guide.wait?`<button class="btn primary" style="padding:16px;font-size:18px;width:min(100%,460px);margin:0 auto" data-gd="go">${guide.wait==='side'?'Start side '+(guide.side+1)+' ›':(next?'Next: '+esc(next.name)+' ›':'Finish ›')}</button>`:timed?'':`<button class="btn primary" style="padding:16px;font-size:18px;width:min(100%,460px);margin:0 auto" data-gd="done">Done</button>`}
+  ${(()=>{
+    // The movement library, on the screen you are actually looking at while doing it.
+    // Off by default so it does not push the timer out of view, and the choice sticks
+    // from one movement to the next -- someone learning a routine wants it all the way
+    // through, someone who knows it never wants it.
+    const e=mlibEntry(it.name); if(!e) return '';
+    return `<button class="btn sm ghost" style="margin:0 auto" data-gd="how" aria-expanded="${guide.how?'true':'false'}">${guide.how?'Hide how':'How to do it'}</button>${guide.how?`<div class="gd-how">${libBody(e)}</div>`:''}`;
+  })()}
   ${guide.wait?'':`<div class="gd-next">${next?'Next: '+esc(next.name):'Last one'}</div>`}
   <div class="gd-btns"><button class="btn" data-gd="back" ${guide.pos===0?'disabled':''}>‹ Back</button>${timed&&!guide.wait?`<button class="btn" data-gd="pause">${paused?'Resume':'Pause'}</button>`:''}<button class="btn" data-gd="skip">Skip ›</button></div>
   <button class="btn sm ghost" style="margin:0 auto" data-gd="auto">Auto-advance: ${auto?'on':'off'}</button>`;
@@ -88,6 +99,7 @@ function gdRender(){
 document.getElementById('gd').addEventListener('click',e=>{
   const b=e.target.closest('[data-gd]'); if(!b||!guide) return; const a=b.dataset.gd; unlockAudio();
   if(a==='close') return gdClose();
+  if(a==='how'){ gdHow(); return gdRender() }
   if(a==='back') return gdGo(guide.pos-1);
   if(a==='skip') return gdGo(guide.pos+1);
   if(a==='done'){ gdTickOff(gdItems(guide.kind,guide.date)[guide.pos].i); return gdGo(guide.pos+1) }

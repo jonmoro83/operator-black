@@ -7387,3 +7387,68 @@ test("the Guide keeps Agile 8 together and names its author", () => {
   for (const id of ["a8itb", "a8add", "a8glute", "a8roll", "a8hydrant", "a8mtn", "a8groiner", "a8hipflex"])
     a.ok(g.includes(`data-px="ml-${id}"`), `${id} is reachable from the Guide`);
 });
+
+// --- the movement library, mid-session ---------------------------------------------
+function gdBox() { return (global.document.getElementById("gd-in") || {}).innerHTML || "" }
+
+test("the guided warm-up can show you how to do the movement you are on", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.warmRoutine = "agile8"; x.bump(); x.sel = "2026-11-11";
+  x.guide = { kind: "warmup", date: "2026-11-11", pos: 2, how: false };
+  x.gdRender();
+  const shut = gdBox();
+  a.match(shut, /data-gd="how"/, "there is a button for it");
+  a.match(shut, /aria-expanded="false"/);
+  a.ok(!/gd-how/.test(shut), "and it is closed, so the timer keeps the screen");
+  a.ok(!/outer thigh/.test(shut), "the text is not rendered until asked for");
+
+  a.equal(x.gdHow(), true, "tapping it turns it on");
+  x.gdRender();
+  const open = gdBox();
+  a.match(open, /class="gd-how"/);
+  a.match(open, /Setup\./);
+  a.match(open, /Execution\./);
+  a.match(open, /outer thigh/, "the entry for the movement you are actually on");
+  a.match(open, /Hide how/, "and the button says what it will do now");
+  a.equal(x.gdHow(), false, "and tapping it again turns it off");
+  x.gdRender();
+  a.ok(!/gd-how/.test(gdBox()), "the panel goes with it");
+});
+
+test("the how-to follows you from one movement to the next, and off again", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.warmRoutine = "agile8"; x.bump(); x.sel = "2026-11-11";
+  x.guide = { kind: "warmup", date: "2026-11-11", pos: 2, how: true };
+  x.gdRender();
+  a.match(gdBox(), /outer thigh/, "IT band on movement three");
+  // Someone learning a routine wants it the whole way through, so it stays on.
+  x.guide.pos = 3; x.gdRender();
+  const next = gdBox();
+  a.match(next, /class="gd-how"/, "still open on the next movement");
+  a.match(next, /inner thigh/, "and it is the next movement's entry, not the last one's");
+  a.ok(!/outer thigh/.test(next), "the previous one is gone");
+});
+
+test("a movement with no entry gets no button rather than an empty panel", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.warmRoutine = "mine";
+  x.plan.warmCustom = [["Hip airplane", "8 per side"]];
+  x.bump(); x.sel = "2026-11-11";
+  const items = x.gdItems("warmup", "2026-11-11");
+  const i = items.findIndex((it) => it.name === "Hip airplane");
+  a.ok(i >= 0, "the movement you typed in is in the walkthrough");
+  x.guide = { kind: "warmup", date: "2026-11-11", pos: i, how: true };
+  x.gdRender();
+  const h = gdBox();
+  a.ok(!/data-gd="how"/.test(h), "nothing to offer, so nothing is offered");
+  a.ok(!/class="gd-how"/.test(h), "and no empty panel even with it switched on");
+  // The core pair is still explained, because those are ours.
+  x.guide.pos = 0; x.gdRender();
+  a.match(gdBox(), /data-gd="how"/, "90/90 breathing still explains itself");
+});
+
+test("session mode names the routine's own length, not the one it used to assume", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "src", "app", "13-session-mode.js"), "utf8");
+  a.ok(!/'7 min'|12–15 min/.test(src), "the old hardcoded pair is gone");
+  a.match(src, /warmRoutine\(\)\.mins/, "it asks the routine instead");
+});

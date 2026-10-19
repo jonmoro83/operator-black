@@ -159,7 +159,7 @@ const MLIB={
     errors:'Rolling fast enough that nothing changes. Rolling straight over the knee or the hip bone rather than stopping short of both.'},
   a8add:{name:'Foam roll adductors',
     setup:'Face down with the roller under the inside of one thigh, that leg out to the side at about ninety degrees.',
-    exec:'Start just below the groin crease, roll up and down to mid-thigh ten to fifteen times, then from mid-thigh to the inside of the knee for another ten to fifteen. Same method as the IT band.',
+    exec:'Same method as the IT band, on the inner thigh. Start just below the groin crease, roll up and down to mid-thigh ten to fifteen times, then from mid-thigh to the inside of the knee for another ten to fifteen.',
     cues:'Let the leg be heavy. Shift your weight onto the roller rather than pressing with the arms.',
     errors:'Staying too far from the groin, which is usually where the tight part is.'},
   a8glute:{name:'Glute and piriformis release, tennis ball',

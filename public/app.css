@@ -409,6 +409,12 @@ details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
 .supp-r{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--line)}
 .supp-m{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .supp-ticks{display:flex;flex-direction:column;gap:2px}
+/* The movement library inside the full-screen guide: readable width, left aligned,
+   and scrollable so a long entry cannot push the controls off a phone. */
+.gd-how{width:min(100%,460px);margin:0 auto;text-align:left;max-height:34vh;overflow-y:auto;
+  background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.gd-how .plib p{margin:0 0 8px}
+.gd-how .plib p:last-child{margin-bottom:0}
 .acc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .acc-role{font-size:12.5px;font-weight:650;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
 .acc-slot select{width:100%}
