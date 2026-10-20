@@ -721,7 +721,7 @@ test("the formula's share falls as evidence builds, on one rule", () => {
   a.ok(!stale.measured, "no window has enough calories any more");
   a.equal(stale.w, 0);
   a.equal(stale.tdee, x.tdeePredicted("2026-12-31"), "falls back to the formula, and says so");
-  a.match(x.energyCard("2026-12-31"), /the formula only/);
+  a.match(x.energyCard("2026-12-31"), /the formula only/i);
 });
 
 test("the weekly check-in asks for measurements once a week and then gets out of the way", () => {
@@ -1177,7 +1177,10 @@ test("the pull-up road knows which rung you are on", () => {
   a.equal(p.reps, 7);
   a.equal(p.next.at, 10);
   a.equal(p.togo, 3);
-  a.match(x.pullupCard("2026-11-30"), /3 more reps/);
+  const pc = x.pullupCard("2026-11-30");
+  a.match(pc, /class="mb-v muted">3 more to /, "three reps short of the next rung");
+  a.match(pc, /<span class="mb-t"> \/ \d+ reps<\/span>/, "with the rung's target as the caption");
+  a.match(pc, /class="mb-bar"/, "and a bar, since a rung is a target");
 
   // A later, worse set does not demote you: the best stands.
   x.seed({ "2026-11-02": { date: "2026-11-02", pullups: 4 } }); x.bump();
@@ -6700,7 +6703,10 @@ test("Status says where you are now, History holds the trend — never both", ()
 test("Status keeps the current max and its direction without a chart", () => {
   const x = lived("2026-11-11");
   const h = x.vStatus();
-  a.match(h, /class="mrows lifts"/, "the lifts are rows");
+  // Treatment B: each lift a row with its max as the big number.
+  a.match(h, /<h3>Strength<\/h3>[\s\S]*?class="mbs"/, "the lifts are rows");
+  a.match(h, /class="mb-l">Bench<\/span><span><span class="mb-n">\d+</, "the max is the big number");
+  a.ok(!/<h3>Strength<\/h3>[\s\S]{0,4000}class="mb-bar"[\s\S]{0,200}since C1/.test(h), "and no bar: a max has no target to fill toward");
   for (const k of x.activeLifts()) a.ok(h.includes(x.liftName(k)), `${k} is listed`);
   a.match(h, /since C1/, "each row says where the max has gone");
   a.match(h, /Open History/, "and points at the tab that holds the line");
@@ -8189,4 +8195,81 @@ test("an adjusted target offers the way back, in the advice card", () => {
   a.match(card, /data-act="macrobump" data-v="0">Back to the formula/);
   x.plan.macroBump = 0; x.bump();
   a.equal(x.macroAdviceCard("2026-10-16"), "", "and with nothing to say, no card at all");
+});
+
+// --- Treatment B, everywhere it applies ------------------------------------------------
+test("one row for every number: a bar only with a target, the verdict in words", () => {
+  const x = app({ now: "2026-10-20" });
+  const withTarget = x.bRow({ label: "Sessions", value: 3, of: 5, pct: 60, tone: "muted", word: "2 to go" });
+  a.match(withTarget, /class="mb-n">3<\/span><span class="mb-t"> \/ 5<\/span>/);
+  a.match(withTarget, /<i class="muted" style="width:60%">/);
+  a.match(withTarget, /class="mb-v muted">2 to go/);
+  const direction = x.bRow({ label: "Bench", value: 205, unit: "lb", tone: "ok", word: "+5 since C1" });
+  a.ok(!/mb-bar/.test(direction), "no target, no bar -- a bar there would invent one");
+  a.match(direction, /class="mb-v ok">\+5 since C1/);
+  a.match(x.bRow({ label: "X", value: 1, of: 2, pct: 250 }), /width:100%/, "a bar never runs past full");
+  a.ok(!/mb-v/.test(x.bRow({ label: "X", value: 1 })), "no verdict line when there is nothing to say");
+});
+
+test("a trend is judged against the goal set in Setup", () => {
+  const x = app({ now: "2026-10-20" });
+  x.plan.goal = "gain"; x.bump();
+  a.deepEqual(x.trendTone(0.5, 0.2), { tone: "ok", word: "Gaining, as planned" });
+  a.deepEqual(x.trendTone(-0.5, 0.2), { tone: "off", word: "Losing while building" });
+  a.equal(x.trendTone(0.1, 0.2).tone, "warn", "holding when the goal is to build is worth a look");
+  x.plan.goal = "lose"; x.bump();
+  a.deepEqual(x.trendTone(-0.5, 0.2), { tone: "ok", word: "Losing, as planned" });
+  a.deepEqual(x.trendTone(0.5, 0.2), { tone: "off", word: "Gaining while cutting" });
+  x.plan.goal = "maintain"; x.bump();
+  a.deepEqual(x.trendTone(0.1, 0.2), { tone: "ok", word: "Holding, as planned" });
+  a.equal(x.trendTone(0.5, 0.2).tone, "warn");
+  a.deepEqual(x.readyTone(80), { tone: "ok", word: "Ready" });
+  a.deepEqual(x.readyTone(60), { tone: "warn", word: "Moderate" });
+  a.deepEqual(x.readyTone(40), { tone: "off", word: "Low" });
+});
+
+test("This week counts sessions against the week, and leaves the four-week rate to the verdict", () => {
+  const x = lived("2026-11-11");
+  const h = x.vStatus();
+  const card = h.slice(h.indexOf(">This week<"), h.indexOf('class="heat"'));
+  a.match(card, /class="mb-l">Sessions<\/span><span><span class="mb-n">\d+<\/span><span class="mb-t"> \/ \d+<\/span>/);
+  a.match(card, /class="mb-l">Readiness · 7 days<\/span>[\s\S]*?\/ 100/, "readiness out of its 100");
+  a.ok(!/Last 4 weeks/.test(card), "the four-week rate is Keeping up's, said once");
+  a.match(h, />Keeping up</, "and Keeping up is still there to say it");
+});
+
+test("calories eaten are measured against the Macros card's target", () => {
+  const x = lived("2026-11-11");
+  x.plan.goal = "gain"; x.plan.proteinPerLb = 0; x.bump();
+  const kt = x.macroTarget("2026-11-11").kcal;
+  const e = x.energyCard("2026-11-11");
+  a.match(e, new RegExp(`class="mb-l">Eaten per day<\\/span><span><span class="mb-n">[\\d,]+<\\/span><span class="mb-t"> \\/ ${x.n(kt).replace(/,/g, ",")} target`),
+    "the target from the Macros card is the caption");
+  a.match(e, /Eaten per day[\s\S]*?class="mb-bar"/, "with a bar toward it");
+});
+
+test("every bar on Status and Today has a target written beside it", () => {
+  const x = lived("2026-11-11");
+  x.plan.goal = "gain"; x.plan.proteinPerLb = 0; x.bump();
+  const pages = [x.vStatus(), x.weekSummaryCard ? (x.sel = "2026-11-11", x.weekSummaryCard()) : ""].join("");
+  const rows = [...pages.matchAll(/<div class="mb">([\s\S]*?)<\/div>\s*(?=<div class="mb">|<\/div>)/g)].map((m) => m[1]);
+  let bars = 0;
+  for (const r of rows) if (/mb-bar/.test(r)) { bars++; a.match(r, /class="mb-t"> \/ /, "a bar with no target: " + r.slice(0, 120)) }
+  a.ok(bars >= 5, `bars rendered: ${bars}`);
+});
+
+test("the old row style is gone from the app and the stylesheet", () => {
+  for (const [f, s] of appSrc()) a.ok(!/mrow/.test(s), `${f} still uses the old rows`);
+  a.ok(!/\.mrow/.test(css()), "and nothing styles them");
+});
+
+test("the session rows say where you stand in words, not only in a bar", () => {
+  const x = lived("2026-11-11");
+  const h = x.vStatus(), card = h.slice(h.indexOf(">This week<"), h.indexOf('class="heat"'));
+  a.match(card, /Sessions[\s\S]*?class="mb-v (ok|warn|off|muted)">(All done|\d+ missed|\d+ to go)</, "this week, in words");
+  x.sel = "2026-11-11";
+  const ws = x.weekSummaryCard();
+  a.ok(ws, "last week's summary shows on a Wednesday that has one");
+  a.match(ws, /Sessions[\s\S]*?class="mb-v (ok|warn|off)">(Every one|\d+ missed)</, "and last week, in words");
+  a.match(ws, /Readiness[\s\S]*?\/ 100/);
 });

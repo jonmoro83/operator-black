@@ -6408,11 +6408,16 @@ function pullupCard(date){
   const p=pullupState(date);
   if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
-  h+=`<div class="miles"><div class="mile"><span class="l">Best set</span>${p.best?`<span class="big">${p.best.v}</span><span class="small muted">${fmtD(p.best.d,true)}</span>`:'<span class="small muted">Not tested yet</span>'}</div>`;
-  h+=`<div class="mile"><span class="l">Next rung</span>${p.next?`<span class="big">${p.next.at}</span><span class="small muted">${p.togo?`${p.togo} more rep${p.togo===1?'':'s'} \u00b7 ${esc(p.next.name.toLowerCase())}`:'reached \u2014 move up'}</span>`:'<span class="small muted">Top of the ladder</span>'}</div>`;
-  if(p.wpu!=null) h+=`<div class="mile"><span class="l">Added weight</span><span class="big">+${n(p.wpu)}</span><span class="small muted">${u()}${p.pct?` \u00b7 ${p.pct}% of bodyweight`:''}</span></div>`;
+  // The best set measured against the next rung: the B shape exactly, reps over target.
+  h+=`<div class="mbs">`;
+  h+=!p.best?bRow({label:'Best set',value:'—',sub:'Not tested yet'})
+    :p.next?bRow({label:'Best set',value:p.best.v,of:p.next.at,unit:'reps',pct:100*p.best.v/p.next.at,
+        tone:p.togo?'muted':'ok',word:p.togo?`${p.togo} more to ${p.next.name.toLowerCase()}`:'Rung reached — move up',
+        sub:fmtD(p.best.d,true),aria:`${p.best.v} of the ${p.next.at} reps the next rung needs`})
+      :bRow({label:'Best set',value:p.best.v,unit:'reps',tone:'ok',word:'Top of the ladder',sub:fmtD(p.best.d,true)});
+  if(p.wpu!=null) h+=bRow({label:'Added weight',value:'+'+n(p.wpu),unit:u(),sub:p.pct?`${p.pct}% of bodyweight`:''});
   h+=`</div>`;
-  h+=`<div class="small"><b>Now:</b> ${esc(p.st.work)}</div><div class="small muted">${esc(p.st.why)}</div>`;
+  h+=`<div class="small"><b>Now:</b> ${esc(p.st.work)}</div><div class="note">${esc(p.st.why)}</div>`;
   if(p.next) h+=`<div class="small muted"><b>Next:</b> ${esc(p.next.next===undefined?'':p.st.next)}</div>`;
   if(p.xs.length>=2) h+=lineChart(p.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${x.v} reps`})),{label:'Max pull-ups',min:0,minStep:1,tick:fmtWhole});
   h+=`<details class="plain"><summary>The whole road</summary><div class="stack small" style="margin-top:8px">${PULLUP.map((s0,i)=>`<div class="${i===p.stage?'':'muted'}"><b>${i===p.stage?'\u2192 ':''}${esc(s0.name)}</b>${s0.at?` <span class="mono">${s0.at}+ reps</span>`:' <span class="mono">0 reps</span>'}<div>${esc(s0.work)}</div></div>`).join('')}</div></details>`;
@@ -6482,7 +6487,7 @@ function weekSummaryCard(){
   if(idxOf(last)<0) return '';                       // no previous week in this program
   const r=weekRecap(last);
   if(!r.tot&&!r.prs.length) return '';
-  const wk=weekOf(mon), wt=wk?weekTitle(wk):null, lv=r.avg!=null?rLevel(r.avg):null;
+  const wk=weekOf(mon), wt=wk?weekTitle(wk):null;
   const ahead=[];
   // "Accessories are off" was the same invented rule the card used to state. What the
   // week ahead can honestly say is what the book says: judge them by the main lifts.
@@ -6493,9 +6498,12 @@ function weekSummaryCard(){
   const nd=nextScheduled('deload'), nt=nextScheduled('test');
   let h=`<div class="card"><div class="lift-h"><h3>Your week</h3><button class="btn sm ghost" data-act="weekseen">Dismiss</button></div>
   <div class="small muted">Last week · ${fmtD(r.mon)}–${fmtD(r.end)}</div>
-  <div class="miles"><div class="mile"><span class="l">Sessions</span><span class="big">${r.done}<small style="font-size:14px;color:var(--muted)">/${r.tot}</small></span><span class="small muted">${r.tot&&r.done===r.tot?'every one':r.tot?Math.round(100*r.done/r.tot)+'% done':'—'}</span></div>
-  <div class="mile"><span class="l">Readiness</span>${r.avg!=null?`<span class="big">${r.avg}</span><span class="small"><span class="chip ${lv.cls}">${lv.t}</span></span>`:'<span class="small muted">No check-ins</span>'}</div>
-  <div class="mile"><span class="l">Bests set</span><span class="big">${r.prs.length}</span><span class="small muted">${r.prs.length?r.prs.map(x=>x.label).join(', '):'none last week'}</span></div></div>`;
+  <div class="mbs">${bRow({label:'Sessions',value:r.done,of:r.tot,pct:r.tot?100*r.done/r.tot:0,
+    tone:!r.tot?'muted':r.done>=r.tot?'ok':(r.tot-r.done)<=MISS_GRACE?'warn':'off',
+    word:!r.tot?'':r.done>=r.tot?'Every one':`${r.tot-r.done} missed`,aria:`${r.done} of ${r.tot} sessions last week`})}
+  ${r.avg!=null?bRow({label:'Readiness',value:r.avg,of:100,pct:r.avg,tone:readyTone(r.avg).tone,word:readyTone(r.avg).word,aria:`Readiness ${r.avg} of 100`})
+    :bRow({label:'Readiness',value:'—',sub:'No check-ins'})}
+  ${bRow({label:'Bests set',value:r.prs.length,sub:r.prs.length?esc(r.prs.map(x=>x.label).join(', ')):'None last week'})}</div>`;
   if(r.hics.length) h+=`<div class="small muted">Conditioning: ${r.hics.map(x=>`${MOD[x.mod].name} ${HIC[x.f].name} ${n(x.v)} ${esc(x.u)}`).join(' · ')}</div>`;
   h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><b>This week</b>${wt?` · ${esc(wt.t)} <span class="chip ${wt.cls}">${esc(wt.chip)}</span>`:''}</div>`;
   if(ahead.length) h+=`<ul class="tight small">${ahead.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
@@ -6607,9 +6615,14 @@ function bwCard(t){
   const k0=Math.min(7,Math.floor(xs.length/2)), mean=a0=>a0.reduce((x,y)=>x+y.raw,0)/a0.length;
   const ch=k0>=2?mean(xs.slice(-k0))-mean(xs.slice(0,k0)):last.raw-first.raw;
   const days=Math.round((D(last.d)-D(first.d))/864e5)+1, logged=xs.length;
-  h+=`<div class="miles"><div class="mile"><span class="l">7-day average</span><span class="big">${r1(last.v)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${u()}</small></span><span class="small muted">latest weigh-in ${r1(last.raw)}</span></div>
-  <div class="mile"><span class="l">Over this range</span><span class="big">${ch>0?'+':''}${r1(ch)}</span><span class="small muted">${fmtD(first.d)} to ${fmtD(last.d)}${k0>=2?` · first ${k0} vs last ${k0}`:''}</span></div>
-  <div class="mile"><span class="l">Per week</span>${rate?`<span class="big">${rate.perWeek>0?'+':''}${r1(rate.perWeek)}</span><span class="small muted">last ${rate.back} days</span>`:'<span class="small muted">Needs two weeks of weigh-ins</span>'}</div></div>`;
+  // A weekly change inside a fifth of a pound (a tenth of a kilo) counts as holding.
+  const wk=rate?trendTone(rate.perWeek,u()==='kg'?0.1:0.2):{tone:'muted',word:''};
+  h+=`<div class="mbs">`;
+  h+=bRow({label:'7-day average',value:r1(last.v),unit:u(),sub:`Latest weigh-in ${r1(last.raw)}`});
+  h+=rate?bRow({label:'Per week',value:(rate.perWeek>0?'+':'')+r1(rate.perWeek),unit:u(),tone:wk.tone,word:wk.word,sub:`Over the last ${rate.back} days`})
+    :bRow({label:'Per week',value:'\u2014',sub:'Needs two weeks of weigh-ins'});
+  h+=bRow({label:'Over this range',value:(ch>0?'+':'')+r1(ch),unit:u(),sub:`${fmtD(first.d)} to ${fmtD(last.d)}${k0>=2?` \u00b7 first ${k0} vs last ${k0}`:''}`});
+  h+=`</div>`;
   h+=lineChart(xs.map(x=>({y:x.v,y2:x.raw,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: weighed ${r1(x.raw)}, ${r1(x.v)} average${x.n>1?' of '+x.n:''}`})),{label:'Bodyweight, daily and 7-day average',minStep:1});
   h+=`<div class="note">Weighed on ${logged} of the last ${days} day${days===1?'':'s'}. The faint line is each weigh-in; the solid one is the 7-day average, which is what the protein target, the weighted pull-up loads and the trend advice use.</div>`;
   return h+`</div>`;
@@ -6689,14 +6702,42 @@ function macroTone(target,avg){
   if(near) return {tone:'ok',word:'On target'};
   return gap<0?{tone:'off',word:`${Math.abs(gap)} short`}:{tone:'over',word:`${gap} over`};
 }
+/* Treatment B, for any number, so every card says it the same way (3.33).
+
+   The value that changes is the big number. What it is measured against is its caption.
+   A bar when there is a target to fill toward -- and only then: a bar without a target
+   would be inventing one. The verdict in words as well as color, never color alone
+   (WCAG 1.4.1). A quiet line underneath for where the number came from.
+
+   tone: ok green, off red, over / warn yellow, muted grey. */
+function bRow({label,value,unit='',of=null,pct=null,tone='muted',word='',sub='',aria=''}){
+  const cap=(of!=null?' / '+of:'')+(unit?' '+unit:'');
+  return `<div class="mb">
+    <div class="mb-h"><span class="mb-l">${esc(label)}</span><span><span class="mb-n">${value}</span>${cap?`<span class="mb-t">${esc(cap)}</span>`:''}</span></div>
+    ${pct!=null?`<div class="mb-bar" role="img" aria-label="${esc(aria||label)}"><i class="${tone}" style="width:${Math.max(0,Math.min(100,Math.round(pct)))}%"></i></div>`:''}
+    ${word?`<div class="mb-v ${tone}">${esc(word)}</div>`:''}${sub?`<div class="small muted">${sub}</div>`:''}
+  </div>`;
+}
+// A readiness score in the same three tones as everything else.
+function readyTone(sc){ const lv=rLevel(sc); return lv?{tone:lv.k==='go'?'ok':lv.k==='care'?'warn':'off',word:lv.t}:{tone:'muted',word:'No check-ins'} }
+/* Which way a trend should go, by the goal set in Setup -- losing fat wants it down,
+   building wants it up, maintaining wants it flat. Ours: the books set no weekly rate,
+   and `flat` is the band inside which a reading counts as holding. */
+function trendTone(delta,flat){
+  const want=plan.goal==='lose'?-1:plan.goal==='gain'?1:0;
+  if(delta==null) return {tone:'muted',word:''};
+  const dir=Math.abs(delta)<=flat?0:Math.sign(delta);
+  const verb={'-1':'Losing','0':'Holding','1':'Gaining'}[dir];
+  if(dir===want) return {tone:'ok',word:verb+', as planned'};
+  if(want===0) return {tone:'warn',word:verb};
+  if(dir===0) return {tone:'warn',word:`Holding — the goal is to ${want>0?'build':'lose fat'}`};
+  return {tone:'off',word:`${verb} while ${want>0?'building':'cutting'}`};
+}
 function macroRow(lbl,target,avg){
   const {tone,word}=macroTone(target,avg);
-  const pct=avg==null||!target?0:Math.min(100,Math.round(100*avg/target));
-  return `<div class="mb">
-    <div class="mb-h"><span class="mb-l">${esc(lbl)}</span><span><span class="mb-n">${avg==null?'—':avg}</span><span class="mb-t"> / ${target} g</span></span></div>
-    <div class="mb-bar" role="img" aria-label="${esc(lbl)}: ${avg==null?'none logged':avg+' of '+target+' grams'}"><i class="${tone}" style="width:${pct}%"></i></div>
-    <div class="mb-v ${tone}">${esc(word)}</div>
-  </div>`;
+  return bRow({label:lbl,value:avg==null?'—':avg,of:target,unit:'g',
+    pct:avg==null||!target?0:100*avg/target,tone,word,
+    aria:`${lbl}: ${avg==null?'none logged':avg+' of '+target+' grams'}`});
 }
 function macroCard(t){
   const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t));
@@ -6738,10 +6779,24 @@ function energyCard(t){
   const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
   if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="note" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
-  h+=`<div class="miles">`;
-  h+=`<div class="mile"><span class="l">Burn per day</span>${est?`<span class="big">${n(est.tdee)}</span><span class="small muted">${meas?`${Math.round(est.w*100)}% your own data${pred?`, rest the formula (${n(pred)})`:''}`:`the formula only · Mifflin-St Jeor × ${actFactor()}`}</span>`:'<span class="small muted">Needs height, sex and birth year</span>'}</div>`;
-  h+=`<div class="mile"><span class="l">Eaten per day</span>${kc.length?`<span class="big">${n(Math.round(kc.reduce((a,b)=>a+b,0)/kc.length))}</span><span class="small muted">${kc.length} of the last 28 days logged</span>`:'<span class="small muted">Log calories in the check-in</span>'}</div>`;
-  h+=`<div class="mile"><span class="l">Body fat</span>${last?`<span class="big">${r1(last.bf)}<small style="font-size:14px;color:var(--muted);margin-left:2px">%</small></span><span class="small muted">${fmtD(last.d,true)}${bf.length>1?` · ${last.bf>bf[0].bf?'+':''}${r1(last.bf-bf[0].bf)} since ${fmtD(bf[0].d)}`:''}</span>`:'<span class="small muted">Needs neck and waist</span>'}</div></div>`;
+  const ate=kc.length?Math.round(kc.reduce((a,b)=>a+b,0)/kc.length):null, kt=(macroTarget(t)||{}).kcal||null;
+  const at=kt&&ate!=null?macroTone(kt,ate):null;
+  h+=`<div class="mbs">`;
+  h+=ate==null?bRow({label:'Eaten per day',value:'\u2014',sub:'Log calories in the check-in'})
+    :bRow({label:'Eaten per day',value:n(ate),of:kt?n(kt):null,unit:kt?'target':'',pct:kt?100*ate/kt:null,
+      tone:at?at.tone:'muted',word:at?at.word:'',sub:`${kc.length} of the last 28 days logged${kt?' \u00b7 the target is the Macros card\u2019s':''}`,
+      aria:kt?`Eaten ${n(ate)} of a ${n(kt)} target`:''});
+  h+=bRow({label:'Burn per day',value:est?n(est.tdee):'\u2014',
+    sub:est?(meas?`${Math.round(est.w*100)}% your own data${pred?`, rest the formula (${n(pred)})`:''}`:`The formula only \u00b7 Mifflin-St Jeor \u00d7 ${actFactor()}`):'Needs height, sex and birth year'});
+  if(last){
+    // Body fat wants to come down while cutting and hold otherwise. Half a point either
+    // way counts as holding: the tape method is only good to a few points.
+    const dbf=bf.length>1?last.bf-bf[0].bf:null;
+    const bt=dbf==null?{tone:'muted',word:''}:plan.goal==='lose'?trendTone(dbf,0.5)
+      :(Math.abs(dbf)<=0.5?{tone:'ok',word:'Holding'}:dbf<0?{tone:'ok',word:'Coming down'}:{tone:'warn',word:'Creeping up'});
+    h+=bRow({label:'Body fat',value:r1(last.bf),unit:'%',tone:bt.tone,word:bt.word&&dbf!=null?`${bt.word} \u00b7 ${dbf>0?'+':''}${r1(dbf)} since ${fmtD(bf[0].d)}`:'',sub:fmtD(last.d,true)});
+  } else h+=bRow({label:'Body fat',value:'\u2014',sub:'Needs neck and waist'});
+  h+=`</div>`;
   if(meas){
     const rt=meas.dw/meas.gap*7, own=meas.tdee-meas.mean;
     h+=`<div class="small">Over the last ${meas.days} days you ate <b class="mono">${n(meas.mean)}</b> a day and your weight trend ${Math.abs(rt)<.05?'held flat':`moved ${rt>0?'+':'−'}${r1(Math.abs(rt))} ${u()} a week`}. On its own that puts your burn at <b class="mono">${n(meas.tdee)}</b>, a ${own>0?'deficit':'surplus'} of <b class="mono">${n(Math.abs(own))}</b> a day.${est.w<.95&&pred?` The number above still leans ${Math.round((1-est.w)*100)}% on the formula while your history builds — ${Math.ceil((42-tdeeHistory(t))/7)} more week${Math.ceil((42-tdeeHistory(t))/7)===1?'':'s'} of logging both and it is all yours.`:''}</div>`;
@@ -6869,15 +6924,14 @@ function verdictBlock(t){
 // that was here as well as there has gone to History: maxes by cycle, readiness,
 // results per activity, jumps. What stays is the current number and its direction.
 function strengthRows(curC){
-  let h=`<div class="mrows lifts">`;
+  let h=`<div class="mbs">`;
   for(const k of activeLifts()){
     const cur=maxFor(curC)[k], base=maxFor(1)[k], hv=heavySet(k);
     const d=cur&&base?cur.v-base.v:null;
-    const dir=d==null||!base||cur.v===base.v?'muted':d>0?'ok':'off';
-    const say=d==null?'No max yet':!base||cur.v===base.v?'Level since C1':`${d>0?'+':'−'}${n(Math.abs(d))} since C1`;
-    h+=`<div class="mrow"><span class="mrow-l">${esc(liftName(k))}</span>`;
-    h+=cur?`<span class="mrow-n mono">${n(cur.v)}</span><span class="mrow-u">${u()}</span>`:`<span class="mrow-u">—</span>`;
-    h+=`<span class="mrow-r"><span class="mrow-v ${dir}">${say}</span>${hv?`<span class="mrow-u">${fmtLoad(k,hv.w)} × ${hv.r} at ${hv.p}%${hv.grinder?', ground':''}</span>`:''}</span></div>`;
+    const tone=d==null||!base||cur.v===base.v?'muted':d>0?'ok':'off';
+    const word=d==null?'No max yet':!base||cur.v===base.v?'Level since C1':`${d>0?'+':'\u2212'}${n(Math.abs(d))} since C1`;
+    h+=bRow({label:liftName(k),value:cur?n(cur.v):'\u2014',unit:cur?u():'',tone,word,
+      sub:hv?`Best set ${esc(fmtLoad(k,hv.w))} \u00d7 ${hv.r} at ${hv.p}%${hv.grinder?', ground':''}`:''});
   }
   return h+`</div>`;
 }
@@ -6906,14 +6960,22 @@ function vStatus(){
   // --- this week + adherence
   const mon=mondayOf(t);
   let wd='';for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t),p=dayPlan(d);wd+=`<div><i class="${st}" aria-label="${DAYN[i]}: ${st}">${st==='done'?'✓':st==='missed'?'✕':st==='rest'?'–':'•'}</i>${DAYN[i]}<span style="font-size:11px">${esc(p.short||'')}</span></div>`}
-  const adh=(from,to)=>{let d0=0,n0=0;for(let d=from;d<=to;d=addDays(d,1)){if(d<plan.startMonday)continue;const st=sessState(d,t);if(st==='rest'||st==='upcoming'||st==='today')continue;n0++;if(st==='done')d0++}return {d:d0,n:n0}};
-  const yest=addDays(t,-1), a4=adh(addDays(mon,-28),yest);
   let tw=0,td=0;for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t);if(st!=='rest'){tw++;if(st==='done')td++}}
-  const pct=a=>a.n?Math.round(a.d/a.n*100)+'%':'—';
   // Readiness is a 7-day average here and a 28-day line in History. It used to be both,
   // two cards apart, which is one metric answering the same question twice.
-  h+=`<div class="card"><div class="lift-h"><h3>This week</h3><span class="small muted mono">${td}/${tw} sessions</span></div><div class="wkdots">${wd}</div>
-  <div class="miles two"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div>${heatmap(t,12)}</div>`;
+  // Sessions against the week's count, readiness against its 100. The four-week rate
+  // that used to sit here is the Keeping up verdict at the top, said once.
+  let missedWk=0; for(let i=0;i<7;i++){ const d=addDays(mon,i); if(d<t&&sessState(d,t)==='missed') missedWk++ }
+  const xs7=[]; for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs7.push(r)}
+  const av7=xs7.length?Math.round(xs7.reduce((a,b)=>a+b,0)/xs7.length):null, rt=readyTone(av7);
+  h+=`<div class="card"><div class="lift-h"><h3>This week</h3></div><div class="wkdots">${wd}</div><div class="mbs">`;
+  h+=bRow({label:'Sessions',value:td,of:tw,pct:tw?100*td/tw:0,
+    tone:td>=tw?'ok':missedWk?(missedWk<=MISS_GRACE?'warn':'off'):'muted',
+    word:td>=tw?'All done':missedWk?`${missedWk} missed`:`${tw-td} to go`,aria:`${td} of ${tw} sessions this week`});
+  h+=av7==null?bRow({label:'Readiness · 7 days',value:'—',sub:'No check-ins yet'})
+    :bRow({label:'Readiness · 7 days',value:av7,of:100,pct:av7,tone:rt.tone,word:rt.word,
+      sub:`${xs7.length} check-in${xs7.length>1?'s':''}`,aria:`Readiness ${av7} of 100`});
+  h+=`</div>${heatmap(t,12)}</div>`;
   // --- what you look at daily, before what you look at monthly
   h+=macroCard(t);
   h+=macroAdviceCard(t);
@@ -6933,7 +6995,14 @@ function vStatus(){
       const wkStart=mondayOf(t);
       const gain=(from)=>all.reduce((a,x)=>a+(x.d>=from&&x.elev?+x.elev:0),0);
       const thisWeek=gain(wkStart), fourWeeks=gain(since), prevFour=all.reduce((a,x)=>a+(x.d>=addDays(since,-28)&&x.d<since&&x.elev?+x.elev:0),0);
-      if(fourWeeks||thisWeek) h+=`<div class="miles two"><div class="mile"><span class="l">Climbing this week</span><span class="big">${n(thisWeek)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${n(Math.round(thisWeek/elevPerDist()*10)/10)} ${u()==='kg'?'km':'mi'} of flat walking</span></div><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${n(fourWeeks)}<small style="font-size:14px;color:var(--muted);margin-left:4px">${elevUnit()}</small></span><span class="small muted">${prevFour?(fourWeeks>=prevFour?'up from ':'down from ')+n(prevFour)+' the 4 before':'first four weeks logged'}</span></div></div>`;
+      if(fourWeeks||thisWeek){
+        h+=`<div class="mbs">`;
+        h+=bRow({label:'Climbing this week',value:n(thisWeek),unit:elevUnit(),sub:`${n(Math.round(thisWeek/elevPerDist()*10)/10)} ${u()==='kg'?'km':'mi'} of flat walking`});
+        h+=bRow({label:'Climbing \u00b7 4 weeks',value:n(fourWeeks),unit:elevUnit(),
+          tone:prevFour?(fourWeeks>=prevFour?'ok':'muted'):'muted',
+          word:prevFour?(fourWeeks>=prevFour?'Up from ':'Down from ')+n(prevFour)+' the 4 before':'First four weeks logged'});
+        h+=`</div>`;
+      }
     }
     {
       const cw=condWeeks(12), tot=cw.reduce((a,x)=>a+x.min,0), thisWk=mondayOf(t);

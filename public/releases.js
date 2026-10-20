@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.33',date:'2026-10-20',title:'The new look, everywhere it fits',items:[
+    'The Macros card\u2019s style now runs through the app wherever a number is being measured against something. Sessions this week, readiness out of 100, calories against your target, last week\u2019s summary and your pull-up progress all show the number big, the target beside it, a bar toward it and what it means in words.',
+    'Where there is a direction but no target \u2014 your maxes, bodyweight, body fat \u2014 you get the same big number and a colored verdict, but no bar. Bodyweight and body fat are judged against the goal you set in Setup, so you will see "Gaining, as planned" or "Losing while building".',
+    'The This week card no longer shows a four-week percentage. The Keeping up line at the top of Status already says that.']},
   {v:'3.32',date:'2026-10-20',title:'The Macros card, redrawn as you picked',items:[
     'What you have actually been eating is now the big number on each line, with the target beside it as "/ 240 g". Each macro has a bar that fills toward the target \u2014 green when you are on it, red when short, yellow when over \u2014 and still says it in words, so the color is never the only clue.',
     'The note saying these are averages of days already eaten, and how many days, is now always visible instead of tucked away.',

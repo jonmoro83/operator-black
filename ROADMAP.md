@@ -180,6 +180,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Treatment B, everywhere it applies (2026-10-20)**
+- Asked for after 3.32 put B on the Macros card alone. "Everywhere" needed a definition,
+  or it becomes restyling everything. B is three things, and each card gets the ones
+  that fit:
+  - **A number against a target** reads as value over target: the value that changes
+    big, the target as caption, a bar toward it, the verdict in words and color.
+    Sessions this week, readiness out of 100, calories eaten against the Macros card's
+    target, last week's summary on Today, the pull-up best set against the next rung.
+  - **A number with a direction and no target** gets the typography and a colored
+    verdict, and **no bar** — a bar would invent a target. Strength maxes, bodyweight,
+    body fat, climbing. Bodyweight and body fat are judged against the goal set in Setup
+    (`trendTone`): "Gaining, as planned", "Losing while building". The "holding" bands
+    are ours; the books set no weekly rate.
+  - **Advice with an action** gets its own card. Only Macros has one on Status today.
+- **Left alone, deliberately:** countdowns to the next cycle (no target, no direction),
+  checklist counts in card headers (a bar on every header is clutter), session mode
+  (it has its own progress bar) and History (the tables tab).
+- **One function, `bRow`**, renders every one of them, Macros included — refactored first
+  and checked against the existing Macros tests, so the helper was proven faithful before
+  anything else moved onto it. Treatment A's row styles have no users left and are gone.
+- **This week lost its "Last 4 weeks" tile**: the Keeping up verdict at the top says the
+  same thing in words. One fact, one place.
+- A test reads every rendered row on Status and Today and fails on a bar without a
+  target beside it. Eight tests, eleven mutants, all caught; two verdicts survived the
+  first pass until the words themselves were asserted.
+
 **The Macros card, treatment B (2026-10-20)**
 - From the mockup liked on 10-16. **Eaten is the big number and the target its
   caption** ("200 / 240 g"), because eaten is what changes day to day; **a bar per macro**
@@ -196,9 +222,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Two things nearly lost in the rewrite and restored, both caught by old tests: "Too few
   to read much into" on a thin window, and the empty-state wording that the grams belong
   to the day before.
-- **Done to this card only, as asked.** The parked note said B should go to every card
-  at once or not at all; the strength rows on Status still use treatment A's
-  label-number-verdict layout. Worth deciding whether they follow.
+- Done to this card only at first; 3.33 took it to everything it applies to.
 - Three tests, five mutants, all caught. One new test had an early return that could
   have passed while testing nothing; it is an assertion now.
 
