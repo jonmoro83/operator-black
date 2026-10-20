@@ -5208,7 +5208,7 @@ test("reverse hyper, Cossack squat and the RDL that was already there", () => {
   }
 });
 
-test("bands are a list you keep, because a colour is not a number", () => {
+test("bands are a list you keep, because a color is not a number", () => {
   const x = app({ now: "2026-10-19" });
   a.deepEqual(x.bands(), [], "nothing assumed to start with");
   // A brand that is not on file adds nothing, rather than quietly seeding some other.
@@ -5225,7 +5225,7 @@ test("bands are a list you keep, because a colour is not a number", () => {
   a.equal(x.bandRemove("Red"), false);
 
   // Seeding uses a maker's own chart. Rogue lists Red twice, which is exactly why the
-  // number lives beside the colour rather than being looked up from it.
+  // number lives beside the color rather than being looked up from it.
   a.equal(x.bandSeed("rogue"), 8);
   const reds = x.bands().filter((b) => /Red/.test(b.n));
   a.equal(reds.length, 2, "two different Reds");
@@ -5597,7 +5597,7 @@ test("the app is written in American English", () => {
     a.equal(m, null, m ? `"${word}" found: ${seen.slice(Math.max(0, seen.indexOf(m[0]) - 50), seen.indexOf(m[0]) + 40)}` : "");
   }
 
-  // Grey Man is the book's name for a template, not a colour, so it stays.
+  // Grey Man is the book's name for a template, not a color, so it stays.
   a.equal(x.STEMPL.greyman.name, "Grey Man");
   a.match(x.vSetup(), /Grey Man/);
 
@@ -8154,13 +8154,13 @@ test("each macro reads eaten over target, with a bar and the verdict in words", 
   a.deepEqual(x.macroTone(240, 240), { tone: "ok", word: "On target" });
   a.deepEqual(x.macroTone(240, 236), { tone: "ok", word: "On target" }, "within 5% is on target");
   a.deepEqual(x.macroTone(240, 200), { tone: "off", word: "40 short" });
-  a.deepEqual(x.macroTone(90, 120), { tone: "over", word: "30 over" }, "over is its own colour, not short's red");
+  a.deepEqual(x.macroTone(90, 120), { tone: "over", word: "30 over" }, "over is its own color, not short's red");
   a.deepEqual(x.macroTone(240, null), { tone: "muted", word: "none logged" });
 
   const short = x.macroRow("Protein", 240, 200);
   a.match(short, /class="mb-n">200<\/span><span class="mb-t"> \/ 240 g/, "eaten big, the target its caption");
   a.match(short, /<i class="off" style="width:83%">/, "the bar stops where eaten stops");
-  a.match(short, /class="mb-v off">40 short/, "and the colour is never the only way it is said");
+  a.match(short, /class="mb-v off">40 short/, "and the color is never the only way it is said");
   a.match(short, /aria-label="Protein: 200 of 240 grams"/);
   a.match(x.macroRow("Fat", 90, 120), /<i class="over" style="width:100%">/, "over fills the bar, in yellow");
   const none = x.macroRow("Carbs", 370, null);

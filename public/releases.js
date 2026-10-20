@@ -7,7 +7,7 @@
 // tag carries it), so the two move together.
 const RELEASES=[
   {v:'3.32',date:'2026-10-20',title:'The Macros card, redrawn as you picked',items:[
-    'What you have actually been eating is now the big number on each line, with the target beside it as "/ 240 g". Each macro has a bar that fills toward the target \u2014 green when you are on it, red when short, yellow when over \u2014 and still says it in words, so the colour is never the only clue.',
+    'What you have actually been eating is now the big number on each line, with the target beside it as "/ 240 g". Each macro has a bar that fills toward the target \u2014 green when you are on it, red when short, yellow when over \u2014 and still says it in words, so the color is never the only clue.',
     'The note saying these are averages of days already eaten, and how many days, is now always visible instead of tucked away.',
     'When the app has advice \u2014 like adding 500 calories a day \u2014 it gets its own card with one big button, below the numbers.']},
   {v:'3.31',date:'2026-10-20',title:'Less grey, clearer reading',items:[

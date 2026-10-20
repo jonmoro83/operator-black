@@ -185,9 +185,9 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   caption** ("200 / 240 g"), because eaten is what changes day to day; **a bar per macro**
   so short or on target reads before anything is read; **the advice is its own card**
   with the action as a full-width button.
-- **One change from the mockup:** it carried short / over / on target in bar colour
+- **One change from the mockup:** it carried short / over / on target in bar color
   alone, which WCAG 1.4.1 rules out. Each row keeps the verdict in words beside the
-  bar, in the same colour — "40 short" is still the answer to the question the card is
+  bar, in the same color — "40 short" is still the answer to the question the card is
   asked. Over is yellow now rather than short's red: over and short are different news.
 - **Which days the averages cover is in plain sight**, not behind the disclosure as in
   treatment A: once the average is the headline, what it is an average of has to sit

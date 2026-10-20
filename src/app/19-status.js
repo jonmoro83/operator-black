@@ -175,7 +175,7 @@ let macroWhy=false;
 function setMacroWhy(v){ macroWhy=!!v; return macroWhy }
 /* Treatment B (3.32): eaten is the headline, the target its caption, because eaten is
    the number that changes from day to day. A bar per macro, so short or on target reads
-   before anything is read. And the verdict stays in words beside the bar -- colour alone
+   before anything is read. And the verdict stays in words beside the bar -- color alone
    cannot be the only way a thing is said (WCAG 1.4.1), and "40 short" is still the
    answer to the question the card is asked. */
 function macroTone(target,avg){
