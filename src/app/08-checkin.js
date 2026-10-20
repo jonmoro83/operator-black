@@ -298,7 +298,7 @@ function accCard(wk,dp){
   if(heavy) h+=`<div class="banner info"><div class="small"><b>Heavy week.</b> The books do not say to drop these. TB1\u2019s test is whether the work is costing you the main lifts: \u201cif your accessory work is interfering with your recovery to the point it\u2019s affecting your main lifts, then you\u2019re not doing it right. Cut back or eliminate it.\u201d <b>Ours:</b> a heavy week is where that bites first, so cut the accessories back before you cut the lifts.</div></div>`;
   if(skipped) return h+`<div class="row between" style="margin-top:4px"><span class="small muted">Skipped today.</span><button class="btn sm ghost" data-act="accskip">Bring them back</button></div></div>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
-  for(const g of accGroups(day)){
+  for(const g of accRunGroups(day)){
     if(g.length>1) h+=`<div class="acc-super"><div class="small" style="font-weight:650">Superset \u00b7 ${esc(g.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
       <div class="small muted">A set of each, back to back, then rest. ${arx?'':'Two or three rounds.'}</div>
       ${g.map(sl=>accSlotRow(sel,sl)).join('')}</div>`;
@@ -321,6 +321,8 @@ function accSlotRow(date,slot){
     h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
   }
   if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
+  // A movement that carries its own prescription says it here, where the sets are logged.
+  if(e&&e.rx) h+=`<div class="small"><b>${esc(e.rx)}</b>${e.src?`<div class="small muted">${esc(e.src)}</div>`:''}</div>`;
   // A band exercise with bands on file: pick the color, get the number in the weight
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
@@ -333,7 +335,7 @@ function accSlotRow(date,slot){
   return h+`</div>`;
 }
 // Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
-function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
+function isBWAcc(id){ return ['abtriad','chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
 
 function lastHic(fmt,mod,before){
   let best=null,last=null;

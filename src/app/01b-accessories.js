@@ -26,7 +26,7 @@ const ASLOT={
   pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
   sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
   pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
-  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Last, because a fried grip makes everything after it worse.'},
+  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Late, because a fried grip makes everything after it worse \u2014 only core work comes after it.'},
 };
 
 // gear: what you need, so the picker reads usefully when the rack is busy.
@@ -53,6 +53,12 @@ const ALIB={
   copen:   {slot:'core',  name:'Copenhagen plank',          gear:'Bench or box'},
   deadbug: {slot:'core',  name:'Dead bug',                  gear:'Nothing'},
   cablecr: {slot:'core',  name:'Cable crunch',              gear:'Cable'},
+  // A circuit rather than a single movement, so it carries its own prescription. From a
+  // book that is not in the app's library: recorded exactly as it was given, with
+  // nothing added -- no tempo, no rest, no progression, because none was given.
+  abtriad: {slot:'core',  name:'Ab triad',                  gear:'Bar',
+    rx:'3 to 5 rounds, back to back: 5 hanging leg raises, 5 hanging knee raises, 5 toes-to-bar. Log each round as a set.',
+    src:'From a book that is not in this app\u2019s library, recorded as you gave it.'},
 
   bbcurl:  {slot:'biceps',name:'Barbell curl',              gear:'Barbell'},
   ezcurl:  {slot:'biceps',name:'EZ-bar curl',               gear:'EZ bar'},
@@ -354,6 +360,18 @@ function accGroups(day){
     else out.push([slots[i]]);
   }
   return out;
+}
+/* The order a session runs them in: core work last, whatever order the day lists it.
+   Asked for, and it is where TB III puts abs as well -- its strength-endurance circuit
+   is "bench press... squat... finish up with RDL and abs". A tired trunk is a worse
+   brace for everything after it, and nothing after core work needs one.
+
+   Done on groups rather than slots, so a superset with core in it moves as a pair
+   instead of being split. And only here: Setup keeps the order you set, because a pair
+   is defined by which job comes next there, and re-sorting that would re-draw pairs. */
+function accRunGroups(day){
+  const g=accGroups(day), core=x=>x.includes('core');
+  return g.filter(x=>!core(x)).concat(g.filter(core));
 }
 function accIsSuper(day,slot){ return accGroups(day).some(g=>g.length>1&&g[0]===slot) }
 // Can only pair with something after it, and not with a job that is already the second

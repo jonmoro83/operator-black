@@ -74,7 +74,8 @@ function accSetupCard(){
   let h=`<div class="card"><h2>Accessories</h2>
   <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
   if(cyc!=null) h+=`<div class="restsel"><span>Editing</span><div class="seg"><button class="segb${later?'':' on'}" data-act="acclater" data-v="0" aria-pressed="${!later}">Cycle ${cyc} (now)</button><button class="segb${later?' on':''}" data-act="acclater" data-v="1" aria-pressed="${later}">Later cycles</button></div></div>
-  <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>`;
+  <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>
+  <div class="small muted"><b>Core work always runs last</b> in a session, whatever order it is listed in here \u2014 a tired trunk is a worse brace for everything after it. A superset with core in it moves as a pair.</div>`;
 
   for(const [d,label] of days){
     const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));

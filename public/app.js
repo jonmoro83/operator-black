@@ -1691,7 +1691,7 @@ const ASLOT={
   pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
   sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
   pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
-  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Last, because a fried grip makes everything after it worse.'},
+  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Late, because a fried grip makes everything after it worse \u2014 only core work comes after it.'},
 };
 
 // gear: what you need, so the picker reads usefully when the rack is busy.
@@ -1718,6 +1718,12 @@ const ALIB={
   copen:   {slot:'core',  name:'Copenhagen plank',          gear:'Bench or box'},
   deadbug: {slot:'core',  name:'Dead bug',                  gear:'Nothing'},
   cablecr: {slot:'core',  name:'Cable crunch',              gear:'Cable'},
+  // A circuit rather than a single movement, so it carries its own prescription. From a
+  // book that is not in the app's library: recorded exactly as it was given, with
+  // nothing added -- no tempo, no rest, no progression, because none was given.
+  abtriad: {slot:'core',  name:'Ab triad',                  gear:'Bar',
+    rx:'3 to 5 rounds, back to back: 5 hanging leg raises, 5 hanging knee raises, 5 toes-to-bar. Log each round as a set.',
+    src:'From a book that is not in this app\u2019s library, recorded as you gave it.'},
 
   bbcurl:  {slot:'biceps',name:'Barbell curl',              gear:'Barbell'},
   ezcurl:  {slot:'biceps',name:'EZ-bar curl',               gear:'EZ bar'},
@@ -2019,6 +2025,18 @@ function accGroups(day){
     else out.push([slots[i]]);
   }
   return out;
+}
+/* The order a session runs them in: core work last, whatever order the day lists it.
+   Asked for, and it is where TB III puts abs as well -- its strength-endurance circuit
+   is "bench press... squat... finish up with RDL and abs". A tired trunk is a worse
+   brace for everything after it, and nothing after core work needs one.
+
+   Done on groups rather than slots, so a superset with core in it moves as a pair
+   instead of being split. And only here: Setup keeps the order you set, because a pair
+   is defined by which job comes next there, and re-sorting that would re-draw pairs. */
+function accRunGroups(day){
+  const g=accGroups(day), core=x=>x.includes('core');
+  return g.filter(x=>!core(x)).concat(g.filter(core));
 }
 function accIsSuper(day,slot){ return accGroups(day).some(g=>g.length>1&&g[0]===slot) }
 // Can only pair with something after it, and not with a job that is already the second
@@ -4117,7 +4135,7 @@ function accCard(wk,dp){
   if(heavy) h+=`<div class="banner info"><div class="small"><b>Heavy week.</b> The books do not say to drop these. TB1\u2019s test is whether the work is costing you the main lifts: \u201cif your accessory work is interfering with your recovery to the point it\u2019s affecting your main lifts, then you\u2019re not doing it right. Cut back or eliminate it.\u201d <b>Ours:</b> a heavy week is where that bites first, so cut the accessories back before you cut the lifts.</div></div>`;
   if(skipped) return h+`<div class="row between" style="margin-top:4px"><span class="small muted">Skipped today.</span><button class="btn sm ghost" data-act="accskip">Bring them back</button></div></div>`;
   if(!slots.length) h+=`<div class="muted small">No accessory slots on this day. Add some in Setup \u2192 Accessories.</div>`;
-  for(const g of accGroups(day)){
+  for(const g of accRunGroups(day)){
     if(g.length>1) h+=`<div class="acc-super"><div class="small" style="font-weight:650">Superset \u00b7 ${esc(g.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
       <div class="small muted">A set of each, back to back, then rest. ${arx?'':'Two or three rounds.'}</div>
       ${g.map(sl=>accSlotRow(sel,sl)).join('')}</div>`;
@@ -4140,6 +4158,8 @@ function accSlotRow(date,slot){
     h+=`<select data-act-acc="${esc(slot)}" aria-label="${esc((ASLOT[slot]||{}).name||slot)}">${list.map(k=>`<option value="${esc(k)}"${k===id?' selected':''}>${esc(all[k].name)}${all[k].gear?' \u00b7 '+esc(all[k].gear):''}</option>`).join('')}</select>`;
   }
   if(slot==='pullup') h+=`<div class="small muted">${esc(pullupState(date).st.work)}</div>`;
+  // A movement that carries its own prescription says it here, where the sets are logged.
+  if(e&&e.rx) h+=`<div class="small"><b>${esc(e.rx)}</b>${e.src?`<div class="small muted">${esc(e.src)}</div>`:''}</div>`;
   // A band exercise with bands on file: pick the color, get the number in the weight
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
@@ -4152,7 +4172,7 @@ function accSlotRow(date,slot){
   return h+`</div>`;
 }
 // Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
-function isBWAcc(id){ return ['chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
+function isBWAcc(id){ return ['abtriad','chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
 
 function lastHic(fmt,mod,before){
   let best=null,last=null;
@@ -5485,7 +5505,7 @@ function lsSteps(date){
      What it respects instead is the skip on the day: if you decided this morning that
      they were costing you the main lifts, the walkthrough should not march you through
      them anyway. */
-  if(!dp.deload&&!accSkipped(date)&&dp.acc) for(const g of accGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
+  if(!dp.deload&&!accSkipped(date)&&dp.acc) for(const g of accRunGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
   steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
@@ -6982,7 +7002,8 @@ function accSetupCard(){
   let h=`<div class="card"><h2>Accessories</h2>
   <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
   if(cyc!=null) h+=`<div class="restsel"><span>Editing</span><div class="seg"><button class="segb${later?'':' on'}" data-act="acclater" data-v="0" aria-pressed="${!later}">Cycle ${cyc} (now)</button><button class="segb${later?' on':''}" data-act="acclater" data-v="1" aria-pressed="${later}">Later cycles</button></div></div>
-  <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>`;
+  <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>
+  <div class="small muted"><b>Core work always runs last</b> in a session, whatever order it is listed in here \u2014 a tired trunk is a worse brace for everything after it. A superset with core in it moves as a pair.</div>`;
 
   for(const [d,label] of days){
     const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));

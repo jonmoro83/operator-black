@@ -2999,7 +2999,9 @@ test("session mode walks the accessories one at a time, like the working sets", 
   const mon = "2026-09-07";
 
   const steps = x.lsSteps(mon).filter((s) => s.type === "acc");
-  a.deepEqual(steps.map((s) => s.slot), x.accSlots("mon"), "one step per job, in the day's order");
+  // The day's order, except core work, which always runs last.
+  const want = x.accSlots("mon").filter((k) => k !== "core").concat(x.accSlots("mon").filter((k) => k === "core"));
+  a.deepEqual(steps.map((s) => s.slot), want, "one step per job, in the day's order, core last");
   a.ok(steps.length >= 4, `and there are several: ${steps.length}`);
 
   // They count towards the session's progress rather than sitting outside it.
@@ -7741,4 +7743,99 @@ test("the guided holds sound through the one engine: switch sides, then hold don
   x.gdRender();
   a.equal(x.audio.tones[0].hz, 1320, "hold done is the high one");
   x.guide = null;
+});
+
+// --- core work last ------------------------------------------------------------------
+function accDay(now) {
+  const x = app({ now }); x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  Object.assign(x.plan.maxes, { squat: 315, bench: 225, pull: 180, ohp: 135, dead: 405 }); x.bump();
+  return x;
+}
+const accOrder = (x, d) => x.lsSteps(d).filter((s) => s.type === "acc").map((s) => s.slot);
+
+test("core work runs last in a session, wherever the day lists it", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  a.ok(x.accSlots("mon").indexOf("core") < x.accSlots("mon").length - 1, "Monday lists core mid-way");
+  const run = accOrder(x, mon);
+  a.equal(run[run.length - 1], "core", "and the session runs it last");
+  // Everything else keeps the order you set.
+  a.deepEqual(run.slice(0, -1), x.accSlots("mon").filter((k) => k !== "core"));
+  // Even when you put it first on purpose.
+  x.plan.accSlots = { mon: ["core", "pchain", "biceps"] }; x.bump();
+  a.deepEqual(accOrder(x, mon), ["pchain", "biceps", "core"]);
+});
+
+test("the day's card and session mode run the accessories in the same order", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.sel = mon;
+  const wk = x.weekOf(mon), card = x.accCard(wk, x.dayPlan(mon));
+  // Read the slot order off the card's rows, in the order they appear.
+  const shown = [...card.matchAll(/data-act-acc="([a-z]+)"/g)].map((m) => m[1]);
+  a.deepEqual(shown, accOrder(x, mon), "two places, one order -- the heavy-week bug was two places disagreeing");
+});
+
+test("a superset with core in it moves to the end as a pair, not split", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.plan.accSlots = { mon: ["pchain", "core", "biceps", "triceps"] };
+  x.plan.accSuper = { mon: ["core"] };            // core paired with biceps
+  x.bump();
+  const steps = x.lsSteps(mon).filter((s) => s.type === "acc");
+  a.deepEqual(steps.map((s) => [s.slot, s.pair]), [["pchain", null], ["triceps", null], ["core", "biceps"]],
+    "the pair goes last together");
+  // Setup still shows the order you set, which is what pairs are defined against.
+  a.deepEqual(x.accSlots("mon"), ["pchain", "core", "biceps", "triceps"]);
+  a.equal(x.accIsSuper("mon", "core"), true, "and the pair is still the pair you made");
+});
+
+test("a day with no core work runs exactly as listed", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.plan.accSlots = { mon: ["triceps", "pchain", "carry"] }; x.bump();
+  a.deepEqual(accOrder(x, mon), ["triceps", "pchain", "carry"]);
+});
+
+test("Setup says core runs last, so the order there is not mistaken for the session's", () => {
+  a.match(accDay("2026-09-07").vSetup(), /Core work always runs last/);
+});
+
+test("a superset with core as its second half moves too", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.plan.accSlots = { mon: ["pchain", "core", "biceps", "triceps"] };
+  x.plan.accSuper = { mon: ["pchain"] };          // pchain paired with core
+  x.bump();
+  const steps = x.lsSteps(mon).filter((s) => s.type === "acc");
+  a.deepEqual(steps.map((s) => [s.slot, s.pair]), [["biceps", null], ["triceps", null], ["pchain", "core"]],
+    "core is in the pair, so the pair goes last");
+});
+
+test("the ab triad is a core option, prescribed exactly as given and no more", () => {
+  const x = accDay("2026-09-07");
+  const e = x.accEx("abtriad");
+  a.ok(e, "it is in the list");
+  a.equal(e.slot, "core", "as core work, so it runs last like the rest");
+  a.ok(x.accFor("core").includes("abtriad"), "and it is offered in the core picker");
+  // The prescription as given: 3-5 rounds of 5 / 5 / 5, in that order.
+  a.match(e.rx, /^3 to 5 rounds/);
+  a.match(e.rx, /5 hanging leg raises, 5 hanging knee raises, 5 toes-to-bar/);
+  // Nothing invented on top of it.
+  a.ok(!/rest|tempo|seconds|progress/i.test(e.rx), "no rest, tempo or progression that was never given");
+  a.match(e.src, /not in this app.s library/, "and it says where it came from");
+  a.equal(x.isBWAcc("abtriad"), true, "bodyweight, so the weight field reads as added load");
+});
+
+test("picking the ab triad shows its prescription where the rounds are logged", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.plan.accPick = { mon: { core: "abtriad" } }; x.bump();
+  a.equal(x.accOn(mon, "core"), "abtriad");
+  const row = x.accSlotRow(mon, "core");
+  a.match(row, /5 hanging leg raises, 5 hanging knee raises, 5 toes-to-bar/);
+  a.match(row, /Log each round as a set/);
+  // A round logged as reps reads back as reps next time.
+  x.seed({ [mon]: { date: mon, acc: { ex: { core: "abtriad" }, sets: { core: [{ r: 5 }, { r: 5 }, { r: 5 }] } } } });
+  x.bump();
+  a.match(x.accLastLine("2026-09-14", "core", "abtriad"), /5 reps · 5 reps · 5 reps/);
+  // A plain movement shows no prescription line.
+  // (On another day: the seeded Monday swapped the triad in, and a swap wins.)
+  x.plan.accPick = { mon: { core: "plank" } }; x.bump();
+  a.equal(x.accOn("2026-09-14", "core"), "plank");
+  a.ok(!/Log each round/.test(x.accSlotRow("2026-09-14", "core")));
 });

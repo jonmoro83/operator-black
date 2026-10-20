@@ -195,6 +195,32 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Core work last, and the ab triad (2026-10-20)**
+- **Core work runs last in a session**, wherever the day lists it. Asked for, and it is
+  where TB III puts abs too: its strength-endurance circuit runs *"bench press...
+  squat... finish up with RDL and abs."* A tired trunk is a worse brace for everything
+  after it. `accRunGroups` does it on groups rather than slots, so a superset with core
+  in it — as either half — moves as a pair instead of being split. Setup keeps the
+  order you set, because a pair is defined by which job comes next there; re-sorting
+  that would re-draw pairs. Setup says core runs last so the two orders are not
+  mistaken for each other.
+- Both places that run a session's accessories — the day card and session mode — use
+  it, and a test reads the order off each and asserts they agree, because two places
+  disagreeing was the heavy-week bug.
+- Carry used to say it went "Last". Only core comes after it now, and it says so. Worth
+  knowing: a hanging core movement after carries starts with a tired grip.
+- **The ab triad**, added as a core option: 3–5 rounds of 5 hanging leg raises, 5
+  hanging knee raises, 5 toes-to-bar. Asked whether TB III had it: searched the full
+  text in every spelling, then pulled the six image-only pages straight out of the PDF
+  (they are pull-quote boxes). It is not in TB III. **It is from a book not in the
+  library**, and it is recorded exactly as given — no rest, tempo or progression was
+  given, so none is shown, and a test fails if one appears. The row says where it came
+  from and that each round logs as a set.
+- Found on the way: the extractor drops pages with no text and **renumbers the rest**,
+  so a "page N" in a library extract is the Nth page with text, not the PDF's page N.
+  Six TB III pages are image-only; they are pull quotes, so nothing was lost this time.
+- Eight tests, seven mutants, all caught.
+
 **The timer, taken apart again — and louder (2026-10-19)**
 - Reported as "still very inconsistent", with a request to research properly before
   touching it. Researched first: the code, then WebKit bug reports and the Audio Session

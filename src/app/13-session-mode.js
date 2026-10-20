@@ -59,7 +59,7 @@ function lsSteps(date){
      What it respects instead is the skip on the day: if you decided this morning that
      they were costing you the main lifts, the walkthrough should not march you through
      them anyway. */
-  if(!dp.deload&&!accSkipped(date)&&dp.acc) for(const g of accGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
+  if(!dp.deload&&!accSkipped(date)&&dp.acc) for(const g of accRunGroups(dp.acc)) steps.push({type:'acc',slot:g[0],pair:g[1]||null});
   steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
   steps.push({type:'finish'});
   return steps;
