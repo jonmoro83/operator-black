@@ -65,6 +65,7 @@ function startHold(name,secs,sides,side){
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
+  tlog('rest','started',secs+' s');
   LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
 }
 function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();if(was)syncPush()}
@@ -75,6 +76,7 @@ function showRest(){
   document.getElementById('rest-lbl').textContent=rest.lbl+(rest.sides>1?' · side '+rest.side+' of '+rest.sides:'');
   // A timer that cannot make a sound should say so, or it reads as broken.
   const q=document.getElementById('rest-quiet'); if(q) q.hidden=!quiet();
+  showWake();
   if(!restTick) restTick=setInterval(tickRest,250);
   tickRest();
 }
@@ -95,12 +97,18 @@ function tickRest(){
   document.getElementById('rest-next').textContent=left>0?(rest.next?'Next: '+rest.next:''):(rest.next?'Go: '+rest.next:'Rest done');
   document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
   el.classList.toggle('done',left===0);
-  // The warning: a beep, and the spoken cue if that is on. Only when the rest is at
-  // least twice the warning, or a short one would announce itself the moment it began.
+  // The warning: a tone, and deliberately nothing spoken. Speech can interrupt the audio
+  // channel on iOS, and a spoken "ten seconds" was the one sound between the tap that
+  // started the rest and the beep that ends it -- so the end beep landed on a channel
+  // speech had just parked, with no tap to wake it. Only on a rest at least twice the
+  // warning, or a short one would announce itself the moment it began.
   if(restWarnDue(rest,left)){
-    rest.warned=true; LS.set('ob.rest',rest); beepWarn(); say(restWarnSecs()+' seconds');
+    rest.warned=true; LS.set('ob.rest',rest); beepWarn(); tlog('rest','warning',left+' s left');
   }
   if(left===0&&!rest.done){
+    // How late the tick noticed. Under a second is the timer working; a big number is
+    // the screen having been asleep, which no in-app sound can beat.
+    tlog('rest','over',Math.max(0,Math.round(-leftMs/100)/10)+' s late');
     rest.done=true;LS.set('ob.rest',rest);beep();syncScreen();
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
     else setTimeout(()=>say(rest&&rest.hold?(rest.baseLbl+' done'):rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700);

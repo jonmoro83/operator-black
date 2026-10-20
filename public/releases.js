@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.25',date:'2026-10-19',title:'The timer, fixed at the root, and much louder',items:[
+    'The app had two separate ways of making a sound, and every beep fix so far went into only one of them. The rest timer used the fixed one. The interval timer and the guided warm-up holds used an older one with none of the fixes, which is why they could go quiet when the rest beep did not. The test button only ever checked the fixed one. There is one way now, used by every timer.',
+    'The ten-second warning no longer speaks. On iPhone, speech can knock out the app\u2019s audio, and a spoken warning in the middle of a rest was enough to cost you the beep at the end of it. It is a tone only, which is what you asked for in the first place.',
+    'Any tap anywhere now wakes the sound back up, and the app tries to wake it on its own whenever something else has taken the audio. If iOS refuses to keep the screen on, which Low Power Mode does, the rest bar now says so, because a sleeping screen means the beep cannot sound until you wake the phone.',
+    'Every beep is far louder, at the same pitch. Each note used to be a short blip that was only at full volume for about a hundredth of a second. They are held now, at full volume, and the low ones carry overtones a phone speaker can actually play. By the numbers that is three to six times as loud, the warning most of all.',
+    'There is a timer log in Setup, under Sound. If a beep ever goes missing again, copy it straight afterwards and it will say exactly what happened.']},
   {v:'3.24',date:'2026-10-19',title:'How to do it, while you are doing it',items:[
     'The movement descriptions were only on the day\u2019s card. In the guided warm-up and mobility walkthrough there is now a <b>How to do it</b> button under the timer that opens the same panel for whichever movement you are on.',
     'It stays open as you move through the routine, so if you are learning one you can read your way through it and then switch it off for good. It starts closed so the timer keeps the screen.',

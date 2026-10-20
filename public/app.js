@@ -4675,6 +4675,10 @@ function deloadCheckCard(c){
 // State lives in localStorage with an absolute end time, so it survives the phone
 // locking, the app being backgrounded, or a reload.
 let rest=LS.get('ob.rest'), restTick=null, audioCtx=null, wakeLock=null;
+// 'held', 'refused', 'unsupported' or 'off'. Refused is the one that matters: iOS can
+// decline the screen lock -- Low Power Mode does -- and then the screen sleeps, the page
+// stops, and a beep can only sound when you next wake the phone.
+let wakeState='off';
 function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
 // Seconds between ramp sets. Long enough that the last ramp single doesn't eat into the
 // first working set — a minute was the old floor and it was not enough once the bar is
@@ -4687,6 +4691,9 @@ function warmRestLabel(v){return v<120?v+'s':(v/60)+' min'}
 let voicePrimed=false;
 function say(text){
   if(quiet()||!plan.voice||!('speechSynthesis' in window)) return;
+  // Never over a tone: speech starting mid-note can cut it off on iOS. Wait it out.
+  const wait=sfxUntil-Date.now();
+  if(wait>0){ setTimeout(()=>say(text),wait); return }
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1.05; u.pitch=1; speechSynthesis.speak(u) }catch(e){}
 }
 /* ---------- sharing the phone's speaker ----------
@@ -4736,7 +4743,7 @@ function unlockAudio(){
   try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
     if(navigator.audioSession) navigator.audioSession.type=soundMode()==='takeover'?'playback':'transient';
-    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); ctxWatch(audioCtx); tlog('audio','channel opened') }
     if(audioCtx.state!=='running') audioCtx.resume();
     const b=audioCtx.createBuffer(1,1,22050), s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0);
   }catch(e){}
@@ -4777,7 +4784,7 @@ function beepWav(){
       for(let i=0;i<len;i++){
         // a short fade each end, or the square edges click
         const env=Math.min(1,Math.min(i,len-i)/(sr*.012));
-        b[p++]=hz?128+Math.round(100*env*Math.sin(2*Math.PI*hz*i/sr)):128;
+        b[p++]=hz?128+Math.round(124*env*Math.sin(2*Math.PI*hz*i/sr)):128;
       } }
     let t=''; for(let i=0;i<b.length;i++) t+=String.fromCharCode(b[i]);
     beepSrc='data:audio/wav;base64,'+btoa(t);
@@ -4797,22 +4804,142 @@ function beepMedia(){
     return 'played';
   }catch(e){ return 'threw:'+((e&&e.name)||'?') }
 }
-function beepTones(){
-  if(!audioCtx) unlockAudio();
-  if(!audioCtx) return 'no-context';
-  const go=()=>{ try{
-    const t0=audioCtx.currentTime;
-    [0,.28,.56].forEach((dt,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1320:880;g.gain.setValueAtTime(0.0001,t0+dt);g.gain.exponentialRampToValueAtTime(0.5,t0+dt+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+.22);o.connect(g);g.connect(audioCtx.destination);o.start(t0+dt);o.stop(t0+dt+.25)});
-  }catch(e){} };
-  // Scheduling against a stopped context's clock was bug 2: resume first, then read it.
-  // 'interrupted' counts as stopped — WebKit moves the context there when another app
-  // starts playing, which on a phone with music on is most of the time.
-  if(audioCtx.state!=='running'){
-    try{ const p=audioCtx.resume(); if(p&&p.then) p.then(go,()=>{}); else go(); }catch(e){ return 'resume-threw' }
-    return 'resuming';
-  }
-  go(); return 'running';
+/* ---------- one way to make a sound ----------
+Every timer sound goes through `sfx`: the end of a rest, its warning, every interval
+change and its 3-2-1, the guided holds, the generic timer. Until 3.25 there were two
+paths. `beep()` had been fixed four times; `tone()`, which the interval timer and the
+guided walkthrough used, had none of those fixes -- it never woke an 'interrupted'
+context, and it scheduled against the clock of one that was still waking. The Test
+button only ever exercised the first, so "confirmed working" was true and said nothing
+about the second. One function now, so a fix lands everywhere at once, and a test fails
+if a second place ever starts making tones.
+
+Loudness, measured rather than guessed (3.25). Each note used to rise in 20 ms and then
+decay exponentially by 74 dB over its length, which is about 12 ms at full volume: a
+blip. Held at full volume and released in 40 ms, the same note at the same pitch
+carries sixteen times the energy, and below ~200 ms the ear hears energy -- that alone
+is +12 dB. The peak goes from 0.5 to 1.0, another +6. And the tones below 1 kHz get
+their 2nd and 3rd harmonics, because a phone speaker loses about 12 dB per octave below
+its ~1 kHz resonance: a 587 Hz sine was mostly lost in the speaker, while its
+harmonics land where the speaker works and the ear still hears the low note. Modelled
+against a speaker-plus-ear curve: +15 to +27 dB per sound, every pitch unchanged. */
+const SFX={
+  done:  [{f:880,d:.20},{f:880,d:.20,at:.28},{f:1320,d:.26,at:.56}],      // rest or timer over
+  warn:  [{f:587,d:.20,h:[1,.5,.3]}],                                      // heads-up: one low note
+  go:    [{f:1320,d:.45}],                                                 // interval: work starts
+  easy:  [{f:660,d:.45,h:[1,.8,.6]}],                                      // interval: easy starts
+  tick:  [{f:880,d:.12,peak:.8}],                                          // interval: 3, 2, 1
+  ivdone:[{f:880,d:.20},{f:880,d:.20,at:.28},{f:1320,d:.50,at:.56}],      // intervals finished
+  hold:  [{f:1320,d:.30}],                                                 // guided: hold done
+  side:  [{f:660,d:.30,h:[1,.8,.6]}],                                      // guided: switch sides
+  gdone: [{f:880,d:.18},{f:1320,d:.35,at:.22}],                            // guided: block done
+};
+// How long a sound lasts, so speech can wait for it rather than talk over it.
+function sfxLen(name){ return Math.max(0,...(SFX[name]||[]).map(n=>(n.at||0)+n.d)) }
+let sfxWaves=new WeakMap(), sfxUntil=0;
+// A periodic wave per harmonic recipe, per context. createPeriodicWave normalises to a
+// peak of 1 by default, so adding harmonics can never push a note past full scale.
+function sfxWave(ctx,h){
+  let m=sfxWaves.get(ctx); if(!m){ m={}; sfxWaves.set(ctx,m) }
+  const k=h.join(',');
+  if(!m[k]){ const re=new Float32Array(h.length+1), im=new Float32Array(h.length+1); h.forEach((a,i)=>{im[i+1]=a}); m[k]=ctx.createPeriodicWave(re,im) }
+  return m[k];
 }
+// One held note: up in 8 ms, held, down in 40. The only createOscillator in the app.
+function sfxNote(ctx,t,n){
+  const o=ctx.createOscillator(), g=ctx.createGain(), peak=n.peak==null?1:n.peak;
+  if(n.h&&n.h.length>1&&ctx.createPeriodicWave) o.setPeriodicWave(sfxWave(ctx,n.h)); else o.type='sine';
+  o.frequency.value=n.f;
+  const att=.008, rel=Math.min(.04,n.d/3);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(peak,t+att);
+  g.gain.setValueAtTime(peak,t+n.d-rel);
+  g.gain.linearRampToValueAtTime(0,t+n.d);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+n.d+.02);
+}
+function sfx(name){
+  const notes=SFX[name]; if(!notes) return 'unknown';
+  if(quiet()){ tlog('sound',name+' \u00b7 silent'); return 'silent' }
+  if(!audioCtx) unlockAudio();
+  if(!audioCtx){ tlog('sound',name+' \u00b7 no-context'); return 'no-context' }
+  // Speech that starts while a tone is sounding can cut it off on iOS, so say() holds
+  // off until this has passed. Set before the play, because a wake may delay it.
+  sfxUntil=Date.now()+sfxLen(name)*1000+120;
+  const play=()=>{ try{ const t0=audioCtx.currentTime+.005; for(const n of notes) sfxNote(audioCtx,t0+(n.at||0),n) }catch(e){} };
+  const was=audioCtx.state;
+  if(was==='running'){ play(); tlog('sound',name+' \u00b7 played'); return 'running' }
+  // Not running -- 'suspended' after a lock, 'interrupted' after speech, a call or
+  // another app. Wake it and play once it is awake. Reading the clock first was the old
+  // bug: a parked context's clock is stale, and notes scheduled on it never sound. If
+  // the wake does not take, there is no tap to retry with, so the log says so rather
+  // than the beep going missing in silence.
+  try{
+    const p=audioCtx.resume();
+    if(p&&p.then){
+      p.then(()=>{
+        if(audioCtx.state==='running'){ sfxUntil=Date.now()+sfxLen(name)*1000+120; play(); tlog('sound',name+' \u00b7 played after waking',was) }
+        else tlog('sound',name+' \u00b7 wake did not take',was+' → '+audioCtx.state);
+      },e=>tlog('sound',name+' \u00b7 wake refused',was+' '+((e&&e.name)||'')));
+      return 'resuming';
+    }
+    play(); tlog('sound',name+' \u00b7 played',was); return 'resumed';
+  }catch(e){ tlog('sound',name+' \u00b7 wake threw',was); return 'resume-threw' }
+}
+/* Keeping the channel awake between sounds.
+
+   While the page is on screen, a context that leaves 'running' is woken straight away
+   -- three tries in ten seconds, then it waits for a tap -- so the next beep finds it
+   ready rather than finding out at the end of a rest. And every tap anywhere wakes it,
+   because a tap is the one moment iOS is sure to honour a wake: in a session, that is
+   every Done. */
+let ctxWakes=[];
+function ctxWatch(ctx){
+  ctx.onstatechange=()=>{
+    tlog('audio',ctx.state);
+    if(ctx.state==='running'||ctx.state==='closed'||quiet()) return;
+    if(typeof document!=='undefined'&&document.visibilityState&&document.visibilityState!=='visible') return;
+    const now=Date.now(); ctxWakes=ctxWakes.filter(t=>now-t<10000);
+    if(ctxWakes.length>=3){ tlog('audio','waiting for a tap'); return }
+    ctxWakes.push(now);
+    try{ const p=ctx.resume(); if(p&&p.catch) p.catch(e=>tlog('audio','wake refused',(e&&e.name)||'')) }catch(e){}
+  };
+}
+function gestureWake(){
+  if(quiet()) return;
+  if(audioCtx&&audioCtx.state==='running') return;
+  unlockAudio(); tlog('audio','woken by a tap');
+}
+if(typeof document!=='undefined'&&document.addEventListener)
+  ['pointerdown','touchend','keydown'].forEach(ev=>document.addEventListener(ev,gestureWake,{capture:true,passive:true}));
+
+/* ---------- the timer log ----------
+The last eighty things the timers did, kept on the device: each sound and what the audio
+channel was doing when it was asked for, how late each rest's end was noticed, the screen
+lock, the page going to the background and back. "Inconsistent" has now been reported
+five times and fixed four; the next report should come with what happened, not a
+description of it. Copy it from Setup, Sound. */
+const TLOG_MAX=80;
+function tlog(ev,what,detail){
+  try{
+    const a=LS.get('ob.tlog')||[];
+    a.push({t:Date.now(),ev,what:String(what),d:detail==null?'':String(detail),ctx:audioCtx?audioCtx.state:'none',
+      vis:typeof document!=='undefined'?(document.visibilityState||''):'',wl:wakeState});
+    while(a.length>TLOG_MAX) a.shift();
+    LS.set('ob.tlog',a);
+  }catch(e){}
+}
+function tlogText(){
+  const a=LS.get('ob.tlog')||[];
+  if(!a.length) return 'Nothing logged yet. Run a rest or an interval session and this fills in.';
+  const hh=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
+  return a.map(e=>`${hh(e.t)}  ${e.ev} · ${e.what}${e.d?' ('+e.d+')':''}  [audio ${e.ctx}, page ${e.vis||'?'}, screen ${e.wl}]`).join('\n');
+}
+function tlogReport(){
+  return 'Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' · timer log\n'+
+    (typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'')+'\n\n'+tlogText();
+}
+
+function beepTones(){ return sfx('done') }
 // How long before the end to give a warning, in seconds. 0 is off.
 const REST_WARNS=[0,5,10,15,30];
 function restWarnSecs(){ const v=+plan.restWarn; return REST_WARNS.includes(v)?v:10 }
@@ -4836,22 +4963,7 @@ function beepWarn(){
   if(quiet()) return {vib,tones:'silent'};
   return {vib,tones:warnTone()};
 }
-function warnTone(){
-  if(!audioCtx) unlockAudio();
-  if(!audioCtx) return 'no-context';
-  const go=()=>{ try{
-    const t0=audioCtx.currentTime, o=audioCtx.createOscillator(), g=audioCtx.createGain();
-    o.type='sine'; o.frequency.value=587;
-    g.gain.setValueAtTime(0.0001,t0);
-    g.gain.exponentialRampToValueAtTime(0.35,t0+0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.18);
-    o.connect(g); g.connect(audioCtx.destination); o.start(t0); o.stop(t0+0.22);
-  }catch(e){} };
-  // Same resume-then-schedule order as the finish beep, and for the same reason: a
-  // context WebKit has parked at 'interrupted' has a clock that is not running.
-  if(audioCtx.state!=='running'){ try{ audioCtx.resume().then(go,()=>{}) }catch(e){ return 'no-resume' } return 'resumed' }
-  go(); return 'played';
-}
+function warnTone(){ return sfx('warn') }
 function beep(){
   // Buzz first and unconditionally. Silent mode exists so iOS does not take the audio
   // session off your music; vibration never touches audio, so suppressing it as well
@@ -4916,12 +5028,19 @@ function beepReport(){
 async function holdScreen(on){
   try{
     if(on){
-      if(!navigator.wakeLock) return;
+      if(!navigator.wakeLock){ if(wakeState!=='unsupported'){ wakeState='unsupported'; tlog('screen','no screen lock on this device') } return }
       if(wakeLock&&!wakeLock.released) return;
       wakeLock=await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release',()=>{wakeLock=null});
-    } else if(wakeLock){ const w=wakeLock; wakeLock=null; await w.release() }
-  }catch(e){wakeLock=null}
+      wakeState='held'; tlog('screen','held');
+      wakeLock.addEventListener('release',()=>{wakeLock=null; if(wakeState==='held'){ wakeState='off'; tlog('screen','released') } showWake()});
+    } else if(wakeLock){ const w=wakeLock; wakeLock=null; wakeState='off'; await w.release() }
+  }catch(e){ wakeLock=null; wakeState='refused'; tlog('screen','refused',(e&&e.name)||'') }
+  showWake();
+}
+// Said on the rest bar, where it matters, rather than discovered at the end of a rest.
+function showWake(){
+  const el=typeof document!=='undefined'&&document.getElementById('rest-wake'); if(!el) return;
+  el.hidden=!(wakeState==='refused'&&wantScreen());
 }
 // The screen stays on for as long as anything is actually going on, not just while a
 // rest happens to be counting: a session is open, or any timer is running.
@@ -4936,6 +5055,7 @@ function syncScreen(){ holdScreen(wantScreen()) }
 // Coming back to the app: take the lock again if we still need it, and wake the audio
 // context, which iOS suspends while the page is hidden and a silent beep never recovers.
 document.addEventListener('visibilitychange',()=>{
+  tlog('page',document.visibilityState);
   if(document.visibilityState!=='visible') return;
   syncScreen();
   try{ audioAwake() }catch(e){}
@@ -5233,7 +5353,7 @@ function gdGo(pos){
 }
 function gdFinish(){
   say(guide.kind==='warmup'?'Warm-up done.':'Mobility done.');
-  tone(880,.18); tone(1320,.35,.22); vib([160,90,220]);
+  sfx('gdone'); vib([160,90,220]);
   gdClose();
 }
 function gdClose(){ guide=null; LS.set('ob.guide',null); syncScreen(); gdShow(); render(); }
@@ -5254,8 +5374,8 @@ function gdRender(){
     left=Math.max(0,Math.ceil((guide.end-(paused?guide.paused:Date.now()))/1000));
     if(!paused&&!guide.wait&&Date.now()>=guide.end){
       const more=guide.sides>guide.side;
-      if(more){ tone(660,.3); vib([140,70,140]); say('Switch sides') }
-      else { tone(1320,.3); vib([200]); gdTickOff(it.i) }
+      if(more){ sfx('side'); vib([140,70,140]); say('Switch sides') }
+      else { sfx('hold'); vib([200]); gdTickOff(it.i) }
       if(auto){
         if(more){ guide.side++; guide.end=Date.now()+guide.dur*1000; left=guide.dur; }
         else { LS.set('ob.guide',guide); return gdGo(guide.pos+1) }
@@ -5714,7 +5834,7 @@ function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv
 // A held burst is not part of the session's length, so the countdown reports base only.
 function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
-function tone(freq,dur,delay){try{if(quiet()||!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();const t0=audioCtx.currentTime+(delay||0),o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+dur+.05)}catch(e){}}
+// tone() lived here: the second audio path, with none of beep()'s fixes. See sfx().
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function ivStart(fmt){
   const o=ivOpts(sel,fmt), segs=ivSegments(fmt,o);
@@ -5765,8 +5885,8 @@ function ivRender(){
   document.getElementById('iv-pause').textContent=seg.hold?'Done':iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
   if(!iv.paused){
-    if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){tone(1320,.45);vib([300])} else {tone(660,.45);vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) } ivLast.idx=p.i; }
-    if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ tone(880,.12); }
+    if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){sfx('go');vib([300])} else {sfx('easy');vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) } ivLast.idx=p.i; }
+    if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
   }
 }
@@ -5781,7 +5901,7 @@ function ivSpeech(seg){
   return 'Easy. '+dur+'.';
 }
 function ivFinish(){
-  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();tone(880,.2);tone(880,.2,.28);tone(1320,.5,.56);vib([200,100,200,100,400]);
+  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();sfx('ivdone');vib([200,100,200,100,400]);
     const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     // the session you actually did, not the one that was planned
@@ -6035,6 +6155,7 @@ function startHold(name,secs,sides,side){
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
+  tlog('rest','started',secs+' s');
   LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
 }
 function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();if(was)syncPush()}
@@ -6045,6 +6166,7 @@ function showRest(){
   document.getElementById('rest-lbl').textContent=rest.lbl+(rest.sides>1?' · side '+rest.side+' of '+rest.sides:'');
   // A timer that cannot make a sound should say so, or it reads as broken.
   const q=document.getElementById('rest-quiet'); if(q) q.hidden=!quiet();
+  showWake();
   if(!restTick) restTick=setInterval(tickRest,250);
   tickRest();
 }
@@ -6065,12 +6187,18 @@ function tickRest(){
   document.getElementById('rest-next').textContent=left>0?(rest.next?'Next: '+rest.next:''):(rest.next?'Go: '+rest.next:'Rest done');
   document.getElementById('rest-stop').textContent=left>0?'Skip':'Done';
   el.classList.toggle('done',left===0);
-  // The warning: a beep, and the spoken cue if that is on. Only when the rest is at
-  // least twice the warning, or a short one would announce itself the moment it began.
+  // The warning: a tone, and deliberately nothing spoken. Speech can interrupt the audio
+  // channel on iOS, and a spoken "ten seconds" was the one sound between the tap that
+  // started the rest and the beep that ends it -- so the end beep landed on a channel
+  // speech had just parked, with no tap to wake it. Only on a rest at least twice the
+  // warning, or a short one would announce itself the moment it began.
   if(restWarnDue(rest,left)){
-    rest.warned=true; LS.set('ob.rest',rest); beepWarn(); say(restWarnSecs()+' seconds');
+    rest.warned=true; LS.set('ob.rest',rest); beepWarn(); tlog('rest','warning',left+' s left');
   }
   if(left===0&&!rest.done){
+    // How late the tick noticed. Under a second is the timer working; a big number is
+    // the screen having been asleep, which no in-app sound can beat.
+    tlog('rest','over',Math.max(0,Math.round(-leftMs/100)/10)+' s late');
     rest.done=true;LS.set('ob.rest',rest);beep();syncScreen();
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
     else setTimeout(()=>say(rest&&rest.hold?(rest.baseLbl+' done'):rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700);
@@ -7358,18 +7486,23 @@ function vSetup(){
     </div>
     ${sm==='silent'?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
     <div class="restsel" style="margin-top:10px"><span>Warning</span><div class="seg">${REST_WARNS.map(v=>`<button class="segb${restWarnSecs()===v?' on':''}" data-act="restwarn" data-v="${v}" aria-pressed="${restWarnSecs()===v}">${v?v+'s':'Off'}</button>`).join('')}</div></div>
-    <div class="small muted">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
+    <div class="small muted">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. A tone and nothing spoken: on iPhone, speech can interrupt the audio, and a spoken warning was enough to cost you the beep at the end. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
     <div class="small muted">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
     <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
     ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
       <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['mode '+beepSeen.mode,'silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
-      <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}`;
+      <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}
+    <details class="plain" style="margin-top:10px"><summary>Timer log</summary>
+      <p class="small muted" style="margin:6px 0">The last eighty things the timers did on this phone: every sound and what the audio was doing when it was asked for, how late each rest\u2019s end was noticed, and when the screen lock was refused. If a beep goes missing, copy this straight after \u2014 it says why.</p>
+      <div class="mono small tlog">${esc(tlogText())}</div>
+      <div class="row"><button class="btn sm ghost" data-act="tlogcopy">Copy the timer log</button></div>
+    </details>`;
   }
   {
     const v=!!plan.voice&&!plan.quietTimer;
     h+=SEC('sound')+`<div class="card"><div class="lift-h"><h2>Spoken cues</h2>${v?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div>
-    <p class="small muted" style="margin:0">The app’s own voice, separate from notifications. It reads interval changes (“Round 3 of 8. Go hard.”), ten seconds left in a rest, and what’s next when one ends.</p>
+    <p class="small muted" style="margin:0">The app’s own voice, separate from notifications. It reads interval changes (“Round 3 of 8. Go hard.”) and what’s next when a rest ends.</p>
     <label class="check"><input type="checkbox" id="p-voice" data-pbind="voice" ${v?'checked':''}> Speak cues while the app is on screen</label>
     ${plan.quietTimer?`<div class="small" style="color:var(--muted)">Silent timers are on, so cues stay quiet whatever this says.</div>`:''}
     ${v?`<div><button class="btn" data-act="voicetest">Try a cue</button></div>`:''}
@@ -8353,6 +8486,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
   if(a==='bandseed'){ bandSeed(b.dataset.v); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
+  if(a==='tlogcopy'){
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy the timer log'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(tlogReport()).then(done,()=>{});
+    return}
   if(a==='beepcopy'){
     const text=beepReport();
     const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };

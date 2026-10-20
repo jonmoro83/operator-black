@@ -17,16 +17,17 @@ Genuinely open: things that still need doing or confirming.
   alerts on the lock screen, spoken cues through AirPods with the app open, and the
   rest beep in a real session — **with the ring switch off as well as on**
   (2026-10-16), which the research said was impossible.
+- **The timer, on the phone (3.25).** The two-paths bug is certain and fixed; the rest
+  is research plus a model, not a device. What to check after a real session: that the
+  interval timer's 3-2-1 and its changes sound every time with spoken cues on, that the
+  rest beep comes on time, and that it is clearly louder. If anything is still off,
+  Setup → Sound → Timer log has the answer — copy it straight after.
 - **Does the coach give good advice?** The agreed gate for letting it apply changes
   rather than only suggest them. It cannot be settled from here — it needs a few weeks
   of reading what it said against what happened.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically, so this
   only bites on hand-edited history.
-- **TB1's extract renders apostrophes as `ä`.** Cosmetic: FTS splits on
-  non-alphanumerics either way, so retrieval is unaffected, but it shows in a coach
-  quotation from that book. Left because guessing at a mapping was worse than leaving
-  it; the fix is finding the real glyph for the code rather than inventing one.
 - **Not separately confirmed, and minor:** that the beep ducks music rather than
   stopping it. The mid-session half of this is now confirmed — the rest timer sounds
   in a real session, not just from the test button.
@@ -41,6 +42,9 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
   never both, and the web has no `mixWithOthers`), making it a three-way choice
   defaulting to ducking, undoing the `playback` regression 1.79 introduced, and fixing a
   real fault where an `interrupted` AudioContext was never woken.
+  - **What "confirmed" covered, 2026-10-19:** the Test button, which only ever ran
+    `beep()`. The interval timer and the guided holds had a second path, `tone()`, with
+    none of these fixes. Merged in 3.25; see the shipped entry.
   - **Correction, 2026-10-16: it is audible with the ring switch off as well.** The
     entry above said that was impossible for a web app, which is what the research
     said and is apparently not what happens on this device — reported after a real
@@ -190,6 +194,52 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The timer, taken apart again — and louder (2026-10-19)**
+- Reported as "still very inconsistent", with a request to research properly before
+  touching it. Researched first: the code, then WebKit bug reports and the Audio Session
+  spec, then a model of what a phone speaker does to each tone.
+- **There were two audio paths, and every beep fix had gone into one of them.** The rest
+  beep, its warning and the generic timer used `beep()`, fixed four times. The interval
+  timer (every change, the 3-2-1, the finish) and the guided holds used `tone()`, which
+  had none of those fixes: it returned silently with no channel, never woke an
+  `interrupted` one, and scheduled against the stale clock of one still waking. The Test
+  button only exercised `beep()`, so "confirmed working" was true and said nothing about
+  the rest. **Now one engine, `sfx`, and a test fails if a second place ever makes a
+  tone.**
+- **The spoken warning could cost you the end beep.** Developer reports show
+  `speechSynthesis` parking an iOS audio context at `interrupted`, and a wake without a
+  tap is unreliable. Before the warning existed the only speech came after the beep, and
+  each rest began with a tap that woke the audio. "Ten seconds", spoken mid-rest, was the
+  one sound between that tap and the end. **The warning is a tone only now** — it was
+  never asked to speak; that was mine.
+- **Keeping the channel awake.** A state-change watcher wakes it the moment it leaves
+  `running` while the app is on screen — three tries in ten seconds, then it waits —
+  and **every tap anywhere wakes it**, because a tap is the one moment iOS reliably
+  honours a wake. In a session that is every Done. Speech never starts while a tone is
+  sounding; `say()` waits it out.
+- **Low Power Mode made late beeps look like missing ones.** iOS can refuse the screen
+  lock; the screen sleeps, the page stops, and a beep sounds whenever the phone is next
+  woken. The rest bar now says *Screen may sleep* when that happens.
+- **Louder, measured.** Each note used to rise in 20 ms and then decay exponentially by
+  74 dB, about **12 ms at full volume** — a blip. Held and released in 40 ms, the same
+  note carries sixteen times the energy: +12 dB on its own. Peak 0.5 → 1.0: +6. And the
+  tones below 1 kHz (the warning, the interval's easy cue, switch sides) got their 2nd
+  and 3rd harmonics, because a phone speaker loses ~12 dB per octave below its ~1 kHz
+  resonance; the 587 Hz warning was losing ~12 dB in the speaker alone, at 70% of the
+  finish's gain. Modelled against a speaker-plus-A-weighting curve: **+15 to +27 dB per
+  sound, every pitch unchanged.** +10 dB is roughly twice as loud. The model is a model;
+  the phone is the test.
+- **A timer log** in Setup → Sound: the last eighty events — each sound and the channel's
+  state when it was asked for, how late each rest's end was noticed, screen lock
+  granted or refused, the page hiding and returning. Five reports, four fixes; the next
+  one should come with what happened.
+- The harness learned to fail the way the phone does: interruptions, a refused wake, a
+  wake that resolves but leaves the channel parked, gain envelopes, harmonics, speech
+  and taps. **Four reproductions were written first and failed against 3.24.**
+- Seventeen tests, seventeen mutants, all caught. Five survived the first pass — among
+  them the speech deferral masking a returning spoken warning, because the test looked
+  before the tone had finished.
 
 **The movement library, mid-session (2026-10-19)**
 - The descriptions existed but only on the day's card. Asked for them during a

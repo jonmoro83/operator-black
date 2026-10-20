@@ -4,8 +4,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const CONSTS = ["coach", "MACRO", "KCAL_G", "MACRO_STEP", "ADJACENT_BAN", "ADJACENT_SOFT", "APP_VERSION", "RELEASES", "PLYO_UPPER", "SUPP", "SUPP_LVL", "PLIB", "VARS", "openPx", "MLIB", "ASLOT", "ALIB", "ACC_DAYS", "ACC_DEF", "PULLUP", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "FOBBIT", "FOB_SRC", "IV", "DELOAD_OPTS", "AIMS_LIFT", "AIMS_COND", "AIM_MAX", "SCHEMA", "MIGRATIONS", "CRASH_KEEP", "CONFLICT_KEEP", "WARM_RESTS", "WARM_CORE", "AGILE8", "WARM_ROUTINES", "BB_MASS", "BB_LEN", "OW_BLOCKS", "BB_TOP", "SE_CLUSTERS", "BAND_PRESETS", "WZ_STEPS", "STEMPL", "CPROTO", "LIFTSET", "GT_PRESETS", "L3K", "LK"];
-const STATE = ["view", "plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "gt", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey", "schemaAhead", "outbox", "calFeed", "amAdmin", "admin", "catalog", "beepSeen"];
+const CONSTS = ["coach", "MACRO", "KCAL_G", "MACRO_STEP", "ADJACENT_BAN", "ADJACENT_SOFT", "APP_VERSION", "RELEASES", "PLYO_UPPER", "SUPP", "SUPP_LVL", "SFX", "PLIB", "VARS", "openPx", "MLIB", "ASLOT", "ALIB", "ACC_DAYS", "ACC_DEF", "PULLUP", "WARMUP", "MOB", "PLYO", "HIC", "MOD", "FOBBIT", "FOB_SRC", "IV", "DELOAD_OPTS", "AIMS_LIFT", "AIMS_COND", "AIM_MAX", "SCHEMA", "MIGRATIONS", "CRASH_KEEP", "CONFLICT_KEEP", "WARM_RESTS", "WARM_CORE", "AGILE8", "WARM_ROUTINES", "BB_MASS", "BB_LEN", "OW_BLOCKS", "BB_TOP", "SE_CLUSTERS", "BAND_PRESETS", "WZ_STEPS", "STEMPL", "CPROTO", "LIFTSET", "GT_PRESETS", "L3K", "LK"];
+const STATE = ["view", "plan", "logs", "programs", "sel", "planV", "viewing", "stash", "guide", "rest", "iv", "ls", "loaded", "me", "calMove", "calRe", "undoItem", "gt", "HIC", "DEF", "D", "planMode", "calMonth", "newProg", "wz", "moveOpen", "popKey", "schemaAhead", "sfxUntil", "wakeState", "outbox", "calFeed", "amAdmin", "admin", "catalog", "beepSeen"];
 
 function stubDom() {
   const made = {};
@@ -29,28 +29,59 @@ function stubDom() {
   // A recording AudioContext. Without one, `audioCtx` stayed undefined and every beep
   // was a no-op, so nothing about the alert sounds was testable — which is how the rest
   // beep got "fixed" twice without anybody being able to check it.
-  const audio = { tones: [], plays: [], ctxs: 0, resumes: 0, ctx: null };
+  // `refuse` makes resume() reject, which is what iOS does to a resume it will not honour
+  // outside a tap. `interrupt()` is what speech, a call or another app does to a running
+  // context on iOS: it parks it at WebKit's non-standard 'interrupted' and fires
+  // statechange. Both exist because those are the two ways the beep went missing.
+  const audio = { tones: [], plays: [], ctxs: 0, resumes: 0, ctx: null, refuse: false, stuck: false, waves: 0,
+    interrupt() { const c = audio.ctx; if (!c) return; c.state = "interrupted"; if (c.onstatechange) c.onstatechange() } };
   class StubAudioContext {
-    constructor() { this.state = "suspended"; this.currentTime = 0; this.destination = { kind: "out" }; audio.ctxs++; audio.ctx = this }
+    constructor() { this.state = "suspended"; this.currentTime = 0; this.destination = { kind: "out" }; this.onstatechange = null; audio.ctxs++; audio.ctx = this }
     // A suspended context's clock is frozen, and resume() is async. Jumping the clock on
     // resume is what makes "scheduled before the resume settled" visible to a test.
     resume() {
       audio.resumes++;
-      return Promise.resolve().then(() => { this.state = "running"; this.currentTime += 5 });
+      if (audio.refuse) return Promise.reject(Object.assign(new Error("not allowed"), { name: "NotAllowedError" }));
+      // The case the research describes: resume() resolves, and the context is still parked.
+      if (audio.stuck) return Promise.resolve();
+      return Promise.resolve().then(() => {
+        const was = this.state; this.state = "running"; this.currentTime += 5;
+        if (was !== "running" && this.onstatechange) this.onstatechange();
+      });
     }
     createBuffer() { return { kind: "buffer" } }
     createBufferSource() { return { buffer: null, connect() {}, start() {} } }
-    createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} } }
+    createPeriodicWave(real, imag) { audio.waves++; return { kind: "wave", real: Array.from(real), imag: Array.from(imag) } }
+    // The gain records its envelope, so a test can read how loud and how long a note is
+    // rather than only that one was started.
+    createGain() {
+      const pts = [];
+      const g = { pts, gain: {
+        setValueAtTime(v, t) { pts.push({ v, t, k: "set" }) },
+        linearRampToValueAtTime(v, t) { pts.push({ v, t, k: "lin" }) },
+        exponentialRampToValueAtTime(v, t) { pts.push({ v, t, k: "exp" }) } }, connect() {} };
+      return g;
+    }
     createOscillator() {
-      const o = { type: "", frequency: { value: 0 }, connect() {}, stop() {},
-        start: (t) => audio.tones.push({ hz: o.frequency.value, at: t }) };
+      const o = { type: "sine", wave: null, frequency: { value: 0 }, gainNode: null, stop() {},
+        setPeriodicWave(w) { o.wave = w; o.type = "custom" },
+        connect(n) { if (n && n.pts) o.gainNode = n },
+        start: (t) => audio.tones.push({ hz: o.frequency.value, at: t, type: o.type, wave: o.wave,
+          env: o.gainNode ? o.gainNode.pts : [] }) };
       return o;
     }
   }
+  // Speech, recorded. Present so a test can see what was said and when relative to the
+  // tones -- the order matters on iOS, where speech can interrupt Web Audio.
+  audio.said = [];
+  class StubUtterance { constructor(t) { this.text = t; this.volume = 1 } }
+  const speech = { speaking: false, speak(u) { audio.said.push({ text: u.text, at: Date.now(), volume: u.volume }) }, cancel() {} };
   global.window = {
     addEventListener() {}, scrollTo() {}, matchMedia: () => ({ matches: false, addEventListener() {} }),
     AudioContext: StubAudioContext, Notification: undefined,
+    speechSynthesis: speech, SpeechSynthesisUtterance: StubUtterance,
   };
+  global.speechSynthesis = speech; global.SpeechSynthesisUtterance = StubUtterance;
   global.AudioContext = StubAudioContext;
   global.matchMedia = window.matchMedia;
   // Node defines `navigator` as a read-only getter, so `global.navigator = {...}` was
@@ -64,13 +95,19 @@ function stubDom() {
       vibrate: (p) => (buzzes.push(p), true), __buzzes: buzzes },
     configurable: true, writable: true,
   });
+  const docListeners = {};
+  audio.fire = (ev) => (docListeners[ev] || []).forEach((f) => f({ type: ev, target: {} }));
   global.document = {
     getElementById: (id) => made[id] || (made[id] = el(id)),
     // Enough of a selector engine for the few places the app reaches into the header.
     // Without this, code that shows or hides a nav tab is unreachable from a test.
     querySelector: (sel) => (/data-view="admin"/.test(sel) ? (made["nav-admin"] || (made["nav-admin"] = el("nav-admin"))) : null),
     querySelectorAll: () => [],
-    createElement: () => el("new"), addEventListener() {},
+    createElement: () => el("new"),
+    // Listeners are kept so a test can fire a tap. The gesture that wakes the audio is
+    // a document listener, and it is untestable if registering one does nothing.
+    addEventListener(ev, fn) { (docListeners[ev] || (docListeners[ev] = [])).push(fn) },
+    visibilityState: "visible",
     head: { appendChild() {} }, documentElement: el("html"),
     body: { classList: { add() {}, remove() {}, toggle() {} }, style: {}, appendChild() {} },
     activeElement: null,

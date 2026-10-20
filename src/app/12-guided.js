@@ -44,7 +44,7 @@ function gdGo(pos){
 }
 function gdFinish(){
   say(guide.kind==='warmup'?'Warm-up done.':'Mobility done.');
-  tone(880,.18); tone(1320,.35,.22); vib([160,90,220]);
+  sfx('gdone'); vib([160,90,220]);
   gdClose();
 }
 function gdClose(){ guide=null; LS.set('ob.guide',null); syncScreen(); gdShow(); render(); }
@@ -65,8 +65,8 @@ function gdRender(){
     left=Math.max(0,Math.ceil((guide.end-(paused?guide.paused:Date.now()))/1000));
     if(!paused&&!guide.wait&&Date.now()>=guide.end){
       const more=guide.sides>guide.side;
-      if(more){ tone(660,.3); vib([140,70,140]); say('Switch sides') }
-      else { tone(1320,.3); vib([200]); gdTickOff(it.i) }
+      if(more){ sfx('side'); vib([140,70,140]); say('Switch sides') }
+      else { sfx('hold'); vib([200]); gdTickOff(it.i) }
       if(auto){
         if(more){ guide.side++; guide.end=Date.now()+guide.dur*1000; left=guide.dur; }
         else { LS.set('ob.guide',guide); return gdGo(guide.pos+1) }

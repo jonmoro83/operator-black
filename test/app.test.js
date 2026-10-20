@@ -1008,7 +1008,10 @@ test("silent mode never opens an audio channel", () => {
   // say() and the beeps all bail out before touching speechSynthesis or an AudioContext
   x.say("test");                     // would throw if it tried: the stub has neither
   x.beep();
-  x.tone(880, 0.2);
+  // Every sound the app has, not just the rest beep: the interval timer used to have a
+  // path of its own, and a silent check that only covered beep() missed it.
+  for (const name of Object.keys(x.SFX)) a.equal(x.sfx(name), "silent", `${name} stays silent`);
+  x.audio.fire("pointerdown");       // and a tap does not open one either
   x.unlockAudio();
   a.match(x.vSetup(), /No sound at all/);
   a.match(x.vSetup(), /data-act="soundmode" data-v="silent"[^>]*aria-pressed="true"/);
@@ -7451,4 +7454,291 @@ test("session mode names the routine's own length, not the one it used to assume
   const src = fs.readFileSync(path.join(__dirname, "..", "src", "app", "13-session-mode.js"), "utf8");
   a.ok(!/'7 min'|12–15 min/.test(src), "the old hardcoded pair is gone");
   a.match(src, /warmRoutine\(\)\.mins/, "it asks the routine instead");
+});
+
+/* ---------------- 3.25: the timer, taken apart again ----------------
+   Each test here was written first and failed against 3.24, because each one is a way
+   the timer actually went quiet. */
+
+// A context that has been running and then had something else take the audio --
+// speech, a call, another app. On iOS that is WebKit's 'interrupted' state.
+async function interrupted(x) {
+  x.unlockAudio(); await settle();
+  a.equal(x.audioState().ctx, "running", "starts running, as it is after a tap");
+  x.audio.interrupt();
+  a.equal(x.audioState().ctx, "interrupted");
+  x.audio.tones.length = 0;
+}
+
+test("REPRO: an interrupted channel is woken straight away, before any sound needs it", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); await settle();
+  // What speech, a call or another app does on iOS. Before 3.25 nothing noticed: the
+  // channel sat parked until a sound was asked for, and tone() never woke it at all.
+  x.audio.interrupt();
+  a.equal(x.audioState().ctx, "interrupted");
+  await settle();
+  a.equal(x.audioState().ctx, "running", "the watcher woke it on its own");
+  x.audio.tones.length = 0;
+  x.sfx("go");
+  a.equal(x.audio.tones.length, 1, "so the interval cue plays at once");
+});
+
+test("REPRO: if the channel is still parked when a sound is due, the sound wakes it", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); await settle();
+  // Parked while the page was hidden, when the watcher deliberately leaves it alone.
+  document.visibilityState = "hidden";
+  x.audio.interrupt();
+  document.visibilityState = "visible";
+  await settle();
+  a.equal(x.audioState().ctx, "interrupted", "still parked when the cue comes due");
+  x.audio.tones.length = 0;
+  const before = x.audio.resumes;
+  a.equal(x.sfx("go"), "resuming");
+  a.ok(x.audio.resumes > before, "the cue tries to wake it -- tone() never did");
+  a.equal(x.audio.tones.length, 0, "and schedules nothing against the parked clock");
+  await settle();
+  a.equal(x.audio.tones.length, 1, "it plays once the channel is running");
+  a.ok(x.audio.tones[0].at >= 5, "on the post-wake clock");
+});
+
+test("a wake iOS refuses is written down, not swallowed", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); await settle();
+  document.visibilityState = "hidden"; x.audio.interrupt(); document.visibilityState = "visible";
+  x.audio.refuse = true;
+  x.audio.tones.length = 0;
+  x.sfx("done");
+  await settle(); await settle();
+  a.equal(x.audio.tones.length, 0, "nothing could play");
+  a.match(x.tlogText(), /sound · done · wake refused/, "and the log says why, so the next report has it");
+  // Then a tap comes, which iOS does honour, and the channel is back.
+  x.audio.refuse = false;
+  x.audio.fire("pointerdown");
+  await settle();
+  a.equal(x.audioState().ctx, "running", "a tap anywhere wakes it");
+  a.match(x.tlogText(), /woken by a tap/);
+});
+
+test("REPRO: the guided walkthrough's sounds use the same path as the rest beep", () => {
+  // tone() had none of the fixes beep() got. If any second path exists, the next fix
+  // lands in one of them and not the other, which is how this happened.
+  const files = fs.readdirSync(path.join(__dirname, "..", "src", "app")).filter((f) => f.endsWith(".js"));
+  const offenders = [];
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const n = (src.match(/createOscillator\(/g) || []).length;
+    if (n) offenders.push(`${f}:${n}`);
+  }
+  a.deepEqual(offenders, ["10-rest-timer.js:1"], "exactly one place makes a tone: " + offenders.join(", "));
+  a.ok(!/function tone\(/.test(files.map((f) => fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8")).join("\n")),
+    "and the old path is gone, so nothing can call it");
+});
+
+test("REPRO: the rest warning does not speak, because speech can stop the end beep", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.voice = true; x.bump();
+  x.unlockAudio();
+  x.audio.said.length = 0;
+  x.startRest("squat", "Squat · set 2", 60);
+  // Put the rest at exactly ten seconds out and let the tick find it.
+  x.rest.end = Date.now() + 9500; x.tickRest();
+  a.equal(x.rest.warned, true, "the warning fired");
+  a.deepEqual(x.audio.said.map((s) => s.text), [], "and nothing was spoken mid-rest");
+});
+
+test("REPRO: nothing is spoken after the warning either, once its tone has finished", async () => {
+  // Speech waits for a tone to end, so checking straight away would pass even if the
+  // warning still spoke. Wait out the tone and look again.
+  const x = app({ now: "2026-10-19" });
+  x.plan.voice = true; x.bump();
+  x.unlockAudio(); x.audio.ctx.state = "running"; x.audio.said.length = 0;
+  x.startRest("squat", "Squat · set 2", 60);
+  x.rest.end = Date.now() + 9500; x.tickRest();
+  await new Promise((r) => setTimeout(r, x.sfxLen("warn") * 1000 + 250));
+  a.deepEqual(x.audio.said.map((s) => s.text), [], "still nothing");
+});
+
+test("REPRO: each note is held, not a blip", () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio();
+  x.audio.ctx.state = "running";
+  x.audio.tones.length = 0;
+  x.sfx("done");
+  const n = x.audio.tones[0];
+  const peak = Math.max(...n.env.map((p) => p.v));
+  a.ok(peak >= 0.99, `full scale, not half: peak ${peak}`);
+  // Time spent at or near the peak. The old exponential decay spent ~12 ms there.
+  const atPeak = n.env.filter((p) => p.v >= peak * 0.99).map((p) => p.t);
+  const held = Math.max(...atPeak) - Math.min(...atPeak);
+  a.ok(held >= 0.12, `held at full volume for ${Math.round(held * 1000)} ms`);
+  a.ok(!n.env.some((p) => p.k === "exp"), "no exponential decay");
+});
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// The envelope a gain node recorded: its peak, and how long it stayed within 1% of it.
+function envOf(tone) {
+  const peak = Math.max(...tone.env.map((p) => p.v));
+  const near = tone.env.filter((p) => p.v >= peak * 0.99).map((p) => p.t);
+  return { peak, held: Math.max(...near) - Math.min(...near) };
+}
+function running(x) { x.unlockAudio(); x.audio.ctx.state = "running"; x.audio.tones.length = 0 }
+
+test("every sound is at least twice as loud, at the pitch it always had", () => {
+  const x = app({ now: "2026-10-19" });
+  // The pitches before 3.25, sound by sound. Louder was the ask, not different: the
+  // finish should still sound like the finish.
+  const was = { done: [880, 880, 1320], warn: [587], go: [1320], easy: [660], tick: [880],
+    ivdone: [880, 880, 1320], hold: [1320], side: [660], gdone: [880, 1320] };
+  // The old peaks were 0.5 (0.35 for the warning). Twice the amplitude is the floor.
+  const oldPeak = { warn: 0.35 };
+  for (const [name, hz] of Object.entries(was)) {
+    running(x);
+    x.sfx(name);
+    a.deepEqual(x.audio.tones.map((t) => t.hz), hz, `${name} keeps its notes`);
+    for (const t of x.audio.tones) {
+      const e = envOf(t), floor = 2 * (oldPeak[name] || 0.5) * (name === "tick" ? 0.8 : 1);
+      a.ok(e.peak >= Math.min(1, floor) - 1e-9, `${name} ${t.hz} Hz peaks at ${e.peak}`);
+      a.ok(e.peak <= 1, `${name} never past full scale`);
+      // Held for most of the note. The old envelope spent about 12 ms near its peak.
+      a.ok(e.held >= 0.06, `${name} ${t.hz} Hz held ${Math.round(e.held * 1000)} ms`);
+    }
+  }
+});
+
+test("the tones a phone speaker cannot reproduce carry harmonics it can", () => {
+  const x = app({ now: "2026-10-19" });
+  // Below about 1 kHz a phone speaker loses ~12 dB an octave. The fundamental stays so
+  // the ear still hears the low note; the harmonics are what reaches it.
+  for (const name of ["warn", "easy", "side"]) {
+    running(x); x.sfx(name);
+    const t = x.audio.tones[0];
+    a.ok(t.hz < 1000, `${name} is below the speaker's resonance`);
+    a.equal(t.type, "custom", `${name} is a periodic wave, not a bare sine`);
+    a.ok(t.wave.imag.filter((v) => v > 0).length >= 3, `${name} has a fundamental and two harmonics`);
+  }
+  // Above it, a sine is already where the speaker works, and harmonics would only push
+  // the peak up for no gain.
+  running(x); x.sfx("go");
+  a.equal(x.audio.tones[0].type, "sine");
+});
+
+test("speech never starts while a tone is still sounding", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.voice = true; x.bump();
+  running(x); x.audio.said.length = 0;
+  x.sfx("done");
+  a.ok(x.sfxUntil > Date.now(), "the sound marks how long it lasts");
+  x.say("Rest over.");
+  a.deepEqual(x.audio.said, [], "so speech asked for during it waits");
+  // Shorten the wait rather than sit through the whole beep.
+  x.sfxUntil = Date.now() + 20;
+  x.say("Next: squat.");
+  await sleep(60);
+  a.ok(x.audio.said.some((s) => s.text === "Next: squat."), "and goes once the tone is over");
+});
+
+test("the log says how late each rest's end was noticed", () => {
+  const x = app({ now: "2026-10-19" });
+  running(x);
+  x.startRest("squat", "Squat · set 2", 120);
+  // Forty seconds past the end with no tick: the screen was asleep.
+  x.rest.end = Date.now() - 40000; x.tickRest();
+  a.match(x.tlogText(), /rest · over \(40 s late\)/, "a late beep is visible as late, not as missing");
+  a.match(x.tlogText(), /rest · started \(120 s\)/);
+});
+
+test("the log keeps the last eighty, and copies with the version attached", () => {
+  const x = app({ now: "2026-10-19" });
+  for (let i = 0; i < 120; i++) x.tlog("test", "event " + i);
+  const lines = x.tlogText().split("\n");
+  a.equal(lines.length, 80, "capped");
+  a.match(lines[79], /event 119/, "newest last");
+  a.match(x.tlogReport(), /^Operator \+ Black .* timer log/);
+});
+
+test("a refused screen lock is shown on the rest bar, not discovered at the end", async () => {
+  const x = app({ now: "2026-10-19" });
+  const keep = navigator.wakeLock;
+  // Low Power Mode does this on iOS: the request is turned down.
+  navigator.wakeLock = { request: () => Promise.reject(Object.assign(new Error("no"), { name: "NotAllowedError" })) };
+  try {
+    x.startRest("squat", "Squat · set 2", 120);
+    await settle(); await settle();
+    a.equal(x.wakeState, "refused");
+    a.equal(document.getElementById("rest-wake").hidden, false, "the rest bar says the screen may sleep");
+    a.match(x.tlogText(), /screen · refused/);
+    // And it goes away when there is nothing left to keep awake.
+    x.stopRest();
+    a.equal(document.getElementById("rest-wake").hidden, true);
+  } finally { navigator.wakeLock = keep }
+});
+
+test("the timer log is reachable from Setup, with a copy button", () => {
+  const x = app({ now: "2026-10-19" });
+  x.tlog("rest", "started", "180 s");
+  const h = x.vSetup();
+  a.match(h, /Timer log/);
+  a.match(h, /data-act="tlogcopy"/);
+  a.match(h, /rest · started/);
+});
+
+test("a wake that resolves but leaves the channel parked plays nothing, and says so", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); await settle();
+  document.visibilityState = "hidden"; x.audio.interrupt(); document.visibilityState = "visible";
+  x.audio.stuck = true;
+  x.audio.tones.length = 0;
+  x.sfx("done");
+  await settle(); await settle();
+  a.equal(x.audio.tones.length, 0, "notes on a parked channel never sound, so none are queued");
+  a.match(x.tlogText(), /done · wake did not take/, "and the log tells the two failures apart");
+});
+
+test("the interval timer counts down 3-2-1 and marks each change, through the one engine", () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); x.audio.ctx.state = "running"; x.audio.tones.length = 0;
+  const segs = [{ k: "work", l: "Hard", s: 60, round: 1, sub: "Round 1 of 2" },
+                { k: "easy", l: "Easy", s: 60, round: 1, sub: "Round 1 of 2 done" },
+                { k: "work", l: "Hard", s: 60, round: 2, sub: "Round 2 of 2" }];
+  // Two seconds left in the first hard minute.
+  x.iv = { date: "2026-10-19", fmt: "map", mod: "bike", segs, start: Date.now() - 58000,
+           paused: null, pausedMs: 0, mini: false, rounds: 2, done: false };
+  x.ivRender();
+  a.deepEqual(x.audio.tones.map((t) => t.hz), [880], "the countdown tick");
+  // Into the easy minute: the change is marked with the easy cue.
+  x.audio.tones.length = 0;
+  x.iv.start = Date.now() - 60300;
+  x.ivRender();
+  a.deepEqual(x.audio.tones.map((t) => t.hz), [660], "the easy cue, with its harmonics");
+  a.equal(x.audio.tones[0].type, "custom");
+  // And into the next hard minute.
+  x.audio.tones.length = 0;
+  x.iv.start = Date.now() - 120300;
+  x.ivRender();
+  a.deepEqual(x.audio.tones.map((t) => t.hz), [1320], "the go cue");
+  x.iv = null;
+});
+
+test("the guided holds sound through the one engine: switch sides, then hold done", () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); x.audio.ctx.state = "running"; x.audio.tones.length = 0;
+  x.plan.warmRoutine = "ours"; x.plan.guideAuto = true; x.bump(); x.sel = "2026-10-19";
+  const items = x.gdItems("warmup", "2026-10-19");
+  const pos = items.findIndex((it) => it.name === "Couch stretch");
+  a.ok(pos >= 0, "a two-sided hold");
+  // The first side has just run out.
+  x.guide = { kind: "warmup", date: "2026-10-19", pos, sides: 2, side: 1, dur: 60,
+              end: Date.now() - 10, paused: null, wait: null };
+  x.gdRender();
+  a.deepEqual(x.audio.tones.map((t) => t.hz), [660], "switch sides is the low cue");
+  a.equal(x.audio.tones[0].type, "custom", "with its harmonics");
+  // And the second.
+  x.audio.tones.length = 0;
+  x.guide.side = 2; x.guide.end = Date.now() - 10; x.guide.wait = null;
+  x.gdRender();
+  a.equal(x.audio.tones[0].hz, 1320, "hold done is the high one");
+  x.guide = null;
 });

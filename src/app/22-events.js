@@ -230,6 +230,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
   if(a==='bandseed'){ bandSeed(b.dataset.v); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
+  if(a==='tlogcopy'){
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy the timer log'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(tlogReport()).then(done,()=>{});
+    return}
   if(a==='beepcopy'){
     const text=beepReport();
     const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
