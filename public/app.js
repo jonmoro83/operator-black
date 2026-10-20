@@ -6893,7 +6893,7 @@ function progressLine(t){
     ? `${got.length} lift${got.length===1?'':'s'} retested since you started${up.length?`, ${up.length} of ${got.length===up.length?'them':got.length} up on where ${up.length===1?'it':'they'} began`:', none of them up yet'}.`
     : 'Nothing has been retested yet, so none of the maxes on this page are measured — they are the increment doing arithmetic.';
   const wks=Math.floor(c.since/7);
-  if(c.due) return {cls:'ok',v:`${c.period*6} months in — compare`,w:`${said} The book's interval is up: look at where you were on ${fmtD(addDays(plan.startMonday,(c.period-1)*ASSESS_DAYS))} against where you are now, and re-assess.`};
+  if(c.due) return {cls:'ok',v:`${c.period*6} months in — compare`,w:`${said} The book's interval is up: look at where you were on ${fmtD(addDays(plan.startMonday,(c.period-1)*ASSESS_DAYS))} against where you are now, and re-assess. The comparison is just below.`};
   if(c.since<7) return {cls:'muted',v:'Just started',w:`${said} The book asks for no judgment until six months are up, which is ${fmtD(c.at,true)}.`};
   if(c.period) return {cls:'muted',v:`${wks} weeks in`,w:`${said} You passed the ${c.period*6}-month mark on ${fmtD(addDays(plan.startMonday,c.period*ASSESS_DAYS))}. The next comparison the book asks for is ${fmtD(c.at,true)}, ${c.left} day${c.left===1?'':'s'} away.`};
   return {cls:'muted',v:`${wks} week${wks===1?'':'s'} in`,w:`${said} The book asks you to make no judgment until six months are up — ${fmtD(c.at,true)}, ${c.left} day${c.left===1?'':'s'} away. Keep plodding.`};
@@ -6951,6 +6951,8 @@ function vStatus(){
   let h='';
   // The answer leads; the orientation and the evidence follow it.
   h+=verdictBlock(t);
+  // The comparison the Progress line points at, while it is the thing to read.
+  if(assessClock(t).due) h+=sixMonthCard(t);
   // --- where you are
   const wt=weekTitle(wk);
   h+=`<div class="card"><div class="lift-h"><h2>${wt.t}</h2><span class="chip ${wt.cls}">${wt.chip}</span></div>`;
@@ -7158,6 +7160,51 @@ function reportsCard(){
   cs.forEach(c=>{ const r=cycleRange(c);
     h+=`<details class="plain" data-px="rep-${c}"${openPx.has('rep-'+c)?' open':''}><summary>Cycle ${c} · ${fmtD(r.from)}–${fmtD(r.to)}</summary><div style="margin-top:10px">${cycleReport(c)}</div></details>`; });
   return h+`</div>`;
+}
+
+/* ---------- six months: then and now ----------
+TB2: "Compare yourself with yourself no earlier than every six months. Make no
+judgments until six months are up, and then see how far you've come and re-assess."
+The Progress line counts down to that date and then says compare; this is the
+comparison. "Then" is your first four weeks, "now" your last four -- from the start
+rather than from six months ago, because the book's question is how far you have come.
+Four weeks a side, so one bad week at either end cannot decide it. */
+function sixMonthCard(t){
+  const c=assessClock(t); if(!c.period) return '';
+  const start=plan.startMonday, then=periodSummary(start,addDays(start,27)), now=periodSummary(addDays(t,-27),t);
+  const wkRate=(S)=>S.days?S.cond.min/(S.days/7):0;
+  let h=`<div class="card"><div class="lift-h"><h3>Six months: then and now</h3><span class="chip light">TB2</span></div>
+  <p class="note" style="margin:0">The book’s interval: “compare yourself with yourself no earlier than every six months … then see how far you’ve come and re-assess.” Your first four weeks, from ${fmtD(start)}, against your last four.</p>`;
+  h+=`<h4 class="sub-h">Strength</h4><div class="mbs">`;
+  const wk=weekOf(t), curC=wk?(wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle)):1, got=measuredLifts(curC);
+  for(const k of activeLifts()){
+    const base=maxFor(1)[k]; if(!base) continue;
+    const m=got.find(x=>x.k===k), nowV=m?base.v+m.d:null;
+    h+=bRow({label:liftName(k),value:nowV!=null?n(nowV):'—',unit:nowV!=null?u():'',
+      tone:m?(m.d>0?'ok':m.d<0?'off':'muted'):'muted',
+      word:m?(m.d?`${m.d>0?'+':'−'}${n(Math.abs(m.d))} since you started`:'Level since you started'):'Not retested yet — nothing measured to compare',
+      sub:`Then ${n(base.v)}${m?` · now from your cycle ${m.c} retest`:''}`});
+  }
+  h+=`</div><h4 class="sub-h">Body</h4><div class="mbs">`;
+  if(then.bwFrom!=null&&now.bwTo!=null){ const dw=now.bwTo-then.bwFrom, weeks=Math.max(1,(D(t)-D(start))/864e5/7), tt=trendTone(dw/weeks,u()==='kg'?0.1:0.2);
+    h+=bRow({label:'Bodyweight',value:r1(now.bwTo),unit:u(),tone:tt.tone,word:`${dw>0?'+':''}${r1(dw)} since you started · ${tt.word.toLowerCase()}`,sub:`Then ${r1(then.bwFrom)}, 7-day averages`}) }
+  else h+=bRow({label:'Bodyweight',value:'—',sub:'Not enough weigh-ins at one end or the other'});
+  const bfAll=bfSeries(t);
+  if(bfAll.length>1){ const a0=bfAll[0], b0=bfAll[bfAll.length-1], db=b0.bf-a0.bf, bt=bfTone(db);
+    h+=bRow({label:'Body fat',value:r1(b0.bf),unit:'%',tone:bt.tone,word:`${bt.word} · ${db>0?'+':''}${r1(db)} since ${fmtD(a0.d)}`,sub:`Then ${r1(a0.bf)}%`}) }
+  h+=`</div><h4 class="sub-h">Engine</h4><div class="mbs">`;
+  const bm=benchmarkState(t);
+  if(bm&&bm.xs.length>1){ const f=bm.xs[0], l=bm.xs[bm.xs.length-1], d=l.v-f.v;
+    h+=bRow({label:`${MOD[bm.mod].name} ${HIC[bm.fmt].name}`,value:n(l.v),unit:l.u,tone:d>0?'ok':d<0?'off':'muted',
+      word:`${d>0?'+':''}${n(d)} since ${fmtD(f.d)}`,sub:`Then ${n(f.v)} · your benchmark session`}) }
+  const mT=Math.round(wkRate(then)), mN=Math.round(wkRate(now));
+  // Nothing logged at either end is nothing to compare, not "about the same".
+  if(mT||mN) h+=bRow({label:'Conditioning a week',value:mN,unit:'min',tone:mN>mT?'ok':'muted',word:mN===mT?'About the same':`${mN>mT?'Up':'Down'} from ${mT}`,sub:`Then ${mT} min a week`});
+  if(then.readiness!=null&&now.readiness!=null){ const d=now.readiness-then.readiness, rt=readyTone(now.readiness);
+    h+=bRow({label:'Readiness',value:now.readiness,of:100,pct:now.readiness,tone:rt.tone,word:`${rt.word} · ${d>0?'+':''}${d} since you started`,sub:`Then ${then.readiness}`,aria:`Readiness ${now.readiness} of 100`}) }
+  h+=`</div><h4 class="sub-h">Consistency</h4><div class="mbs">`;
+  h+=sessRow(then,'Your first four weeks')+sessRow(now,'Your last four weeks');
+  return h+`</div></div>`;
 }
 
 /* ---------- CSV export ---------- */
@@ -7549,7 +7596,7 @@ function vHistory(){
   const t=todayStr(), wk=weekOf(t), curC=wk?(wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle)):1;
   const list=weeks(), range={};
   for(const w of list){ if(w.kind==='cycle'){ (range[w.cycle]||(range[w.cycle]={a:w.monday,b:w.monday})).b=w.monday } }
-  let h=reportsCard()+`<div class="card"><h2>Maxes by cycle</h2><p class="note" style="margin:0">Type a number to override a cycle. Blank cells follow the previous cycle plus the increment. Later cycles update automatically.</p><div class="tbl-wrap"><table><thead><tr><th>Cycle</th><th>Dates</th>${activeLifts().map(k=>`<th class="n">${esc(liftName(k))}</th>`).join('')}</tr></thead><tbody>`;
+  let h=sixMonthCard(t)+reportsCard()+`<div class="card"><h2>Maxes by cycle</h2><p class="note" style="margin:0">Type a number to override a cycle. Blank cells follow the previous cycle plus the increment. Later cycles update automatically.</p><div class="tbl-wrap"><table><thead><tr><th>Cycle</th><th>Dates</th>${activeLifts().map(k=>`<th class="n">${esc(liftName(k))}</th>`).join('')}</tr></thead><tbody>`;
   for(let c=1;c<=curC+(viewing?0:2);c++){
     const m=maxFor(c), r=range[c], o=plan.cycleMaxes[c]||{};
     h+=`<tr class="${c===curC?'cur':c<curC?'past':''}"><td><b>${c}</b></td><td class="small mono">${r?fmtD(r.a)+'–'+fmtD(addDays(r.b,4)):''}</td>${activeLifts().map(k=>c===1&&(o[k]==null||o[k]==='')?`<td class="n"><span title="Set in Setup">${m[k]?n(m[k].v):'—'}</span></td>`:`<td class="n"><input type="number" inputmode="decimal" step="any" id="cm-${c}-${k}" data-cmax="${c}.${k}" value="${o[k]??''}" placeholder="${m[k]?n(m[k].v):''}" aria-label="Cycle ${c} ${esc(liftName(k))}"></td>`).join('')}</tr>`;

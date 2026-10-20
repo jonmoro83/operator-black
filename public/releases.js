@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.35',date:'2026-10-20',title:'Six months: then and now',items:[
+    'TB2 says to compare yourself with yourself every six months and not before. When you reach that point, Status will show your first four weeks against your last four: your maxes where they have been retested, bodyweight, body fat, your benchmark session, conditioning, readiness and how consistent you were.',
+    'It stays out of sight until then, on purpose. Yours is due at the end of March. After its four weeks on Status it moves to the top of History.']},
   {v:'3.34',date:'2026-10-20',title:'A report for every cycle',items:[
     'When a cycle ends, History gets a report for it: sessions against what was scheduled, what each max did and whether you chose it in the review or it is only projected, how your working sets moved, bodyweight and body fat across the cycle, protein and calories against your targets, readiness and conditioning.',
     'Your first one appears after cycle 1 ends on November 15. The end-of-cycle review links to it.']},

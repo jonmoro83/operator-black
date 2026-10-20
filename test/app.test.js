@@ -8363,3 +8363,56 @@ test("a summary that runs up to today does not count today's session as missed",
   a.equal(S.sched, 2, "two sessions behind you, not three");
   a.equal(S.done, 0);
 });
+
+// --- six months: then and now ----------------------------------------------------------
+function sixMonths(now) {
+  const x = app({ now });
+  x.plan.startMonday = "2026-09-28"; x.plan.goal = "gain"; x.plan.proteinPerLb = 0;
+  x.plan.cycleMaxes = { 4: { squat: 335, bench: 215 } }; x.bump();
+  const seed = {}; let i = 0;
+  const last = now < "2027-04-30" ? now : "2027-04-30";
+  for (let d = "2026-09-28"; d <= last; d = x.addDays(d, 1)) {
+    i++; const dp = x.dayPlan(d);
+    const L = { date: d, checkin: { bw: 185 + i * 0.04, sleepH: 7, sleepQ: i > 120 ? 4 : 3, energy: i > 120 ? 4 : 3, soreness: 2, stress: 2 } };
+    if (dp.t !== "off" && (i > 28 ? i % 12 : i % 5)) L.done = true;
+    seed[d] = L;
+  }
+  x.seed(seed); x.bump();
+  return x;
+}
+
+test("there is no comparison before six months, because the book says not to make one", () => {
+  const x = sixMonths("2027-02-01");
+  a.equal(x.assessClock("2027-02-01").period, 0);
+  a.equal(x.sixMonthCard("2027-02-01"), "", "nothing to show yet");
+  a.ok(!/Six months: then and now/.test(x.vStatus()), "not on Status");
+  a.ok(!/Six months: then and now/.test(x.vHistory()), "nor in History");
+});
+
+test("at six months the comparison is on Status, under the line that says compare", () => {
+  const now = "2027-03-30", x = sixMonths(now);
+  a.equal(x.assessClock(now).due, true);
+  const st = x.vStatus();
+  a.ok(st.indexOf("Six months: then and now") > st.indexOf(">Keeping up<"), "after the verdicts");
+  a.match(st, /The comparison is just below/, "and the Progress line points at it");
+  const h = x.sixMonthCard(now);
+  a.match(h, /compare yourself with yourself no earlier than every six months/, "in the book's words");
+  a.match(h, /\+35 since you started[\s\S]*?Then 300 · now from your cycle 4 retest/, "a retested lift, measured");
+  a.match(h, /Not retested yet — nothing measured to compare/, "and an unretested one, said plainly");
+  a.match(h, /class="mb-l">Overhead press<\/span><span><span class="mb-n">—<\/span>/,
+    "with no number for 'now', since nothing was measured -- not the start max passed off as today's");
+  a.match(h, /Bodyweight[\s\S]*?since you started · gaining, as planned/, "bodyweight against the goal");
+  a.match(h, /Readiness[\s\S]*?since you started/);
+  a.match(h, /Your first four weeks[\s\S]*?Your last four weeks/, "consistency at both ends");
+  a.ok(!/Conditioning a week/.test(h), "no conditioning row when there was none at either end");
+});
+
+test("after the four weeks it leaves Status for History, where it stays", () => {
+  const now = "2027-05-10", x = sixMonths(now);
+  const c = x.assessClock(now);
+  a.equal(c.period, 1); a.equal(c.due, false);
+  a.ok(!/Six months: then and now/.test(x.vStatus()), "no longer the thing to read on Status");
+  const h = x.vHistory();
+  a.ok(h.indexOf("Six months: then and now") >= 0 && h.indexOf("Six months: then and now") < h.indexOf("Cycle reports"),
+    "but kept at the top of History");
+});

@@ -188,6 +188,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Six months: then and now (2026-10-20)**
+- TB2: *"Compare yourself with yourself no earlier than every six months. Make no
+  judgments until six months are up, and then see how far you've come and
+  re-assess."* The Progress line already counted down to that date and then said
+  compare. This is the comparison.
+- **Your first four weeks against your last four**, from the start rather than from
+  six months ago, since the book's question is how far you have come; four weeks a side
+  so one bad week at either end cannot decide it. Strength, bodyweight and body fat,
+  the benchmark, conditioning, readiness and consistency, through the same
+  `periodSummary` as the cycle report.
+- **Honest about what was measured.** A lift never retested shows no "now" number and
+  says so, rather than passing the start max off as today's.
+- **It does not exist before six months** — not on Status, not in History — because
+  the book says not to make the comparison sooner. For the four weeks after each mark
+  it sits on Status under the Progress line, which now points at it; after that it
+  stays at the top of History. The first mark here is late March 2027.
+- Three tests, six mutants, all caught.
+
 **The end-of-cycle report (2026-10-20)**
 - The review decides one number per lift. The report is the rest of the cycle in one
   place: sessions against what was scheduled, what each max did and **whether the review
