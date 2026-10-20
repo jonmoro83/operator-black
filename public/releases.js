@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.31',date:'2026-10-20',title:'Less grey, clearer reading',items:[
+    'Explanations \u2014 what a card is for, what to do next \u2014 are now a size up and close to full black (full white in dark mode), instead of the same small grey as every count and footnote. Small grey is kept for captions and the notes about where something came from, so you can tell at a glance which is which.',
+    'The app used to have twenty-five different text sizes. It has thirteen now. Nothing got smaller \u2014 every odd size was rounded up \u2014 and the rest timer digits are a little bigger.',
+    'A set you rated now shows the rating in place of its number. "Set 1 \u00b7 Fast" did not fit on the button.']},
   {v:'3.30',date:'2026-10-20',title:'Rest alerts are tested now',items:[
     'Nothing changes on screen. The part of the server that sends rest alerts to your lock screen had no tests, and it is the part that would fail without telling anyone. It is now checked against the published standard for how those alerts are encrypted, so a mistake there gets caught before it reaches your phone.']},
   {v:'3.29',date:'2026-10-20',title:'Retest days, planned for you',items:[

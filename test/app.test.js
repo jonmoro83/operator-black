@@ -7932,7 +7932,10 @@ test("the day card rates the set just ticked, and shows each set's rating", () =
   const html = x.sessionHtml(wk, x.dayPlan(d));
   a.match(html, /Set 2 moved/, "the latest ticked set is the one offered");
   a.match(html, new RegExp(`data-act="eff" data-lift="${k}" data-i="1"`));
-  a.match(html, /Set 1 · solid/, "a rated set says how it went");
+  // The rating takes the set number's place on screen -- "SET 1 · SOLID" did not fit a
+  // 56 px button -- and the label a screen reader reads keeps both.
+  a.match(html, /aria-label="Set 1, solid"><?[^]*?<small>Solid<\/small>/, "a rated set says how it went");
+  a.match(html, /<small>Set 2<\/small>/, "an unrated one keeps its number");
   a.ok(!/Whole lift marked a grinder/.test(html), "the old checkbox is gone on a day that never used it");
   x.setLog(d, "lifts." + k + ".grinder", true);
   a.match(x.sessionHtml(wk, x.dayPlan(d)), /Whole lift marked a grinder/, "but stays where it can still be cleared");
@@ -8081,4 +8084,60 @@ test("TB III's bridge week splits its two optional test days the same way", () =
   a.ok(!(d4.lifts.includes("squat") && d4.lifts.includes("dead")) && !(d5.lifts.includes("squat") && d5.lifts.includes("dead")));
   a.equal(d4.lifts.length + d5.lifts.length, 6, "all six across the two days");
   a.ok(d5.apply && !d4.apply, "results applied once, at the end");
+});
+
+// --- the grey wall and the type scale ---------------------------------------------------
+const SCALE = [11, 12, 13, 14, 15, 16, 18, 20, 22, 26, 34, 44, 52];
+const appSrc = () => fs.readdirSync(path.join(__dirname, "..", "src", "app")).filter((f) => f.endsWith(".js"))
+  .map((f) => [f, fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8")]);
+const css = () => fs.readFileSync(path.join(__dirname, "..", "public", "app.css"), "utf8");
+
+test("every font size is on the scale, in the stylesheet and in the templates", () => {
+  // Thirteen sizes by decision, where there had been twenty-five by accretion --
+  // 9.5, 10.5, 11.5, 12.5, 13.5, 14.5 and 15.5 among them.
+  const off = [];
+  for (const [f, s] of [["app.css", css()], ...appSrc()])
+    for (const m of s.matchAll(/font-size:\s*([0-9.]+)px/g)) if (!SCALE.includes(+m[1])) off.push(`${f}: ${m[1]}px`);
+  a.deepEqual(off, [], "off the scale: " + off.join(", "));
+});
+
+test("explanations, captions and body text are three distinct tiers of contrast", () => {
+  const s = css();
+  const lum = (h) => {
+    const c = [0, 2, 4].map((i) => parseInt(h.slice(i + 1, i + 3), 16) / 255)
+      .map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (x, y) => { const [h, l] = [lum(x), lum(y)].sort((p, q) => q - p); return (h + 0.05) / (l + 0.05) };
+  // Every block that defines the palette: light, dark by preference, dark by choice.
+  const blocks = [...s.matchAll(/--surface:(#[0-9a-f]{6});[^}]*?--ink:(#[0-9a-f]{6});\s*--ink-2:(#[0-9a-f]{6});\s*--muted:(#[0-9a-f]{6});/gi)];
+  a.equal(blocks.length, 3, "all three theme blocks carry ink-2");
+  for (const [, surf, ink, ink2, muted] of blocks) {
+    const [r1, r2, r3] = [ratio(ink, surf), ratio(ink2, surf), ratio(muted, surf)];
+    a.ok(r1 > r2 && r2 > r3, `ink ${r1.toFixed(1)} > note ${r2.toFixed(1)} > caption ${r3.toFixed(1)}`);
+    a.ok(r2 >= 7, `notes read at AAA: ${r2.toFixed(2)}`);
+    a.ok(r3 >= 4.5, `captions still pass AA: ${r3.toFixed(2)}`);
+    a.ok(r2 - r3 >= 3, "and the two secondary tiers are far enough apart to tell apart");
+  }
+  a.match(s, /\.note\{font-size:14px;[^}]*color:var\(--ink-2\)/, "a note is a step up from 13px grey");
+});
+
+test("long explanations are notes; only provenance and caveats stay as grey captions", () => {
+  const allowed = [/^Ours\b/, /^The book’s own caveat/, /^Protein powder is not on this list/, /\bso these are ours\b/];
+  const stray = [];
+  for (const [f, s] of appSrc())
+    for (const m of s.matchAll(/<(p|div) class="small muted"[^>]*>([\s\S]*?)<\/\1>/g)) {
+      const t = m[2].replace(/\$\{[^}]*\}/g, "…").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      if (t.length > 90 && !allowed.some((r) => r.test(t))) stray.push(`${f}: ${t.slice(0, 70)}`);
+    }
+  a.deepEqual(stray, [], "an explanation written as a grey caption: " + stray.join(" | "));
+  const notes = appSrc().reduce((n, [, s]) => n + (s.match(/class="note"/g) || []).length, 0);
+  a.ok(notes >= 100, `the explanations moved: ${notes} notes`);
+});
+
+test("Setup's explanations render as notes, with the fine print still fine print", () => {
+  const x = app({ now: "2026-10-20" });
+  const h = x.vSetup();
+  a.match(h, /<p class="note"[^>]*>Only used for the energy and body-fat estimates/, "an explanation reads as one");
+  a.match(h, /class="small muted"/, "and captions are still captions");
 });

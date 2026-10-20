@@ -165,21 +165,21 @@ function calCount(){ try{ return (icsFeed().match(/BEGIN:VEVENT/g)||[]).length }
 function calFeedCard(){
   const f=calFeed;
   let h=`<div class="card"><h2>Calendar feed</h2>
-  <p class="small muted" style="margin:0">Put the plan in your phone's calendar: every session with the lifts and the weights on it, either as an all-day entry or booked at the time you usually train. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
+  <p class="note" style="margin:0">Put the plan in your phone's calendar: every session with the lifts and the weights on it, either as an all-day entry or booked at the time you usually train. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
   if(!f) return h+`<div class="muted small">Checking\u2026</div></div>`;
   if(f.broken) return h+`<div class="banner warn"><div>${f.broken==='offline'?'Could not reach the server. The feed will show up when you are back online.':'The server could not answer. If this site was just updated, the calendar table may not exist yet \u2014 run <code>npm run db:migrate:remote</code>.'}</div></div></div>`;
   if(!f.enabled){
     h+=`<div class="row"><button class="btn primary" data-act="calon"${calBusy?' disabled':''}>${calBusy?'Working\u2026':'Turn on the feed'}</button></div>
-    <div class="small muted">This creates a private web address for your plan. Anyone with the address can read your schedule \u2014 not your logs, maxes or anything else \u2014 so treat it like a password and use <b>New address</b> below if you ever share it by accident.</div></div>`;
+    <div class="note">This creates a private web address for your plan. Anyone with the address can read your schedule \u2014 not your logs, maxes or anything else \u2014 so treat it like a password and use <b>New address</b> below if you ever share it by accident.</div></div>`;
     return h;
   }
   const web=f.url.replace(/^https?:/,'webcal:');
   h+=`<label class="f">Your feed address<input type="text" id="cal-url" value="${esc(f.url)}" readonly onclick="this.select()"></label>
   <div class="row"><a class="btn primary" href="${esc(web)}">Add to iPhone</a><button class="btn" data-act="calcopy">Copy address</button></div>
-  <div class="small muted"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
+  <div class="note"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
   <b>Android:</b> on a computer open Google Calendar \u2192 Other calendars \u2192 + \u2192 From URL, and paste it there. It then syncs to the phone. Google refreshes subscribed calendars on its own schedule, which can take a day.</div>
   ${calTimeFields()}
-  <div class="small muted">${calCount()} sessions, ${CAL_BACK} weeks back and ${CAL_AHEAD} ahead. It is rewritten whenever you open the app and something has changed.</div>
+  <div class="note">${calCount()} sessions, ${CAL_BACK} weeks back and ${CAL_AHEAD} ahead. It is rewritten whenever you open the app and something has changed.</div>
   <div class="row"><button class="btn sm ghost" data-act="calrotate"${calBusy?' disabled':''}>New address</button><button class="btn sm ghost" data-act="caloff"${calBusy?' disabled':''}>Turn off</button></div>
   <div class="small muted">New address stops the old one working, for a link you shared and want back.</div></div>`;
   return h;
@@ -201,8 +201,8 @@ function calTimeFields(){
     :'</div><div class="grid2">';
   h+=`<label class="f">Reminder<select id="cal-alarm" data-pbind="cal.alarm" data-type="num">${opts.map(([v,l])=>`<option value="${v}"${v===al?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
   h+=o.timed
-    ? `<div class="small muted">Sessions are booked from that time for as long as each one takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the timer says that format runs to. Leave the weekend box empty to use the same time every day. The time is read as the local time wherever you are, so it stays at ${esc(c.time||'06:00')} when you travel rather than shifting with the clocks.</div>`
-    : `<div class="small muted">All-day entries sit at the top of the day and don't block out any time. Switch to <b>At a set time</b> if you want the session in your day properly, or a reminder closer to it than the evening before.</div>`;
+    ? `<div class="note">Sessions are booked from that time for as long as each one takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the timer says that format runs to. Leave the weekend box empty to use the same time every day. The time is read as the local time wherever you are, so it stays at ${esc(c.time||'06:00')} when you travel rather than shifting with the clocks.</div>`
+    : `<div class="note">All-day entries sit at the top of the day and don't block out any time. Switch to <b>At a set time</b> if you want the session in your day properly, or a reminder closer to it than the evening before.</div>`;
   return h;
 }
 

@@ -66,7 +66,7 @@ function pullupState(date){
 }
 function pullupCard(date){
   const p=pullupState(date);
-  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="small muted" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
+  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
   h+=`<div class="miles"><div class="mile"><span class="l">Best set</span>${p.best?`<span class="big">${p.best.v}</span><span class="small muted">${fmtD(p.best.d,true)}</span>`:'<span class="small muted">Not tested yet</span>'}</div>`;
   h+=`<div class="mile"><span class="l">Next rung</span>${p.next?`<span class="big">${p.next.at}</span><span class="small muted">${p.togo?`${p.togo} more rep${p.togo===1?'':'s'} \u00b7 ${esc(p.next.name.toLowerCase())}`:'reached \u2014 move up'}</span>`:'<span class="small muted">Top of the ladder</span>'}</div>`;

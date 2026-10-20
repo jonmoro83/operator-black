@@ -118,7 +118,7 @@ async function catRemove(id) {
 function vCatalog() {
   const all = accAll();
   let h = `<div class="card"><div class="lift-h"><h2>Exercise list</h2><span class="small muted">${Object.keys(all).length} movements</span></div>
-  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's program is rewritten mid-cycle.</p>`;
+  <p class="note" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's program is rewritten mid-cycle.</p>`;
   if (admin.catErr) h += `<div class="banner warn"><div>${esc(admin.catErr)}</div></div>`;
 
   for (const [slot, meta] of Object.entries(ASLOT)) {
@@ -143,7 +143,7 @@ function vCatalog() {
 
 function vAdmin() {
   let h = `<div class="card"><div class="lift-h"><h2>People</h2><button class="btn sm ghost" data-act="adminrefresh">Refresh</button></div>
-  <p class="small muted" style="margin:0">Everyone with data in this app. Counts and dates only — their sessions and numbers are theirs, and there is no screen here that shows them.</p>`;
+  <p class="note" style="margin:0">Everyone with data in this app. Counts and dates only — their sessions and numbers are theirs, and there is no screen here that shows them.</p>`;
   if (admin.msg) h += `<div class="banner info"><div>${esc(admin.msg)}</div></div>`;
   if (admin.err) h += `<div class="banner warn"><div>${esc(admin.err)}</div></div>`;
   if (!admin.list) { h += `<div class="small muted">${admin.loading ? 'Loading…' : 'Nothing loaded.'}</div></div>`; adminLoad(); return h; }
@@ -174,7 +174,7 @@ function vAdmin() {
 
   h += vCatalog();
   h += `<div class="card"><div class="lift-h"><h2>Audit log</h2><button class="btn sm ghost" data-act="adminlog">Refresh</button></div>
-  <p class="small muted" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
+  <p class="note" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
   if (admin.logErr) h += `<div class="banner warn"><div>${esc(admin.logErr)}</div></div>`;
   if (!admin.log) { h += `<div class="small muted">${admin.logLoading ? 'Loading\u2026' : ''}</div>`; adminLoadLog(); }
   else if (!admin.log.length) h += `<div class="small muted">Nothing yet.</div>`;

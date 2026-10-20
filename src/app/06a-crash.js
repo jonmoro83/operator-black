@@ -52,7 +52,7 @@ function crashCard(){
   const list=crashList();
   if(!list.length) return '';
   return `<div class="card"><div class="lift-h"><h2>Problems</h2><span class="chip alert">${list.length}</span></div>
-  <p class="small muted" style="margin:0">Errors this app hit on this device. They are kept here only — never sent anywhere — and a stack trace can name a lift or a date, so read before you share. If one of these lines up with something going wrong, send it to me.</p>
+  <p class="note" style="margin:0">Errors this app hit on this device. They are kept here only — never sent anywhere — and a stack trace can name a lift or a date, so read before you share. If one of these lines up with something going wrong, send it to me.</p>
   <div class="stack">${list.map(e=>`<div class="banner"><div class="small"><b>${esc(fmtD(e.at.slice(0,10),true))} ${esc(e.at.slice(11,16))}</b> · ${esc(e.where)}${e.view?' · '+esc(e.view):''}${e.v?' · v'+esc(e.v):''}<div class="mono" style="word-break:break-word;margin-top:4px">${esc(e.msg)}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn" data-act="errcopy">Copy all details</button><button class="btn ghost" data-act="errclear">Clear</button></div></div>`;
 }

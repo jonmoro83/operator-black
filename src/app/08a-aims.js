@@ -154,7 +154,7 @@ function aimsCard(date) {
   if (lg(date).done) return aimsReport(date);
   const picked = aimsOn(date);
   return `<div class="card"><div class="lift-h"><h3>What matters today</h3><span class="small muted">${picked.length ? picked.length + ' of ' + AIM_MAX : 'pick up to ' + AIM_MAX}</span></div>
-  <p class="small muted" style="margin:0">Not the numbers — those are on the cards below. This is how you mean to train today, and you get an honest account of it afterwards.</p>
+  <p class="note" style="margin:0">Not the numbers — those are on the cards below. This is how you mean to train today, and you get an honest account of it afterwards.</p>
   <div class="stack" style="gap:4px">${aimSet(date).map(a => {
     const on = picked.includes(a.id), full = picked.length >= AIM_MAX && !on;
     return `<button class="aim${on ? ' on' : ''}" data-act="aim" data-id="${a.id}"${full ? ' disabled' : ''} aria-pressed="${on}">${on ? '✓' : ''} ${esc(a.label)}</button>`;
@@ -199,6 +199,6 @@ function aimsReport(date) {
   }
   const L = lg(date);
   h += `<label class="f" style="margin-top:4px">Anything to remember?<textarea id="aim-notes" data-bind="notes" rows="3" placeholder="How it moved, what to change, what to watch">${esc(L.notes || '')}</textarea></label>
-  <div class="small muted">This is shown to you before your next ${esc((dayPlan(date) || {}).short || 'session')}, which is the point of writing it.</div></div>`;
+  <div class="note">This is shown to you before your next ${esc((dayPlan(date) || {}).short || 'session')}, which is the point of writing it.</div></div>`;
   return h;
 }

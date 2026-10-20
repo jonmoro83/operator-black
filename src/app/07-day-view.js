@@ -129,9 +129,9 @@ function stackPicker(date){
     opts.push({to,i,why});
   }
   if(!opts.some(o=>!o.why)) return '';
-  h+=`<p class="small muted" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
+  h+=`<p class="note" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
   <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||'')}">${esc(DAYN[o.i])}</button>`).join('')}</div>
-  <div class="small muted">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
+  <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
   return h;
 }
 let moveOpen=false;
@@ -141,7 +141,7 @@ function moveCard(){
   let h=`<div class="card"><div class="lift-h"><h3>Change ${DAYN[me]}’s session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
   if(past) h+=`<div class="banner warn"><div class="small">${DAYN[me]} has already passed this week, so it stays put. Open today to rearrange what’s left.</div></div>`;
   else{
-    h+=`<p class="small muted" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions; the app shuffles the rest as little as it can and never puts two strength days or two hard conditioning days together.</p><div class="stack">`;
+    h+=`<p class="note" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions; the app shuffles the rest as little as it can and never puts two strength days or two hard conditioning days together.</p><div class="stack">`;
     // Two days can share a label (Tue and Sat are both "HIC"): offer the one that
     // needs the least shuffling, and only call it impossible if neither works.
     const byLabel=new Map();
@@ -165,7 +165,7 @@ function moveCard(){
 function plyoMovePicker(mon){
   const wk=weekOf(mon); if(!weekHasPlyo(wk)) return '';
   const cur=plyoDow(mon);
-  let h=`<div class="divider">Plyometrics</div><p class="small muted" style="margin:0">Plyos aren’t part of a session. Put them on any day — they run before the conditioning if they land on a conditioning day, and stand alone if they don’t.</p>
+  let h=`<div class="divider">Plyometrics</div><p class="note" style="margin:0">Plyos aren’t part of a session. Put them on any day — they run before the conditioning if they land on a conditioning day, and stand alone if they don’t.</p>
   <div class="row wrap" style="gap:6px">`;
   for(let d=0;d<7;d++){
     const open=plyoDayOpen(mon,d);
@@ -280,7 +280,7 @@ function travelList(slot){const a=(plan.travel||{})[slot];return Array.isArray(a
 function travelCard(dp){
   const L=lg(sel).travel||{}, items=travelList(dp.slot), done=items.filter((_,i)=>L[i]).length;
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(TRAVEL[dp.slot].name)}</span><span class="rx">${done} of ${items.length}</span></div>
-  <p class="small muted" style="margin:0">Rep targets rather than percentages \u2014 a week on hotel kit keeps the habit without touching your maxes. Leave two reps in reserve, as always.</p>
+  <p class="note" style="margin:0">Rep targets rather than percentages \u2014 a week on hotel kit keeps the habit without touching your maxes. Leave two reps in reserve, as always.</p>
   <div class="stack">${items.map(([n,d],i)=>checkRow('travel.'+i,L[i],n,d)).join('')}</div>
   <div class="small muted">Edit these in Setup \u2192 Travel week.</div></div>`;
 }
@@ -322,7 +322,7 @@ function warmupCard(date){
   <div class="stack" style="margin-top:10px">
     ${hasShort?`<div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full \u00b7 ${esc(R.mins)}</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short \u00b7 ${esc(R.short)}</button></div></div>`:''}
     ${rows}
-    <div class="small muted">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
+    <div class="note">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
     <div class="row"><button class="btn" data-act="guide" data-k="warmup">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="wclear">Clear</button>`:''}</div>
   </div></details>`;
 }
@@ -364,15 +364,15 @@ function seCard(dp){
   const key=seCluster(sel), ex=seDayList(sel), done=seDone(sel), C=dp.circuits, R=dp.reps, edited=seEdited(sel);
   const ticks=ex.reduce((a,_,i)=>a+((done[i]||[]).filter(Boolean).length),0), total=ex.length*C;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps${dp.pct?' @ '+dp.pct+'%':''}</span></div>
-  <div class="small muted">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
+  <div class="note">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
   <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key&&!edited?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key&&!edited}">${c.name}</button>`).join('')}</div>${edited?`<span class="chip blue">Changed for today</span><button class="btn sm ghost" data-act="sereset">Back to ${esc(SE_CLUSTERS[key].name)}</button>`:''}</div>`;
   if(!ex.length) return h+`<div class="banner warn"><div class="small">No exercises in your own cluster yet. Add five to eight in <b>Setup → Strength-endurance</b>, or pick one of the book's above.</div></div></div>`;
   h+=`<div class="setbl">${ex.map((name,i)=>`<div class="serow"><button class="sename" data-act="seedit" data-i="${i}" aria-expanded="${seEdit===i}">${esc(name)}<span class="swap">swap</span></button><div class="sets">${Array.from({length:C},(_,j)=>`<button class="setb sm${(done[i]||[])[j]?' on':''}" data-act="setick" data-i="${i}" data-j="${j}" aria-pressed="${!!(done[i]||[])[j]}">${R}<small>${j+1}</small></button>`).join('')}</div>${seEdit===i?seSwap(i,name,ex):''}</div>`).join('')}</div>
   <div><button class="btn sm ghost" data-act="seadd">+ Add an exercise</button></div>
   <div class="row between"><span class="small muted">${ticks} of ${total} sets</span><span class="small muted">${esc(SE_CLUSTERS[key].note)}</span></div>
   <div class="restsel"><span>Rest between exercises</span><div class="seg">${SE_RESTS.map(v=>`<button class="segb${seRestSecs()===v?' on':''}" data-act="serest" data-v="${v}">${v?v+'s':'none'}</button>`).join('')}</div></div>
-  ${dp.pct?`<div class="small muted">Today is <b>${dp.pct}% of your one-rep max</b> on each lift — the block's own number, not a range to guess at. Reps first, not load: get in the ballpark and err lighter. Failing partway through a set is normal here, so take a breather and make up the difference.</div>`
-    :key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
+  ${dp.pct?`<div class="note">Today is <b>${dp.pct}% of your one-rep max</b> on each lift — the block's own number, not a range to guess at. Reps first, not load: get in the ballpark and err lighter. Failing partway through a set is normal here, so take a breather and make up the difference.</div>`
+    :key==='bar'||key==='db'||key==='kb'?`<div class="note">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
   </div>`;
   return h;
 }
@@ -401,12 +401,12 @@ function liftCard(wk,k,dp){
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.src==='ratio'?Math.round(r.m.v):r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
-    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted"><b>Swapped for this session.</b> This cycle is built on the ${esc(varsOf(k)[r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(varsOf(k)[r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
-    if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
+    if(r.m&&r.m.src==='ratio') h+=`<div class="note"><b>Swapped for this session.</b> This cycle is built on the ${esc(varsOf(k)[r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(varsOf(k)[r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
+    if(isBW(k)) h+=`<div class="note">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
   h+=`<div class="sets">`;
-  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}${setEff(L,i)?' \u00b7 '+setEff(L,i):''}</small></button>`;
+  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}" aria-label="Set ${i+1}${setEff(L,i)?', '+setEff(L,i):''}">${r.r}<small>${setEff(L,i)?EFFORT.find(([v])=>v===setEff(L,i))[1]:'Set '+(i+1)}</small></button>`;
   if(!viewing&&nSets<SETCAP(r)) h+=`<button class="setb add" data-act="addset" data-lift="${k}" aria-label="Add a set to ${esc(liftName(k))}">+<small>Set</small></button>`;
   const ex=+L.extra||0;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
@@ -419,7 +419,7 @@ function liftCard(wk,k,dp){
   if(ground(L)&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(ex>0&&!sets[nSets-1]&&!viewing) h+=`<div><button class="btn sm ghost" data-act="rmset" data-lift="${k}">− Remove the last set</button></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
-  else if(r.sMax>r.s) h+=`<div class="small muted">${r.s} sets is the prescription. The dashed ones are optional — take them when you have it in you, leave them when you don’t. The two-minute rest still applies to every set you take.</div>`;
+  else if(r.sMax>r.s) h+=`<div class="note">${r.s} sets is the prescription. The dashed ones are optional — take them when you have it in you, leave them when you don’t. The two-minute rest still applies to every set you take.</div>`;
   h+=warmupLog(k,ramp(k,has?T:null,r.t,dp.deload),has?`Calculated from today's working weight (${fmtLoad(k,T)} ${u()}). Change the working weight above and the warm-ups recalculate.`:'');
   return h+`</div>`;
 }

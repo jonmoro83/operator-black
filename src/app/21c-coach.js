@@ -44,12 +44,12 @@ function vCoach(){
   coachLoad();
   const turns=coach.turns;
   let h=`<div class="card"><div class="lift-h"><h2>Coach</h2>${coach.cap?`<span class="small muted">${coach.used||0} of ${coach.cap} this month</span>`:''}</div>
-  <p class="small muted" style="margin:0">It can read your plan, your last four weeks and your copies of the four books, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
+  <p class="note" style="margin:0">It can read your plan, your last four weeks and your copies of the four books, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`</div>`;
 
   if(turns===null) h+=`<div class="card"><p class="small muted" style="margin:0">Loading…</p></div>`;
-  else if(!turns.length) h+=`<div class="card"><p class="small muted" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
+  else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
 
   for(const x of (turns||[])){
     h+=`<div class="card coach-t"><div class="coach-q">${esc(x.question)}</div>`;
@@ -57,7 +57,7 @@ function vCoach(){
     else{
       h+=`<div class="coach-a">${mdLite(x.answer)}</div>`;
       if(coach.last&&coach.last.id===x.id&&coach.last.truncated)
-        h+=`<div class="small muted">That answer hit its length limit, so it stops short. Ask for the rest, or ask something narrower.</div>`;
+        h+=`<div class="note">That answer hit its length limit, so it stops short. Ask for the rest, or ask something narrower.</div>`;
       const sugg=coach.last&&coach.last.id===x.id?coach.last.suggestions:null;
       if(sugg&&sugg.length){
         h+=`<div class="small muted" style="font-weight:650;margin-top:8px">Worth considering</div>`;

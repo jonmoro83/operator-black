@@ -125,13 +125,6 @@ within each group, roughly in order of how useful they'd be.
   its own card. Parked rather than dropped — it is a change of character, not of
   styling, so it should be done to every card at once or not at all.
 
-- **The grey wall.** 312 of the app's lines are `small muted` — 13px grey — so the
-  evidence, the explanation and the aside all read at one weight, and the eye has
-  nowhere to land. Worth doing with the type scale at the same time: the stylesheet
-  currently uses 25 distinct font sizes including 9.5, 10.5, 11.5, 12.5, 13.5, 14.5
-  and 15.5px, which is a scale by accretion rather than by decision. 11/12/13/14/15
-  would cover all of it.
-
 - **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
   then the session. Once a session is under way the cards above it are noise — collapse
   them, or jump straight to the first lift.
@@ -192,6 +185,29 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The grey wall, and a type scale by decision (2026-10-20)**
+- **331 lines were the same 13px grey**: what a card is for, what to do next, a count, a
+  unit, where a number came from — all at one weight, so nothing told the eye where to
+  land. Measured first, which made the split obvious: long `<p>` and `<div>` lines were
+  almost all explanations (134), short `<div>` and `<span>` lines almost all captions.
+- **Two tiers now.** An explanation is a `.note`: 14px, in a new `--ink-2` tone. A
+  caption stays 13px muted. Contrast picked by the numbers, not by eye: notes 11.2:1
+  light and 10.4:1 dark (AAA), captions ~6:1 (AA), body ink 14–17:1 — three tiers
+  far enough apart to tell apart.
+- 130 explanations converted, by length from the source, then checked against rendered
+  Setup, Status, History and the Guide: of 67 rendered notes only two were short, and
+  both were real explanations. **Provenance and caveats stay grey on purpose** —
+  "Ours, and so is the deload week", "The book's own caveat", "so these are ours" —
+  because an aside should read as one.
+- **Thirteen font sizes instead of twenty-five**: 11/12/13/14/15 for text,
+  16/18/20/22/26/34/44/52 for display. Odd half-pixels rounded up, never down, so
+  nothing got harder to read; the rest-timer digits went from 48 to 52.
+- **Fixed on the way, from 3.28:** a rated set button read "SET 1 · FAST", which does
+  not fit a 56px button. The rating now takes the set number's place on screen, and the
+  label a screen reader announces keeps both.
+- Four tests, six mutants, all caught: sizes on the scale everywhere, the three tiers'
+  contrast ordered and spaced in every theme block, no long explanation left grey.
 
 **Push has tests, and the crypto is checked against the RFC (2026-10-20)**
 - The last part of the Worker without tests, and the part that fails silently: if the

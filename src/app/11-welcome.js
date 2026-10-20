@@ -24,7 +24,7 @@ function vWelcome(){
     <label class="f">Strength template<div class="stack">${Object.entries(STEMPL).map(([k,T])=>`<button class="btn${w.stempl===k?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="wzset" data-k="stempl" data-v="${k}"><span><b>${w.stempl===k?'\u2713 ':''}${esc(T.name)}</b> <span class="small">\u00b7 ${tplDays(T,{w:1}).length} days \u00b7 ${esc(T.book)}</span><br><span class="small">${esc(T.blurb)}</span></span></button>`).join('')}</div></label>
     <label class="f">Conditioning protocol<div class="stack">${Object.entries(CPROTO).map(([k,P])=>`<button class="btn${w.cproto===k?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="wzset" data-k="cproto" data-v="${k}"><span><b>${w.cproto===k?'\u2713 ':''}${esc(P.name)}</b> <span class="small">\u00b7 ${esc(P.book)}</span><br><span class="small">${esc(P.blurb)}</span></span></button>`).join('')}</div></label>
     <label class="check"><input type="checkbox" id="wz-bb" data-act-change="wzbb" ${w.bb?'checked':''}> Start with <b>Base Building</b> first</label>
-    <div class="small muted">Tactical Barbell II\u2019s Block I: eight weeks of aerobic base and strength-endurance before you go near a heavy barbell cycle. The book\u2019s advice is to do it first if you have not built that base, and once or twice a year after.</div>
+    <div class="note">Tactical Barbell II\u2019s Block I: eight weeks of aerobic base and strength-endurance before you go near a heavy barbell cycle. The book\u2019s advice is to do it first if you have not built that base, and once or twice a year after.</div>
     ${wzWarnings(w)}`;
   } else if(w.step===2){
     h+=`<p style="margin:0">Monday and Wednesday include a third lift. Pick the ones you’ll use; with more than one, you can swap on any day.</p>
@@ -39,11 +39,11 @@ function vWelcome(){
     if(w.mode==='maxes') h+=`<div class="seg">${[['1rm','1-rep maxes'],['5rm','5-rep maxes']].map(([v,l])=>`<button class="segb${w.rm===v?' on':''}" data-act="wzset" data-k="rm" data-v="${v}">${l}</button>`).join('')}</div>
       <div class="grid4">${lifts.map(k=>`<label class="f">${esc(liftName(k))}${isBW(k)?' (added)':''}<input type="number" inputmode="decimal" step="any" id="wz-m-${k}" data-wz="maxes.${k}" value="${w.maxes[k]??''}"></label>`).join('')}</div>
       ${w.rm==='5rm'?'<div class="small muted">5-rep maxes are converted to 1-rep maxes (÷ 0.87).</div>':''}`;
-    else h+=`<div class="small muted">The bridge week tests two lifts per test day, then converts your 5-rep maxes into Cycle 1’s numbers on Sunday.</div>`;
+    else h+=`<div class="note">The bridge week tests two lifts per test day, then converts your 5-rep maxes into Cycle 1’s numbers on Sunday.</div>`;
     if(w.rerun) h+=`<div class="banner warn"><div class="small">Changing the start week or bridge choice re-plans your whole calendar, locked weeks included.</div></div>`;
   } else if(w.step===4){
     h+=`<label class="f">Main conditioning tool<div class="seg">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<button class="segb${w.cardio===k?' on':''}" data-act="wzset" data-k="cardio" data-v="${k}">${x.name}</button>`).join('')}</div></label>
-    <div class="small muted">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
+    <div class="note">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
 
   } else if(w.step===5){
     h+=`<p style="margin:0">Jumps and bounds, 15 to 20 minutes of real work, in three-week phases. A nervous-system stimulus rather than a workout — quality of each rep matters far more than how many.</p>
@@ -52,21 +52,21 @@ function vWelcome(){
     ${w.plyo?`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${w.plyoPer===v?' on':''}" data-act="wzset" data-k="plyoPer" data-v="${v}">${l}</button>`).join('')}</div></label>
       <div class="small muted">${w.plyoPer===2?'The week\u2019s contacts split across the two rather than doubling, so it is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between.':'One session with the whole phase target in it.'}</div>
       <label class="f">${w.plyoPer===2?'Which two days':'Which day'}${plyoDayRow(w.plyoPer===2?[w.plyoDow,w.plyoDow2]:[w.plyoDow],w.plyoPer,'wzplyoday')}</label>
-      ${w.plyoPer===2?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
-      <div class="small muted">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
+      ${w.plyoPer===2?'<div class="note">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
+      <div class="note">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
       ${wzPlyoWarn(w)}`:''}`;
   } else if(w.step===6){
     h+=`<p style="margin:0">How the block itself runs. Both of these apply to the whole program, not just one part of it.</p>
     <label class="f">Scheduled deload week<div class="seg">${DELOAD_OPTS.map(([v,l])=>`<button class="segb${w.deload===v?' on':''}" data-act="wzset" data-k="deload" data-v="${v}">${l}</button>`).join('')}</div></label>
-    <div class="small muted">A deload week drops to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}%, swaps conditioning to easy steady work, halves plyos and skips accessories. <b>As needed</b> schedules none: the app still offers one when your check-ins show low readiness or repeated hard sessions, and you can add one from the Plan tab any time. Tactical Barbell doesn’t mandate a fixed deload, so this is your call.</div>
+    <div class="note">A deload week drops to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}%, swaps conditioning to easy steady work, halves plyos and skips accessories. <b>As needed</b> schedules none: the app still offers one when your check-ins show low readiness or repeated hard sessions, and you can add one from the Plan tab any time. Tactical Barbell doesn’t mandate a fixed deload, so this is your call.</div>
     <label class="f">Retest week<div class="seg">${[[0,'Never'],[2,'Every 2 cycles'],[3,'Every 3 cycles'],[4,'Every 4 cycles']].map(([v,l])=>`<button class="segb${w.test===v?' on':''}" data-act="wzset" data-k="test" data-v="${v}">${l}</button>`).join('')}</div></label>
-    <div class="small muted">A retest week takes three easy days, then heavy singles across two days, and feeds the results into the next cycle. Every 3 cycles matches the 18-week block.</div>
+    <div class="note">A retest week takes three easy days, then heavy singles across two days, and feeds the results into the next cycle. Every 3 cycles matches the 18-week block.</div>
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
     h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
-    <div class="small muted">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
+    <div class="note">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
   h+=`<div class="row">${w.step>0?'<button class="btn" data-act="wzback">‹ Back</button>':''}${w.step<7?'<button class="btn primary" data-act="wznext">Next ›</button>':`<button class="btn primary" data-act="wzdone">${w.rerun?'Save':'Start my program'}</button>`}${w.rerun?'<button class="btn ghost" data-act="wzcancel">Cancel</button>':''}</div></div>`;
   return h;

@@ -116,14 +116,14 @@ function suppSetupCard(){
   const ctx=suppCtx(), mine=suppCustom();
   const book=Object.entries(SUPP), fits=book.filter(([,s])=>s.ctx==='both'||s.ctx===ctx), rest=book.filter(([,s])=>!(s.ctx==='both'||s.ctx===ctx));
   let h=`<div class="card"><h2>Supplements</h2>
-  <p class="small muted" style="margin:0">The list is the books’, doses included. TB3: <i>"There are supplements that work, supplements that work for some people, and supplements that probably don’t work for anyone."</i> Tick what you take and it appears in the daily check-in and on session days. Tracking what you take is ours; none of the doses are.</p>
+  <p class="note" style="margin:0">The list is the books’, doses included. TB3: <i>"There are supplements that work, supplements that work for some people, and supplements that probably don’t work for anyone."</i> Tick what you take and it appears in the daily check-in and on session days. Tracking what you take is ours; none of the doses are.</p>
   <p class="small muted" style="margin:0">Protein powder is not on this list even though both books put it on theirs. It is food rather than a supplement, and the app already tracks protein as a macro with a target of its own \u2014 ticking it here as well would count the same thing twice. <b>Ours.</b></p>
   <p class="small muted" style="margin:0"><b>The book’s own caveat, kept:</b> Level 1 is mandatory <i>if you have the budget and are cleared by your physician</i>. This is general training guidance, not medical advice.</p>`;
   h+=`<div class="small" style="font-weight:650;margin-top:4px">For what you are running — ${ctx==='mass'?'a mass template, so TB3’s list applies':'a conditioning load, so TB2’s list applies'}</div>`;
   h+=`<div class="supps">${fits.map(([k,s])=>suppRow(k,s)).join('')}</div>`;
-  h+=`<details class="plain"><summary>The rest of the books’ list</summary><div class="small muted" style="margin-top:6px">Written for the other context. Nothing stops you taking them; the book just does not prescribe them for the program you are on.</div><div class="supps">${rest.map(([k,s])=>suppRow(k,s)).join('')}</div></details>`;
+  h+=`<details class="plain"><summary>The rest of the books’ list</summary><div class="note" style="margin-top:6px">Written for the other context. Nothing stops you taking them; the book just does not prescribe them for the program you are on.</div><div class="supps">${rest.map(([k,s])=>suppRow(k,s)).join('')}</div></details>`;
   h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Yours</div>
-  <p class="small muted" style="margin:2px 0 0">Anything the books do not cover. No dose is shown for these, because the books do not give one and making one up is not the app’s job.</p>`;
+  <p class="note" style="margin:2px 0 0">Anything the books do not cover. No dose is shown for these, because the books do not give one and making one up is not the app’s job.</p>`;
   if(mine.length) h+=`<div class="supps">${mine.map(x=>suppRow(x.id,suppAll()[x.id])).join('')}</div>`;
   if(!viewing) h+=`<div class="row" style="gap:8px;margin-top:8px;align-items:flex-end">
     <label class="f" style="flex:1">Name<input type="text" id="supp-new" data-suppnew="name" value="${esc(suppNew.name)}" placeholder="Fish oil"></label>
@@ -146,7 +146,7 @@ function suppCard(date,when){
   // Creatine is the one the book ties to not skipping, so it is the one that gets a run.
   if(!pre&&(plan.supps||{}).creatine){
     const st=suppStreak(date,'creatine');
-    h+=`<div class="small muted">${st?`Creatine: <b class="mono">${st} day${st===1?'':'s'}</b> unbroken.${st<60?` The book asks for a month or two without skipping before you decide it does nothing for you.`:''}`:'Creatine not logged today. The book’s whole point about it is the doses you do not skip.'}</div>`;
+    h+=`<div class="note">${st?`Creatine: <b class="mono">${st} day${st===1?'':'s'}</b> unbroken.${st<60?` The book asks for a month or two without skipping before you decide it does nothing for you.`:''}`:'Creatine not logged today. The book’s whole point about it is the doses you do not skip.'}</div>`;
   }
   return h+`</div>`;
 }

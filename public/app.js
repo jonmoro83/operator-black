@@ -2179,14 +2179,14 @@ function suppSetupCard(){
   const ctx=suppCtx(), mine=suppCustom();
   const book=Object.entries(SUPP), fits=book.filter(([,s])=>s.ctx==='both'||s.ctx===ctx), rest=book.filter(([,s])=>!(s.ctx==='both'||s.ctx===ctx));
   let h=`<div class="card"><h2>Supplements</h2>
-  <p class="small muted" style="margin:0">The list is the books’, doses included. TB3: <i>"There are supplements that work, supplements that work for some people, and supplements that probably don’t work for anyone."</i> Tick what you take and it appears in the daily check-in and on session days. Tracking what you take is ours; none of the doses are.</p>
+  <p class="note" style="margin:0">The list is the books’, doses included. TB3: <i>"There are supplements that work, supplements that work for some people, and supplements that probably don’t work for anyone."</i> Tick what you take and it appears in the daily check-in and on session days. Tracking what you take is ours; none of the doses are.</p>
   <p class="small muted" style="margin:0">Protein powder is not on this list even though both books put it on theirs. It is food rather than a supplement, and the app already tracks protein as a macro with a target of its own \u2014 ticking it here as well would count the same thing twice. <b>Ours.</b></p>
   <p class="small muted" style="margin:0"><b>The book’s own caveat, kept:</b> Level 1 is mandatory <i>if you have the budget and are cleared by your physician</i>. This is general training guidance, not medical advice.</p>`;
   h+=`<div class="small" style="font-weight:650;margin-top:4px">For what you are running — ${ctx==='mass'?'a mass template, so TB3’s list applies':'a conditioning load, so TB2’s list applies'}</div>`;
   h+=`<div class="supps">${fits.map(([k,s])=>suppRow(k,s)).join('')}</div>`;
-  h+=`<details class="plain"><summary>The rest of the books’ list</summary><div class="small muted" style="margin-top:6px">Written for the other context. Nothing stops you taking them; the book just does not prescribe them for the program you are on.</div><div class="supps">${rest.map(([k,s])=>suppRow(k,s)).join('')}</div></details>`;
+  h+=`<details class="plain"><summary>The rest of the books’ list</summary><div class="note" style="margin-top:6px">Written for the other context. Nothing stops you taking them; the book just does not prescribe them for the program you are on.</div><div class="supps">${rest.map(([k,s])=>suppRow(k,s)).join('')}</div></details>`;
   h+=`<div style="border-top:1px solid var(--line);padding-top:12px"><div class="small" style="font-weight:650">Yours</div>
-  <p class="small muted" style="margin:2px 0 0">Anything the books do not cover. No dose is shown for these, because the books do not give one and making one up is not the app’s job.</p>`;
+  <p class="note" style="margin:2px 0 0">Anything the books do not cover. No dose is shown for these, because the books do not give one and making one up is not the app’s job.</p>`;
   if(mine.length) h+=`<div class="supps">${mine.map(x=>suppRow(x.id,suppAll()[x.id])).join('')}</div>`;
   if(!viewing) h+=`<div class="row" style="gap:8px;margin-top:8px;align-items:flex-end">
     <label class="f" style="flex:1">Name<input type="text" id="supp-new" data-suppnew="name" value="${esc(suppNew.name)}" placeholder="Fish oil"></label>
@@ -2209,7 +2209,7 @@ function suppCard(date,when){
   // Creatine is the one the book ties to not skipping, so it is the one that gets a run.
   if(!pre&&(plan.supps||{}).creatine){
     const st=suppStreak(date,'creatine');
-    h+=`<div class="small muted">${st?`Creatine: <b class="mono">${st} day${st===1?'':'s'}</b> unbroken.${st<60?` The book asks for a month or two without skipping before you decide it does nothing for you.`:''}`:'Creatine not logged today. The book’s whole point about it is the doses you do not skip.'}</div>`;
+    h+=`<div class="note">${st?`Creatine: <b class="mono">${st} day${st===1?'':'s'}</b> unbroken.${st<60?` The book asks for a month or two without skipping before you decide it does nothing for you.`:''}`:'Creatine not logged today. The book’s whole point about it is the doses you do not skip.'}</div>`;
   }
   return h+`</div>`;
 }
@@ -3308,7 +3308,7 @@ function crashCard(){
   const list=crashList();
   if(!list.length) return '';
   return `<div class="card"><div class="lift-h"><h2>Problems</h2><span class="chip alert">${list.length}</span></div>
-  <p class="small muted" style="margin:0">Errors this app hit on this device. They are kept here only — never sent anywhere — and a stack trace can name a lift or a date, so read before you share. If one of these lines up with something going wrong, send it to me.</p>
+  <p class="note" style="margin:0">Errors this app hit on this device. They are kept here only — never sent anywhere — and a stack trace can name a lift or a date, so read before you share. If one of these lines up with something going wrong, send it to me.</p>
   <div class="stack">${list.map(e=>`<div class="banner"><div class="small"><b>${esc(fmtD(e.at.slice(0,10),true))} ${esc(e.at.slice(11,16))}</b> · ${esc(e.where)}${e.view?' · '+esc(e.view):''}${e.v?' · v'+esc(e.v):''}<div class="mono" style="word-break:break-word;margin-top:4px">${esc(e.msg)}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn" data-act="errcopy">Copy all details</button><button class="btn ghost" data-act="errclear">Clear</button></div></div>`;
 }
@@ -3565,9 +3565,9 @@ function stackPicker(date){
     opts.push({to,i,why});
   }
   if(!opts.some(o=>!o.why)) return '';
-  h+=`<p class="small muted" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
+  h+=`<p class="note" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
   <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||'')}">${esc(DAYN[o.i])}</button>`).join('')}</div>
-  <div class="small muted">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
+  <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
   return h;
 }
 let moveOpen=false;
@@ -3577,7 +3577,7 @@ function moveCard(){
   let h=`<div class="card"><div class="lift-h"><h3>Change ${DAYN[me]}’s session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
   if(past) h+=`<div class="banner warn"><div class="small">${DAYN[me]} has already passed this week, so it stays put. Open today to rearrange what’s left.</div></div>`;
   else{
-    h+=`<p class="small muted" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions; the app shuffles the rest as little as it can and never puts two strength days or two hard conditioning days together.</p><div class="stack">`;
+    h+=`<p class="note" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions; the app shuffles the rest as little as it can and never puts two strength days or two hard conditioning days together.</p><div class="stack">`;
     // Two days can share a label (Tue and Sat are both "HIC"): offer the one that
     // needs the least shuffling, and only call it impossible if neither works.
     const byLabel=new Map();
@@ -3601,7 +3601,7 @@ function moveCard(){
 function plyoMovePicker(mon){
   const wk=weekOf(mon); if(!weekHasPlyo(wk)) return '';
   const cur=plyoDow(mon);
-  let h=`<div class="divider">Plyometrics</div><p class="small muted" style="margin:0">Plyos aren’t part of a session. Put them on any day — they run before the conditioning if they land on a conditioning day, and stand alone if they don’t.</p>
+  let h=`<div class="divider">Plyometrics</div><p class="note" style="margin:0">Plyos aren’t part of a session. Put them on any day — they run before the conditioning if they land on a conditioning day, and stand alone if they don’t.</p>
   <div class="row wrap" style="gap:6px">`;
   for(let d=0;d<7;d++){
     const open=plyoDayOpen(mon,d);
@@ -3716,7 +3716,7 @@ function travelList(slot){const a=(plan.travel||{})[slot];return Array.isArray(a
 function travelCard(dp){
   const L=lg(sel).travel||{}, items=travelList(dp.slot), done=items.filter((_,i)=>L[i]).length;
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(TRAVEL[dp.slot].name)}</span><span class="rx">${done} of ${items.length}</span></div>
-  <p class="small muted" style="margin:0">Rep targets rather than percentages \u2014 a week on hotel kit keeps the habit without touching your maxes. Leave two reps in reserve, as always.</p>
+  <p class="note" style="margin:0">Rep targets rather than percentages \u2014 a week on hotel kit keeps the habit without touching your maxes. Leave two reps in reserve, as always.</p>
   <div class="stack">${items.map(([n,d],i)=>checkRow('travel.'+i,L[i],n,d)).join('')}</div>
   <div class="small muted">Edit these in Setup \u2192 Travel week.</div></div>`;
 }
@@ -3758,7 +3758,7 @@ function warmupCard(date){
   <div class="stack" style="margin-top:10px">
     ${hasShort?`<div class="restsel"><span>Version</span><div class="seg"><button class="segb${short?'':' on'}" data-act="wshort" data-v="0">Full \u00b7 ${esc(R.mins)}</button><button class="segb${short?' on':''}" data-act="wshort" data-v="1">Short \u00b7 ${esc(R.short)}</button></div></div>`:''}
     ${rows}
-    <div class="small muted">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
+    <div class="note">Keep static holds easy before lifting. Long aggressive holds right before heavy squats blunt force output — the deep work belongs in the mobility block at the end.</div>
     <div class="row"><button class="btn" data-act="guide" data-k="warmup">Guide me through it</button>${done?`<button class="btn sm ghost" data-act="wclear">Clear</button>`:''}</div>
   </div></details>`;
 }
@@ -3800,15 +3800,15 @@ function seCard(dp){
   const key=seCluster(sel), ex=seDayList(sel), done=seDone(sel), C=dp.circuits, R=dp.reps, edited=seEdited(sel);
   const ticks=ex.reduce((a,_,i)=>a+((done[i]||[]).filter(Boolean).length),0), total=ex.length*C;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">Strength-endurance</span><span class="rx">${C} circuit${C>1?'s':''} × ${R} reps${dp.pct?' @ '+dp.pct+'%':''}</span></div>
-  <div class="small muted">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
+  <div class="note">Light resistance, high repetition, short rests. Work down the cluster, rest ${seRestSecs()?seRestSecs()+' sec':'as little as you can'} between exercises, then 2 minutes before the next circuit. Can't get all ${R} at once? Rest-pause until they're done, then move on.</div>
   <div class="restsel"><span>Cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${k===key&&!edited?' on':''}" data-act="secl" data-v="${k}" aria-pressed="${k===key&&!edited}">${c.name}</button>`).join('')}</div>${edited?`<span class="chip blue">Changed for today</span><button class="btn sm ghost" data-act="sereset">Back to ${esc(SE_CLUSTERS[key].name)}</button>`:''}</div>`;
   if(!ex.length) return h+`<div class="banner warn"><div class="small">No exercises in your own cluster yet. Add five to eight in <b>Setup → Strength-endurance</b>, or pick one of the book's above.</div></div></div>`;
   h+=`<div class="setbl">${ex.map((name,i)=>`<div class="serow"><button class="sename" data-act="seedit" data-i="${i}" aria-expanded="${seEdit===i}">${esc(name)}<span class="swap">swap</span></button><div class="sets">${Array.from({length:C},(_,j)=>`<button class="setb sm${(done[i]||[])[j]?' on':''}" data-act="setick" data-i="${i}" data-j="${j}" aria-pressed="${!!(done[i]||[])[j]}">${R}<small>${j+1}</small></button>`).join('')}</div>${seEdit===i?seSwap(i,name,ex):''}</div>`).join('')}</div>
   <div><button class="btn sm ghost" data-act="seadd">+ Add an exercise</button></div>
   <div class="row between"><span class="small muted">${ticks} of ${total} sets</span><span class="small muted">${esc(SE_CLUSTERS[key].note)}</span></div>
   <div class="restsel"><span>Rest between exercises</span><div class="seg">${SE_RESTS.map(v=>`<button class="segb${seRestSecs()===v?' on':''}" data-act="serest" data-v="${v}">${v?v+'s':'none'}</button>`).join('')}</div></div>
-  ${dp.pct?`<div class="small muted">Today is <b>${dp.pct}% of your one-rep max</b> on each lift — the block's own number, not a range to guess at. Reps first, not load: get in the ballpark and err lighter. Failing partway through a set is normal here, so take a breather and make up the difference.</div>`
-    :key==='bar'||key==='db'||key==='kb'?`<div class="small muted">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
+  ${dp.pct?`<div class="note">Today is <b>${dp.pct}% of your one-rep max</b> on each lift — the block's own number, not a range to guess at. Reps first, not load: get in the ballpark and err lighter. Failing partway through a set is normal here, so take a breather and make up the difference.</div>`
+    :key==='bar'||key==='db'||key==='kb'?`<div class="note">Use roughly 15–30% of your one-rep max. Don't test for it, and if it feels heavy take weight off.</div>`:''}
   </div>`;
   return h;
 }
@@ -3837,12 +3837,12 @@ function liftCard(wk,k,dp){
   if(has){
     h+=`<div class="row between"><div class="big">${fmtLoad(k,T)}<small>${isBW(k)?(T>0?u()+' added':'bodyweight'):u()}</small></div><div class="stack small" style="text-align:right;gap:2px">${bar?`<span class="plates">${plates(T)}</span>`:''}${r.w&&T!==r.w?`<span class="chip mid" style="align-self:flex-end">Prescribed ${n(r.w)}</span>`:''}<span class="muted">${r.m?`Max ${isBW(k)?'+'+n(r.m.v):n(r.m.src==='ratio'?Math.round(r.m.v):r.m.v)} · Cycle ${r.c}${r.m.src==='proj'?' (projected)':''}`:''}</span></div></div>`;
     if(bar) h+=plateSvg(T);
-    if(r.m&&r.m.src==='ratio') h+=`<div class="small muted"><b>Swapped for this session.</b> This cycle is built on the ${esc(varsOf(k)[r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(varsOf(k)[r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
-    if(isBW(k)) h+=`<div class="small muted">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
+    if(r.m&&r.m.src==='ratio') h+=`<div class="note"><b>Swapped for this session.</b> This cycle is built on the ${esc(varsOf(k)[r.m.bv].name.toLowerCase())}, so the weight is your ${n(r.m.from)} max at the ${Math.round(r.m.r*100)}% a ${esc(varsOf(k)[r.vr].name.toLowerCase())} usually carries against it. Change the lift for the whole cycle in Setup instead if this is not a one-off.</div>`;
+    if(isBW(k)) h+=`<div class="note">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
   h+=`<div class="sets">`;
-  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}${setEff(L,i)?' \u00b7 '+setEff(L,i):''}</small></button>`;
+  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}" aria-label="Set ${i+1}${setEff(L,i)?', '+setEff(L,i):''}">${r.r}<small>${setEff(L,i)?EFFORT.find(([v])=>v===setEff(L,i))[1]:'Set '+(i+1)}</small></button>`;
   if(!viewing&&nSets<SETCAP(r)) h+=`<button class="setb add" data-act="addset" data-lift="${k}" aria-label="Add a set to ${esc(liftName(k))}">+<small>Set</small></button>`;
   const ex=+L.extra||0;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
@@ -3855,7 +3855,7 @@ function liftCard(wk,k,dp){
   if(ground(L)&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(ex>0&&!sets[nSets-1]&&!viewing) h+=`<div><button class="btn sm ghost" data-act="rmset" data-lift="${k}">− Remove the last set</button></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
-  else if(r.sMax>r.s) h+=`<div class="small muted">${r.s} sets is the prescription. The dashed ones are optional — take them when you have it in you, leave them when you don’t. The two-minute rest still applies to every set you take.</div>`;
+  else if(r.sMax>r.s) h+=`<div class="note">${r.s} sets is the prescription. The dashed ones are optional — take them when you have it in you, leave them when you don’t. The two-minute rest still applies to every set you take.</div>`;
   h+=warmupLog(k,ramp(k,has?T:null,r.t,dp.deload),has?`Calculated from today's working weight (${fmtLoad(k,T)} ${u()}). Change the working weight above and the warm-ups recalculate.`:'');
   return h+`</div>`;
 }
@@ -4133,7 +4133,7 @@ function checkinCard(date){
   const sug=suggestions(date);
   let h=`<div class="card"><div class="lift-h"><h3>Daily check-in</h3>${lv?`<span class="chip ${lv.cls}">${lv.t}</span>`:''}</div>`;
   if(lv) h+=`<div class="ready"><div class="big">${sc}</div><div class="small muted">Readiness out of 100, from sleep, energy, soreness, stress and yesterday’s eating.</div></div>`;
-  else h+=`<p class="small muted" style="margin:0">Answer at least three questions (30 seconds) and the app adjusts today’s suggestions to how you’re recovering.</p>`;
+  else h+=`<p class="note" style="margin:0">Answer at least three questions (30 seconds) and the app adjusts today’s suggestions to how you’re recovering.</p>`;
   if(sug.length) h+=`<ul class="sug">${sug.map(x=>`<li class="${x.tone}"><div><b>${esc(x.title)}</b>${esc(x.text)}${x.act?`<div style="margin-top:6px"><button class="btn sm" data-act="${x.act.act}" data-kind="${x.act.kind}" data-monday="${x.act.monday}">${x.act.label}</button></div>`:''}</div></li>`).join('')}</ul>`;
   h+=`<details class="plain" id="ci-${date}"${open?' open':''}><summary>${lv?'Edit answers':'Questions'}</summary><div class="stack" style="gap:16px;margin-top:12px">${qs.replace(/^<\/div>/,'')}</div></div></details>`;
   if(lv) h+=`<p class="small muted" style="margin:0">General training guidance, not medical advice.</p>`;
@@ -4243,7 +4243,7 @@ function hicCard(dp,note){
     // What a FOBBIT is, and nothing about which one. Every number that varies between
     // them is read from the selection, so this cannot go stale when you change it.
     const fo=ivOpts(sel,f), held=(fo.bouts||[]).some(b=>b.hold);
-    h+=`<div class="small muted">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} ${(IV[f]||{}).fob?'Pick which FOBBIT below. ':''}Row, skip, cycle or take the stairs if you would rather not run.</div>`;
+    h+=`<div class="note">Hold an easy aerobic base, step off it every ${esc(fobEveryLabel(fo.fob))} for a bout of work, then get back on it.${(fo.bouts||[]).length>1?' The movements rotate in order.':''} ${(IV[f]||{}).fob?'Pick which FOBBIT below. ':''}Row, skip, cycle or take the stairs if you would rather not run.</div>`;
     if(held) h+=`<div class="small muted"><b>A bout of reps is not on the clock.</b> ${fo.count==='total'?'The timer holds at each one until you tap Done, so the wall clock reads longer than the session.':'Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.'}</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
@@ -4282,7 +4282,7 @@ function hicCard(dp,note){
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
-      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button>${(IV[f]||{}).lead&&(L.rounds==null||L.rounds==='')?`<button class="btn sm" data-act="boutplan" data-v="${ivOpts(sel,f).rounds}">Use ${ivOpts(sel,f).rounds} bouts</button>`:''}</div><div class="small muted">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
+      h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button>${(IV[f]||{}).lead&&(L.rounds==null||L.rounds==='')?`<button class="btn sm" data-act="boutplan" data-v="${ivOpts(sel,f).rounds}">Use ${ivOpts(sel,f).rounds} bouts</button>`:''}</div><div class="note">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
         return `, counted as ${pl.rounds} \u00d7 ${esc(secsLabel(fo.every))} of base${hd?`; the ${pl.rounds} bouts of reps sit on top, so the clock will say more`:` and ${pl.rounds} timed bouts, which are counted in`}`})():`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
@@ -4292,10 +4292,10 @@ function hicCard(dp,note){
     if(r&&r.lead) h+=`<div class="restsel"><span>Session</span><div class="seg">${(o.minOpts||[]).map(v=>`<button class="segb${o.mins===v?' on':''}" data-act="ivopt" data-k="mins" data-v="${v}" aria-pressed="${o.mins===v}">${v} min</button>`).join('')}</div></div>`
       +`<div class="small muted">${o.rounds} \u00d7 ${esc(secsLabel(o.every))} of base${o.count==='total'?', with the bouts counted in':''}. ${o.isE?'<b>Over 30 minutes, so this counts as an E session rather than a HIC</b> \u2014 that is the book\u2019s line, not ours.':'Under 30 minutes, so it counts as a HIC.'}</div>`;
     else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
-    if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="small muted"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week. TB2 asks for the rounds cut in half here \u2014 \u201cdon\u2019t strain, just grease the groove with little effort\u201d \u2014 and says the easy week is meant to land on the heavy lifting weeks. This is deliberate, not a missed week.</div>`;
+    if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="note"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week. TB2 asks for the rounds cut in half here \u2014 \u201cdon\u2019t strain, just grease the groove with little effort\u201d \u2014 and says the easy week is meant to land on the heavy lifting weeks. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;
-    if(plan.quietTimer) h+=`<div class="small muted">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
+    if(plan.quietTimer) h+=`<div class="note">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
   if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
@@ -4335,7 +4335,7 @@ function plyoUpperEx(ph){
 function plyoUpperCard(wk,cut,pullback){
   const on=!!plan.plyoUpper, ph=plyoUpperPhase(wk), L=(lg(sel).plyo||{}).up||{};
   let h=`<div class="ivset"><div class="lift-h"><span class="lift-name">Upper body${on?' · '+esc(ph.name):''}</span><label class="check"><input type="checkbox" id="p-upper" data-act="plyoupper" ${on?'checked':''}> Include</label></div>`;
-  if(!on) return h+`<div class="small muted">Optional upper-body power: throws, explosive pulls and speed presses. Operator's bench is deliberately sub-maximal and the bike does nothing for the upper body, so this fills a real gap. Pick a movement per slot from whatever you have — med ball, bodyweight, barbell or a band. Five minutes, full rest, every rep maximal.</div></div>`;
+  if(!on) return h+`<div class="note">Optional upper-body power: throws, explosive pulls and speed presses. Operator's bench is deliberately sub-maximal and the bike does nothing for the upper body, so this fills a real gap. Pick a movement per slot from whatever you have — med ball, bodyweight, barbell or a band. Five minutes, full rest, every rep maximal.</div></div>`;
   h+=`<div class="stack" style="gap:10px">`;
   plyoUpperEx(ph).forEach((e,i)=>{
     const n0=cut?Math.ceil(e.s/2):e.s, sets=(L[i])||[];
@@ -4343,7 +4343,7 @@ function plyoUpperCard(wk,cut,pullback){
     <details class="px" data-px="up${i}"${openPx.has('up'+i)?' open':''}><summary><span>${esc(e.label)}</span><span class="mono small">${n0} × ${esc(e.r)} · ${e.rest} s</span></summary>${plyoEntry(e.id)}</details>
     <div class="sets">${Array.from({length:n0},(_,j)=>`<button class="setb sm${sets[j]?' on':''}" data-act="upset" data-i="${i}" data-j="${j}" aria-pressed="${!!sets[j]}">${esc(String(e.r).split(' ')[0])}<small>Set ${j+1}</small></button>`).join('')}</div></div>`;
   });
-  h+=`</div><div class="small muted">Throws and explosive reps, not ground contacts, so they do not count toward the contact target. Bench is on all three lifting days and Friday is the day after: if it ever feels flat, this is the first block to cut.</div>`;
+  h+=`</div><div class="note">Throws and explosive reps, not ground contacts, so they do not count toward the contact target. Bench is on all three lifting days and Friday is the day after: if it ever feels flat, this is the first block to cut.</div>`;
   if(pullback||cut) h+=`<div class="banner warn"><div class="small">You are already pulling back today. Drop this block or do one movement.</div></div>`;
   return h+`</div>`;
 }
@@ -4397,7 +4397,7 @@ function applyCard(wk){
   const rows=activeLifts().map(k=>{const proj=nc?maxFor(nc)[k]:null;return `<tr><td>${esc(liftName(k))}</td><td class="n">${res[k]!=null?n(res[k]):'—'}</td><td class="n">${proj?n(proj.v):'—'}</td></tr>`}).join('');
   const applied=nc&&LK.every(k=>res[k]==null||+cur[k]===res[k]);
   return `<div class="card"><h3>Feed results forward</h3><div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Tested</th><th class="n">Cycle ${nc||'—'} now</th></tr></thead><tbody>${rows}</tbody></table></div>
-  <p class="small muted" style="margin:0">If a lift didn't move, that's information, not failure. Leave it blank to keep the projected number.</p>
+  <p class="note" style="margin:0">If a lift didn't move, that's information, not failure. Leave it blank to keep the projected number.</p>
   <div><button class="btn primary" data-act="applytest" data-monday="${wk.monday}" ${!nc||!Object.keys(res).length||applied?'disabled':''}>${applied&&Object.keys(res).length?'Applied to Cycle '+nc:'Use for Cycle '+(nc||'—')}</button></div></div>`;
 }
 function convertCard(wk){
@@ -4576,7 +4576,7 @@ function aimsCard(date) {
   if (lg(date).done) return aimsReport(date);
   const picked = aimsOn(date);
   return `<div class="card"><div class="lift-h"><h3>What matters today</h3><span class="small muted">${picked.length ? picked.length + ' of ' + AIM_MAX : 'pick up to ' + AIM_MAX}</span></div>
-  <p class="small muted" style="margin:0">Not the numbers — those are on the cards below. This is how you mean to train today, and you get an honest account of it afterwards.</p>
+  <p class="note" style="margin:0">Not the numbers — those are on the cards below. This is how you mean to train today, and you get an honest account of it afterwards.</p>
   <div class="stack" style="gap:4px">${aimSet(date).map(a => {
     const on = picked.includes(a.id), full = picked.length >= AIM_MAX && !on;
     return `<button class="aim${on ? ' on' : ''}" data-act="aim" data-id="${a.id}"${full ? ' disabled' : ''} aria-pressed="${on}">${on ? '✓' : ''} ${esc(a.label)}</button>`;
@@ -4621,7 +4621,7 @@ function aimsReport(date) {
   }
   const L = lg(date);
   h += `<label class="f" style="margin-top:4px">Anything to remember?<textarea id="aim-notes" data-bind="notes" rows="3" placeholder="How it moved, what to change, what to watch">${esc(L.notes || '')}</textarea></label>
-  <div class="small muted">This is shown to you before your next ${esc((dayPlan(date) || {}).short || 'session')}, which is the point of writing it.</div></div>`;
+  <div class="note">This is shown to you before your next ${esc((dayPlan(date) || {}).short || 'session')}, which is the point of writing it.</div></div>`;
   return h;
 }
 
@@ -4739,7 +4739,7 @@ function reviewCard(c){
   const lifts=activeLifts().filter(k=>mx[k]);
   if(!Object.keys(stats).length) return '';
   const lbl={reduce:'Lower 5%',hold:'Hold',standard:'Standard',bigger:'Bigger jump'};
-  let h=`<div class="card"><div class="lift-h"><h3>Cycle ${c} review</h3><span class="chip blue">Next: Cycle ${c+1}</span></div><p class="small muted" style="margin:0">Suggested from your grinders, missed sets and effort on heavy weeks${rdAvg!=null?` (average readiness ${Math.round(rdAvg)})`:''}. Pick next cycle’s max for each lift, then apply.</p>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Cycle ${c} review</h3><span class="chip blue">Next: Cycle ${c+1}</span></div><p class="note" style="margin:0">Suggested from your grinders, missed sets and effort on heavy weeks${rdAvg!=null?` (average readiness ${Math.round(rdAvg)})`:''}. Pick next cycle’s max for each lift, then apply.</p>`;
   for(const k of lifts){
     const cur=mx[k].v, opts=reviewOptions(k,cur), [rec,why]=recommend(stats[k],rdAvg), preset=nxt[k]!=null&&nxt[k]!=='';
     const choice=reviewSel[k]||(preset?'keep':rec);
@@ -5318,7 +5318,7 @@ function vWelcome(){
     <label class="f">Strength template<div class="stack">${Object.entries(STEMPL).map(([k,T])=>`<button class="btn${w.stempl===k?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="wzset" data-k="stempl" data-v="${k}"><span><b>${w.stempl===k?'\u2713 ':''}${esc(T.name)}</b> <span class="small">\u00b7 ${tplDays(T,{w:1}).length} days \u00b7 ${esc(T.book)}</span><br><span class="small">${esc(T.blurb)}</span></span></button>`).join('')}</div></label>
     <label class="f">Conditioning protocol<div class="stack">${Object.entries(CPROTO).map(([k,P])=>`<button class="btn${w.cproto===k?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="wzset" data-k="cproto" data-v="${k}"><span><b>${w.cproto===k?'\u2713 ':''}${esc(P.name)}</b> <span class="small">\u00b7 ${esc(P.book)}</span><br><span class="small">${esc(P.blurb)}</span></span></button>`).join('')}</div></label>
     <label class="check"><input type="checkbox" id="wz-bb" data-act-change="wzbb" ${w.bb?'checked':''}> Start with <b>Base Building</b> first</label>
-    <div class="small muted">Tactical Barbell II\u2019s Block I: eight weeks of aerobic base and strength-endurance before you go near a heavy barbell cycle. The book\u2019s advice is to do it first if you have not built that base, and once or twice a year after.</div>
+    <div class="note">Tactical Barbell II\u2019s Block I: eight weeks of aerobic base and strength-endurance before you go near a heavy barbell cycle. The book\u2019s advice is to do it first if you have not built that base, and once or twice a year after.</div>
     ${wzWarnings(w)}`;
   } else if(w.step===2){
     h+=`<p style="margin:0">Monday and Wednesday include a third lift. Pick the ones you’ll use; with more than one, you can swap on any day.</p>
@@ -5333,11 +5333,11 @@ function vWelcome(){
     if(w.mode==='maxes') h+=`<div class="seg">${[['1rm','1-rep maxes'],['5rm','5-rep maxes']].map(([v,l])=>`<button class="segb${w.rm===v?' on':''}" data-act="wzset" data-k="rm" data-v="${v}">${l}</button>`).join('')}</div>
       <div class="grid4">${lifts.map(k=>`<label class="f">${esc(liftName(k))}${isBW(k)?' (added)':''}<input type="number" inputmode="decimal" step="any" id="wz-m-${k}" data-wz="maxes.${k}" value="${w.maxes[k]??''}"></label>`).join('')}</div>
       ${w.rm==='5rm'?'<div class="small muted">5-rep maxes are converted to 1-rep maxes (÷ 0.87).</div>':''}`;
-    else h+=`<div class="small muted">The bridge week tests two lifts per test day, then converts your 5-rep maxes into Cycle 1’s numbers on Sunday.</div>`;
+    else h+=`<div class="note">The bridge week tests two lifts per test day, then converts your 5-rep maxes into Cycle 1’s numbers on Sunday.</div>`;
     if(w.rerun) h+=`<div class="banner warn"><div class="small">Changing the start week or bridge choice re-plans your whole calendar, locked weeks included.</div></div>`;
   } else if(w.step===4){
     h+=`<label class="f">Main conditioning tool<div class="seg">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<button class="segb${w.cardio===k?' on':''}" data-act="wzset" data-k="cardio" data-v="${k}">${x.name}</button>`).join('')}</div></label>
-    <div class="small muted">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
+    <div class="note">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
 
   } else if(w.step===5){
     h+=`<p style="margin:0">Jumps and bounds, 15 to 20 minutes of real work, in three-week phases. A nervous-system stimulus rather than a workout — quality of each rep matters far more than how many.</p>
@@ -5346,21 +5346,21 @@ function vWelcome(){
     ${w.plyo?`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${w.plyoPer===v?' on':''}" data-act="wzset" data-k="plyoPer" data-v="${v}">${l}</button>`).join('')}</div></label>
       <div class="small muted">${w.plyoPer===2?'The week\u2019s contacts split across the two rather than doubling, so it is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between.':'One session with the whole phase target in it.'}</div>
       <label class="f">${w.plyoPer===2?'Which two days':'Which day'}${plyoDayRow(w.plyoPer===2?[w.plyoDow,w.plyoDow2]:[w.plyoDow],w.plyoPer,'wzplyoday')}</label>
-      ${w.plyoPer===2?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
-      <div class="small muted">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
+      ${w.plyoPer===2?'<div class="note">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
+      <div class="note">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
       ${wzPlyoWarn(w)}`:''}`;
   } else if(w.step===6){
     h+=`<p style="margin:0">How the block itself runs. Both of these apply to the whole program, not just one part of it.</p>
     <label class="f">Scheduled deload week<div class="seg">${DELOAD_OPTS.map(([v,l])=>`<button class="segb${w.deload===v?' on':''}" data-act="wzset" data-k="deload" data-v="${v}">${l}</button>`).join('')}</div></label>
-    <div class="small muted">A deload week drops to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}%, swaps conditioning to easy steady work, halves plyos and skips accessories. <b>As needed</b> schedules none: the app still offers one when your check-ins show low readiness or repeated hard sessions, and you can add one from the Plan tab any time. Tactical Barbell doesn’t mandate a fixed deload, so this is your call.</div>
+    <div class="note">A deload week drops to ${plan.deload.s}×${plan.deload.r} @ ${plan.deload.p}%, swaps conditioning to easy steady work, halves plyos and skips accessories. <b>As needed</b> schedules none: the app still offers one when your check-ins show low readiness or repeated hard sessions, and you can add one from the Plan tab any time. Tactical Barbell doesn’t mandate a fixed deload, so this is your call.</div>
     <label class="f">Retest week<div class="seg">${[[0,'Never'],[2,'Every 2 cycles'],[3,'Every 3 cycles'],[4,'Every 4 cycles']].map(([v,l])=>`<button class="segb${w.test===v?' on':''}" data-act="wzset" data-k="test" data-v="${v}">${l}</button>`).join('')}</div></label>
-    <div class="small muted">A retest week takes three easy days, then heavy singles across two days, and feeds the results into the next cycle. Every 3 cycles matches the 18-week block.</div>
+    <div class="note">A retest week takes three easy days, then heavy singles across two days, and feeds the results into the next cycle. Every 3 cycles matches the 18-week block.</div>
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
     h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
-    <div class="small muted">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
+    <div class="note">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
   h+=`<div class="row">${w.step>0?'<button class="btn" data-act="wzback">‹ Back</button>':''}${w.step<7?'<button class="btn primary" data-act="wznext">Next ›</button>':`<button class="btn primary" data-act="wzdone">${w.rerun?'Save':'Start my program'}</button>`}${w.rerun?'<button class="btn ghost" data-act="wzcancel">Cancel</button>':''}</div></div>`;
   return h;
@@ -5661,7 +5661,7 @@ function lsRender(){
       <div class="ls-kind work">${st.isRm5?'5-rep max · leave 2 reps in reserve':'Heavy single · stop when the bar slows'}${lsStepDone(st)?' · ✓ saved':''}</div>
       ${st.w!=null?`<div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()} target</small></span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
-      <div class="ls-row"><button class="btn sm" data-ls="t-">Target −${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="t+">Target +${n(plan.round[k]||5)}</button></div>`:`<label class="f">Your target ${st.isRm5?'for 5 reps':'single'} (${u()})<input type="number" inputmode="decimal" step="any" id="ls-tt" data-lsin="target" data-k="${k}" placeholder="e.g. what you think you can do with 2 reps left"></label><div class="small muted">No max to aim from yet. Enter a target and the warm-up ramp is calculated from it, or just work up and log what you get.</div>`}
+      <div class="ls-row"><button class="btn sm" data-ls="t-">Target −${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="t+">Target +${n(plan.round[k]||5)}</button></div>`:`<label class="f">Your target ${st.isRm5?'for 5 reps':'single'} (${u()})<input type="number" inputmode="decimal" step="any" id="ls-tt" data-lsin="target" data-k="${k}" placeholder="e.g. what you think you can do with 2 reps left"></label><div class="note">No max to aim from yet. Enter a target and the warm-up ramp is calculated from it, or just work up and log what you get.</div>`}
       <div class="grid3"><label class="f">Weight lifted<input type="number" inputmode="decimal" step="any" id="ls-tw" data-lsin="w" data-k="${k}" value="${t.w??''}" placeholder="${st.w!=null?n(st.w):''}"></label><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-tr" data-lsin="r" data-k="${k}" value="${t.r??''}" placeholder="${st.r}"></label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e!=null?(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):'—'}</div></label></div>
       ${isBW(k)?'<div class="small muted">Enter the weight you added (0 for bodyweight).</div>':''}
     </div><button class="btn primary ls-done" data-ls="tsave">${lsStepDone(st)?'Saved ✓ · next':'Save result'}</button>`;
@@ -6052,7 +6052,7 @@ const APP_VERSION=RELEASES[0].v;
 function tagVersion(t){const m=/^v(\d+\.\d+)/.exec(String(t||''));return m?m[1]:null}
 function vReleases(){
   return `<div class="card"><div class="lift-h"><h2>What\u2019s new</h2><button class="btn sm ghost" data-act="view" data-view="setup">Back to Setup</button></div>
-  <p class="small muted" style="margin:0">What each release added. The app updates itself: when a new one is deployed you get a banner at the top, and reloading is all it takes.</p></div>
+  <p class="note" style="margin:0">What each release added. The app updates itself: when a new one is deployed you get a banner at the top, and reloading is all it takes.</p></div>
   ${RELEASES.map(r=>`<div class="card"><div class="lift-h"><h3>${esc(r.title)}</h3><span class="chip${r.v===APP_VERSION?' blue':''}">${r.v===APP_VERSION?'Current \u00b7 ':''}${esc(r.v)}</span></div>
   <div class="small muted">${fmtLong(r.date)}</div>
   <ul class="tight small">${r.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}`;
@@ -6406,7 +6406,7 @@ function pullupState(date){
 }
 function pullupCard(date){
   const p=pullupState(date);
-  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="small muted" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
+  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
   h+=`<div class="miles"><div class="mile"><span class="l">Best set</span>${p.best?`<span class="big">${p.best.v}</span><span class="small muted">${fmtD(p.best.d,true)}</span>`:'<span class="small muted">Not tested yet</span>'}</div>`;
   h+=`<div class="mile"><span class="l">Next rung</span>${p.next?`<span class="big">${p.next.at}</span><span class="small muted">${p.togo?`${p.togo} more rep${p.togo===1?'':'s'} \u00b7 ${esc(p.next.name.toLowerCase())}`:'reached \u2014 move up'}</span>`:'<span class="small muted">Top of the ladder</span>'}</div>`;
@@ -6457,10 +6457,10 @@ function weeklyCard(){
   const prev=measBefore(mon), bfNow=thisWeek?navyBf(thisWeek.m,thisWeek.d):null, bfPrev=prev?navyBf(prev.m,prev.d):null;
   const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,today[k],prev&&prev.m[k]!=null?String(prev.m[k]):'')}</label>`;
   const since=prev?Math.round((D(mon)-D(prev.d))/864e5):null;
-  const body=()=>`<p class="small muted" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
+  const body=()=>`<p class="note" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
   <div class="grid3">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>`
     +(navyBf(today,t)!=null?`<div class="small">That puts you at <b class="mono">${r1(navyBf(today,t))}%</b> body fat${bfPrev!=null?`, ${navyBf(today,t)<bfPrev?'down':navyBf(today,t)>bfPrev?'up':'level'} ${navyBf(today,t)===bfPrev?'':r1(Math.abs(navyBf(today,t)-bfPrev))+' points '}since ${fmtD(prev.d)}`:''}.</div>`
-      :!plan.height||!plan.sex?`<div class="small muted">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`
+      :!plan.height||!plan.sex?`<div class="note">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`
       :today.waist||today.neck?`<div class="small muted">Neck and waist both needed for the estimate${plan.sex==='f'?', plus hips':''}.</div>`:'');
 
   // Done for the week: a header you can fold away. It opens by default on the day you
@@ -6611,7 +6611,7 @@ function bwCard(t){
   <div class="mile"><span class="l">Over this range</span><span class="big">${ch>0?'+':''}${r1(ch)}</span><span class="small muted">${fmtD(first.d)} to ${fmtD(last.d)}${k0>=2?` · first ${k0} vs last ${k0}`:''}</span></div>
   <div class="mile"><span class="l">Per week</span>${rate?`<span class="big">${rate.perWeek>0?'+':''}${r1(rate.perWeek)}</span><span class="small muted">last ${rate.back} days</span>`:'<span class="small muted">Needs two weeks of weigh-ins</span>'}</div></div>`;
   h+=lineChart(xs.map(x=>({y:x.v,y2:x.raw,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: weighed ${r1(x.raw)}, ${r1(x.v)} average${x.n>1?' of '+x.n:''}`})),{label:'Bodyweight, daily and 7-day average',minStep:1});
-  h+=`<div class="small muted">Weighed on ${logged} of the last ${days} day${days===1?'':'s'}. The faint line is each weigh-in; the solid one is the 7-day average, which is what the protein target, the weighted pull-up loads and the trend advice use.</div>`;
+  h+=`<div class="note">Weighed on ${logged} of the last ${days} day${days===1?'':'s'}. The faint line is each weigh-in; the solid one is the 7-day average, which is what the protein target, the weighted pull-up loads and the trend advice use.</div>`;
   return h+`</div>`;
 }
 // What you burn and what you are made of. The measured number comes from your own
@@ -6697,7 +6697,7 @@ function macroCard(t){
   const lb=bwLb(t);
   let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="chip ${tgt.src==='tb3'?'light':''}">${tgt.src==='tb3'?'TB III':'Ours'}</span>`:''}</div>`;
   if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
-  if(!tgt) return h+`<p class="small muted" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
+  if(!tgt) return h+`<p class="note" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
 
   h+=`<div class="seg wide">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${esc(l)}</button>`).join('')}</div>`;
   h+=`<div class="mrows">`;
@@ -6725,7 +6725,7 @@ function energyCard(t){
   const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
   const bf=bfSeries(t), last=bf[bf.length-1];
   const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
-  if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="small muted" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
+  if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="note" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
   h+=`<div class="miles">`;
   h+=`<div class="mile"><span class="l">Burn per day</span>${est?`<span class="big">${n(est.tdee)}</span><span class="small muted">${meas?`${Math.round(est.w*100)}% your own data${pred?`, rest the formula (${n(pred)})`:''}`:`the formula only · Mifflin-St Jeor × ${actFactor()}`}</span>`:'<span class="small muted">Needs height, sex and birth year</span>'}</div>`;
@@ -6737,13 +6737,13 @@ function energyCard(t){
     const goal=plan.goal, tgt=goal==='lose'?est.tdee-Math.round(est.tdee*.18/10)*10:goal==='gain'?est.tdee+250:est.tdee;
     if(goal&&goal!=='maintain') h+=`<div class="small muted">Your goal is set to ${goal==='lose'?'lose fat':'build'}. About <b class="mono">${n(tgt)}</b> a day would ${goal==='lose'?'take off roughly 1% of bodyweight a month without wrecking the lifting':'add weight slowly enough to stay mostly lean'}. Protein target is on the Today card.</div>`;
   } else if(pred){
-    h+=`<div class="small muted">That is the formula's guess from your height, weight, age and activity. Log calories for ${28} days alongside your weigh-ins and this switches to your own numbers, which are the only ones that count.</div>`;
+    h+=`<div class="note">That is the formula's guess from your height, weight, age and activity. Log calories for ${28} days alongside your weigh-ins and this switches to your own numbers, which are the only ones that count.</div>`;
   }
   if(ts.length>=2){
     const a0=ts[0], b0=ts[ts.length-1], dr=b0.v-a0.v;
     h+=`<div class="sm" style="margin-top:12px"><div class="sm-h"><b>Burn over time</b><span class="v">${n(b0.v)}<small>${dr>0?'+':''}${n(dr)} since ${fmtD(a0.d)}</small></span></div>`;
     h+=lineChart(ts.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: about ${n(x.v)} a day, ${Math.round(x.w*100)}% from your own data`})),{label:'Estimated daily burn',minStep:25,tick:fmtWhole});
-    h+=`<div class="small muted">Each point is the 28 days ending that week, so it follows you rather than holding a number set on day one.${Math.abs(dr)>=100?(dr<0?` It has come down about ${n(-dr)} since ${fmtD(a0.d)} — normal in a long deficit, and a reason to take a maintenance break rather than cut harder.`:` It has risen about ${n(dr)} since ${fmtD(a0.d)}.`):''}</div></div>`;
+    h+=`<div class="note">Each point is the 28 days ending that week, so it follows you rather than holding a number set on day one.${Math.abs(dr)>=100?(dr<0?` It has come down about ${n(-dr)} since ${fmtD(a0.d)} — normal in a long deficit, and a reason to take a maintenance break rather than cut harder.`:` It has risen about ${n(dr)} since ${fmtD(a0.d)}.`):''}</div></div>`;
   }
   if(bf.length>=2){
     const w=bf.map(x=>({d:x.d,v:+x.m.waist}));
@@ -6752,7 +6752,7 @@ function energyCard(t){
     h+=`<div class="sm"><div class="sm-h"><b>Waist</b><span class="v">${r1(w[w.length-1].v)}<small>${u()==='kg'?'cm':'in'}</small></span></div>${lineChart(w.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${r1(x.v)} ${u()==='kg'?'cm':'in'}`})),{label:'Waist',minStep:.5})}</div>`;
     h+=`</div>`;
   }
-  h+=`<div class="small muted">The body-fat estimate is the US Navy tape method: typically within 3–4 points, and more useful as a direction than a number. Measure at the same time of day, relaxed.</div>`;
+  h+=`<div class="note">The body-fat estimate is the US Navy tape method: typically within 3–4 points, and more useful as a direction than a number. Measure at the same time of day, relaxed.</div>`;
   return h+`</div>`;
 }
 /* The three lines at the top of Status: a verdict apiece, not a number apiece. Each
@@ -6894,7 +6894,7 @@ function vStatus(){
   h+=`<div class="small muted">${trained} training week${trained===1?'':'s'} completed since ${fmtD(plan.startMonday)}.</div></div>`;
   // --- this week + adherence
   const mon=mondayOf(t);
-  let wd='';for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t),p=dayPlan(d);wd+=`<div><i class="${st}" aria-label="${DAYN[i]}: ${st}">${st==='done'?'✓':st==='missed'?'✕':st==='rest'?'–':'•'}</i>${DAYN[i]}<span style="font-size:10px">${esc(p.short||'')}</span></div>`}
+  let wd='';for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t),p=dayPlan(d);wd+=`<div><i class="${st}" aria-label="${DAYN[i]}: ${st}">${st==='done'?'✓':st==='missed'?'✕':st==='rest'?'–':'•'}</i>${DAYN[i]}<span style="font-size:11px">${esc(p.short||'')}</span></div>`}
   const adh=(from,to)=>{let d0=0,n0=0;for(let d=from;d<=to;d=addDays(d,1)){if(d<plan.startMonday)continue;const st=sessState(d,t);if(st==='rest'||st==='upcoming'||st==='today')continue;n0++;if(st==='done')d0++}return {d:d0,n:n0}};
   const yest=addDays(t,-1), a4=adh(addDays(mon,-28),yest);
   let tw=0,td=0;for(let i=0;i<7;i++){const d=addDays(mon,i),st=sessState(d,t);if(st!=='rest'){tw++;if(st==='done')td++}}
@@ -6933,7 +6933,7 @@ function vStatus(){
       h+=`<div class="sm"><div class="sm-h"><b>Minutes per week</b>${last4.length?`<span class="v">${av}<small>min / week, last ${last4.length}</small></span>`:now&&now.n?`<span class="v">${now.min}<small>min this week so far</small></span>`:''}</div>`;
       h+=cw.length>=2&&tot?lineChart(cw.map(x=>({y:x.min,xl:fmtD(x.mon),hollow:x.mon===thisWk,tip:`Week of ${fmtD(x.mon,true)}: ${x.min} min across ${x.n} session${x.n===1?'':'s'}${x.mon===thisWk?' so far':''}`})),{min:0,minStep:10,label:'Conditioning minutes per week'}):`<div class="none">${tot?`${now&&now.n===1?'One session':`${now?now.n:0} sessions`} this week. The trend starts once a second week has sessions in it.`:'Log a conditioning session and this fills in.'}</div>`;
       const drew=cw.length>=2&&tot;
-      if(tot&&(drew||anyEst)) h+=`<div class="small muted">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included — log the real number on the day’s card and it uses that instead.`:''}</div>`;
+      if(tot&&(drew||anyEst)) h+=`<div class="note">${drew?'This week is dashed: it is still running.':''}${anyEst?`${drew?' ':''}Sessions where you did not log minutes count the planned length of that format, warm-up and cool-down included — log the real number on the day’s card and it uses that instead.`:''}</div>`;
       h+=`</div>`;
     }
     {
@@ -6942,7 +6942,7 @@ function vStatus(){
         const dir=bm.xs.length>1?bm.last.v-bm.first.v:null;
         h+=`<div class="sm"><div class="sm-h"><b>Benchmark · ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
         h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
-        h+=`<div class="small muted">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
+        h+=`<div class="note">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
       }
     }
     h+=`<div class="small muted">Every activity you have logged, charted and tabled, is in History.</div>`;
@@ -7052,10 +7052,10 @@ function syncCard(){
   const list=conflicts(); if(!list.length) return '';
   const label=p=>p.startsWith('logs/')?fmtLong(p.slice(5)):p.startsWith('programs/')?'an archived program':p;
   return `<div class="card"><div class="lift-h"><h2>Changes that crossed</h2><span class="chip">${list.length}</span></div>
-  <p class="small muted" style="margin:0">These days were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
+  <p class="note" style="margin:0">These days were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
   <div class="stack">${list.map(c=>`<div class="banner"><div class="small"><b>${esc(label(c.path))}</b><div class="muted">noticed ${esc(fmtD(c.at.slice(0,10),true))} ${esc(c.at.slice(11,16))}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn ghost" data-act="syncclear">Dismiss</button></div>
-  <div class="small muted">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
+  <div class="note">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
 }
 
 // Accessories in Setup: which jobs each day covers, what is doing each job this block
@@ -7068,13 +7068,13 @@ let bandNew={n:'',w:''};
 function bandsCard(){
   const list=bands();
   let h=`<div class="card"><div class="lift-h"><h2>Bands</h2><span class="chip ${list.length?'light':''}">${list.length||'none'}</span></div>
-  <p class="small muted" style="margin:0">A band has a color, not a number, and the color means different things by brand \u2014 Rogue\u2019s own range lists Red twice, at 18 and 115 lb. So these are yours: give each band the weight you want it logged as, and it shows up on any band exercise.</p>`;
+  <p class="note" style="margin:0">A band has a color, not a number, and the color means different things by brand \u2014 Rogue\u2019s own range lists Red twice, at 18 and 115 lb. So these are yours: give each band the weight you want it logged as, and it shows up on any band exercise.</p>`;
   if(list.length) h+=`<div class="stack" style="gap:6px">${list.map(b=>`<div class="row between" style="gap:8px"><span class="acc-role">${esc(b.n)}</span><span class="mono small">${n(b.w)} ${esc(u())}</span><button class="btn sm ghost" data-act="bandrm" data-n="${esc(b.n)}">Remove</button></div>`).join('')}</div>`;
   h+=`<div class="grid3"><label class="f">Color or name<input type="text" id="band-n" data-bandnew="n" value="${esc(bandNew.n)}" placeholder="e.g. Red, or #1 Red"></label>
   <label class="f">Counts as (${esc(u())})<input type="number" inputmode="decimal" step="any" id="band-w" data-bandnew="w" value="${esc(String(bandNew.w))}"></label>
   <label class="f">&nbsp;<button class="btn" data-act="bandadd">Add band</button></label></div>`;
   h+=`<details class="plain"><summary>Start from a maker\u2019s chart</summary><div class="stack" style="margin-top:8px">
-  <div class="small muted">Published figures${u()==='kg'?', converted to kg':''}, added to your list so you can edit them. They are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less than the number.</div>
+  <div class="note">Published figures${u()==='kg'?', converted to kg':''}, added to your list so you can edit them. They are peak resistance at full stretch, so the pull at the bottom of a rep is a good deal less than the number.</div>
   ${Object.entries(BAND_PRESETS).map(([k,set])=>`<div style="border-top:1px solid var(--line);padding-top:8px">
     <div class="row between" style="gap:8px"><span class="acc-role">${esc(set.name)}</span><button class="btn sm" data-act="bandseed" data-v="${k}">Add these</button></div>
     <div class="small muted">${esc(set.note)}</div>
@@ -7093,10 +7093,10 @@ function accSetupCard(){
   }
   const later=accLater||cyc==null;              // with no cycle running there is only "later"
   let h=`<div class="card"><h2>Accessories</h2>
-  <p class="small muted" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
+  <p class="note" style="margin:0">Each lifting day covers a few jobs and you choose what does each one. The same job can appear on more than one day with a different movement on each. Skipped automatically on heavy weeks and deloads. To change one movement for a single session, use the picker on that day\u2019s card instead.</p>`;
   if(cyc!=null) h+=`<div class="restsel"><span>Editing</span><div class="seg"><button class="segb${later?'':' on'}" data-act="acclater" data-v="0" aria-pressed="${!later}">Cycle ${cyc} (now)</button><button class="segb${later?' on':''}" data-act="acclater" data-v="1" aria-pressed="${later}">Later cycles</button></div></div>
   <div class="small muted">${later?'What a new cycle starts on. Your current block is untouched.':'This block only. Later cycles keep their own choices.'}</div>
-  <div class="small muted"><b>In a session, core work runs last and carries after it</b>, whatever order they are listed in here \u2014 a tired trunk is a worse brace for what follows, and a fried grip is worse still. A superset moves as a pair.</div>`;
+  <div class="note"><b>In a session, core work runs last and carries after it</b>, whatever order they are listed in here \u2014 a tired trunk is a worse brace for what follows, and a fried grip is worse still. A superset moves as a pair.</div>`;
 
   for(const [d,label] of days){
     const sl=accSlots(d), spare=Object.keys(ASLOT).filter(k=>!sl.includes(k));
@@ -7117,7 +7117,7 @@ function accSetupCard(){
   <p class="small muted" style="margin:2px 0 0">${amAdmin
     ? 'The movements on offer are the shared list, which you curate from the <b>Admin</b> tab.'
     : 'The movements on offer are a shared list. If something you do is missing, ask and it can be added for everyone.'}</p>
-  ${mine.length?`<div class="small muted" style="margin-top:6px">You also have ${mine.length} of your own from before the list was shared \u2014 ${esc(mine.map(x=>x.name).join(', '))} \u2014 and they still work wherever you have already chosen them.</div>`:''}</div>`;
+  ${mine.length?`<div class="note" style="margin-top:6px">You also have ${mine.length} of your own from before the list was shared \u2014 ${esc(mine.map(x=>x.name).join(', '))} \u2014 and they still work wherever you have already chosen them.</div>`:''}</div>`;
 
   const legacy=Object.values(plan.acc||{}).some(a=>Array.isArray(a)&&a.length);
   if(legacy) h+=`<div class="banner info"><div class="small">Your old typed-in accessory lists have been replaced by the jobs above. Nothing was lost \u2014 they are still in your plan, and what you ticked on past days still shows on those days.</div></div>`;
@@ -7134,11 +7134,11 @@ function warmSetupCard(){
   const cur=warmKey();
   const lines=warmMine().map(x=>x.d?x.n+', '+x.d:x.n).join('\n');
   let h=`<div class="card"><h2>Warm-up</h2>
-  <p class="small muted" style="margin:0">None of the four books prescribe a mobility routine \u2014 TB1 asks for ten minutes of easy work and your warm-up sets, and <i>Ageless Athlete</i> says to bring a protocol of your own if you have one. So pick one.</p>
+  <p class="note" style="margin:0">None of the four books prescribe a mobility routine \u2014 TB1 asks for ten minutes of easy work and your warm-up sets, and <i>Ageless Athlete</i> says to bring a protocol of your own if you have one. So pick one.</p>
   <div class="seg wide">${Object.entries(WARM_ROUTINES).map(([k,r])=>`<button class="segb" data-act="warmroutine" data-v="${k}" aria-pressed="${k===cur}">${esc(r.name)}</button>`).join('')}</div>
   <div class="small muted">${esc(WARM_ROUTINES[cur].note)}</div>`;
   if(cur==='mine') h+=`<label class="f">Your warm-up<textarea id="warm-mine" data-warmmine rows="8" placeholder="Bike or rower, 5 min\nHip airplane, 8 per side">${esc(lines)}</textarea></label>`;
-  h+=`<div class="small muted"><b>90/90 breathing</b> and <b>90/90 hip switches</b> are in every one of these, including yours \u2014 they are the two we keep whatever else changes.</div>`;
+  h+=`<div class="note"><b>90/90 breathing</b> and <b>90/90 hip switches</b> are in every one of these, including yours \u2014 they are the two we keep whatever else changes.</div>`;
   const items=warmItems();
   h+=`<div class="small muted">${items.length} movement${items.length===1?'':'s'}: ${esc(items.map(x=>x.n).join(' \u00b7 '))}</div>`;
   return h+`</div>`;
@@ -7175,7 +7175,7 @@ function programsCard(){
     <div class="grid2"><label class="f">New program name<input type="text" id="np-name" data-np="name" value="${esc(newProg.name)}"></label><label class="f">Starts (week of)<input type="date" id="np-start" data-np="start" value="${newProg.start}"></label></div>
     <label class="check"><input type="radio" name="np-mode" id="np-carry" data-np="mode" value="carry" ${newProg.mode==='carry'?'checked':''}> <span>Carry my maxes forward <span class="small muted">(${carried})</span></span></label>
     <label class="check"><input type="radio" name="np-mode" id="np-bridge" data-np="mode" value="bridge" ${newProg.mode==='bridge'?'checked':''}> <span>Start with a bridge week and re-test <span class="small muted">(your current maxes show on test days for reference)</span></span></label>
-    <p class="small muted" style="margin:0">${esc(progName())} will be archived. Its calendar, maxes, reviews and every logged session stay viewable here and from History, Status and Plan. Your settings (Lift 3, accessories, rest times, conditioning, wave and deload rules) carry over.</p>
+    <p class="note" style="margin:0">${esc(progName())} will be archived. Its calendar, maxes, reviews and every logged session stay viewable here and from History, Status and Plan. Your settings (Lift 3, accessories, rest times, conditioning, wave and deload rules) carry over.</p>
     ${newProg.err?`<div class="banner warn"><div class="small">${esc(newProg.err)}</div></div>`:''}
     <div class="row"><button class="btn primary" data-act="progstart">${newProg.arm?'Tap again to confirm':'Archive and start '+esc(newProg.name||'new program')}</button><button class="btn ghost" data-act="progcancel">Cancel</button></div></div>`;
   }
@@ -7312,7 +7312,7 @@ function vPlan(){
 }
 function vPlanList(){
   const t=todayStr(), ti=Math.max(0,idxOf(t)), list=weeks(ti+planShow+2), from=Math.max(0,ti-4), to=ti+planShow;
-  let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="small muted" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
+  let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="note" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
   for(let i=from;i<=to&&i<list.length;i++){
     const wk=list[i], wt=weekTitle(wk), past=wk.idx<ti, cur=wk.idx===ti;
     let done=0,tot=0; for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),p=dayPlan(dd); if(p.t!=='off'){tot++; if(lg(dd).done) done++}}
@@ -7343,7 +7343,7 @@ function vHistory(){
   const t=todayStr(), wk=weekOf(t), curC=wk?(wk.kind==='cycle'?wk.cycle:(wk.nextCycle||wk.refCycle)):1;
   const list=weeks(), range={};
   for(const w of list){ if(w.kind==='cycle'){ (range[w.cycle]||(range[w.cycle]={a:w.monday,b:w.monday})).b=w.monday } }
-  let h=`<div class="card"><h2>Maxes by cycle</h2><p class="small muted" style="margin:0">Type a number to override a cycle. Blank cells follow the previous cycle plus the increment. Later cycles update automatically.</p><div class="tbl-wrap"><table><thead><tr><th>Cycle</th><th>Dates</th>${activeLifts().map(k=>`<th class="n">${esc(liftName(k))}</th>`).join('')}</tr></thead><tbody>`;
+  let h=`<div class="card"><h2>Maxes by cycle</h2><p class="note" style="margin:0">Type a number to override a cycle. Blank cells follow the previous cycle plus the increment. Later cycles update automatically.</p><div class="tbl-wrap"><table><thead><tr><th>Cycle</th><th>Dates</th>${activeLifts().map(k=>`<th class="n">${esc(liftName(k))}</th>`).join('')}</tr></thead><tbody>`;
   for(let c=1;c<=curC+(viewing?0:2);c++){
     const m=maxFor(c), r=range[c], o=plan.cycleMaxes[c]||{};
     h+=`<tr class="${c===curC?'cur':c<curC?'past':''}"><td><b>${c}</b></td><td class="small mono">${r?fmtD(r.a)+'–'+fmtD(addDays(r.b,4)):''}</td>${activeLifts().map(k=>c===1&&(o[k]==null||o[k]==='')?`<td class="n"><span title="Set in Setup">${m[k]?n(m[k].v):'—'}</span></td>`:`<td class="n"><input type="number" inputmode="decimal" step="any" id="cm-${c}-${k}" data-cmax="${c}.${k}" value="${o[k]??''}" placeholder="${m[k]?n(m[k].v):''}" aria-label="Cycle ${c} ${esc(liftName(k))}"></td>`).join('')}</tr>`;
@@ -7379,7 +7379,7 @@ function vHistory(){
   else{
     const avg=(f)=>{const xs=cis.slice(0,7).map(([d,L])=>L.checkin[f]).filter(v=>v!=null&&v!=='').map(Number);return xs.length?(xs.reduce((a,b)=>a+b,0)/xs.length):null};
     const ar=cis.slice(0,7).map(([d,L])=>readiness(L.checkin));const ra=ar.reduce((a,b)=>a+b,0)/ar.length;
-    h+=`<div class="grid3"><div class="stack" style="gap:2px"><span class="small muted">Readiness · last 7</span><span class="big" style="font-size:32px">${Math.round(ra)}</span></div><div class="stack" style="gap:2px"><span class="small muted">Sleep · last 7</span><span class="big" style="font-size:32px">${avg('sleepH')!=null?avg('sleepH').toFixed(1):'—'}<small>h</small></span></div><div class="stack" style="gap:2px"><span class="small muted">Bodyweight</span><span class="big" style="font-size:32px">${latestBw(todayStr())?n(latestBw(todayStr())):'—'}<small>${u()}</small></span></div></div>`;
+    h+=`<div class="grid3"><div class="stack" style="gap:2px"><span class="small muted">Readiness · last 7</span><span class="big" style="font-size:34px">${Math.round(ra)}</span></div><div class="stack" style="gap:2px"><span class="small muted">Sleep · last 7</span><span class="big" style="font-size:34px">${avg('sleepH')!=null?avg('sleepH').toFixed(1):'—'}<small>h</small></span></div><div class="stack" style="gap:2px"><span class="small muted">Bodyweight</span><span class="big" style="font-size:34px">${latestBw(todayStr())?n(latestBw(todayStr())):'—'}<small>${u()}</small></span></div></div>`;
     const rd=[];for(let i=27;i>=0;i--){const d=addDays(t,-i),r=readiness(ci(d));if(r!=null)rd.push({d,r})}
     if(rd.length>=2) h+=`<div class="sm" style="margin:12px 0"><div class="sm-h"><b>Readiness \u00b7 28 days</b><span class="v">${rd[rd.length-1].r}<small>latest</small></span></div>${lineChart(rd.map(x=>({y:x.r,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: readiness ${x.r}`})),{min:0,max:100,label:'Readiness'})}</div>`;
     h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th class="n">Ready</th><th class="n">Sleep</th><th class="n">Energy</th><th class="n">Sore</th><th class="n">BW</th></tr></thead><tbody>${cis.map(([d,L])=>{const c=L.checkin,r=readiness(c),lv=rLevel(r);return `<tr><td>${fmtD(d,true)}</td><td class="n"><span class="chip ${lv.cls}">${r}</span></td><td class="n">${c.sleepH!=null&&c.sleepH!==''?n(c.sleepH):'—'}</td><td class="n">${c.energy||'—'}</td><td class="n">${c.soreness||'—'}</td><td class="n">${c.bw?n(c.bw):'—'}</td></tr>`}).join('')}</tbody></table></div>`;
@@ -7392,7 +7392,7 @@ function vHistory(){
   else{
     const groups={};for(const x of hic) if(x.f!=='liss'&&x.v!=null)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
     const top=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,4);
-    if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:32px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
+    if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:34px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
     {
       const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,6);
       const g=keys.map(key=>{const xs=groups[key].slice().reverse().slice(-24),[m,f]=key.split('|'),best=xs.reduce((a,x)=>Math.max(a,x.v),0),un=xs[xs.length-1].u;
@@ -7433,7 +7433,7 @@ function halvesCard(){
     h+=`<div class="row between" style="gap:8px"><span class="acc-role">${label(k)}</span>
     <div class="seg">${[['a','A'],['b','B'],['','Off']].map(([v,t])=>`<button class="segb${w===v?' on':''}" data-act="half" data-k="${k}" data-v="${v}" aria-pressed="${w===v}">${t}</button>`).join('')}</div></div>`;
   }
-  h+=`</div><div class="small muted" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
+  h+=`</div><div class="note" style="margin-top:6px">A is ${esc(H.a.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))} \u00b7 B is ${esc(H.b.map(k=>k==='l3'?'Lift 3':liftName(k)).join(' + '))}. The book's suggestion is bench and squat against deadlift and overhead press. A half left empty falls back to the default.</div></div>`;
   return h;
 }
 // One row of seven, with every chosen day lit and numbered when there are two. `act` is
@@ -7451,17 +7451,17 @@ function plyoDayRow(days,per,act){
 function plyoCardSetup(){
   const on=plan.plyoOn!==false, d=plyoDowDefault(), two=plyoPerWeek()===2;
   let h=`<div class="card"><div class="lift-h"><h2>Plyometrics</h2><span class="chip ${on?'light':''}">${on?(two?esc(DAYN[d])+' and '+esc(DAYN[plyoDow2()]):esc(DAYN[d])):'Off'}</span></div>
-  <p class="small muted" style="margin:0">Jumps and bounds, in three-week phases. They are not part of a session: they go first on whatever day they land on, with ten minutes before hard conditioning.</p>
+  <p class="note" style="margin:0">Jumps and bounds, in three-week phases. They are not part of a session: they go first on whatever day they land on, with ten minutes before hard conditioning.</p>
   <label class="check"><input type="checkbox" id="p-plyoon" data-pbind="plyoOn" ${on?'checked':''}> Schedule plyometrics</label>`;
   if(on){
     h+=`<label class="f">Sessions a week<div class="seg">${[[1,'One'],[2,'Two, shorter']].map(([v,l])=>`<button class="segb${plyoPerWeek()===v?' on':''}" data-act="plyoper" data-v="${v}" aria-pressed="${plyoPerWeek()===v}">${l}</button>`).join('')}</div></label>
-    <div class="small muted">${two?'The week\u2019s contacts are split across the two rather than doubled, so this is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between them.':'One session carrying the whole phase target.'} How much volume a week is the app\u2019s own call \u2014 published figures disagree enough that keeping the week\u2019s total fixed is the honest reading.</div>
+    <div class="note">${two?'The week\u2019s contacts are split across the two rather than doubled, so this is the same work with fresher reps in it. Two a week is the usual recommendation, with 48 to 72 hours between them.':'One session carrying the whole phase target.'} How much volume a week is the app\u2019s own call \u2014 published figures disagree enough that keeping the week\u2019s total fixed is the honest reading.</div>
     <label class="f">${two?'Which two days':'Which day'}${plyoDayRow(two?[d,plyoDow2()]:[d],plyoPerWeek(),'plyodow')}</label>
-    ${two?'<div class="small muted">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}`;
+    ${two?'<div class="note">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}`;
     const ws=plyoWarnings(stemplKey(),cprotoKey(),d,(plan.cardio||{}).def);
     if(ws.length) h+=`<div class="banner warn"><div class="small">${ws.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
-    h+=`<div class="small muted">To shift a session for one week only, use <b>Move\u2026</b> on any day of that week. The phases, the exercises and the pull-back rules are in the Guide.</div>`;
-  } else h+=`<div class="small muted">Nothing is lost by leaving them off \u2014 jumps you have already logged stay, and the day goes back to whatever else it had.</div>`;
+    h+=`<div class="note">To shift a session for one week only, use <b>Move\u2026</b> on any day of that week. The phases, the exercises and the pull-back rules are in the Guide.</div>`;
+  } else h+=`<div class="note">Nothing is lost by leaving them off \u2014 jumps you have already logged stay, and the day goes back to whatever else it had.</div>`;
   return h+`</div>`;
 }
 // Which program you are running. Two choices, composed into a week — see 00b-templates.js.
@@ -7469,7 +7469,7 @@ function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
   const days=P.noStrength?0:T.days.length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
   let h=`<div class="card"><div class="lift-h"><h2>Template and protocol</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
-  <p class="small muted" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
+  <p class="note" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
   if(keys.length>1){
     h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${tplDays(STEMPL[k],{w:1}).length} day${tplDays(STEMPL[k],{w:1}).length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(T.blurb)}</div>`;
@@ -7482,7 +7482,7 @@ function templateCard(){
   else if(T.split) h+=halvesCard();
   const warn=programWarnings(stemplKey(),cprotoKey(),false);
   if(warn.length) h+=`<div class="banner info"><div class="small"><b>Worth knowing:</b>${warn.map(x=>`<div style="margin-top:4px">${esc(x.text)}</div>`).join('')}</div></div>`;
-  h+=`<div class="small muted">Changing either re-draws this week and every week after it. Weeks you have already trained keep the program they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
+  h+=`<div class="note">Changing either re-draws this week and every week after it. Weeks you have already trained keep the program they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }
 /* The Ageless Athlete preset. It writes three real settings rather than layering a
@@ -7552,9 +7552,9 @@ function setupSections(html){
 }
 function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
-  <p class="small muted" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
+  <p class="note" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
   <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
-  ${SEC('program')}<div class="card"><h2>Maxes</h2><p class="small muted" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
+  ${SEC('program')}<div class="card"><h2>Maxes</h2><p class="note" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k,todayStr()))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
   {
@@ -7569,46 +7569,46 @@ function vSetup(){
   h+=SEC('program')+`<div class="card"><h2>Start and units</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
   <div class="grid4"><label class="f">Units<select id="p-unit" data-pbind="unit"><option value="lb"${u()==='lb'?' selected':''}>lb</option><option value="kg"${u()==='kg'?' selected':''}>kg</option></select></label><label class="f">Bar weight${pIn('bar',plan.bar)}</label><label class="f">Bodyweight${pIn('bodyweight',plan.bodyweight)}</label><label class="f">Percent of<select id="p-basis" data-pbind="basis"><option value="1rm"${plan.basis!=='tm'?' selected':''}>True 1RM</option><option value="tm"${plan.basis==='tm'?' selected':''}>Training max</option></select></label></div>
-  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Plates your gym has (${u()})</div><div class="seg">${ALL_PLATES[u()].map(v=>`<button class="segb${plateSet().includes(v)?' on':''}" data-act="platetoggle" data-v="${v}" aria-pressed="${plateSet().includes(v)}">${n(v)}</button>`).join('')}</div><div class="small muted">Plate math only uses these. If a weight can’t be loaded exactly, the lift card says so and shows the nearest you can load.</div></div>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Plates your gym has (${u()})</div><div class="seg">${ALL_PLATES[u()].map(v=>`<button class="segb${plateSet().includes(v)?' on':''}" data-act="platetoggle" data-v="${v}" aria-pressed="${plateSet().includes(v)}">${n(v)}</button>`).join('')}</div><div class="note">Plate math only uses these. If a weight can’t be loaded exactly, the lift card says so and shows the nearest you can load.</div></div>
   ${plan.basis==='tm'?`<label class="f" style="max-width:200px">Training max % of 1RM${pIn('tmPct',plan.tmPct)}</label>`:''}
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Round working weights to</div><div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}${pIn('round.'+k,plan.round[k])}</label>`).join('')}</div></div></div>`;
   const on=l3On(), L3=plan.l3||{};
-  h+=SEC('program')+`<div class="card"><h2>Lift 3</h2><p class="small muted" style="margin:0">Pick the variants you use on Mondays and Wednesdays. Each keeps its own max. With more than one, choose how they rotate. You can also swap on any day from the lift card.</p>
+  h+=SEC('program')+`<div class="card"><h2>Lift 3</h2><p class="note" style="margin:0">Pick the variants you use on Mondays and Wednesdays. Each keeps its own max. With more than one, choose how they rotate. You can also swap on any day from the lift card.</p>
   <div class="stack">${L3K.map(k=>`<label class="check"><input type="checkbox" id="l3-${k}" data-pbind="l3.on.${k}" ${on.includes(k)&&(L3.on||{})[k]?'checked':''}> ${esc(liftName(k))}${k==='wpu'?' <span class="small muted">(percentages use bodyweight + added weight)</span>':''}</label>`).join('')}</div>
   ${on.length>1?`<div class="grid2"><label class="f">Rotation<select id="l3-mode" data-pbind="l3.mode">${[['same','Same every session'],['alt-day','Alternate Monday ↔ Wednesday'],['alt-week','Alternate each week'],['alt-cycle','Alternate each cycle']].map(([v,l])=>`<option value="${v}"${L3.mode===v?' selected':''}>${l}</option>`).join('')}</select></label>${L3.mode==='same'||!L3.mode?`<label class="f">Default<select id="l3-primary" data-pbind="l3.primary">${on.map(k=>`<option value="${k}"${L3.primary===k?' selected':''}>${esc(liftName(k))}</option>`).join('')}</select></label>`:''}</div>`:''}
   ${on.includes('pull')?`<div class="grid2"><label class="f">Pulldown name<input type="text" id="p-l3" data-pbind="lift3Name" value="${esc(plan.lift3Name)}"></label><label class="f">Machine and pin setting<input type="text" id="p-mn" data-pbind="machineNote" value="${esc(plan.machineNote)}" placeholder="e.g. Hammer Strength pulldown, seat 4"></label></div>`:''}
   ${on.some(k=>plan.maxes[k]==null||plan.maxes[k]==='')?`<div class="banner warn"><div class="small">Add a 1RM above for ${on.filter(k=>plan.maxes[k]==null||plan.maxes[k]==='').map(liftName).join(' and ')}. Until then its sessions show no working weight.</div></div>`:''}</div>`;
   {
     const sup=alertsSupport(), on=alertsOn();
-    h+=SEC('sound')+`<div class="card"><div class="lift-h"><h2>Rest alerts</h2>${on?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div><p class="small muted" style="margin:0">A notification when each rest ends, even with the phone locked or another app open. Set per device.</p>`;
+    h+=SEC('sound')+`<div class="card"><div class="lift-h"><h2>Rest alerts</h2>${on?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div><p class="note" style="margin:0">A notification when each rest ends, even with the phone locked or another app open. Set per device.</p>`;
     if(sup==='install') h+=`<div class="banner info"><div class="small">On iPhone, alerts only work in the home-screen app. In Safari tap <b>Share → Add to Home Screen</b>, open Operator from there, then turn alerts on. Needs iOS 16.4 or later.</div></div>`;
     else if(sup==='unsupported') h+=`<div class="small muted">This browser can’t receive push notifications.</div>`;
     else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
     else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
-    h+=`<div class="small muted">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
+    h+=`<div class="note">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {
     const sm=soundMode(), SMN={duck:'Ducks music',takeover:'Takes over',silent:'Silent'};
     h+=SEC('sound')+`<div class="card"><div class="lift-h"><h2>Sound</h2><span class="chip ${sm==='silent'?'':'light'}">${SMN[sm]}</span></div>
-    <p class="small muted" style="margin:0">iOS gives a web page one audio channel and one choice about it: share it with your music, or take it. There is no third option \u2014 a native app can ask for both at once, the web cannot.</p>
+    <p class="note" style="margin:0">iOS gives a web page one audio channel and one choice about it: share it with your music, or take it. There is no third option \u2014 a native app can ask for both at once, the web cannot.</p>
     <div class="stack" style="gap:6px">
       ${[['duck','Keep my music playing','The beep goes over the top and nothing pauses. Heard whenever the ring switch on the side of the phone is on \u2014 with the switch off, iOS silences it, and nothing a web app can do changes that.'],
          ['takeover','Always be audible','Heard even with the ring switch off, at the price of pausing your music for about a second each time.'],
          ['silent','No sound at all','Screen and vibration only. Rest alerts still arrive as notifications, which reach a paired Apple Watch as a tap.']]
         .map(([v,t,d])=>`<button class="btn${sm===v?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="soundmode" data-v="${v}" aria-pressed="${sm===v}"><span><b>${sm===v?'\u2713 ':''}${t}</b><br><span class="small">${d}</span></span></button>`).join('')}
     </div>
-    ${sm==='silent'?`<div class="small muted">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
+    ${sm==='silent'?`<div class="note">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
     <div class="restsel" style="margin-top:10px"><span>Warning</span><div class="seg">${REST_WARNS.map(v=>`<button class="segb${restWarnSecs()===v?' on':''}" data-act="restwarn" data-v="${v}" aria-pressed="${restWarnSecs()===v}">${v?v+'s':'Off'}</button>`).join('')}</div></div>
-    <div class="small muted">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. A tone and nothing spoken: on iPhone, speech can interrupt the audio, and a spoken warning was enough to cost you the beep at the end. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
-    <div class="small muted">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
+    <div class="note">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. A tone and nothing spoken: on iPhone, speech can interrupt the audio, and a spoken warning was enough to cost you the beep at the end. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
+    <div class="note">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
-    <p class="small muted" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
+    <p class="note" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
     ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
       <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['mode '+beepSeen.mode,'silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
       <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}
     <details class="plain" style="margin-top:10px"><summary>Timer log</summary>
-      <p class="small muted" style="margin:6px 0">The last eighty things the timers did on this phone: every sound and what the audio was doing when it was asked for, how late each rest\u2019s end was noticed, and when the screen lock was refused. If a beep goes missing, copy this straight after \u2014 it says why.</p>
+      <p class="note" style="margin:6px 0">The last eighty things the timers did on this phone: every sound and what the audio was doing when it was asked for, how late each rest\u2019s end was noticed, and when the screen lock was refused. If a beep goes missing, copy this straight after \u2014 it says why.</p>
       <div class="mono small tlog">${esc(tlogText())}</div>
       <div class="row"><button class="btn sm ghost" data-act="tlogcopy">Copy the timer log</button></div>
     </details>`;
@@ -7616,11 +7616,11 @@ function vSetup(){
   {
     const v=!!plan.voice&&!plan.quietTimer;
     h+=SEC('sound')+`<div class="card"><div class="lift-h"><h2>Spoken cues</h2>${v?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div>
-    <p class="small muted" style="margin:0">The app’s own voice, separate from notifications. It reads interval changes (“Round 3 of 8. Go hard.”) and what’s next when a rest ends.</p>
+    <p class="note" style="margin:0">The app’s own voice, separate from notifications. It reads interval changes (“Round 3 of 8. Go hard.”) and what’s next when a rest ends.</p>
     <label class="check"><input type="checkbox" id="p-voice" data-pbind="voice" ${v?'checked':''}> Speak cues while the app is on screen</label>
     ${plan.quietTimer?`<div class="small" style="color:var(--muted)">Silent timers are on, so cues stay quiet whatever this says.</div>`:''}
     ${v?`<div><button class="btn" data-act="voicetest">Try a cue</button></div>`:''}
-    <div class="small muted">Only while the app is on screen — iOS silences a web app the moment the phone locks. For a whole session, set Auto-Lock to Never. The <b>Send a test</b> button above is a notification, not speech: it will never be read aloud.</div></div>`;
+    <div class="note">Only while the app is on screen — iOS silences a web app the moment the phone locks. For a whole session, set Auto-Lock to Never. The <b>Send a test</b> button above is a notification, not speech: it will never be read aloud.</div></div>`;
   }
   {
     const fmtAt=t=>{if(!t)return '';const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+', '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})};
@@ -7631,75 +7631,75 @@ function vSetup(){
     <dt>Latest</dt><dd>${latestV?`<b>${esc(latestV)}</b> `:''}<span class="small muted">${upd.latest?esc(upd.latest.slice(0,8)):'—'}${upd.at?` · deployed ${esc(fmtAt(upd.at))}`:''}</span></dd></dl>
     <div class="small">${esc(status)}${upd.checked?` <span class="muted">Last checked ${esc(new Date(upd.checked).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}))}.</span>`:''}</div>
     <div class="row">${updateAvailable()?'<button class="btn primary" data-act="updnow">Reload to update</button>':''}<button class="btn" data-act="updcheck" ${upd.busy?'disabled':''}>${upd.busy?'Checking…':'Check for updates'}</button></div>
-    <div class="small muted">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div>
+    <div class="note">The app checks on its own whenever you open it or come back to it. If a new version is ready, a banner appears at the top.</div>
     <div><button class="btn" data-act="view" data-view="releases">What’s new in each release</button></div></div>`;
   }
   {
     const key=((plan.se||{}).cluster)in SE_CLUSTERS?plan.se.cluster:'bw';
-    h+=SEC('training')+`<div class="card"><h2>Strength-endurance</h2><p class="small muted" style="margin:0">Circuits of five to eight exercises covering the whole body, light and high-rep. Used by Base Building, and you can pick a different cluster on any single day.</p>
+    h+=SEC('training')+`<div class="card"><h2>Strength-endurance</h2><p class="note" style="margin:0">Circuits of five to eight exercises covering the whole body, light and high-rep. Used by Base Building, and you can pick a different cluster on any single day.</p>
     <div class="restsel"><span>Default cluster</span><div class="seg">${Object.entries(SE_CLUSTERS).map(([k,c])=>`<button class="segb${key===k?' on':''}" data-act="sedef" data-v="${k}">${c.name}</button>`).join('')}</div></div>
     <label class="f">My own cluster<textarea id="se-mine" data-seMine rows="7" placeholder="One exercise per line, five to eight of them">${esc(((plan.se||{}).custom||[]).join('\n'))}</textarea></label>
-    <div class="small muted">Pick movements you can get to without queueing, since the short rests are the point. Anything one arm or one leg at a time splits the reps. With barbells or dumbbells use roughly 15–30% of your one-rep max.</div></div>`;
+    <div class="note">Pick movements you can get to without queueing, since the short rests are the point. Anything one arm or one leg at a time splits the reps. With barbells or dumbbells use roughly 15–30% of your one-rep max.</div></div>`;
   }
   const mobs=plan.mob||{};
-  h+=SEC('training')+`<div class="card"><h2>Mobility</h2><p class="small muted" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
-  h+=SEC('training')+`<div class="card"><h2>Travel week</h2><p class="small muted" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
+  h+=SEC('training')+`<div class="card"><h2>Mobility</h2><p class="note" style="margin:0">The block at the end of each session, matched to what that day loaded. One movement per line; add the dose after a comma.</p><div class="grid3">${[['lift','After lifting'],['dead','After deadlift day'],['hic','After conditioning'],['plyo','After plyos'],['off','Rest days']].map(([k,l])=>`<label class="f">${l}<textarea id="mob-${k}" data-mobday="${k}" rows="6">${esc(mobList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
+  h+=SEC('training')+`<div class="card"><h2>Travel week</h2><p class="note" style="margin:0">What you do on a week away from the barbell. Add a travel week from the Plan tab: the cycle pauses and picks up after it, and the week stays out of the end-of-cycle review. One movement per line, dose after a comma.</p><div class="grid3">${['day1','day2','day3'].map(k=>`<label class="f">${esc(TRAVEL[k].name)}<textarea id="trv-${k}" data-trvday="${k}" rows="5">${esc(travelList(k).map(([n,d])=>d?n+', '+d:n).join('\n'))}</textarea></label>`).join('')}</div></div>`;
   const accs=plan.acc||{};
   h+=SEC('you')+suppSetupCard();
   h+=SEC('training')+warmSetupCard();
   h+=SEC('training')+accSetupCard();
   h+=SEC('training')+bandsCard();
-  h+=SEC('training')+`<div class="card"><h2>Conditioning</h2><p class="small muted" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
+  h+=SEC('training')+`<div class="card"><h2>Conditioning</h2><p class="note" style="margin:0">Your main tool for HIC and LISS days. You can switch activity on any session from its card.</p><label class="f" style="max-width:260px">Climbing counts as distance<div class="row" style="align-items:center;gap:8px">${pIn('elevPer.'+u(),elevPerDist(),'style="max-width:110px"')}<span class="small muted">${elevUnit()} of gain = 1 ${u()==='kg'?'km':'mi'}</span></div></label>
   <label class="f" style="max-width:260px">Default FOBBIT<select id="p-fobbit" data-pbind="fobbit">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===defFob()?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>
   <div class="small muted">${esc(fobLine(defFob())||'You type the movements on the day.')}${fobDef(defFob())?' \u00b7 '+esc(fobEveryLabel(defFob()))+' of base \u00b7 '+esc(fobSrcLabel(defFob())):''} Swap it on any single session from that day's card.</div>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
-  <p class="small muted" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
+  <p class="note" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
   <div class="grid3"><label class="f">Activity<select id="p-bmod" data-pbind="benchmark.mod">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${b.mod===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
   <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k,x])=>k!=='liss'&&!x.noMetric).map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
   <label class="f">Repeat every (days)${pIn('benchEvery',plan.benchEvery)}</label></div></div>`})()}</div>`;
   const ptS=proteinTarget(todayStr());
   {
     const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-    h+=SEC('training')+`<div class="card"><h2>Lift variants</h2><p class="small muted" style="margin:0">Which squat and which deadlift this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
+    h+=SEC('training')+`<div class="card"><h2>Lift variants</h2><p class="note" style="margin:0">Which squat and which deadlift this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
     for(const k of ['squat','dead']){
       const V=varsOf(k), bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
       h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(k==='squat'?'Squat':'Deadlift')}</div>
       <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
       <label class="f">Later cycles<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===def?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
       <div class="small muted">${esc(V[bv].note)}</div>`;
-      if(m) h+=`<div class="small muted">Your ${n(m.v)} ${u()} max is read as a <b>${esc(V[bv].name.toLowerCase())}</b> max.${bv!==varRef(k)?` If that number came from a ${esc(V[varRef(k)].name.toLowerCase())}, the usual equivalent is about <b class="mono">${n(rnd(m.v*V[bv].r,plan.round[k]))}</b> \u2014 change it in Maxes if so.`:''}</div>`;
+      if(m) h+=`<div class="note">Your ${n(m.v)} ${u()} max is read as a <b>${esc(V[bv].name.toLowerCase())}</b> max.${bv!==varRef(k)?` If that number came from a ${esc(V[varRef(k)].name.toLowerCase())}, the usual equivalent is about <b class="mono">${n(rnd(m.v*V[bv].r,plan.round[k]))}</b> \u2014 change it in Maxes if so.`:''}</div>`;
       const mine=((plan.customVar||{})[k])||[];
       h+=`<details class="plain"><summary>Your own variants <small class="muted">\u00b7 ${mine.length||'none'}</small></summary>
-      <p class="small muted" style="margin:8px 0 0">Anything the list is missing: a bar, a tempo, a stance. Give it a name and what share of your ${esc(V[varRef(k)].name.toLowerCase())} it carries \u2014 that is all the program needs to work out the weight. Not sure? Use what you can actually lift on it against what you lift on the ${esc(V[varRef(k)].short.toLowerCase())}.</p>
+      <p class="note" style="margin:8px 0 0">Anything the list is missing: a bar, a tempo, a stance. Give it a name and what share of your ${esc(V[varRef(k)].name.toLowerCase())} it carries \u2014 that is all the program needs to work out the weight. Not sure? Use what you can actually lift on it against what you lift on the ${esc(V[varRef(k)].short.toLowerCase())}.</p>
       ${mine.length?`<div class="stack" style="gap:6px;margin-top:8px">${mine.map((c,i)=>`<div class="row between"><span>${esc(c.name)} <span class="small muted mono">${Math.round(+c.r*100)}%</span>${bv===c.id||def===c.id?' <span class="chip">in use</span>':''}</span><button class="btn sm ghost" data-act="vardel" data-k="${k}" data-i="${i}">Remove</button></div>`).join('')}</div>`:''}
       <div class="grid3" style="margin-top:8px"><label class="f">Name<input type="text" id="cv-name-${k}" placeholder="e.g. Pin squat"></label><label class="f">% of ${esc(V[varRef(k)].short)}<input type="number" inputmode="decimal" id="cv-pct-${k}" placeholder="85"></label><div style="display:flex;align-items:flex-end"><button class="btn" data-act="varadd" data-k="${k}">Add</button></div></div>
       ${cvErr[k]?`<div class="small" style="color:var(--red)">${esc(cvErr[k])}</div>`:''}</details>`;
       h+=`</div>`;
     }
-    h+=`<div class="small muted" style="margin-top:14px">Changing the lift mid-cycle is a deviation from the template: the wave builds to heavy weeks on a max you set for a particular lift. For one session \u2014 a taken rack, a sore back \u2014 swap it on the lift\u2019s card on Today instead, and the weight is scaled for you.</div></div>`;
+    h+=`<div class="note" style="margin-top:14px">Changing the lift mid-cycle is a deviation from the template: the wave builds to heavy weeks on a max you set for a particular lift. For one session \u2014 a taken rack, a sore back \u2014 swap it on the lift\u2019s card on Today instead, and the weight is scaled for you.</div></div>`;
   }
-  h+=SEC('you')+`<div class="card"><h2>About you</h2><p class="small muted" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
+  h+=SEC('you')+`<div class="card"><h2>About you</h2><p class="note" style="margin:0">Only used for the energy and body-fat estimates on Status. Nothing else in the app reads them, and leaving them blank just hides those estimates.</p>
   <div class="grid4"><label class="f">Sex<select id="p-sex" data-pbind="sex"><option value=""${!plan.sex?' selected':''}>—</option><option value="m"${plan.sex==='m'?' selected':''}>Male</option><option value="f"${plan.sex==='f'?' selected':''}>Female</option></select></label>
   <label class="f">Height (${u()==='kg'?'cm':'in'})${pIn('height',plan.height)}</label>
   <label class="f">Birth year${pIn('birthYear',plan.birthYear)}</label>
   <label class="f">Daily activity<select id="p-act" data-pbind="activity">${ACT.map(([v,l])=>`<option value="${v}"${actFactor()===v?' selected':''}>${esc(l)}</option>`).join('')}</select></label></div>
-  <div class="small muted">The formulas: Mifflin-St Jeor for the predicted burn, the US Navy circumference method for body fat. Both are estimates — once you have logged calories and weigh-ins for a few weeks, Status uses your own numbers instead.</div></div>
-  ${SEC('you')}<div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="small muted">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
+  <div class="note">The formulas: Mifflin-St Jeor for the predicted burn, the US Navy circumference method for body fat. Both are estimates — once you have logged calories and weigh-ins for a few weeks, Status uses your own numbers instead.</div></div>
+  ${SEC('you')}<div class="card"><h2>Recovery and nutrition</h2><p class="small muted" style="margin:0">Used by the daily check-in to tailor suggestions.</p><div class="grid3"><label class="f">Goal<select id="p-goal" data-pbind="goal"><option value="lose"${plan.goal==='lose'?' selected':''}>Lose fat</option><option value="maintain"${plan.goal==='maintain'?' selected':''}>Maintain</option><option value="gain"${plan.goal==='gain'?' selected':''}>Build</option></select></label><label class="f">Sleep target (h)${pIn('sleepTarget',plan.sleepTarget)}</label><label class="f">Protein (g per lb)${pIn('proteinPerLb',plan.proteinPerLb)}</label></div><div class="note">${ptS?`Daily protein target: <b class="mono">${ptS} g</b> from ${r1(bwFor(todayStr()))} ${u()} bodyweight${(bwAvg(todayStr(),7)||{}).n>1?' (7-day average)':''}.`:'Enter your bodyweight above (or in a check-in) to get a protein target.'} 0.7–1.0 g per lb covers most people training this hard.</div></div>`;
   {
     const g=plan.programGoals||{}, st=g.sticking||{};
-    h+=SEC('you')+`<div class="card"><h2>Goals</h2><p class="small muted" style="margin:0">What you are training for, in your own words. Nothing here changes the program — the coach reads it, so that its advice is about your goals rather than about training in general.</p>
+    h+=SEC('you')+`<div class="card"><h2>Goals</h2><p class="note" style="margin:0">What you are training for, in your own words. Nothing here changes the program — the coach reads it, so that its advice is about your goals rather than about training in general.</p>
     <label class="f">What are you working toward?<input type="text" id="p-goal-aim" data-pbind="programGoals.aim" value="${esc(g.aim||'')}" placeholder="e.g. 315 squat without losing my mile time"></label>
     <label class="f" style="max-width:220px">By when <span style="font-weight:500">(optional)</span><input type="date" id="p-goal-by" data-pbind="programGoals.by" value="${esc(g.by||'')}"></label>
     ${g.by?`<div class="small muted">${esc(weeksUntil(g.by))}</div>`:''}
     <div class="small muted" style="font-weight:650;margin-top:10px">Where each lift stalls</div>
-    <p class="small muted" style="margin:0 0 4px">The most useful thing here. Say where the bar slows and the coach can suggest accessories for that part of the lift, from the ones the app already offers.</p>
+    <p class="note" style="margin:0 0 4px">The most useful thing here. Say where the bar slows and the coach can suggest accessories for that part of the lift, from the ones the app already offers.</p>
     <div class="grid2">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}<input type="text" id="p-stick-${esc(k)}" data-pbind="programGoals.sticking.${esc(k)}" value="${esc(st[k]||'')}" placeholder="e.g. stalls just off the chest"></label>`).join('')}</div>
     <label class="f">Anything else worth knowing<textarea id="p-goal-notes" data-pbind="programGoals.notes" rows="3" placeholder="Injuries, kit you do not have, days you can never train, a sport you play.">${esc(g.notes||'')}</textarea></label>
     </div>`;
   }
-  h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="small muted" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
-  <p class="small muted" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${waveOf().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
+  h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="note" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
+  <p class="note" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${waveOf().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
   {
     const byBook=(+plan.testEvery||0)===2&&(+plan.deloadEvery||0)===0;
     h+=SEC('program')+`<div class="card"><h2>Cycles, deloads and retests</h2>
@@ -7707,28 +7707,28 @@ function vSetup(){
   }
   h+=`
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Added to the max each new cycle</div><div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}${pIn('inc.'+k,plan.inc[k])}</label>`).join('')}</div></div>
-  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Ageless Athlete <span style="font-weight:400">· a preset, not a mode</span></div><p class="small muted" style="margin:0 0 2px">The book’s answer to whether an older athlete needs a different strength program is <b>no</b> — what changes is the dosing and the scaffolding around it. So this is not a separate program, it is three settings you could set yourself: recovery weeks every fourth week, training off a <b>training max</b> at 90% rather than a true 1RM, and no scheduled deload because the recovery weeks are the back-off. It sets them and tells you what it set; undo any of them individually afterwards.</p>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Ageless Athlete <span style="font-weight:400">· a preset, not a mode</span></div><p class="note" style="margin:0 0 2px">The book’s answer to whether an older athlete needs a different strength program is <b>no</b> — what changes is the dosing and the scaffolding around it. So this is not a separate program, it is three settings you could set yourself: recovery weeks every fourth week, training off a <b>training max</b> at 90% rather than a true 1RM, and no scheduled deload because the recovery weeks are the back-off. It sets them and tells you what it set; undo any of them individually afterwards.</p>
   ${agelessOn()?`<div class="small">✓ All three are set.</div>`:`<button class="btn sm" data-act="ageless">Set all three</button>`}</div>
-  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Recovery weeks <span style="font-weight:400">· Ageless Athlete</span></div><p class="small muted" style="margin:0 0 2px">A recovery week after every third training week, so a six-week cycle takes eight. The book's words for it: stay <b>entirely away from barbells and HIC</b> — that is what recharges the nervous system, joints and hormones. Not an off week: two easy sessions, kept easy, plus whatever you already do and as much mobility as you like. It is aimed at trainees past forty, and it replaces the scheduled deload rather than sitting alongside it.</p><label class="check"><input type="checkbox" id="p-rec313" data-pbind="recovery313" ${plan.recovery313?'checked':''}> Take a recovery week every fourth week</label>${plan.recovery313?`<div class="small muted">On. The scheduled deload below is suspended while this is — the recovery weeks are the back-off.</div>`:''}</div>
-  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Scheduled deload week <span style="font-weight:400">\u00b7 not in the book</span></div><p class="small muted" style="margin:0 0 2px">Operator runs its cycles back to back and retests; there is no deload week in it. What the book does prescribe is a full week or more off every three to six months \u2014 add that from the Plan tab when you want it. A scheduled light week is our addition, off by default, and worth having if you are running this year-round.</p><div class="seg">${[[0,'As needed'],[1,'After every cycle'],[2,'After every 2 cycles']].map(([v,l])=>`<button class="segb${(+plan.deloadEvery||0)===v?' on':''}" data-act="deloadevery" data-v="${v}" aria-pressed="${(+plan.deloadEvery||0)===v}">${l}</button>`).join('')}${[0,1,2].includes(+plan.deloadEvery||0)?'':`<button class="segb on" aria-pressed="true">Every ${+plan.deloadEvery} cycles</button>`}</div><div class="small muted">${nextScheduled('deload')}${(+plan.deloadEvery||0)===0?' The app still offers a one-tap deload when readiness is low or sessions run hard, and you can add one from Plan anytime.':''}</div>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Recovery weeks <span style="font-weight:400">· Ageless Athlete</span></div><p class="note" style="margin:0 0 2px">A recovery week after every third training week, so a six-week cycle takes eight. The book's words for it: stay <b>entirely away from barbells and HIC</b> — that is what recharges the nervous system, joints and hormones. Not an off week: two easy sessions, kept easy, plus whatever you already do and as much mobility as you like. It is aimed at trainees past forty, and it replaces the scheduled deload rather than sitting alongside it.</p><label class="check"><input type="checkbox" id="p-rec313" data-pbind="recovery313" ${plan.recovery313?'checked':''}> Take a recovery week every fourth week</label>${plan.recovery313?`<div class="note">On. The scheduled deload below is suspended while this is — the recovery weeks are the back-off.</div>`:''}</div>
+  <div class="stack" style="gap:6px"><div class="small muted" style="font-weight:650">Scheduled deload week <span style="font-weight:400">\u00b7 not in the book</span></div><p class="note" style="margin:0 0 2px">Operator runs its cycles back to back and retests; there is no deload week in it. What the book does prescribe is a full week or more off every three to six months \u2014 add that from the Plan tab when you want it. A scheduled light week is our addition, off by default, and worth having if you are running this year-round.</p><div class="seg">${[[0,'As needed'],[1,'After every cycle'],[2,'After every 2 cycles']].map(([v,l])=>`<button class="segb${(+plan.deloadEvery||0)===v?' on':''}" data-act="deloadevery" data-v="${v}" aria-pressed="${(+plan.deloadEvery||0)===v}">${l}</button>`).join('')}${[0,1,2].includes(+plan.deloadEvery||0)?'':`<button class="segb on" aria-pressed="true">Every ${+plan.deloadEvery} cycles</button>`}</div><div class="small muted">${nextScheduled('deload')}${(+plan.deloadEvery||0)===0?' The app still offers a one-tap deload when readiness is low or sessions run hard, and you can add one from Plan anytime.':''}</div>
   <label class="check"><input type="checkbox" id="p-askdl" data-pbind="askDeload" ${plan.askDeload!==false?'checked':''}> Ask me to confirm this every 2 cycles (weeks 5–6 of cycles 2, 4, 6…)</label></div>
   <label class="f" style="max-width:260px">Retest after every N cycles (0 = never)${pIn('testEvery',plan.testEvery)}</label>
-  <p class="small muted" style="margin:0"><b>2 is the book\u2019s recommendation</b> \u2014 two six-week blocks, so twelve weeks between tests, which it calls the optimal length of a strength phase. 1 (six weeks) is the minimum and is offered to experienced lifters who respond better to testing often. Going longer is explicitly fine: if the loads still feel heavy, stay on your current numbers and test when they feel solid.</p>
-  <p class="small muted" style="margin:0">A retest week doubles as a deload: 3 easy days, then heavy singles. When both land on the same cycle, the retest wins.</p>
+  <p class="note" style="margin:0"><b>2 is the book\u2019s recommendation</b> \u2014 two six-week blocks, so twelve weeks between tests, which it calls the optimal length of a strength phase. 1 (six weeks) is the minimum and is offered to experienced lifters who respond better to testing often. Going longer is explicitly fine: if the loads still feel heavy, stay on your current numbers and test when they feel solid.</p>
+  <p class="note" style="margin:0">A retest week doubles as a deload: 3 easy days, then heavy singles. When both land on the same cycle, the retest wins.</p>
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked, and so is the week you are in: changing the deload or retest cadence takes effect from <b>next</b> week, so a week already under way cannot turn into something else on the Wednesday. The wave and your maxes still apply from this week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
   h+=SEC('data')+syncCard();
   h+=SEC('data')+crashCard();
   h+=SEC('data')+calFeedCard();
-  h+=SEC('data')+`<div class="card"><h2>Backups</h2><p class="small muted" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday. The last 26 of those are kept, so about six months, and your own backups are counted separately: the newest six you take by hand and the newest six taken before a restore. Taking a few by hand can’t push out the weekly history.</p>
+  h+=SEC('data')+`<div class="card"><h2>Backups</h2><p class="note" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday. The last 26 of those are kept, so about six months, and your own backups are counted separately: the newest six you take by hand and the newest six taken before a restore. Taking a few by hand can’t push out the weekly history.</p>
   ${backups.err?`<div class="small muted">${esc(backups.err)}</div>`:!bk?'<div class="small muted">Loading backups…</div>':bk.length?`<div class="tbl-wrap"><table><thead><tr><th>Backup</th><th class="n">Sessions</th><th class="n">Size</th><th></th></tr></thead><tbody>${bk.slice(0,6).map(x=>`<tr><td>${esc(x.name.replace(/-(manual|before-restore(-\d{6})?)$/,''))}${x.name.endsWith('-manual')?' <span class="chip">manual</span>':''}${x.name.includes('-before-restore')?' <span class="chip">before restore</span>':''}</td><td class="n">${x.logs??'—'}</td><td class="n">${x.bytes?Math.max(1,Math.round(x.bytes/1024))+' KB':'—'}</td><td class="n" style="white-space:nowrap"><a class="btn sm ghost" href="/api/backups/${encodeURIComponent(x.name)}">Download</a><button class="btn sm ghost" data-act="restore" data-name="${esc(x.name)}" ${restoreState.busy?'disabled':''}>${restoreState.arm===x.name?'Tap again':'Restore'}</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="small muted">No backups yet. The first automatic one runs Sunday.</div>'}
   <div class="row"><button class="btn" data-act="backupnow" ${backups.busy?'disabled':''}>${backups.busy?'Backing up…':'Back up now'}</button><a class="btn ghost" href="/api/export">Download current data</a><label class="btn ghost" for="restore-file">Restore from a file…</label><input type="file" id="restore-file" accept="application/json,.json" hidden></div>
   ${restoreState.file?`<div class="banner warn"><div class="small"><b>Restore ${esc(restoreState.file.name)}?</b> It holds ${restoreState.file.logs} logged day${restoreState.file.logs===1?'':'s'}${restoreState.file.from?' from '+esc(fmtLong(restoreState.file.from.slice(0,10))):''}${restoreState.file.user&&me&&restoreState.file.user!==me?`, saved by <b>${esc(restoreState.file.user)}</b>, not you`:''}. This replaces everything in your account. A safety backup is taken first.</div><div class="row"><button class="btn sm primary" data-act="restorefile" ${restoreState.busy?'disabled':''}>Replace my data with this file</button><button class="btn sm ghost" data-act="restorecancel">Cancel</button></div></div>`:''}
   ${restoreState.msg?`<div class="small">${esc(restoreState.msg)}</div>`:''}
   ${backupCheckLine()}
-  <div class="small muted">Restoring replaces your plan, every logged day and archived programs with the backup’s. A “before restore” backup of your current data is saved first, so a restore can be undone.</div></div>`;
-  h+=SEC('data')+`<div class="card"><h2>Export to a spreadsheet</h2><p class="small muted" style="margin:0">CSV files for Numbers, Excel or Google Sheets, covering every program. <b>Sessions</b>: one row per day (check-in, conditioning, plyos, jumps, notes). <b>Lifts</b>: one row per lift per session (prescribed vs working weight, sets done, grinders, warm-ups, test results).</p><div class="row"><button class="btn" data-act="csv" data-v="sessions">Export sessions</button><button class="btn" data-act="csv" data-v="lifts">Export lifts</button></div></div>`;
+  <div class="note">Restoring replaces your plan, every logged day and archived programs with the backup’s. A “before restore” backup of your current data is saved first, so a restore can be undone.</div></div>`;
+  h+=SEC('data')+`<div class="card"><h2>Export to a spreadsheet</h2><p class="note" style="margin:0">CSV files for Numbers, Excel or Google Sheets, covering every program. <b>Sessions</b>: one row per day (check-in, conditioning, plyos, jumps, notes). <b>Lifts</b>: one row per lift per session (prescribed vs working weight, sets done, grinders, warm-ups, test results).</p><div class="row"><button class="btn" data-act="csv" data-v="sessions">Export sessions</button><button class="btn" data-act="csv" data-v="lifts">Export lifts</button></div></div>`;
   if(!backups.list&&!backups.busy&&!backups.err&&!backups.loading) loadBackups();
   return setupSections(h);
 }
@@ -7796,15 +7796,15 @@ function vGuide(){
   <p><b>The rule that matters.</b> In the author’s words: <b>any FOBBIT over 30 minutes is an E, anything under is a HIC.</b> So the length you pick is not cosmetic — it decides whether the session counts against your hard days or your easy ones, and the app counts it the way you logged it.</p>
   <p>A bout of reps is not on the clock: the timer holds at it until you tap Done. A timed bout — an AMRAP, a striking round — is, so it counts toward the session.</p>
   <div class="tbl-wrap"><table><thead><tr><th>FOBBIT</th><th>Kit</th><th>Base</th><th>The rotation</th><th>Source</th></tr></thead><tbody>${Object.entries(FOBBIT).filter(([k])=>fobDef(k)).map(([k,x])=>`<tr><td><b>${esc(x.name)}</b></td><td class="small">${esc(x.gear)}</td><td class="small">${esc(fobEveryLabel(k))}</td><td class="small">${esc(fobLine(k))}</td><td class="small">${esc(fobSrcLabel(k))}</td></tr>`).join('')}</tbody></table></div>
-  <p class="small muted">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
-  <p class="small muted">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
+  <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
+  <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>
   <ul class="tight"><li><b>Watch distance, not set count.</b> If any jump drops more than ~5% off your first broad jump, the session is over.</li><li><b>Every rep maximal or near it.</b> If you’re breathing hard, you’re doing conditioning.</li><li><b>Cut, don’t skip.</b> After a hard lifting week, halve the contacts.</li><li><b>Counting contacts:</b> one landing = one contact, even on two feet. The volumes are calibrated that way.</li></ul>
   <p><b>Progressing between blocks.</b> Add contacts before you add intensity. Raise intensity by shortening ground contact time, not by jumping higher or adding box height. If your broad jump hasn’t moved after two full blocks, the limiter is usually recovery or strength, not jump volume.</p></div>
-  <div class="card guide"><h3>Plyo exercise library</h3><p class="small muted">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
-  <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Jump tests',['broad','vertj','triple']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
+  <div class="card guide"><h3>Plyo exercise library</h3><p class="note">Setup, execution, cues and the errors that matter. Tap an exercise to open it. The same entries open from Thursday’s card.</p>
+  <div class="stack" style="gap:10px">${[['Warm-up drills',['pogo','askip']],['Jump tests',['broad','vertj','triple']],['Extensive',['broad','box','lbound']],['Unilateral + reactive',['cbroad','slhop','bdist','hurdle']],['Elastic',['depth','sllat','bheight']],['Upper body (optional)',['slam','scoop','dbsnatch','highpull','chestpass','plyopush','plyopushbox','speedpress','explpull','bandrow','rotthrow','bandrot']]].map(([g,ids])=>`<div class="stack" style="gap:6px"><h4 style="margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${g}</h4>${ids.map(id=>`<details class="px"><summary><span>${esc(PLIB[id].name)}</span></summary>${plyoEntry(id)}</details>`).join('')}</div>`).join('')}</div></div>
   <div class="card guide"><h3>Programs</h3><p>Your strength template and your conditioning protocol are separate choices, set in Setup \u2192 Program, and the week is built from the two. That is how the books present it: Tactical Barbell II's sample weeks are headed \u201cBlack + Zulu\u201d, \u201cBlack + Operator\u201d, \u201cBlack + Fighter\u201d.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${tplDays(v,{w:1}).length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
@@ -7834,7 +7834,7 @@ function vGuide(){
   <div class="card guide"><h3>Strength-endurance circuits</h3><p>Five to eight exercises covering the whole body, done one after another. Do your reps, take a short rest, move to the next. After a full circuit, rest two minutes and go again. The shorter you can make the rests, the better — down to none if you can hold it together.</p>
   <ul class="tight"><li>Reps run 20 to 50. If you can't get them all in one go, rest-pause until they're done, then move on. Failing at 25 now and hitting 40 later is the whole point.</li><li>Barbells and dumbbells: roughly <b>15–30% of your one-rep max</b>. Don't test for it. Too heavy, take weight off.</li><li>Pick movements you can reach without queueing. A busy bench breaks the rests that make this work.</li><li>Avoid anything you can't do for high reps. A rule of thumb: be good for 15–20 reps before putting a movement in. Pull-ups, pistols and one-arm push-ups sit in that gray area.</li><li>One arm or one leg at a time splits the reps: 30 means 15 a side.</li></ul>
   <div class="sm-grid">${Object.entries(SE_CLUSTERS).filter(([k])=>k!=='mine').map(([k,c])=>`<div class="sm"><div class="sm-h"><b>${c.name}</b></div><ul class="tight">${c.ex.map(e=>`<li>${esc(e)}</li>`).join('')}</ul><div class="small muted">${esc(c.note)}</div></div>`).join('')}</div>
-  <p class="small muted">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
+  <p class="note">Set your own in Setup → Strength-endurance, or switch cluster on any single SE day from the session card.</p></div>
   <div class="card guide"><h3>Accessories</h3>
   <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a program decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
@@ -7859,10 +7859,10 @@ function vGuide(){
   <p><b>If you need to revoke it.</b> <b>New address</b> on the same card issues a fresh one and stops the old address working immediately. Use it if the link gets out. You then have to re-subscribe on your devices, because the old subscription is pointing at an address that no longer exists. <b>Turn off</b> removes the feed entirely.</p>
   <p><b>If the calendar says it cannot connect.</b> Check the address is the current one, since <b>New address</b> invalidates the previous link. If it is right and it still fails, open this app once to make sure the feed has been written, then try again.</p></div>
   <div class="card guide"><h3>Warm-up</h3>${warmupShort()}
-  <p class="small muted">Anything with a time on it has a ⏱ next to it, on the day's card and inside session mode. Tap it and the timer runs; per-side holds count both sides. “Guide me through it” is the hands-free version of the same list, not the only way to get a clock.</p>
-  <p class="small muted">Session mode shows one ramp set at a time with − and + beside it, stepping by that lift's rounding increment, because the bar does not come in every weight a percentage asks for. What you set is written to that row, the same place typing it on the day's card writes to, so the plates and the “Next” line follow it.</p>
-  <p class="small muted">Between ramp sets the rest is 90 seconds by default, set per lift in the warm-up block on each lift card. Anything under a minute is no longer on offer — it is not long enough once the bar is heavy. If you want more on the day, the running timer takes +30 s as many times as you like.</p></div>
-  <div class="card guide"><h3>Warm-up and mobility library</h3><p class="small muted">Every movement in the warm-up and the mobility blocks, with what it is for and the ways it usually goes wrong. The same entries open from the checklists on the day.</p>
+  <p class="note">Anything with a time on it has a ⏱ next to it, on the day's card and inside session mode. Tap it and the timer runs; per-side holds count both sides. “Guide me through it” is the hands-free version of the same list, not the only way to get a clock.</p>
+  <p class="note">Session mode shows one ramp set at a time with − and + beside it, stepping by that lift's rounding increment, because the bar does not come in every weight a percentage asks for. What you set is written to that row, the same place typing it on the day's card writes to, so the plates and the “Next” line follow it.</p>
+  <p class="note">Between ramp sets the rest is 90 seconds by default, set per lift in the warm-up block on each lift card. Anything under a minute is no longer on offer — it is not long enough once the bar is heavy. If you want more on the day, the running timer takes +30 s as many times as you like.</p></div>
+  <div class="card guide"><h3>Warm-up and mobility library</h3><p class="note">Every movement in the warm-up and the mobility blocks, with what it is for and the ways it usually goes wrong. The same entries open from the checklists on the day.</p>
   <div class="stack" style="gap:10px">${[
     ['Raise and reset',['raise','breath9090','catcow','breathwall']],
     ['Spine and t-spine',['thread','openbook','quadtspine','foamtspine','childlat','deadhang']],
@@ -8043,21 +8043,21 @@ function calCount(){ try{ return (icsFeed().match(/BEGIN:VEVENT/g)||[]).length }
 function calFeedCard(){
   const f=calFeed;
   let h=`<div class="card"><h2>Calendar feed</h2>
-  <p class="small muted" style="margin:0">Put the plan in your phone's calendar: every session with the lifts and the weights on it, either as an all-day entry or booked at the time you usually train. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
+  <p class="note" style="margin:0">Put the plan in your phone's calendar: every session with the lifts and the weights on it, either as an all-day entry or booked at the time you usually train. It is read-only and it refreshes on its own, so moving a week here moves it there.</p>`;
   if(!f) return h+`<div class="muted small">Checking\u2026</div></div>`;
   if(f.broken) return h+`<div class="banner warn"><div>${f.broken==='offline'?'Could not reach the server. The feed will show up when you are back online.':'The server could not answer. If this site was just updated, the calendar table may not exist yet \u2014 run <code>npm run db:migrate:remote</code>.'}</div></div></div>`;
   if(!f.enabled){
     h+=`<div class="row"><button class="btn primary" data-act="calon"${calBusy?' disabled':''}>${calBusy?'Working\u2026':'Turn on the feed'}</button></div>
-    <div class="small muted">This creates a private web address for your plan. Anyone with the address can read your schedule \u2014 not your logs, maxes or anything else \u2014 so treat it like a password and use <b>New address</b> below if you ever share it by accident.</div></div>`;
+    <div class="note">This creates a private web address for your plan. Anyone with the address can read your schedule \u2014 not your logs, maxes or anything else \u2014 so treat it like a password and use <b>New address</b> below if you ever share it by accident.</div></div>`;
     return h;
   }
   const web=f.url.replace(/^https?:/,'webcal:');
   h+=`<label class="f">Your feed address<input type="text" id="cal-url" value="${esc(f.url)}" readonly onclick="this.select()"></label>
   <div class="row"><a class="btn primary" href="${esc(web)}">Add to iPhone</a><button class="btn" data-act="calcopy">Copy address</button></div>
-  <div class="small muted"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
+  <div class="note"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
   <b>Android:</b> on a computer open Google Calendar \u2192 Other calendars \u2192 + \u2192 From URL, and paste it there. It then syncs to the phone. Google refreshes subscribed calendars on its own schedule, which can take a day.</div>
   ${calTimeFields()}
-  <div class="small muted">${calCount()} sessions, ${CAL_BACK} weeks back and ${CAL_AHEAD} ahead. It is rewritten whenever you open the app and something has changed.</div>
+  <div class="note">${calCount()} sessions, ${CAL_BACK} weeks back and ${CAL_AHEAD} ahead. It is rewritten whenever you open the app and something has changed.</div>
   <div class="row"><button class="btn sm ghost" data-act="calrotate"${calBusy?' disabled':''}>New address</button><button class="btn sm ghost" data-act="caloff"${calBusy?' disabled':''}>Turn off</button></div>
   <div class="small muted">New address stops the old one working, for a link you shared and want back.</div></div>`;
   return h;
@@ -8079,8 +8079,8 @@ function calTimeFields(){
     :'</div><div class="grid2">';
   h+=`<label class="f">Reminder<select id="cal-alarm" data-pbind="cal.alarm" data-type="num">${opts.map(([v,l])=>`<option value="${v}"${v===al?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
   h+=o.timed
-    ? `<div class="small muted">Sessions are booked from that time for as long as each one takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the timer says that format runs to. Leave the weekend box empty to use the same time every day. The time is read as the local time wherever you are, so it stays at ${esc(c.time||'06:00')} when you travel rather than shifting with the clocks.</div>`
-    : `<div class="small muted">All-day entries sit at the top of the day and don't block out any time. Switch to <b>At a set time</b> if you want the session in your day properly, or a reminder closer to it than the evening before.</div>`;
+    ? `<div class="note">Sessions are booked from that time for as long as each one takes: 75 minutes for a lifting day, 90 for a retest, and for conditioning whatever the timer says that format runs to. Leave the weekend box empty to use the same time every day. The time is read as the local time wherever you are, so it stays at ${esc(c.time||'06:00')} when you travel rather than shifting with the clocks.</div>`
+    : `<div class="note">All-day entries sit at the top of the day and don't block out any time. Switch to <b>At a set time</b> if you want the session in your day properly, or a reminder closer to it than the evening before.</div>`;
   return h;
 }
 
@@ -8204,7 +8204,7 @@ async function catRemove(id) {
 function vCatalog() {
   const all = accAll();
   let h = `<div class="card"><div class="lift-h"><h2>Exercise list</h2><span class="small muted">${Object.keys(all).length} movements</span></div>
-  <p class="small muted" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's program is rewritten mid-cycle.</p>`;
+  <p class="note" style="margin:0">What everyone can choose from for their accessories. <b>Retiring</b> a movement stops it being offered; anyone who has already chosen it keeps it until they change it themselves, so nobody's program is rewritten mid-cycle.</p>`;
   if (admin.catErr) h += `<div class="banner warn"><div>${esc(admin.catErr)}</div></div>`;
 
   for (const [slot, meta] of Object.entries(ASLOT)) {
@@ -8229,7 +8229,7 @@ function vCatalog() {
 
 function vAdmin() {
   let h = `<div class="card"><div class="lift-h"><h2>People</h2><button class="btn sm ghost" data-act="adminrefresh">Refresh</button></div>
-  <p class="small muted" style="margin:0">Everyone with data in this app. Counts and dates only — their sessions and numbers are theirs, and there is no screen here that shows them.</p>`;
+  <p class="note" style="margin:0">Everyone with data in this app. Counts and dates only — their sessions and numbers are theirs, and there is no screen here that shows them.</p>`;
   if (admin.msg) h += `<div class="banner info"><div>${esc(admin.msg)}</div></div>`;
   if (admin.err) h += `<div class="banner warn"><div>${esc(admin.err)}</div></div>`;
   if (!admin.list) { h += `<div class="small muted">${admin.loading ? 'Loading…' : 'Nothing loaded.'}</div></div>`; adminLoad(); return h; }
@@ -8260,7 +8260,7 @@ function vAdmin() {
 
   h += vCatalog();
   h += `<div class="card"><div class="lift-h"><h2>Audit log</h2><button class="btn sm ghost" data-act="adminlog">Refresh</button></div>
-  <p class="small muted" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
+  <p class="note" style="margin:0">Every export and every removal, newest first. Written by the server as it happens; there is no route that edits or clears it.</p>`;
   if (admin.logErr) h += `<div class="banner warn"><div>${esc(admin.logErr)}</div></div>`;
   if (!admin.log) { h += `<div class="small muted">${admin.logLoading ? 'Loading\u2026' : ''}</div>`; adminLoadLog(); }
   else if (!admin.log.length) h += `<div class="small muted">Nothing yet.</div>`;
@@ -8320,12 +8320,12 @@ function vCoach(){
   coachLoad();
   const turns=coach.turns;
   let h=`<div class="card"><div class="lift-h"><h2>Coach</h2>${coach.cap?`<span class="small muted">${coach.used||0} of ${coach.cap} this month</span>`:''}</div>
-  <p class="small muted" style="margin:0">It can read your plan, your last four weeks and your copies of the four books, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
+  <p class="note" style="margin:0">It can read your plan, your last four weeks and your copies of the four books, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`</div>`;
 
   if(turns===null) h+=`<div class="card"><p class="small muted" style="margin:0">Loading…</p></div>`;
-  else if(!turns.length) h+=`<div class="card"><p class="small muted" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
+  else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
 
   for(const x of (turns||[])){
     h+=`<div class="card coach-t"><div class="coach-q">${esc(x.question)}</div>`;
@@ -8333,7 +8333,7 @@ function vCoach(){
     else{
       h+=`<div class="coach-a">${mdLite(x.answer)}</div>`;
       if(coach.last&&coach.last.id===x.id&&coach.last.truncated)
-        h+=`<div class="small muted">That answer hit its length limit, so it stops short. Ask for the rest, or ask something narrower.</div>`;
+        h+=`<div class="note">That answer hit its length limit, so it stops short. Ask for the rest, or ask something narrower.</div>`;
       const sugg=coach.last&&coach.last.id===x.id?coach.last.suggestions:null;
       if(sugg&&sugg.length){
         h+=`<div class="small muted" style="font-weight:650;margin-top:8px">Worth considering</div>`;
