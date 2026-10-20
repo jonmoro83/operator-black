@@ -90,7 +90,7 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
 
 ## Next up
 
-- **TB III's OMS Protocol is not built**, found 2026-10-20 while looking for new ideas.
+- **TB III's OMS Protocol is not built — tabled 2026-10-20**, found while looking for new ideas.
   The book calls it "the standard perpetual TB model for strength and hypertrophy":
   Operator, then Mass, then Specificity, repeated, ratios adjustable; or just Operator
   and Mass in rotation, with Specificity added as needed. Base Building once or twice a
@@ -125,7 +125,9 @@ within each group, roughly in order of how useful they'd be.
 
 ### Training and UX
 
-- Nothing open here. New ideas are being picked from, 2026-10-20.
+- **Retest attempt planner.** Before a retest, predict a 3–5RM target per lift from the
+  heaviest sets and their Fast/Solid/Ground ratings, and lay out the warm-up ladder and
+  attempt jumps — TB1's method. Offered 2026-10-20, not picked yet.
 
 ## Parked
 
@@ -185,6 +187,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The end-of-cycle report (2026-10-20)**
+- The review decides one number per lift. The report is the rest of the cycle in one
+  place: sessions against what was scheduled, what each max did and **whether the review
+  chose it or it is only projected**, how the working sets moved (fast / solid / ground,
+  and how many heavy sets were fast), bodyweight and body fat from end to end, protein
+  and calories against their targets, readiness, conditioning and the benchmark.
+- In History, above the tables it summarizes, one per finished cycle, newest open. Before
+  the first cycle ends it says when the first report appears (Sun 11/15 here). The
+  review links to it once the cycle is over.
+- `periodSummary(from, to)` is the shared core, written so the six-month comparison can
+  use it too. Bodyweight at each end is a 7-day average, never one morning. A range that
+  runs up to today does not count today's open session as missed.
+- Body fat is judged by one rule now, `bfTone`, read by the Energy card and the report.
+  They had disagreed about building while body fat rose.
+- Open state lives in openPx like every other disclosure; the newest report is opened
+  once, the first time it is seen, and stays however it is left.
+- Seven tests, ten mutants, all caught.
 
 **Treatment B, everywhere it applies (2026-10-20)**
 - Asked for after 3.32 put B on the Macros card alone. "Everywhere" needed a definition,

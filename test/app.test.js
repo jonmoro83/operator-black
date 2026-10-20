@@ -8273,3 +8273,93 @@ test("the session rows say where you stand in words, not only in a bar", () => {
   a.match(ws, /Sessions[\s\S]*?class="mb-v (ok|warn|off)">(Every one|\d+ missed)</, "and last week, in words");
   a.match(ws, /Readiness[\s\S]*?\/ 100/);
 });
+
+// --- the end-of-cycle report -----------------------------------------------------------
+// Cycle 1 run start to finish: 32 of 36 sessions, rated sets, daily check-ins.
+function ranCycle(now = "2026-11-25") {
+  const x = app({ now });
+  x.plan.startMonday = "2026-09-28"; x.plan.goal = "gain"; x.plan.proteinPerLb = 0; x.bump();
+  const r = x.cycleRange(1), seed = {};
+  let i = 0;
+  for (let d = r.from; d <= r.to; d = x.addDays(d, 1)) {
+    i++; const dp = x.dayPlan(d);
+    const L = { date: d, checkin: { bw: 185 + i * 0.03, kcal: 3100, proG: 225, carbG: 360, fatG: 90, sleepH: 7, sleepQ: 4, energy: 4, soreness: 2, stress: 2 } };
+    if (dp.t !== "off" && i % 9) L.done = true;
+    if (dp.t === "lift") L.lifts = Object.fromEntries(dp.lifts.map((k) => [k, { sets: [true, true, true],
+      eff: i % 5 ? ["fast", "solid", "fast"] : ["solid", "ground", "solid"] }]));
+    seed[d] = L;
+  }
+  x.seed(seed); x.bump();
+  return { x, r };
+}
+
+test("a period is summed from the log: sessions, the body at each end, fuel and effort", () => {
+  const { x, r } = ranCycle();
+  const S = x.periodSummary(r.from, r.to);
+  a.equal(S.days, 42, "six weeks");
+  a.ok(S.sched > 0 && S.done < S.sched, `some missed: ${S.done} of ${S.sched}`);
+  a.ok(S.bwTo > S.bwFrom, "bodyweight from a 7-day average at each end");
+  a.equal(S.protein, 225); a.equal(S.kcal, 3100);
+  a.equal(S.eff.rated, S.eff.fast + S.eff.solid + S.eff.ground, "every rated set counted once");
+  a.ok(S.eff.ground > 0 && S.eff.heavyRated > 0 && S.eff.heavyFast <= S.eff.heavyRated);
+});
+
+test("the cycle report says what each max did and whether the review chose it", () => {
+  const { x } = ranCycle();
+  x.plan.cycleMaxes = { 2: { squat: 315 } }; x.bump();
+  const h = x.cycleReport(1);
+  a.match(h, /class="mb-l">Sessions<\/span>[\s\S]*?class="mb-v (warn|off)">\d+ missed/, "sessions against what was scheduled");
+  a.match(h, /High-bar back squat|Squat/);
+  a.match(h, /\+15 for next cycle[\s\S]*?This cycle 300 · next max chosen in the review/, "a reviewed max says so");
+  a.match(h, /next max projected — not yet reviewed/, "and a projected one admits it");
+  a.match(h, /How the working sets moved: \d+ fast · \d+ solid · \d+ ground · \d+ of \d+ heavy sets fast/);
+  a.match(h, /Protein a day<\/span><span><span class="mb-n">225<\/span><span class="mb-t"> \/ \d+ g/, "protein against its target");
+  a.match(h, /Readiness[\s\S]*?\/ 100/);
+});
+
+test("History opens on the reports, and says when the first one will appear", () => {
+  const before = app({ now: "2026-10-20" });
+  before.plan.startMonday = "2026-09-28"; before.bump();
+  const h0 = before.vHistory();
+  a.ok(h0.indexOf("Cycle reports") < h0.indexOf("Maxes by cycle"), "the summary before the tables");
+  a.match(h0, /The first one appears after Sun 11\/15/, "and when the first report is due");
+  const { x } = ranCycle();
+  const h = x.vHistory();
+  a.match(h, /<details class="plain" data-px="rep-1" open><summary>Cycle 1 · 10\/5–11\/15/, "the newest opens first");
+});
+
+test("a report you close stays closed, because the state lives in openPx", () => {
+  const { x } = ranCycle();
+  x.vHistory();                                   // first sight opens it
+  a.ok(x.openPx.has("rep-1"));
+  x.openPx.delete("rep-1");                       // what closing it does, through the toggle handler
+  a.doesNotMatch(x.vHistory(), /data-px="rep-1" open/, "and it is not re-opened on the next render");
+});
+
+test("the review points at the report once the cycle is over, not before", () => {
+  const { x } = ranCycle();
+  a.match(x.reviewCard(1) || "", /Read the full cycle report/);
+  const mid = ranCycle("2026-11-12").x;           // week 6, before it ends
+  a.doesNotMatch(mid.reviewCard(1) || "", /Read the full cycle report/);
+});
+
+test("body fat is judged by one rule, on the Energy card and in the report", () => {
+  const x = app({ now: "2026-10-20" });
+  x.plan.goal = "gain"; x.bump();
+  a.deepEqual(x.bfTone(1.2), { tone: "warn", word: "Creeping up" });
+  a.deepEqual(x.bfTone(-1), { tone: "ok", word: "Coming down" });
+  a.deepEqual(x.bfTone(0.3), { tone: "ok", word: "Holding" });
+  x.plan.goal = "lose"; x.bump();
+  a.equal(x.bfTone(-1).tone, "ok"); a.equal(x.bfTone(1).tone, "off", "rising while cutting is the red one");
+});
+
+test("a summary that runs up to today does not count today's session as missed", () => {
+  const now = "2026-10-21";                       // a lifting day, not yet done
+  const x = app({ now }); x.plan.startMonday = "2026-09-28"; x.bump();
+  a.equal(x.dayPlan(now).t, "lift", "today is a lifting day");
+  const S = x.periodSummary("2026-10-19", now);
+  // Monday's lift and Tuesday's conditioning were scheduled and missed; Wednesday's
+  // lift is today, still open, so it is not counted yet.
+  a.equal(S.sched, 2, "two sessions behind you, not three");
+  a.equal(S.done, 0);
+});

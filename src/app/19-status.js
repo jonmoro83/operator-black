@@ -220,6 +220,14 @@ function trendTone(delta,flat){
   if(dir===0) return {tone:'warn',word:`Holding — the goal is to ${want>0?'build':'lose fat'}`};
   return {tone:'off',word:`${verb} while ${want>0?'building':'cutting'}`};
 }
+// Body fat wants to come down while cutting and hold otherwise. Half a point either way
+// counts as holding: the tape method is only good to a few points. One rule, read by
+// the Energy card and the cycle report alike.
+function bfTone(db){
+  if(db==null) return {tone:'muted',word:''};
+  if(plan.goal==='lose') return trendTone(db,0.5);
+  return Math.abs(db)<=0.5?{tone:'ok',word:'Holding'}:db<0?{tone:'ok',word:'Coming down'}:{tone:'warn',word:'Creeping up'};
+}
 function macroRow(lbl,target,avg){
   const {tone,word}=macroTone(target,avg);
   return bRow({label:lbl,value:avg==null?'—':avg,of:target,unit:'g',
@@ -278,9 +286,7 @@ function energyCard(t){
   if(last){
     // Body fat wants to come down while cutting and hold otherwise. Half a point either
     // way counts as holding: the tape method is only good to a few points.
-    const dbf=bf.length>1?last.bf-bf[0].bf:null;
-    const bt=dbf==null?{tone:'muted',word:''}:plan.goal==='lose'?trendTone(dbf,0.5)
-      :(Math.abs(dbf)<=0.5?{tone:'ok',word:'Holding'}:dbf<0?{tone:'ok',word:'Coming down'}:{tone:'warn',word:'Creeping up'});
+    const dbf=bf.length>1?last.bf-bf[0].bf:null, bt=bfTone(dbf);
     h+=bRow({label:'Body fat',value:r1(last.bf),unit:'%',tone:bt.tone,word:bt.word&&dbf!=null?`${bt.word} \u00b7 ${dbf>0?'+':''}${r1(dbf)} since ${fmtD(bf[0].d)}`:'',sub:fmtD(last.d,true)});
   } else h+=bRow({label:'Body fat',value:'\u2014',sub:'Needs neck and waist'});
   h+=`</div>`;

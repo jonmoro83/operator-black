@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.34',date:'2026-10-20',title:'A report for every cycle',items:[
+    'When a cycle ends, History gets a report for it: sessions against what was scheduled, what each max did and whether you chose it in the review or it is only projected, how your working sets moved, bodyweight and body fat across the cycle, protein and calories against your targets, readiness and conditioning.',
+    'Your first one appears after cycle 1 ends on November 15. The end-of-cycle review links to it.']},
   {v:'3.33',date:'2026-10-20',title:'The new look, everywhere it fits',items:[
     'The Macros card\u2019s style now runs through the app wherever a number is being measured against something. Sessions this week, readiness out of 100, calories against your target, last week\u2019s summary and your pull-up progress all show the number big, the target beside it, a bar toward it and what it means in words.',
     'Where there is a direction but no target \u2014 your maxes, bodyweight, body fat \u2014 you get the same big number and a colored verdict, but no bar. Bodyweight and body fat are judged against the goal you set in Setup, so you will see "Gaining, as planned" or "Losing while building".',
