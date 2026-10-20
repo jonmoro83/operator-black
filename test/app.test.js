@@ -8008,3 +8008,77 @@ test("Status counts rated ground sets toward 'sets are grinding'", () => {
   a.equal(w.v, "Sets are grinding", "three ground sets is three grinders");
   a.match(w.w, /3 grinder sets/);
 });
+
+// --- the retest planner ----------------------------------------------------------------
+function everyL3(x) {
+  // Every non-empty choice of Lift 3 variants the app offers.
+  const out = [];
+  for (let mask = 1; mask < 1 << x.L3K.length; mask++)
+    out.push(x.L3K.filter((_, i) => mask & (1 << i)));
+  return out;
+}
+
+test("the retest planner never tests squat and deadlift on the same day", () => {
+  const x = app({ now: "2026-10-19" });
+  for (const on of everyL3(x)) {
+    x.plan.l3 = { on: Object.fromEntries(on.map((k) => [k, true])) }; x.bump();
+    for (const slots of [2, 3]) {
+      const sp = x.testSplit(slots);
+      a.equal(sp.length, slots);
+      for (const day of sp) a.ok(!(day.includes("squat") && day.includes("dead")), `${on}/${slots}: ${JSON.stringify(sp)}`);
+      // Every lift exactly once.
+      a.deepEqual(sp.flat().sort(), x.activeLifts().slice().sort(), `every lift tested once: ${JSON.stringify(sp)}`);
+    }
+  }
+});
+
+test("two lifts a day while the days allow it, and three only when they do not", () => {
+  const x = app({ now: "2026-10-19" });
+  for (const on of everyL3(x)) {
+    x.plan.l3 = { on: Object.fromEntries(on.map((k) => [k, true])) }; x.bump();
+    const n = 3 + on.length;
+    for (const slots of [2, 3]) {
+      const most = Math.max(...x.testSplit(slots).map((d) => d.length));
+      a.ok(most <= Math.max(2, Math.ceil(n / slots)), `${n} lifts over ${slots} days: at most ${most} a day`);
+      if (n <= 2 * slots) a.ok(most <= 2, `${n} lifts fit two a day over ${slots}`);
+    }
+  }
+});
+
+test("squat goes with bench and deadlift with Lift 3, the bridge week's pairing", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.l3 = { on: { pull: true } }; x.bump();
+  a.deepEqual(x.testSplit(3), [["squat", "bench"], [], ["dead", "pull"]],
+    "the usual four: Thursday and Saturday, Friday left as a rest between them");
+  x.plan.l3 = { on: { pull: true, ohp: true } }; x.bump();
+  const sp = x.testSplit(2);
+  a.deepEqual(sp[0], ["squat", "bench"], "a third Lift 3 day goes to the deadlift's day, not onto squat and bench");
+  a.ok(sp[1].includes("dead") && sp[1].includes("pull") && sp[1].includes("ohp"));
+});
+
+test("a retest week puts jumps on the first test day and the results button on the last", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  x.plan.l3 = { on: { pull: true, ohp: true, wpu: true } }; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "test");
+  const days = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(wk.monday, d), d));
+  const tests = days.map((p, i) => [i, p]).filter(([, p]) => p.t === "test");
+  a.deepEqual(tests.map(([i]) => i), [3, 4, 5], "six lifts use all three days");
+  a.ok(tests[0][1].jumps, "jumps go with the first");
+  a.ok(tests[2][1].pullups && tests[2][1].apply, "the pull-up test and the results button with the last");
+  a.ok(!tests[0][1].apply && !tests[1][1].apply, "and the button only once");
+  a.ok(tests.every(([, p]) => p.lifts.length <= 2), "two lifts each");
+  a.equal(days[0].t, "hic", "the easy days before are untouched");
+});
+
+test("TB III's bridge week splits its two optional test days the same way", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false;
+  x.plan.l3 = { on: { pull: true, ohp: true, wpu: true } };
+  x.plan.inserts = { "2026-11-16": "bridge3" }; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "bridge3");
+  const d4 = x.dayPlanSlot(x.addDays(wk.monday, 3), 3), d5 = x.dayPlanSlot(x.addDays(wk.monday, 4), 4);
+  a.ok(!(d4.lifts.includes("squat") && d4.lifts.includes("dead")) && !(d5.lifts.includes("squat") && d5.lifts.includes("dead")));
+  a.equal(d4.lifts.length + d5.lifts.length, 6, "all six across the two days");
+  a.ok(d5.apply && !d4.apply, "results applied once, at the end");
+});

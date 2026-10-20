@@ -390,6 +390,39 @@ function dayPlan(date){
   }
   return dp;
 }
+/* ---------- the retest planner ----------
+Which lifts to test on which of a week's test days. Ours, not the book's: TB1 tests the
+whole cluster in one session. Split because tired singles measure fatigue rather than
+strength, and the days were sitting empty.
+
+  - at most two lifts a day while the days allow it; three only when they do not
+  - squat and deadlift never on the same day
+  - the pairing the bridge week uses: squat with bench, deadlift with Lift 3
+  - spare days fall between test days rather than after them, so each test day comes
+    off a rest -- which is why the usual four lifts test Thursday and Saturday
+
+Returns one list per available day, empty where nothing is tested. */
+function testSplit(slots){
+  const n=3+l3On().length;
+  const cap=Math.max(2,Math.ceil(n/slots)), need=Math.min(slots,Math.ceil(n/cap));
+  const buckets=Array.from({length:need},()=>[]);
+  // Each lift looks first where it pairs, then forward, then back: so Lift 3 joins the
+  // deadlift and overflows onto a later day before it crowds squat and bench.
+  const at=k=>buckets.findIndex(b=>b.includes(k));
+  const put=(k,from)=>{
+    const idx=[...Array(need).keys()], tryOrder=idx.slice(from).concat(idx.slice(0,from));
+    (tryOrder.map(i=>buckets[i]).find(x=>x.length<cap)||buckets[need-1]).push(k);
+  };
+  // Squat and deadlift apart by construction: squat opens the first test day, and the
+  // deadlift opens the next. There are always at least two -- the cluster is never
+  // under four lifts -- and a test checks it for every Lift 3 combination.
+  put('squat',0); put('bench',at('squat'));
+  put('dead',at('squat')+1);
+  for(const k of l3On()) put(k,at('dead'));
+  const out=Array.from({length:slots},()=>[]);
+  buckets.forEach((b,i)=>{ out[need===1?0:Math.round(i*(slots-1)/(need-1))]=b });
+  return out;
+}
 function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
   const SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
@@ -406,13 +439,9 @@ function dayPlanSlot(date,d){
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     {t:'off',short:'Mobility',note:'Easy day. Mobility only: the warm-up hip and t-spine work. No cardio — the two heavy test days are what this week is for.'},
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
-    {t:'test',lifts:['squat','bench'],jumps:true,short:'Test'},
-    // Friday takes the overflow once the cluster is bigger than two lifts a day, the
-    // same split the bridge week already makes. Testing four lifts in one session is
-    // not wrong -- TB1 works the whole cluster in one -- but tired singles measure
-    // fatigue rather than strength, and the day was sitting empty.
-    (()=>{const rest=['dead',...l3On()];return rest.length>2?{t:'test',lifts:rest.slice(0,rest.length-2),short:'Test'}:{t:'off',short:'Off'}})(),
-    (()=>{const rest=['dead',...l3On()];return {t:'test',lifts:rest.length>2?rest.slice(-2):rest,pullups:true,apply:true,short:'Test'}})(),
+    // Thursday to Saturday, split by testSplit: jumps on the first test day, the pull-up
+    // test and the button that applies the results on the last.
+    ...(()=>{const sp=testSplit(3);return sp.map((L,i)=>L.length?Object.assign({t:'test',lifts:L,short:'Test'},i===0?{jumps:true}:{},i===2?{pullups:true,apply:true}:{}):{t:'off',short:'Off'})})(),
     {t:'off',short:'Off'}][d];
   if(wk.kind==='bb'){
     const row=bbRow(wk)[d]||['rest'], k=row[0];
@@ -454,12 +483,13 @@ function dayPlanSlot(date,d){
   if(wk.kind==='bridge3'){
     const ease='Light activity only. Walking, hiking, an easy swim, yoga, stretching, an easy bodyweight circuit. No weights, no HIC, no E — this week is for recovering, which is when the work you have already done actually lands.';
     const light=()=>({t:'off',bridge3:true,short:'Light',note:ease});
-    const rest=['dead',...l3On()];
+    // Two optional test days, split the same way as a retest week.
+    const sp=testSplit(2);
     return [
       light(), light(), light(),
-      {t:'test',lifts:['squat','bench'],bridge3:true,short:'Test',
+      {t:'test',lifts:sp[0],bridge3:true,short:'Test',
         note:'Optional. Test here if the next block needs new numbers — otherwise this is another rest day. The book only asks you to test once before you start, and maybe again before your first Specificity block.'},
-      {t:'test',lifts:rest,apply:true,bridge3:true,short:'Test',
+      {t:'test',lifts:sp[1],apply:true,bridge3:true,short:'Test',
         note:'Optional, the same as day 4. Testing both days is fine, and so is testing neither.'},
       light(),
       {t:'off',bridge3:true,short:'Rest',note:'Complete rest.'},

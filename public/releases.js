@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.29',date:'2026-10-20',title:'Retest days, planned for you',items:[
+    'Retest week now spreads the lifts across Thursday, Friday and Saturday by itself: two a day while there is room, squat and deadlift never on the same day, squat with bench and deadlift with your Lift 3. With the usual four lifts nothing changes \u2014 Thursday and Saturday, with Friday as a rest in between.',
+    'It matters once you run more than one Lift 3. Before, Friday could end up with three or more heavy tests in one session. The TB III bridge week\u2019s two optional test days are split the same way.']},
   {v:'3.28',date:'2026-10-20',title:'Rate each set: fast, solid or ground',items:[
     'Every working set can now be rated Fast, Solid or Ground. In session mode the rating is the Done button, so it costs no extra tap: tap how the set moved and it logs and moves on. Plain Done still works if you would rather not say.',
     'On the day\u2019s card the set you just ticked gets the same three buttons, and each rated set shows how it went.',

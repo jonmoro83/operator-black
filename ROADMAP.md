@@ -141,8 +141,6 @@ within each group, roughly in order of how useful they'd be.
   them, or jump straight to the first lift.
 - **Share with a partner or coach:** opt-in, read-only progress view.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
-- **Retest planner:** split retest lifts across days automatically (two per day), like
-  the bridge week does.
 
 ## Parked
 
@@ -198,6 +196,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The retest planner (2026-10-20)**
+- Retest week already split its tests, but by hand: Thursday was hardcoded to squat and
+  bench, Saturday took the last two, and Friday took whatever was left over — so with
+  four or more Lift 3 variants Friday could be asked for three or more. TB III's bridge
+  week did not split at all: its second test day took every remaining lift.
+- **`testSplit(days)`, one planner for both.** At most two lifts a day while the days
+  allow it, three only when they do not. Squat and deadlift never on the same day. The
+  bridge week's pairing: squat with bench, deadlift with Lift 3, and a Lift 3 that does
+  not fit overflows to a later day before it crowds squat and bench. Spare days fall
+  between test days rather than after them, so each test day comes off a rest.
+- **No change for the usual four lifts**: Thursday squat and bench, Friday off, Saturday
+  deadlift and Lift 3 — exactly as before. Jumps go with the first test day, the
+  pull-up test and the results button with the last.
+- Ours, as the split always was: TB1 tests the whole cluster in one session. Split
+  because tired singles measure fatigue rather than strength.
+- The squat/deadlift rule holds by construction — squat opens the first test day and
+  the deadlift opens the next — so the separate guard was unreachable and a mutant
+  deleting it survived. Removed; a test checks the rule across every Lift 3
+  combination and both week shapes instead.
+- Five tests, seven mutants, all caught.
 
 **Per-set effort, in the books' words (2026-10-20)**
 - Every working set can be rated **Fast, Solid or Ground**. Built now because cycle 1
