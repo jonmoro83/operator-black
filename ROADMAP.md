@@ -195,6 +195,18 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 
+**Carries last, core just before them (2026-10-20)**
+- Corrected the same day: heavy carries always go last; core work goes last otherwise.
+  So a session runs everything else in your order, then core, then carries. 3.26 had
+  put core after carries, which started any hanging core work on a fried grip.
+- `accRank` gives each superset group a band — carry, core, or neither — and the sort
+  is stable inside a band, so everything else keeps the order you set. A pair with a
+  carry in it goes with the carries, whichever half the carry is.
+- The whole carry slot counts, dead hangs and plate pinches included: they cost the
+  grip the same way, which was always the slot's reason for going last. Its note says
+  "Last" again.
+- Four tests, four mutants, all caught.
+
 **Core work last, and the ab triad (2026-10-20)**
 - **Core work runs last in a session**, wherever the day lists it. Asked for, and it is
   where TB III puts abs too: its strength-endurance circuit runs *"bench press...

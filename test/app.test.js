@@ -7794,7 +7794,7 @@ test("a day with no core work runs exactly as listed", () => {
 });
 
 test("Setup says core runs last, so the order there is not mistaken for the session's", () => {
-  a.match(accDay("2026-09-07").vSetup(), /Core work always runs last/);
+  a.match(accDay("2026-09-07").vSetup(), /core work runs last and carries after it/);
 });
 
 test("a superset with core as its second half moves too", () => {
@@ -7838,4 +7838,42 @@ test("picking the ab triad shows its prescription where the rounds are logged", 
   x.plan.accPick = { mon: { core: "plank" } }; x.bump();
   a.equal(x.accOn("2026-09-14", "core"), "plank");
   a.ok(!/Log each round/.test(x.accSlotRow("2026-09-14", "core")));
+});
+
+test("carries always go last, after core work", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  // Listed carry first and core second, the worst case for both rules.
+  x.plan.accSlots = { mon: ["carry", "core", "pchain", "biceps"] }; x.bump();
+  a.deepEqual(accOrder(x, mon), ["pchain", "biceps", "core", "carry"],
+    "everything else in your order, then core, then the carry");
+  // No carry that day: core is last, as before.
+  x.plan.accSlots = { mon: ["core", "pchain", "biceps"] }; x.bump();
+  a.deepEqual(accOrder(x, mon), ["pchain", "biceps", "core"]);
+  // No core that day: the carry is last.
+  x.plan.accSlots = { mon: ["carry", "pchain", "biceps"] }; x.bump();
+  a.deepEqual(accOrder(x, mon), ["pchain", "biceps", "carry"]);
+});
+
+test("a superset follows its heaviest rule: with a carry in it, it goes last", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.plan.accSlots = { mon: ["biceps", "carry", "core", "triceps"] };
+  x.plan.accSuper = { mon: ["biceps"] };          // biceps paired with carry
+  x.bump();
+  const steps = x.lsSteps(mon).filter((s) => s.type === "acc");
+  a.deepEqual(steps.map((s) => [s.slot, s.pair]), [["triceps", null], ["core", null], ["biceps", "carry"]],
+    "the carry's pair goes after core, together");
+  // A pair of core and carry is a carry pair, so it is last.
+  x.plan.accSlots = { mon: ["core", "carry", "pchain"] };
+  x.plan.accSuper = { mon: ["core"] }; x.bump();
+  const s2 = x.lsSteps(mon).filter((s) => s.type === "acc");
+  a.deepEqual(s2.map((s) => [s.slot, s.pair]), [["pchain", null], ["core", "carry"]]);
+});
+
+test("grip work in the carry slot counts as a carry", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  // A dead hang fries the grip the same way, which is the reason carries go last.
+  x.plan.accSlots = { mon: ["carry", "core", "biceps"] };
+  x.plan.accPick = { mon: { carry: "deadhang" } }; x.bump();
+  a.deepEqual(accOrder(x, mon), ["biceps", "core", "carry"]);
+  a.match(x.ASLOT.carry.why, /^.*Last, because a fried grip/, "and the slot says so");
 });

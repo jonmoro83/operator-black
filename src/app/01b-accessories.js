@@ -26,7 +26,7 @@ const ASLOT={
   pullup:{name:'Pull-up progression', why:'Whatever rung you are on. The app prescribes it.'},
   sleg:  {name:'Single-leg',       why:'Catches the imbalance a bar hides.'},
   pchain:{name:'Posterior chain',  why:'Hamstrings and back, away from a maximal pull.'},
-  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Late, because a fried grip makes everything after it worse \u2014 only core work comes after it.'},
+  carry: {name:'Carry / grip',     why:'Grip, trunk and a lot of general hardiness, cheaply. Last, because a fried grip makes everything after it worse \u2014 core work included.'},
 };
 
 // gear: what you need, so the picker reads usefully when the rack is busy.
@@ -361,17 +361,22 @@ function accGroups(day){
   }
   return out;
 }
-/* The order a session runs them in: core work last, whatever order the day lists it.
-   Asked for, and it is where TB III puts abs as well -- its strength-endurance circuit
-   is "bench press... squat... finish up with RDL and abs". A tired trunk is a worse
-   brace for everything after it, and nothing after core work needs one.
+/* The order a session runs them in: everything else, then core work, then carries.
 
-   Done on groups rather than slots, so a superset with core in it moves as a pair
-   instead of being split. And only here: Setup keeps the order you set, because a pair
-   is defined by which job comes next there, and re-sorting that would re-draw pairs. */
+   Carries always go last, because a fried grip makes everything after it worse --
+   including a hanging core movement. Core goes last otherwise, which is where TB III
+   puts abs too: its strength-endurance circuit is "bench press... squat... finish up
+   with RDL and abs", and a tired trunk is a worse brace for anything after it. The
+   carry slot counts as a whole, dead hangs and plate pinches included, since they cost
+   the grip the same way.
+
+   Done on groups rather than slots, so a superset moves as a pair instead of being
+   split, and a pair with a carry in it goes with the carries. Stable within each band,
+   so everything else keeps your order. And only here: Setup keeps the order you set,
+   because a pair is defined by which job comes next there. */
+function accRank(group){ return group.includes('carry')?2:group.includes('core')?1:0 }
 function accRunGroups(day){
-  const g=accGroups(day), core=x=>x.includes('core');
-  return g.filter(x=>!core(x)).concat(g.filter(core));
+  return accGroups(day).map((g,i)=>[g,i]).sort((a,b)=>accRank(a[0])-accRank(b[0])||a[1]-b[1]).map(x=>x[0]);
 }
 function accIsSuper(day,slot){ return accGroups(day).some(g=>g.length>1&&g[0]===slot) }
 // Can only pair with something after it, and not with a job that is already the second

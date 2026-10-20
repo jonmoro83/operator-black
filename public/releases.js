@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.27',date:'2026-10-20',title:'Carries last, core just before',items:[
+    'Carries always come last now, and core work comes last otherwise. On a day with both, the order is everything else, then core, then carries, so your grip is fresh for any hanging core work.',
+    'Dead hangs and plate pinches count as carries here, since they tire your grip the same way. A superset with a carry in it moves to the end as a pair.']},
   {v:'3.26',date:'2026-10-20',title:'Core work last, and the ab triad',items:[
     'Core work now always comes last in a session, whatever order your accessories are listed in. If core is part of a superset, the pair moves to the end together. Setup still shows the order you set; it notes that core runs last.',
     'The ab triad is in the core list: 3 to 5 rounds of 5 hanging leg raises, 5 hanging knee raises and 5 toes-to-bar, back to back. It is not in any of the books the app has, so it is exactly as you gave it, and each round logs as a set.']},
