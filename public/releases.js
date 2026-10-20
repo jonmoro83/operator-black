@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.32',date:'2026-10-20',title:'The Macros card, redrawn as you picked',items:[
+    'What you have actually been eating is now the big number on each line, with the target beside it as "/ 240 g". Each macro has a bar that fills toward the target \u2014 green when you are on it, red when short, yellow when over \u2014 and still says it in words, so the colour is never the only clue.',
+    'The note saying these are averages of days already eaten, and how many days, is now always visible instead of tucked away.',
+    'When the app has advice \u2014 like adding 500 calories a day \u2014 it gets its own card with one big button, below the numbers.']},
   {v:'3.31',date:'2026-10-20',title:'Less grey, clearer reading',items:[
     'Explanations \u2014 what a card is for, what to do next \u2014 are now a size up and close to full black (full white in dark mode), instead of the same small grey as every count and footnote. Small grey is kept for captions and the notes about where something came from, so you can tell at a glance which is which.',
     'The app used to have twenty-five different text sizes. It has thirteen now. Nothing got smaller \u2014 every odd size was rounded up \u2014 and the rest timer digits are a little bigger.',

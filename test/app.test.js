@@ -2713,7 +2713,9 @@ test("the 500-calorie step is offered on evidence and applied in the book's rati
   const adv = x.macroAdvice("2026-10-15");
   a.equal(adv.dir, 1);
   a.match(adv.text, /another 500 calories a day in the same ratio/);
-  a.match(x.macroCard("2026-10-15"), /data-act="macrobump" data-v="1"/, "with a button to take it");
+  // Treatment B: the advice is its own card, and the action a full-width button in it.
+  a.match(x.macroAdviceCard("2026-10-15"), /class="btn primary wide" data-act="macrobump" data-v="1"/, "with a button to take it");
+  a.ok(!/data-act="macrobump"/.test(x.macroCard("2026-10-15")), "and not inside the numbers card");
 
   // Applied, it moves every macro in proportion and lands near 500 more.
   const before = x.macroTarget("2026-10-15");
@@ -6387,29 +6389,33 @@ test("the macro averages say what they average, and over which days", () => {
   // logged the morning after, so today's are never in the average.
   x.setMacroWin("week"); x.bump();
   const h = x.macroCard("2026-10-16");
-  a.match(h, /avg 240/, "it is labelled an average");
+  // Treatment B: the average is the headline number, so what it is an average of has
+  // to sit beside it, in sight -- not folded away, as treatment A had it.
+  a.match(h, /class="mb-n">240</, "eaten is the big number");
+  a.match(h, /class="note">Averages of days already eaten — 4 of the 5 days since Monday/,
+    "and it says, in plain sight, that it is an average of days already eaten");
   a.ok(!/\d+ g eaten/.test(h), "never a bare 'eaten' figure");
-  // The explanations are behind one disclosure now rather than open under every card.
+  // The formula is the one thing still behind the disclosure.
   a.match(h, /data-act="macrowhy" aria-expanded="false"/);
-  a.ok(!/Averages are of days already eaten/.test(h), "folded away by default");
+  a.ok(!/bodyweight × 1.3/.test(h), "folded away by default");
   x.setMacroWhy(true);
-  const why = x.macroCard("2026-10-16");
-  a.match(why, /<b>Averages are of days already eaten<\/b>, not today/);
-  a.match(why, /4 of the 5 days since Monday/, "and says how many days are behind it");
+  a.match(x.macroCard("2026-10-16"), /bodyweight × 1.3 for protein/);
   x.setMacroWhy(false);
 
   // On target versus short is the question being asked, so it is answered in words.
   a.match(h, /Protein[\s\S]{0,260}On target/);
   // The verdict carries color as well as words: on a card read between sets, green
   // and red are what gets seen, and a tone that never changes says nothing.
-  a.match(h, /class="mrow-v ok">On target/);
+  a.match(h, /class="mb-v ok">On target/);
+  a.match(h, /<i class="ok" style="width:100%">/, "and the bar is full and green");
   a.match(h, /aria-expanded="false"/, "and the note reports itself shut");
   x.setMacroWhy(true);
   a.match(x.macroCard("2026-10-16"), /aria-expanded="true"/, "and open when it is");
   x.setMacroWhy(false);
   x.setMacroWin("14"); x.bump();
   a.match(x.macroCard("2026-10-16"), /Protein[\s\S]{0,260}\d+ short/, "and short when it is short");
-  a.match(x.macroCard("2026-10-16"), /class="mrow-v off">\d+ short/, "in the color that says so");
+  a.match(x.macroCard("2026-10-16"), /class="mb-v off">\d+ short/, "in the color that says so");
+  a.match(x.macroCard("2026-10-16"), /<i class="off" style="width:\d{1,2}%">/, "with a bar that stops short");
 
   // A window with hardly anything in it says so rather than averaging two days.
   const y = app({ now: "2026-10-16" });
@@ -8140,4 +8146,47 @@ test("Setup's explanations render as notes, with the fine print still fine print
   const h = x.vSetup();
   a.match(h, /<p class="note"[^>]*>Only used for the energy and body-fat estimates/, "an explanation reads as one");
   a.match(h, /class="small muted"/, "and captions are still captions");
+});
+
+// --- Macro card, treatment B ---------------------------------------------------------
+test("each macro reads eaten over target, with a bar and the verdict in words", () => {
+  const x = app({ now: "2026-10-16" });
+  a.deepEqual(x.macroTone(240, 240), { tone: "ok", word: "On target" });
+  a.deepEqual(x.macroTone(240, 236), { tone: "ok", word: "On target" }, "within 5% is on target");
+  a.deepEqual(x.macroTone(240, 200), { tone: "off", word: "40 short" });
+  a.deepEqual(x.macroTone(90, 120), { tone: "over", word: "30 over" }, "over is its own colour, not short's red");
+  a.deepEqual(x.macroTone(240, null), { tone: "muted", word: "none logged" });
+
+  const short = x.macroRow("Protein", 240, 200);
+  a.match(short, /class="mb-n">200<\/span><span class="mb-t"> \/ 240 g/, "eaten big, the target its caption");
+  a.match(short, /<i class="off" style="width:83%">/, "the bar stops where eaten stops");
+  a.match(short, /class="mb-v off">40 short/, "and the colour is never the only way it is said");
+  a.match(short, /aria-label="Protein: 200 of 240 grams"/);
+  a.match(x.macroRow("Fat", 90, 120), /<i class="over" style="width:100%">/, "over fills the bar, in yellow");
+  const none = x.macroRow("Carbs", 370, null);
+  a.match(none, /class="mb-n">—</); a.match(none, /style="width:0%"/); a.match(none, /none logged/);
+});
+
+test("the advice is a card of its own, after the numbers, with the action full width", () => {
+  const x = app({ now: "2026-10-15" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.goal = "gain"; x.plan.proteinPerLb = 0;
+  // A fortnight of flat weight on the same intake: the case the book answers with +500.
+  const seed = {};
+  for (let i = 30; i >= 0; i--) { const d = x.addDays("2026-10-15", -i); seed[d] = { checkin: { bw: 185, kcal: 3000, proG: 240, carbG: 370, fatG: 95 } } }
+  x.seed(seed); x.bump();
+  a.ok(x.macroAdvice("2026-10-15"), "the fixture is the flat fortnight that earns advice");
+  const st = x.vStatus();
+  const iCard = st.indexOf(">Macros<"), iAdv = st.indexOf('data-act="macrobump"');
+  a.ok(iCard > 0 && iAdv > iCard, "the advice comes after the numbers");
+  a.ok(st.slice(iCard, iAdv).includes('</div></div><div class="card">'), "in a card of its own");
+});
+
+test("an adjusted target offers the way back, in the advice card", () => {
+  const x = app({ now: "2026-10-16" });
+  x.plan.goal = "gain"; x.plan.bodyweight = 185; x.plan.proteinPerLb = 0; x.plan.macroBump = 1; x.bump();
+  const card = x.macroAdviceCard("2026-10-16");
+  a.match(card, /Your target is adjusted by \+500 a day/);
+  a.match(card, /data-act="macrobump" data-v="0">Back to the formula/);
+  x.plan.macroBump = 0; x.bump();
+  a.equal(x.macroAdviceCard("2026-10-16"), "", "and with nothing to say, no card at all");
 });

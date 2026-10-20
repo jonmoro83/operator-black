@@ -173,48 +173,59 @@ function macroAdvice(t){
    off anyway. */
 let macroWhy=false;
 function setMacroWhy(v){ macroWhy=!!v; return macroWhy }
+/* Treatment B (3.32): eaten is the headline, the target its caption, because eaten is
+   the number that changes from day to day. A bar per macro, so short or on target reads
+   before anything is read. And the verdict stays in words beside the bar -- colour alone
+   cannot be the only way a thing is said (WCAG 1.4.1), and "40 short" is still the
+   answer to the question the card is asked. */
+function macroTone(target,avg){
+  if(avg==null) return {tone:'muted',word:'none logged'};
+  const gap=avg-target, near=Math.abs(gap)<=Math.max(5,target*0.05);
+  if(near) return {tone:'ok',word:'On target'};
+  return gap<0?{tone:'off',word:`${Math.abs(gap)} short`}:{tone:'over',word:`${gap} over`};
+}
 function macroRow(lbl,target,avg){
-  // Verdict first, number second. "40 short" is the thing being looked for; 200 is
-  // only the evidence for it, so it is the caption and not the headline.
-  const gap=avg==null?null:avg-target;
-  const near=gap!=null&&Math.abs(gap)<=Math.max(5,target*0.05);
-  const word=gap==null?'':near?'On target':`${Math.abs(gap)} ${gap<0?'short':'over'}`;
-  const tone=gap==null?'muted':near?'ok':'off';
-  return `<div class="mrow">
-    <span class="mrow-l">${esc(lbl)}</span>
-    <span class="mrow-n mono">${target}<span class="mrow-u">g</span></span>
-    <span class="mrow-r">${avg==null?`<span class="small muted">none logged</span>`
-      :`<span class="mrow-v ${tone}">${esc(word)}</span><span class="small muted">avg ${avg}</span>`}</span>
+  const {tone,word}=macroTone(target,avg);
+  const pct=avg==null||!target?0:Math.min(100,Math.round(100*avg/target));
+  return `<div class="mb">
+    <div class="mb-h"><span class="mb-l">${esc(lbl)}</span><span><span class="mb-n">${avg==null?'—':avg}</span><span class="mb-t"> / ${target} g</span></span></div>
+    <div class="mb-bar" role="img" aria-label="${esc(lbl)}: ${avg==null?'none logged':avg+' of '+target+' grams'}"><i class="${tone}" style="width:${pct}%"></i></div>
+    <div class="mb-v ${tone}">${esc(word)}</div>
   </div>`;
 }
 function macroCard(t){
-  const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t)), adv=macroAdvice(t);
+  const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t));
   const lb=bwLb(t);
   let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="chip ${tgt.src==='tb3'?'light':''}">${tgt.src==='tb3'?'TB III':'Ours'}</span>`:''}</div>`;
   if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
   if(!tgt) return h+`<p class="note" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
 
   h+=`<div class="seg wide">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${esc(l)}</button>`).join('')}</div>`;
-  h+=`<div class="mrows">`;
+  h+=`<div class="mbs">`;
   for(const [k,lbl] of [['p','Protein'],['c','Carbs'],['f','Fat']]) h+=macroRow(lbl,tgt[k],got[k]);
   h+=`</div>`;
   h+=`<div class="mtot"><span class="small muted">Calories a day</span><span class="mono">${n(tgt.kcal)}${tgt.bump?` <span class="small muted">incl. ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP}</span>`:''}</span></div>`;
-
-  // One disclosure for the two explanations that used to sit open under every card.
+  // Out from behind the disclosure: which days the big numbers are averages of is what
+  // makes them readable, and it was the thing asked about in the first place.
+  h+=`<div class="note">${got.days
+    ?`Averages of days already eaten — ${got.days} of ${esc(macroWinLabel(t))}.${got.days<macroWinDays(t)/2?' Too few to read much into.':''} Today’s grams go in tomorrow’s check-in.`
+    :`Nothing logged over ${esc(macroWinLabel(t))}. The three boxes are in the daily check-in, under yesterday\u2019s eating \u2014 they are for the day before, so today\u2019s go in tomorrow.`}</div>`;
   h+=`<div><button class="linkb" data-act="macrowhy" aria-expanded="${macroWhy}">Where these numbers come from</button>`;
-  if(macroWhy){
-    h+=`<div class="small muted" style="margin-top:6px;line-height:1.45">${tgt.src==='tb3'
-      ?`The book’s formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`
-      :`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}
-      ${got.days?`<b>Averages are of days already eaten</b>, not today — grams are logged the morning after, so today’s are not in yet. ${got.days} of ${esc(macroWinLabel(t))} ${got.days===1?'has':'have'} grams against ${macroWinDays(t)===got.days?'them all':'them'}.${got.days<macroWinDays(t)/2?' Too few to read much into.':''}`
-        :`Nothing logged over ${esc(macroWinLabel(t))}. The three boxes are in the daily check-in, under yesterday’s eating — they are for the day before, so today’s go in tomorrow.`}</div>`;
-  }
-  h+=`</div>`;
-
-  if(adv) h+=`<div class="banner info"><div class="small">${esc(adv.text)}</div>
-    <button class="btn primary wide" data-act="macrobump" data-v="${adv.dir}" style="margin-top:8px">${adv.dir>0?'Add':'Take off'} 500 a day</button></div>`;
-  else if(tgt.bump) h+=`<div class="row between"><span class="small muted">Target adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div>`;
-  return h+`</div>`;
+  if(macroWhy) h+=`<div class="note" style="margin-top:6px">${tgt.src==='tb3'
+    ?`The book’s formula for building: bodyweight × 1.3 for protein, × 2 for carbs, half for fat.`
+    :`Protein and a fat floor off your bodyweight, carbohydrate taking the rest of the target. The books do not cover ${macroGoal()==='lose'?'losing':'holding'}, so these are ours.`}</div>`;
+  return h+`</div></div>`;
+}
+/* The advice is its own card, with the action as a full-width button: something to do
+   reads differently from something to know, and inside the numbers card it was one
+   more grey box. */
+function macroAdviceCard(t){
+  const tgt=macroTarget(t); if(!tgt||!bwLb(t)) return '';
+  const adv=macroAdvice(t);
+  if(adv) return `<div class="card"><div class="note" style="color:var(--ink)">${esc(adv.text)}</div>
+    <button class="btn primary wide" data-act="macrobump" data-v="${adv.dir}">${adv.dir>0?'Add':'Take off'} 500 a day</button></div>`;
+  if(tgt.bump) return `<div class="card"><div class="row between"><span class="note">Your target is adjusted by ${tgt.bump>0?'+':''}${tgt.bump*MACRO_STEP} a day.</span><button class="btn sm ghost" data-act="macrobump" data-v="0">Back to the formula</button></div></div>`;
+  return '';
 }
 function energyCard(t){
   const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
@@ -400,6 +411,7 @@ function vStatus(){
   <div class="miles two"><div class="mile"><span class="l">Last 4 weeks</span><span class="big">${pct(a4)}</span><span class="small muted">${a4.d} of ${a4.n} sessions done</span></div><div class="mile"><span class="l">Readiness · 7 days</span>${(()=>{const xs=[];for(let i=0;i<7;i++){const r=readiness(ci(addDays(t,-i)));if(r!=null)xs.push(r)}if(!xs.length)return '<span class="small muted">No check-ins yet</span>';const av=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length),lv=rLevel(av);return `<span class="big">${av}</span><span><span class="chip ${lv.cls}">${lv.t}</span> <span class="small muted">${xs.length} check-in${xs.length>1?'s':''}</span></span>`})()}</div></div>${heatmap(t,12)}</div>`;
   // --- what you look at daily, before what you look at monthly
   h+=macroCard(t);
+  h+=macroAdviceCard(t);
   h+=bwCard(t);
   h+=energyCard(t);
   // --- strength

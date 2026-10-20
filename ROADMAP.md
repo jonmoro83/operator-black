@@ -119,12 +119,6 @@ within each group, roughly in order of how useful they'd be.
 
 ### Training and UX
 
-- **Macro card treatment B**, mocked up 2026-10-16 and liked: eaten becomes the
-  headline number with the target as its caption, because eaten is what changes;
-  progress bars so short-or-on-target reads without reading; the advice splits into
-  its own card. Parked rather than dropped — it is a change of character, not of
-  styling, so it should be done to every card at once or not at all.
-
 - **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
   then the session. Once a session is under way the cards above it are noise — collapse
   them, or jump straight to the first lift.
@@ -185,6 +179,28 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The Macros card, treatment B (2026-10-20)**
+- From the mockup liked on 10-16. **Eaten is the big number and the target its
+  caption** ("200 / 240 g"), because eaten is what changes day to day; **a bar per macro**
+  so short or on target reads before anything is read; **the advice is its own card**
+  with the action as a full-width button.
+- **One change from the mockup:** it carried short / over / on target in bar colour
+  alone, which WCAG 1.4.1 rules out. Each row keeps the verdict in words beside the
+  bar, in the same colour — "40 short" is still the answer to the question the card is
+  asked. Over is yellow now rather than short's red: over and short are different news.
+- **Which days the averages cover is in plain sight**, not behind the disclosure as in
+  treatment A: once the average is the headline, what it is an average of has to sit
+  beside it. That was the 10-16 ask in the first place. The disclosure keeps only the
+  formula.
+- Two things nearly lost in the rewrite and restored, both caught by old tests: "Too few
+  to read much into" on a thin window, and the empty-state wording that the grams belong
+  to the day before.
+- **Done to this card only, as asked.** The parked note said B should go to every card
+  at once or not at all; the strength rows on Status still use treatment A's
+  label-number-verdict layout. Worth deciding whether they follow.
+- Three tests, five mutants, all caught. One new test had an early return that could
+  have passed while testing nothing; it is an assertion now.
 
 **The grey wall, and a type scale by decision (2026-10-20)**
 - **331 lines were the same 13px grey**: what a card is for, what to do next, a count, a
