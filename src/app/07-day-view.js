@@ -42,6 +42,7 @@ function vToday(){
   if(moveOpen&&!viewing) h+=moveCard();
   h+=noteCard(sel);
   h+=aimsCard(sel);
+  h+=debriefCard();
   h+=weekSummaryCard();
   h+=weeklyCard();
   h+=prCard(sel);

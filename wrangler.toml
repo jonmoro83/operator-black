@@ -36,7 +36,7 @@ binding = "BACKUPS"
 id = "999b995f858d491698b2218e3c18e29d"
 
 [triggers]
-crons = ["0 9 * * SUN"]  # Sundays 09:00 UTC
+crons = ["0 9 * * SUN", "0 9 * * MON"]  # Sunday 09:00 UTC backup; Monday 09:00 UTC weekly debrief
 
 # Deploy info (time, git tag) for Setup's "About this app".
 [version_metadata]

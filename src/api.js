@@ -47,7 +47,7 @@ function realDate(s) {
 const MAX_BYTES = 256 * 1024;
 const LEGACY = "__legacy__";
 
-export { ftsQuery, libSearch, MACRO_W, MACRO_STEP_W, macroTargetFor };
+export { ftsQuery, libSearch, MACRO_W, MACRO_STEP_W, macroTargetFor, DEBRIEF_CRON, debriefWeek };
 export async function handleApi(request, env) {
   const auth = await authorize(request, env);
   if (auth instanceof Response) return auth;
@@ -81,7 +81,13 @@ export async function handleApi(request, env) {
   if (route === "coach" && request.method === "GET") {
     const h = await coachHistory(env, user, 30);
     return json({ ...h, used: await coachUsed(env, user), cap: COACH_CAP,
-      configured: !!env.ANTHROPIC_API_KEY }, 200, { "cache-control": "no-store" });
+      configured: !!env.ANTHROPIC_API_KEY, debrief: await latestDebrief(env, user) }, 200, { "cache-control": "no-store" });
+  }
+  if (route === "coach/debrief/seen" && request.method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    await env.DB.prepare("UPDATE coach_debrief SET seen = 1 WHERE user = ?1 AND week = ?2")
+      .bind(user, String(body.week || "")).run();
+    return json({ ok: true });
   }
 
   if (route === "library" || route.startsWith("library/")) {
@@ -759,8 +765,10 @@ const ASLOT_NAMES = { pchain: "posterior chain", spress: "shoulder press", hpull
 // Calls this calendar month, which is what the cap is measured against.
 async function coachUsed(env, user) {
   const since = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1);
+  // A debrief is a call like any other and counts against the same cap.
   const row = await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 1"
+    `SELECT (SELECT COUNT(*) FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 1)
+          + (SELECT COUNT(*) FROM coach_debrief WHERE user = ?1 AND created_at >= ?2) AS n`
   ).bind(user, since).first();
   return (row && row.n) || 0;
 }
@@ -920,6 +928,116 @@ async function coachHistory(env, user, n) {
     thread: last.thread || null,
     turns: (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] })).reverse(),
   };
+}
+
+/* ---------------- the weekly debrief ----------------
+   A short review of the week just finished, written by the Monday cron so that it is
+   waiting on Today rather than having to be asked for. Same coach, same books, same
+   state block as a question -- with one change of brief and no web search, because a
+   review of someone's own log is exactly what the books and the log cover.
+
+   Who gets one: anyone who logged something in the week, has not switched it off in
+   Setup, and is under the monthly cap (a debrief counts as one call). A week that
+   already has one is skipped before the model is called, which is what makes a cron
+   that fires twice cost nothing the second time. */
+const DEBRIEF_CRON = "0 9 * * MON";
+const DEBRIEF_ASK = (from, to) => `Write my weekly debrief for the week of ${from} to ${to}, which has just finished.
+
+Look at what is in the state block for those seven days: sessions done, how the sets moved where they were rated, conditioning, bodyweight, intake, sleep and the check-ins. Compare with the weeks before it where that tells me something.
+
+- Start with one sentence on how the week went.
+- Then what is going well and what to watch, from the log, with the numbers.
+- End with the one thing most worth doing differently this coming week, or say plainly that nothing needs to change.
+- If very little was logged, say that in a sentence and stop. Do not pad a thin week.
+- You do not have the schedule, only what was logged. Do not claim a session was missed unless the log makes it plain.
+
+Keep it under about 180 words.`;
+
+// The Monday of the week before the one `now` falls in, and its Sunday.
+function debriefWeek(now) {
+  const d = new Date(now);
+  const dow = (d.getUTCDay() + 6) % 7;                 // Monday = 0
+  const mon = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - (dow + 7) * 86400000;
+  const iso = (t) => new Date(t).toISOString().slice(0, 10);
+  return { from: iso(mon), to: iso(mon + 6 * 86400000) };
+}
+
+export async function weeklyDebriefs(env, now = Date.now()) {
+  if (!env.ANTHROPIC_API_KEY) return [];
+  const { results } = await env.DB.prepare("SELECT DISTINCT user FROM docs WHERE user != ?1").bind(LEGACY).all();
+  const out = [];
+  // One at a time: four or five people a week is nothing, and a burst of parallel calls
+  // is how a rate limit turns one bad minute into everyone's debrief failing.
+  for (const r of results || []) {
+    try { out.push({ user: r.user, ...(await debriefFor(env, r.user, now)) }) }
+    catch (e) { out.push({ user: r.user, skipped: "error" }) }
+  }
+  return out;
+}
+
+async function debriefFor(env, user, now) {
+  const wk = debriefWeek(now);
+  const have = await env.DB.prepare("SELECT week FROM coach_debrief WHERE user = ?1 AND week = ?2")
+    .bind(user, wk.from).first();
+  if (have) return { skipped: "done" };
+
+  const all = await readAll(env, user);
+  if ((all.plan || {}).coachDebrief === false) return { skipped: "off" };
+  const logs = all.logs || {};
+  const inWeek = Object.keys(logs).filter((d) => d >= wk.from && d <= wk.to && logs[d] && Object.keys(logs[d]).length);
+  if (!inWeek.length) return { skipped: "empty" };
+  if ((await coachUsed(env, user)) >= COACH_CAP) return { skipped: "cap" };
+
+  const lifts = [...new Set(inWeek.flatMap((d) => Object.keys(logs[d].lifts || {})))];
+  const [state, lib] = await Promise.all([
+    coachState(env, user),
+    libSearch(env, ftsQuery(`recovery fatigue progression ${lifts.join(" ")}`), 6),
+  ]);
+  const passages = (lib.hits || []).map((h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`).join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: COACH_MODEL,
+      max_tokens: 2000,
+      system: `${COACH_SYSTEM}\n\n<state>${JSON.stringify(state)}</state>`,
+      messages: [{ role: "user", content: `<library>${passages || "(nothing in the books matched)"}</library>\n\n${DEBRIEF_ASK(wk.from, wk.to)}` }],
+    }),
+  });
+  if (!res.ok) return { skipped: "upstream" };
+  const data = await res.json();
+  // A refusal or an answer cut off before it began is not stored, and so not counted:
+  // next Monday simply tries the next week.
+  if (data.stop_reason === "refusal") return { skipped: "refusal" };
+  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+  const parsed = safeParse(text) || safeParse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")) || {};
+  const answer = String(parsed.answer || "").trim() || (/^\s*[`{]/.test(text) ? "" : text);
+  if (!answer) return { skipped: "empty answer" };
+
+  const usage = data.usage || {};
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO coach_debrief (user, week, created_at, answer, suggestions, cites, model, tokens_in, tokens_out)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
+  ).bind(user, wk.from, now, answer,
+    JSON.stringify(Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4) : []),
+    JSON.stringify((lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }))),
+    data.model || COACH_MODEL, usage.input_tokens || 0, usage.output_tokens || 0).run();
+  return { week: wk.from };
+}
+
+// The latest debrief, for a week or so after it lands. An old one is history, not news.
+async function latestDebrief(env, user) {
+  const r = await env.DB.prepare(
+    `SELECT week, created_at, answer, suggestions, cites, seen FROM coach_debrief
+     WHERE user = ?1 ORDER BY week DESC LIMIT 1`
+  ).bind(user).first();
+  if (!r || Date.now() - r.created_at > 8 * 86400000) return null;
+  return { ...r, seen: !!r.seen, suggestions: safeParse(r.suggestions) || [], cites: safeParse(r.cites) || [] };
 }
 
 function isAdmin(env, user) {

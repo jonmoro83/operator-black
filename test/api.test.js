@@ -436,7 +436,7 @@ statements src/api.js actually issues, over real rows. Narrow on purpose: it ans
 queries this code sends and throws on anything it does not recognise, so a new query
 cannot pass by being quietly ignored. */
 function fakeDB() {
-  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [], coachRows = [];
+  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [], coachRows = [], debriefs = [];
   // A stand-in for FTS5 MATCH, honest about the only two shapes the code builds:
   // quoted terms joined by AND or by OR. Score is -(matches), so ordering ascending
   // puts the best first, which is the direction bm25() works in.
@@ -473,8 +473,23 @@ function fakeDB() {
       docs.length = 0; docs.push(...keep);
       return [];
     }
-    if (/^SELECT COUNT\(\*\) AS n FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 1$/.test(q))
-      return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 1).length }];
+    if (/^SELECT \(SELECT COUNT\(\*\) FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 1\) \+ \(SELECT COUNT\(\*\) FROM coach_debrief WHERE user = \?1 AND created_at >= \?2\) AS n$/.test(q))
+      return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 1).length
+        + debriefs.filter((r) => r.user === a[0] && r.created_at >= a[1]).length }];
+    if (/^SELECT week FROM coach_debrief WHERE user = \?1 AND week = \?2$/.test(q))
+      return debriefs.filter((r) => r.user === a[0] && r.week === a[1]).map((r) => ({ week: r.week }));
+    if (/^INSERT OR IGNORE INTO coach_debrief/.test(q)) {
+      if (!debriefs.some((r) => r.user === a[0] && r.week === a[1]))
+        debriefs.push({ user: a[0], week: a[1], created_at: a[2], answer: a[3], suggestions: a[4], cites: a[5],
+          model: a[6], tokens_in: a[7], tokens_out: a[8], seen: 0 });
+      return [];
+    }
+    if (/^SELECT week, created_at, answer, suggestions, cites, seen FROM coach_debrief WHERE user = \?1 ORDER BY week DESC LIMIT 1$/.test(q))
+      return debriefs.filter((r) => r.user === a[0]).sort((x, y) => (x.week < y.week ? 1 : -1)).slice(0, 1);
+    if (/^UPDATE coach_debrief SET seen = 1 WHERE user = \?1 AND week = \?2$/.test(q)) {
+      for (const r of debriefs) if (r.user === a[0] && r.week === a[1]) r.seen = 1;
+      return [];
+    }
     if (/^INSERT INTO coach_log/.test(q)) {
       // Date.now() can repeat within a test, and a conversation has to keep its order.
       coachRows.push({ id: a[0], user: a[1], asked_at: a[2] + coachRows.length / 1000, question: a[3], answer: a[4],
@@ -553,7 +568,7 @@ function fakeDB() {
   const seedLib = (d, cs) => { libDoc.push({ ...d, chunks: cs.length });
     for (const c of cs) libChunk.push({ doc: d.id, ...c }) };
   return {
-    docs, feeds, adminLog, cat, batches, seedLib, coachRows,
+    docs, feeds, adminLog, cat, batches, seedLib, coachRows, debriefs,
     prepare(sql) {
       // A statement can be run with or without parameters, like the real binding.
       const made = (args) => ({
@@ -1768,4 +1783,108 @@ test("the coach sees how each set moved, not only how many were done", async () 
     a.equal(day.lifts.squat, "3 (fast, solid, ground)", "set by set");
     a.equal(day.lifts.bench, "3 (grinder)", "and an old whole-lift grinder still reads as one");
   } finally { globalThis.fetch = orig }
+});
+
+/* ---------------- the weekly debrief ---------------- */
+const MON = Date.parse("2026-10-19T09:00:00Z");
+
+test("the debrief reviews the week before the one the cron fires in", async () => {
+  const { debriefWeek } = await load();
+  a.deepEqual(debriefWeek(MON), { from: "2026-10-12", to: "2026-10-18" });
+  a.deepEqual(debriefWeek(Date.parse("2026-10-25T23:00:00Z")), { from: "2026-10-12", to: "2026-10-18" }, "a late Sunday is still this week");
+  a.deepEqual(debriefWeek(Date.parse("2026-10-26T00:00:00Z")), { from: "2026-10-19", to: "2026-10-25" });
+});
+
+test("Monday's cron writes one debrief a week, from the log and the books, without the web", async () => {
+  const { weeklyDebriefs } = await load();
+  const env = await coachEnv();
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("A solid week.", [{ title: "Sleep more", detail: "x" }]));
+  try {
+    const r = await weeklyDebriefs(env, MON);
+    a.deepEqual(r, [{ user: "lifter@example.com", week: "2026-10-12" }]);
+    const call = globalThis.fetch.calls[0].body;
+    a.equal(call.model, "claude-sonnet-5-5", "the same coach as the questions");
+    a.ok(!call.tools, "no web search: a review of their own log is what the books and the log cover");
+    a.match(call.messages[0].content, /week of 2026-10-12 to 2026-10-18/);
+    a.match(call.messages[0].content, /<library><p doc="tb3"/, "the books go with it");
+    a.match(call.system, /<state>.*"d":"2026-10-14"/, "and the log");
+    const row = env.DB.debriefs[0];
+    a.equal(row.answer, "A solid week.");
+    a.deepEqual(JSON.parse(row.suggestions), [{ title: "Sleep more", detail: "x" }]);
+
+    a.deepEqual(await weeklyDebriefs(env, MON + 3600000), [{ user: "lifter@example.com", skipped: "done" }]);
+    a.equal(globalThis.fetch.calls.length, 1, "a cron that fires twice pays once");
+  } finally { globalThis.fetch = orig }
+});
+
+test("no debrief for an empty week, for someone who switched it off, past the cap, or without a key", async () => {
+  const { weeklyDebriefs } = await load();
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("x"));
+  try {
+    let env = await coachEnv();
+    a.deepEqual(await weeklyDebriefs(env, MON + 7 * 86400000), [{ user: "lifter@example.com", skipped: "empty" }]);
+
+    env = await coachEnv();
+    const p = env.DB.docs.find((d) => d.path === "plan/main");
+    p.data = JSON.stringify({ ...JSON.parse(p.data), coachDebrief: false });
+    a.deepEqual(await weeklyDebriefs(env, MON), [{ user: "lifter@example.com", skipped: "off" }]);
+
+    env = await coachEnv();
+    for (let i = 0; i < 300; i++) env.DB.coachRows.push({ user: "lifter@example.com", asked_at: Date.now(), ok: 1, thread: "" });
+    a.deepEqual(await weeklyDebriefs(env, MON), [{ user: "lifter@example.com", skipped: "cap" }]);
+
+    env = await coachEnv(); delete env.ANTHROPIC_API_KEY;
+    a.deepEqual(await weeklyDebriefs(env, MON), []);
+    a.equal(globalThis.fetch.calls.length, 0, "and none of them called the model");
+  } finally { globalThis.fetch = orig }
+});
+
+test("a refused or empty debrief is not stored, so it costs nothing against the cap", async () => {
+  const { weeklyDebriefs } = await load();
+  const orig = globalThis.fetch;
+  try {
+    let env = await coachEnv();
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, stop_reason: "refusal", content: [] });
+    a.deepEqual(await weeklyDebriefs(env, MON), [{ user: "lifter@example.com", skipped: "refusal" }]);
+    globalThis.fetch = fakeAnthropic({ model: "m", usage: {}, stop_reason: "max_tokens", content: [{ type: "text", text: '{"answer":"' }] });
+    a.deepEqual(await weeklyDebriefs(env, MON), [{ user: "lifter@example.com", skipped: "empty answer" }]);
+    globalThis.fetch = fakeAnthropic({ error: { type: "overloaded_error" } }, 529);
+    a.deepEqual(await weeklyDebriefs(env, MON), [{ user: "lifter@example.com", skipped: "upstream" }]);
+    a.equal(env.DB.debriefs.length, 0);
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach route hands back this week's debrief, counts it, and can mark it read", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const now = Date.now();
+  env.DB.debriefs.push({ user: "lifter@example.com", week: "2026-09-07", created_at: now - 40 * 86400000, answer: "old", suggestions: "[]", cites: "[]", seen: 0 });
+  env.DB.debriefs.push({ user: "lifter@example.com", week: "2026-10-12", created_at: now, answer: "new", suggestions: "[]", cites: '[{"doc":"tb3","ref":"p1"}]', seen: 0 });
+  env.DB.debriefs.push({ user: "someone@else.com", week: "2026-10-19", created_at: now, answer: "theirs", suggestions: "[]", cites: "[]", seen: 0 });
+  let body = await (await call2(env, "coach", {}, tok)).json();
+  a.equal(body.debrief.answer, "new", "the latest of their own");
+  a.equal(body.debrief.seen, false);
+  a.deepEqual(body.debrief.cites, [{ doc: "tb3", ref: "p1" }]);
+  a.equal(body.used, 1, "this month's debrief counts as a call");
+
+  const res = await call2(env, "coach/debrief/seen", { method: "POST", body: JSON.stringify({ week: "2026-10-12" }) }, tok);
+  a.equal(res.status, 200);
+  body = await (await call2(env, "coach", {}, tok)).json();
+  a.equal(body.debrief.seen, true);
+  a.equal(env.DB.debriefs[2].seen, 0, "only their own row");
+
+  env.DB.debriefs[1].created_at = now - 9 * 86400000;
+  body = await (await call2(env, "coach", {}, tok)).json();
+  a.equal(body.debrief, null, "a debrief more than a week old is history, not news");
+});
+
+test("the debrief has its own cron, and the Worker routes it", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const root = path.join(__dirname, "..");
+  a.match(fs.readFileSync(path.join(root, "wrangler.toml"), "utf8"), /crons = \[[^\]]*"0 9 \* \* MON"/);
+  a.match(fs.readFileSync(path.join(root, "src/api.js"), "utf8"), /DEBRIEF_CRON = "0 9 \* \* MON"/);
+  a.match(fs.readFileSync(path.join(root, "src/worker.js"), "utf8"), /event\.cron === DEBRIEF_CRON \? weeklyDebriefs\(env\) : backupEveryone\(env\)/);
+  a.ok(fs.existsSync(path.join(root, "migrations/0011_coach_debrief.sql")));
 });

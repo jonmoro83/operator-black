@@ -675,6 +675,9 @@ function vSetup(){
     <p class="note" style="margin:0 0 4px">The most useful thing here. Say where the bar slows and the coach can suggest accessories for that part of the lift, from the ones the app already offers.</p>
     <div class="grid2">${activeLifts().map(k=>`<label class="f">${esc(liftName(k))}<input type="text" id="p-stick-${esc(k)}" data-pbind="programGoals.sticking.${esc(k)}" value="${esc(st[k]||'')}" placeholder="e.g. stalls just off the chest"></label>`).join('')}</div>
     <label class="f">Anything else worth knowing<textarea id="p-goal-notes" data-pbind="programGoals.notes" rows="3" placeholder="Injuries, kit you do not have, days you can never train, a sport you play.">${esc(g.notes||'')}</textarea></label>
+ 
+    <label class="check"><input type="checkbox" id="p-debrief" data-pbind="coachDebrief" ${plan.coachDebrief!==false?'checked':''}> A weekly debrief from the coach on Monday mornings</label>
+    <p class="note" style="margin:0">A short review of the week just finished, from your log and the books. It counts as one of the month's coach questions, and is skipped in a week with nothing logged.</p>
     </div>`;
   }
   h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="note" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>

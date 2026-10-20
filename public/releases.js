@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.36',date:'2026-10-20',title:'A weekly debrief from the coach',items:[
+    'Every Monday morning the coach reads back over the week you just finished and writes a short review: how it went, what is going well, what to watch, and the one thing worth changing this week. If nothing needs to change it says so.',
+    "It's waiting on Today when you open the app. Tap Got it and it goes, but it stays at the top of the Coach tab for the week if you want to read it again or talk it over.",
+    "It counts as one of your coach questions for the month, and it's skipped in a week with nothing logged. You can switch it off in Setup under Goals. The first one arrives on the 26th."]},
   {v:'3.35',date:'2026-10-20',title:'Six months: then and now',items:[
     'TB2 says to compare yourself with yourself every six months and not before. When you reach that point, Status will show your first four weeks against your last four: your maxes where they have been retested, bodyweight, body fat, your benchmark session, conditioning, readiness and how consistent you were.',
     'It stays out of sight until then, on purpose. Yours is due at the end of March. After its four weeks on Status it moves to the top of History.']},

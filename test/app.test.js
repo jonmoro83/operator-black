@@ -8416,3 +8416,53 @@ test("after the four weeks it leaves Status for History, where it stays", () => 
   a.ok(h.indexOf("Six months: then and now") >= 0 && h.indexOf("Six months: then and now") < h.indexOf("Cycle reports"),
     "but kept at the top of History");
 });
+
+test("the Monday debrief waits on Today until it has been read, and stays in Coach after", async () => {
+  const x = app({ now: "2026-10-19" });
+  const seen = [];
+  global.fetch = (url, init) => {
+    if (String(url).startsWith("/api/coach")) seen.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : null });
+    const body = init.method === "POST" ? { ok: true }
+      : { turns: [], thread: null, used: 1, cap: 300, configured: true,
+          debrief: { week: "2026-10-12", created_at: 1, answer: "A solid week.\n\n- Squat moved fast", seen: false,
+            suggestions: [{ title: "Sleep an hour more", detail: "Three nights under six." }], cites: [{ doc: "tb3", ref: "p12" }] } };
+    return Promise.resolve({ ok: true, status: 200, type: "basic", json: async () => body });
+  };
+  try {
+    x.view = "today"; x.loaded = true; x.render();
+    await new Promise((r) => setImmediate(r));
+    const main = () => x.dom.made.main.innerHTML;
+    a.equal(seen.filter((c) => c.method === "GET").length, 1, "Today fetches it from the coach route");
+    a.match(main(), /Coach's debrief/);
+    a.match(main(), /A solid week/);
+    a.match(main(), /Sleep an hour more/, "suggestions come with it");
+    a.match(main(), /TB III p12/, "and where it read from");
+    a.match(main(), /data-act="debriefseen"/);
+
+    a.equal(x.debriefSeen(), true);
+    a.doesNotMatch(main(), /Coach's debrief/, "read, it leaves Today");
+    const post = seen.find((c) => c.method === "POST");
+    a.equal(post.url, "/api/coach/debrief/seen");
+    a.deepEqual(post.body, { week: "2026-10-12" }, "the server is told which week");
+    a.equal(x.debriefSeen(), false, "a second tap sends nothing");
+
+    x.view = "coach"; x.render();
+    a.match(main(), /A solid week/, "but it is still at the top of Coach");
+    a.doesNotMatch(main(), /data-act="debriefseen"/, "without the dismiss button");
+
+    x.view = "today"; x.coach.debrief.seen = false; x.render();
+    a.match(main(), /Coach's debrief/, "unread, it is back on today");
+    x.sel = "2026-10-18"; x.render();
+    a.doesNotMatch(main(), /Coach's debrief/, "but never on another day");
+  } finally { global.fetch = () => new Promise(() => {}) }
+});
+
+test("the debrief can be switched off in Setup, and says what it costs", () => {
+  const x = app({ now: "2026-10-19" });
+  x.view = "setup"; x.loaded = true; x.render();
+  const h = x.dom.made.main.innerHTML;
+  a.match(h, /id="p-debrief" data-pbind="coachDebrief" checked/, "on unless switched off");
+  a.match(h, /counts as one of the month's coach questions/);
+  x.plan.coachDebrief = false; x.render();
+  a.match(x.dom.made.main.innerHTML, /id="p-debrief" data-pbind="coachDebrief" >/);
+});

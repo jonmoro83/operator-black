@@ -10,7 +10,7 @@ const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete'};
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
   api('GET','/coach').then(r=>{ coach.turns=r.turns||[]; coach.thread=r.thread||null;
-    coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; render() })
+    coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; coach.debrief=r.debrief||null; render() })
     .catch(()=>{ coach.turns=[]; render() });
 }
 function coachAsk(){
@@ -30,6 +30,28 @@ function coachAsk(){
       coach.turns=(coach.turns||[]).filter(t=>!t.pending); coach.q=q; render() });
   return true;
 }
+/* The Monday debrief. Written by the server's cron, not asked for, so it lands on
+   Today until it has been read -- and stays at the top of Coach for the week either
+   way, because "I dismissed it" should not mean "I can never find it again". */
+function debriefSeen(){
+  const d=coach.debrief; if(!d||d.seen) return false;
+  d.seen=true; render();
+  api('POST','/coach/debrief/seen',{week:d.week}).catch(()=>{});
+  return true;
+}
+function debriefHtml(d,today){
+  return `<div class="card coach-t"><div class="lift-h"><h3>Coach's debrief</h3><span class="small muted">Week of ${esc(fmtLong(d.week))}</span></div>
+  <div class="coach-a">${mdLite(d.answer)}</div>
+  ${(d.suggestions||[]).map(s=>`<div class="acc-slot"><div style="font-weight:650">${esc(s.title||'')}</div><div class="small muted">${esc(s.detail||'')}</div></div>`).join('')}
+  ${citeLine(d.cites)}
+  ${today?`<div class="row" style="gap:10px;align-items:center;margin-top:8px"><button class="btn sm" data-act="debriefseen">Got it</button><button class="btn sm ghost" data-act="view" data-view="coach">Talk it over</button></div>`:''}</div>`;
+}
+function debriefCard(){
+  if(viewing||sel!==todayStr()) return '';
+  coachLoad();
+  const d=coach.debrief;
+  return d&&!d.seen?debriefHtml(d,true):'';
+}
 function coachNew(){ coach.thread=null; coach.turns=[]; coach.last=null; coach.err=null; render(); return true }
 
 // A citation is only worth printing if it can be found again, so it carries the book
@@ -48,6 +70,7 @@ function vCoach(){
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`</div>`;
 
+  if(coach.debrief) h+=debriefHtml(coach.debrief,false);
   if(turns===null) h+=`<div class="card"><p class="small muted" style="margin:0">Loading…</p></div>`;
   else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
 

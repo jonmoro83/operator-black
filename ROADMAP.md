@@ -25,6 +25,9 @@ Genuinely open: things that still need doing or confirming.
 - **Does the coach give good advice?** The agreed gate for letting it apply changes
   rather than only suggest them. **2026-10-20: "OK so far, still evaluating."** It
   needs a few more weeks of reading what it said against what happened.
+- **The first weekly debrief lands Monday 2026-10-26** (the week of 10-19). Worth reading
+  against the week as you remember it: does it notice what mattered, and is it short
+  enough to read on a Monday? The prompt is `DEBRIEF_ASK` in `src/api.js`.
 - **TB1's text still has ~139 run-together words** ("onlyapplies", "strengthmay") from
   the extractor dropping spaces at line wraps. 3.18 repaired every escape and the joins
   after punctuation and digits; these need a vocabulary to split, and a vocabulary gets
@@ -187,6 +190,24 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**The weekly debrief (2026-10-20)**
+- A short review of the week just finished, written by the coach on Monday at 09:00 UTC
+  from the log and the books, and waiting on Today when you open the app. It leaves
+  Today when you tap Got it and stays at the top of Coach for the week, with its
+  suggestions and the pages it read from.
+- Same coach, model and state block as a question, with its own brief: one line on the
+  week, what is going well and what to watch with the numbers, then the one thing to do
+  differently — or that nothing needs to. **No web search**: a review of your own log is
+  what the books and the log cover. Told plainly it has the log, not the schedule, so it
+  does not claim a missed session it cannot see.
+- **It counts as one of the month's 300 calls.** Skipped for a week with nothing logged,
+  for anyone past the cap, and for anyone who switches it off (Setup → Goals). A refused
+  or empty answer is not stored, so it costs nothing.
+- One row per person per week (`coach_debrief`, migration 0011), checked before the model
+  is called, so a cron that fires twice pays once. Its own cron (`0 9 * * MON`) beside
+  Sunday's backup, so the week it reviews is complete.
+- Seven tests, fifteen mutants, all caught.
 
 **Six months: then and now (2026-10-20)**
 - TB2: *"Compare yourself with yourself no earlier than every six months. Make no
