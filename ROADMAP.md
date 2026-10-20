@@ -115,11 +115,7 @@ within each group, roughly in order of how useful they'd be.
 
 ### Technical
 
-- **Tests for the Worker — only push is left.** `test/api.test.js` covers backups, the
-  Access JWT check, restore, the document routes and the calendar endpoints, with
-  hand-written stand-ins for D1, R2 and KV: no Miniflare, no `wrangler dev`, still a plain
-  `node --test` run. Push (`src/webpush.js` and the Durable Object) is the remainder, and
-  it is the least dangerous of them: a failed alert is a missed buzz, not lost data.
+- Nothing open here. The Worker is tested end to end, push included (3.30).
 
 ### Training and UX
 
@@ -196,6 +192,27 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Push has tests, and the crypto is checked against the RFC (2026-10-20)**
+- The last part of the Worker without tests, and the part that fails silently: if the
+  encryption or the VAPID signature is wrong, the push service rejects every alert and
+  the app says nothing — the rest just ends quietly on a locked phone.
+- **The decryptor in the test is written from RFC 8291, not from `webpush.js`, and is
+  first made to reproduce the RFC's own worked example value for value** — the ECDH
+  secret, both PRKs, the IKM, the CEK, the nonce and the plaintext ("When I grow up, I
+  want to be a watermelon"). Only then is it used to read what `webpush.js` produces.
+  A round trip against a decryptor written from the same understanding would only
+  prove the two agree with each other.
+- Checked: a fresh salt and sender key per message; the wrong browser's keys fail
+  authentication; the VAPID token verifies with ES256 against the server's key, its
+  audience is the push service's origin rather than the endpoint, and it expires inside
+  RFC 8292's 24 hours; TTL, Urgency and Topic go out as intended.
+- **The Durable Object**, loaded with its `cloudflare:workers` import stubbed the way the
+  app harness evals the app: subscriptions must be https with both keys; a schedule
+  replaces the queue, sorted, and refuses anything stale, more than two hours out or
+  over eighty whole; the alarm sends only the newest due alert, decrypted correctly on
+  every device, then re-arms for the rest; 404 and 410 drop a device, a 503 does not.
+- Twelve tests, eighteen mutants, all caught.
 
 **The retest planner (2026-10-20)**
 - Retest week already split its tests, but by hand: Thursday was hardcoded to squat and
