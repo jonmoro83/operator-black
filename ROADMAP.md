@@ -90,7 +90,13 @@ Closed. Here because the reasoning is worth keeping, not because anything is pen
 
 ## Next up
 
-- **TB book coverage is done**, Ageless Athlete included. Twelve templates against five
+- **TB III's OMS Protocol is not built**, found 2026-10-20 while looking for new ideas.
+  The book calls it "the standard perpetual TB model for strength and hypertrophy":
+  Operator, then Mass, then Specificity, repeated, ratios adjustable; or just Operator
+  and Mass in rotation, with Specificity added as needed. Base Building once or twice a
+  year before it, the same core lifts throughout, an occasional bridge or deload. The
+  app runs one template per program, so it cannot rotate blocks on its own today.
+- **TB book coverage is otherwise done**, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
   conditioning sessions. The only book content left out is AA's Base Building, declined
@@ -119,13 +125,13 @@ within each group, roughly in order of how useful they'd be.
 
 ### Training and UX
 
-- **Shorten Today on a lifting day.** Check-in, week summary, weekly check-in, PR card,
-  then the session. Once a session is under way the cards above it are noise — collapse
-  them, or jump straight to the first lift.
-- **Share with a partner or coach:** opt-in, read-only progress view.
-- **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
+- Nothing open here. New ideas are being picked from, 2026-10-20.
 
 ## Parked
+
+- **Declined 2026-10-20, not to be re-proposed:** shortening Today on a lifting day
+  (collapsing the cards above the first lift), half-minute rest options (2:30, 3:30),
+  and a read-only progress view to share with a partner or coach.
 
 Decided against for now.
 
