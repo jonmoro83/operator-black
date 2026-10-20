@@ -60,7 +60,7 @@ function heavySet(k){
     const v=rx(wk,k); if(!v.m||v.p<85) continue;
     const used=x.used!=null&&x.used!==''?+x.used:loadFor(k,v.m.v,v.p,d);
     const e=estMax(k,used,v.r,d); if(e==null) continue;
-    if(!best||e>best.e) best={e,w:used,r:v.r,p:v.p,d,max:v.m.v,grinder:!!x.grinder,off:x.used!=null&&x.used!==''};
+    if(!best||e>best.e) best={e,w:used,r:v.r,p:v.p,d,max:v.m.v,grinder:ground(x),off:x.used!=null&&x.used!==''};
   }
   return best;
 }
@@ -337,7 +337,7 @@ function watchLine(t){
     if(drop>=READY_DROP) out.push({r:2,v:'Readiness falling',
       w:`Down ${drop} points on the week before. The book's answer to that is the rest day, not a harder session: rest periodically, and do not ignore it.`});
   }
-  let gr=0; for(let i=VERDICT_WIN;i>=0;i--){const L=lg(addDays(t,-i));for(const x of Object.values(L.lifts||{})) if(x&&x.grinder) gr++}
+  let gr=0; for(let i=VERDICT_WIN;i>=0;i--){const L=lg(addDays(t,-i));for(const x of Object.values(L.lifts||{})) gr+=groundSets(x)}
   if(gr>=3) out.push({r:1,v:'Sets are grinding',
     w:`${gr} grinder sets in four weeks. That is what the end-of-cycle review reads when it decides whether a max goes up, and it usually means the max is already where it should be.`});
   if(!out.length) return {cls:'ok',v:'Nothing flagged',w:'No pain logged in four weeks, readiness holding, nothing grinding.'};

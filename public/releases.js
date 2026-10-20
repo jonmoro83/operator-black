@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.28',date:'2026-10-20',title:'Rate each set: fast, solid or ground',items:[
+    'Every working set can now be rated Fast, Solid or Ground. In session mode the rating is the Done button, so it costs no extra tap: tap how the set moved and it logs and moves on. Plain Done still works if you would rather not say.',
+    'On the day\u2019s card the set you just ticked gets the same three buttons, and each rated set shows how it went.',
+    'A set rated Ground counts as a grinder everywhere the old checkbox did, including the end-of-cycle review. And the review now looks at your heavy-week sets one by one: if most of them moved fast, it says the max has room for a bigger jump.',
+    'No RPE numbers, because none of the books use them. The words are theirs.']},
   {v:'3.27',date:'2026-10-20',title:'Carries last, core just before',items:[
     'Carries always come last now, and core work comes last otherwise. On a day with both, the order is everything else, then core, then carries, so your grip is fresh for any hanging core work.',
     'Dead hangs and plate pinches count as carries here, since they tire your grip the same way. A superset with a carry in it moves to the end as a pair.']},

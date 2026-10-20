@@ -7877,3 +7877,134 @@ test("grip work in the carry slot counts as a carry", () => {
   a.deepEqual(accOrder(x, mon), ["biceps", "core", "carry"]);
   a.match(x.ASLOT.carry.why, /^.*Last, because a fried grip/, "and the slot says so");
 });
+
+// --- per-set effort --------------------------------------------------------------------
+function liftDay(x) {
+  const wk = x.weeks().find((w) => w.kind === "cycle");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i)).find((dt) => x.dayPlan(dt).t === "lift");
+  return { wk, d, k: x.dayPlan(d).lifts[0] };
+}
+
+test("each working set can be rated fast, solid or ground, and a second tap clears it", () => {
+  const x = accDay("2026-09-07"), { d, k } = liftDay(x);
+  a.deepEqual(x.EFFORT.map(([v]) => v), ["fast", "solid", "ground"], "the books' word for the bad one");
+  x.setEffort(d, k, 1, "ground");
+  a.deepEqual(x.lg(d).lifts[k].eff, [null, "ground"], "set two rated, set one left unrated");
+  a.equal(x.setEff(x.lg(d).lifts[k], 1), "ground");
+  x.setEffort(d, k, 1, "ground");
+  a.equal(x.setEff(x.lg(d).lifts[k], 1), null, "tapping the same one again undoes it");
+  a.equal(x.setEffort(d, k, 0, "easy"), false, "nothing off the scale is stored");
+});
+
+test("a set rated ground counts wherever a grinder used to", () => {
+  const x = accDay("2026-09-07");
+  a.equal(x.ground({ grinder: true }), true, "the old whole-lift checkbox still counts");
+  a.equal(x.ground({ eff: ["fast", "ground"] }), true, "and so does any set rated ground");
+  a.equal(x.ground({ eff: ["fast", "solid"] }), false);
+  a.equal(x.groundSets({ eff: ["ground", null, "ground"] }), 2, "counted per set where rated");
+  a.equal(x.groundSets({ grinder: true }), 1, "and once for an old checkbox day");
+});
+
+test("in session mode, rating a set is the Done tap", () => {
+  const x = accDay("2026-09-07"), mon = "2026-09-07";
+  x.ls = { date: mon, i: 0, warm: false };
+  const steps = x.lsSteps(mon), i = steps.findIndex((s) => s.type === "work");
+  x.ls.i = i;
+  const st = steps[i];
+  a.equal(x.lsStepDone(st), false);
+  x.lsAct("eff", { dataset: { v: "fast" } });
+  a.equal(x.lsStepDone(st), true, "the set is logged");
+  a.equal(x.setEff(x.lg(mon).lifts[st.k], st.j), "fast", "and rated");
+  a.equal(x.ls.i, i + 1, "and the session moves on, as Done does");
+  // Going back and re-rating changes the rating without skipping ahead.
+  x.ls.i = i;
+  x.lsAct("eff", { dataset: { v: "ground" } });
+  a.equal(x.setEff(x.lg(mon).lifts[st.k], st.j), "ground");
+  a.equal(x.ls.i, i, "a set already done is only re-rated");
+  x.ls = null;
+});
+
+test("the day card rates the set just ticked, and shows each set's rating", () => {
+  const x = accDay("2026-09-07"), { wk, d, k } = liftDay(x);
+  x.sel = d;
+  x.setLog(d, "lifts." + k + ".sets", [true, true]);
+  x.setEffort(d, k, 0, "solid");
+  const html = x.sessionHtml(wk, x.dayPlan(d));
+  a.match(html, /Set 2 moved/, "the latest ticked set is the one offered");
+  a.match(html, new RegExp(`data-act="eff" data-lift="${k}" data-i="1"`));
+  a.match(html, /Set 1 · solid/, "a rated set says how it went");
+  a.ok(!/Whole lift marked a grinder/.test(html), "the old checkbox is gone on a day that never used it");
+  x.setLog(d, "lifts." + k + ".grinder", true);
+  a.match(x.sessionHtml(wk, x.dayPlan(d)), /Whole lift marked a grinder/, "but stays where it can still be cleared");
+});
+
+test("the review reads heavy-week sets that moved fast as room for a bigger jump", () => {
+  const x = accDay("2026-09-07");
+  const S = (o) => Object.assign({ n: 4, grind: 0, heavyGrind: 0, lightGrind: 0, missed: 0, rpe: [], sharp: 0, niggle: 0, where: {},
+    heavyRated: 0, heavyFast: 0, groundSets: 0 }, o);
+  a.equal(x.recommend(S({ heavyRated: 6, heavyFast: 5 }), 70)[0], "bigger", "five of six heavy sets fast");
+  a.match(x.recommend(S({ heavyRated: 6, heavyFast: 5 }), 70)[1], /5 of 6 heavy sets fast/, "and it says so");
+  a.equal(x.recommend(S({ heavyRated: 6, heavyFast: 3 }), 70)[0], "standard", "half fast is just on track");
+  // The per-set evidence outranks a session RPE that says otherwise.
+  a.equal(x.recommend(S({ heavyRated: 6, heavyFast: 2, rpe: [6, 6] }), 70)[0], "standard",
+    "an easy-feeling session with slow heavy sets is not room to jump");
+  // Too few ratings to judge: the session RPE decides, as before.
+  a.equal(x.recommend(S({ heavyRated: 2, heavyFast: 2, rpe: [6, 7] }), 70)[0], "bigger");
+  // And grinding still holds the max, whichever way it was recorded.
+  a.equal(x.recommend(S({ heavyRated: 6, heavyFast: 5, grind: 1, heavyGrind: 1 }), 70)[0], "hold");
+  a.equal(x.recommend(S({ heavyRated: 6, heavyFast: 6 }), 40)[0], "standard", "not with readiness this low");
+});
+
+test("cycleStats counts rated heavy sets, and a ground set as a grinder", () => {
+  const x = accDay("2026-09-07");
+  const heavy = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1 && x.tier(+x.wkRx(w).p) === "heavy");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(heavy.monday, i)).find((dt) => x.dayPlan(dt).t === "lift");
+  const k = x.dayPlan(d).lifts[0];
+  x.seed({ [d]: { date: d, done: true, lifts: { [k]: { sets: [true, true, true], eff: ["fast", "fast", "ground"] } } } });
+  x.bump();
+  const S = x.cycleStats(1).stats[k];
+  a.equal(S.heavyRated, 3);
+  a.equal(S.heavyFast, 2);
+  a.equal(S.groundSets, 1);
+  a.equal(S.grind, 1, "one ground set makes the session a grinder");
+  a.equal(S.heavyGrind, 1);
+});
+
+test("the export carries each set's rating, and every row still lines up", () => {
+  const x = accDay("2026-09-07"), { d, k } = liftDay(x);
+  x.setLog(d, "lifts." + k + ".sets", [true, true, true]);
+  x.setEffort(d, k, 0, "fast"); x.setEffort(d, k, 2, "ground");
+  // Simple rows here: no quoted commas in this data.
+  const rows = x.liftsCsv().replace(/^\uFEFF/, "").trim().split("\r\n").map((r) => r.split(","));
+  const head = rows[0], col = head.indexOf("set_effort");
+  a.ok(col > 0, "a set_effort column");
+  for (const r of rows) a.equal(r.length, head.length, "every row has every column: " + r.slice(0, 7).join("|"));
+  const mine = rows.find((r) => r[0] === d && r[6] === "working");
+  a.equal(mine[col], "fast - ground", "set by set, with the unrated one marked");
+  a.equal(mine[head.indexOf("grinder")], "yes", "and a ground set marks the lift a grinder");
+});
+
+test("only heavy weeks count as heavy-week evidence", () => {
+  const x = accDay("2026-09-07");
+  const light = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1 && x.tier(+x.wkRx(w).p) === "light");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(light.monday, i)).find((dt) => x.dayPlan(dt).t === "lift");
+  const k = x.dayPlan(d).lifts[0];
+  x.seed({ [d]: { date: d, done: true, lifts: { [k]: { sets: [true, true, true], eff: ["fast", "fast", "fast"] } } } });
+  x.bump();
+  const S = x.cycleStats(1).stats[k];
+  a.equal(S.heavyRated, 0, "fast sets at 70% say nothing about whether 95% has room");
+  a.equal(S.heavyFast, 0);
+});
+
+test("Status counts rated ground sets toward 'sets are grinding'", () => {
+  const now = "2026-11-11";
+  const x = app({ now }); x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.bump();
+  const d = [1, 2, 3, 4, 5, 6, 7].map((i) => x.addDays(now, -i)).find((dt) => x.dayPlan(dt).t === "lift");
+  const k = x.dayPlan(d).lifts[0];
+  // One session, three sets that ground, and no whole-lift checkbox anywhere.
+  x.seed({ [d]: { date: d, done: true, lifts: { [k]: { sets: [true, true, true], eff: ["ground", "ground", "ground"] } } } });
+  x.bump();
+  const w = x.watchLine(now);
+  a.equal(w.v, "Sets are grinding", "three ground sets is three grinders");
+  a.match(w.w, /3 grinder sets/);
+});

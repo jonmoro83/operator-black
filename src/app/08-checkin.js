@@ -435,7 +435,7 @@ function plyoPullback(date){
   if(c.soreness>=4) out.push('you logged high soreness today');
   let short=0;for(let i=0;i<3;i++){const x=ci(addDays(date,-i));if(x.sleepH!=null&&x.sleepH!==''&&+x.sleepH<6.5)short++}
   if(short>=2) out.push('sleep has been short for several nights');
-  const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>x&&x.grinder)) out.push('yesterday’s lifting was hard');
+  const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>ground(x))) out.push('yesterday’s lifting was hard');
   return out;
 }
 // The jump-prep drills. Shared by the Thursday plyo session and the jump-test days,

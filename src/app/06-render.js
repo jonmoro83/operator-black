@@ -90,7 +90,7 @@ function hardSessions(){
   const t=todayStr(), from=addDays(t,-13); let c=0;
   for(const [d,L] of Object.entries(logs)){
     if(d<from||d>t||!L.lifts) continue;
-    const g=Object.values(L.lifts).some(x=>x&&x.grinder);
+    const g=Object.values(L.lifts).some(x=>ground(x));
     const miss=L.done&&Object.values(L.lifts).some(x=>x&&Array.isArray(x.sets)&&x.sets.length&&x.sets.slice(0,2).some(v=>!v));
     if((+L.rpe>=9)||g||miss) c++;
   }

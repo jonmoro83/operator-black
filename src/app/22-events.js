@@ -120,6 +120,7 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
     openWarm.add(k); setLog(sel,'lifts.'+k+'.warmup',W); render(); return}
+  if(a==='eff'){ setEffort(sel,b.dataset.lift,+b.dataset.i,b.dataset.v); render(); return }
   if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];
     offerUndo((arr[i]?'Set unticked':'Set ticked')+' · '+liftName(k),snapLog(sel));
     arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);

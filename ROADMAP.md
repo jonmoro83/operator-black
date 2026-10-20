@@ -23,8 +23,15 @@ Genuinely open: things that still need doing or confirming.
   rest beep comes on time, and that it is clearly louder. If anything is still off,
   Setup → Sound → Timer log has the answer — copy it straight after.
 - **Does the coach give good advice?** The agreed gate for letting it apply changes
-  rather than only suggest them. It cannot be settled from here — it needs a few weeks
-  of reading what it said against what happened.
+  rather than only suggest them. **2026-10-20: "OK so far, still evaluating."** It
+  needs a few more weeks of reading what it said against what happened.
+- **TB1's text still has ~139 run-together words** ("onlyapplies", "strengthmay") from
+  the extractor dropping spaces at line wraps. 3.18 repaired every escape and the joins
+  after punctuation and digits; these need a vocabulary to split, and a vocabulary gets
+  "counterproductive" wrong as readily as it gets "strengthmay" right. They make TB1 a
+  little harder for the coach to retrieve, since FTS cannot match "field" inside
+  "thefield". The source PDF is no longer on disk, so a clean re-extract is not an
+  option either.
 - **Conditioning "last/best" across programs** only counts sessions whose format and
   activity are stored. Programs archived by the app stamp them automatically, so this
   only bites on hand-edited history.
@@ -134,7 +141,6 @@ within each group, roughly in order of how useful they'd be.
   them, or jump straight to the first lift.
 - **Share with a partner or coach:** opt-in, read-only progress view.
 - **Half-minute rest options** (2:30, 3:30) in the per-lift rest picker.
-- **Per-set effort:** RPE or "fast/slow" per working set, feeding the cycle review.
 - **Retest planner:** split retest lifts across days automatically (two per day), like
   the bridge week does.
 
@@ -181,8 +187,6 @@ Decided against for now.
   - **Not worth considering:** a native rewrite. 7,376 lines of scheduling engine and
     284 tests, discarded, and the only things it buys over a wrapper are Apple Watch,
     HealthKit and background execution.
-- **AI coach (Claude API):** weekly summary and Q&A over the training log. Not feasible
-  right now because of API cost. Revisit if that changes.
 
 ## Shipped
 
@@ -194,6 +198,34 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   Workers Builds connection has never triggered (last checked 2026-09-29).
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
+
+**Per-set effort, in the books' words (2026-10-20)**
+- Every working set can be rated **Fast, Solid or Ground**. Built now because cycle 1
+  ends 2026-11-15, and the review at the end of it is the thing this feeds.
+- **No RPE.** None of the four books uses RPE or reps-in-reserve, so the scale uses
+  their words instead: TB1's Golden Rule (every rep completed, no failure, and "if you
+  feel relatively fresh after your strength session, you are doing it RIGHT") and
+  Ageless Athlete's warning that grinding on day one makes day two worse. Ground is the
+  books' word; the three-point scale is ours.
+- **In session mode the rating is the Done tap**: Fast, Solid or Ground logs the set and
+  moves on, so rating costs nothing. Done alone still works. Re-rating a set already
+  logged only changes the rating. On the day card, the set just ticked gets the rating
+  row, and each rated set button says how it went.
+- **`ground()` is the one answer to "did it grind"** — the old whole-lift checkbox, or
+  any set rated ground — read by the review, the "max is too high" banner, Status,
+  aims, the check-in's next-day suggestion, the finish card and the export. Old logs
+  keep counting. The checkbox only shows on a day that already used it, so it can be
+  cleared.
+- **The review gets real heavy-week evidence.** With four or more rated heavy sets,
+  three in four fast means room for the bigger jump; fewer fast is on track. That
+  outranks the session RPE, which was one number for the whole session and is now the
+  fallback when there are too few ratings. Light-week sets count as nothing here: fast
+  at 70% says nothing about whether 95% has room. Thresholds are ours.
+- The coach sees each set's rating ("3 (fast, solid, ground)") and the export has a
+  `set_effort` column, with the test rows padded so every row still lines up.
+- Housekeeping: the Parked "AI coach not feasible" entry is gone (it is built), and
+  TB1's remaining word joins are tracked as an open issue.
+- Nine tests, thirteen mutants, all caught.
 
 **Carries last, core just before them (2026-10-20)**
 - Corrected the same day: heavy carries always go last; core work goes last otherwise.

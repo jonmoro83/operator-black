@@ -637,7 +637,12 @@ async function coachState(env, user) {
   const recent = days.map((d) => {
     const L = logs[d], c = L.checkin || {}, out = { d };
     if (L.lifts) out.lifts = Object.fromEntries(Object.entries(L.lifts)
-      .map(([k, v]) => [k, (v.sets || []).filter(Boolean).length + (v.grinder ? " (grinder)" : "")]));
+      // Sets done, then how each one moved where it was rated: "3 (fast, solid, ground)".
+      .map(([k, v]) => {
+        const eff = (Array.isArray(v.eff) ? v.eff : []).filter(Boolean);
+        const g = v.grinder || eff.includes("ground");
+        return [k, (v.sets || []).filter(Boolean).length + (eff.length ? ` (${eff.join(", ")})` : g ? " (grinder)" : "")];
+      }));
     if (L.hic) out.cond = { fmt: L.hic.format, mod: L.hic.mod, min: num(L.hic.min), bouts: num(L.hic.rounds) };
     const ate = kcalFor(d), g = gramsFor(d);
     const ck = {

@@ -1749,3 +1749,23 @@ test("a coach state with no supplements ticked does not mention them", async () 
     a.equal(state.supplements, null, "nothing invented for someone who takes none");
   } finally { globalThis.fetch = orig }
 });
+
+test("the coach sees how each set moved, not only how many were done", async () => {
+  const k = await setupKeys();
+  const env = dbEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  env.DB.seedLib({ id: "tb3", title: "TB III", short: "TB III", updated_at: 1 }, LIB);
+  env.DB.docs.push({ user: "lifter@example.com", path: "plan/main", data: JSON.stringify({ unit: "lb" }), updated_at: 1 });
+  env.DB.docs.push({ user: "lifter@example.com", path: "logs/2026-10-14",
+    data: JSON.stringify({ done: true, lifts: { squat: { sets: [true, true, true], eff: ["fast", "solid", "ground"] },
+      bench: { sets: [true, true, true], grinder: true } } }), updated_at: 1 });
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how was my squat" }) }, tok);
+    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const day = state.recentDays.find((x) => x.d === "2026-10-14");
+    a.equal(day.lifts.squat, "3 (fast, solid, ground)", "set by set");
+    a.equal(day.lifts.bench, "3 (grinder)", "and an old whole-lift grinder still reads as one");
+  } finally { globalThis.fetch = orig }
+});

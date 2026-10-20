@@ -414,6 +414,8 @@ details.wu>summary .chipw.on{background:var(--accent-bg);color:var(--accent)}
   border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:11.5px;line-height:1.5}
 /* An informational tag, not a control: it shares the pill's look but takes no tap. */
 #rest-wake{cursor:default}
+/* Session mode's per-set rating, between the weight controls and Done. */
+.ls-eff{display:flex;flex-direction:column;gap:6px;margin-top:4px}
 /* The movement library inside the full-screen guide: readable width, left aligned,
    and scrollable so a long entry cannot push the controls off a phone. */
 .gd-how{width:min(100%,460px);margin:0 auto;text-align:left;max-height:34vh;overflow-y:auto;

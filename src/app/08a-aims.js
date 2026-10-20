@@ -36,7 +36,7 @@ const AIMS_LIFT = [
   { id: 'technique', label: 'Keep technique tight — no ugly reps' },
   { id: 'rest', label: 'Take the full rest between sets' },
   { id: 'short', label: 'Stop short of failure', check(d) {
-      const lifts = Object.entries((lg(d).lifts) || {}).filter(([, v]) => v && v.grinder);
+      const lifts = Object.entries((lg(d).lifts) || {}).filter(([, v]) => ground(v));
       if (!lifts.length) return { ok: true, detail: 'Nothing logged as a grinder.' };
       return { ok: false, detail: lifts.map(([k]) => liftName(k, d)).join(', ') + ' ground.' };
     } },

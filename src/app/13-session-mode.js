@@ -119,7 +119,8 @@ function lsRender(){
       <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
       ${st.type==='warm'?`<div class="ls-row"><button class="btn sm" data-ls="ww-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="ww+">+${n(plan.round[k]||5)}</button></div>`:''}
-    ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>
+    ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button></div>
+      <div class="ls-eff"><div class="small muted">How did it move? Rating it logs the set.</div><div class="seg wide">${EFFORT.map(([v,t])=>`<button class="segb${setEff(L,st.j)===v?' on':''}" data-ls="eff" data-v="${v}" aria-pressed="${setEff(L,st.j)===v}">${t}</button>`).join('')}</div></div>
       ${st.j===st.n-1&&st.n<SETCAP(rx(wk,k,ls.date))?`<div class="ls-row"><button class="btn sm ghost" data-ls="addset">+ One more set</button></div>`:''}`:''}
     </div>`;
     h+=`<button class="btn primary ls-done" data-ls="done">${isDone?'Done ✓ · next':'Done'}</button>`;
@@ -167,7 +168,7 @@ function lsRender(){
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   } else {
     const L=lg(ls.date);
-    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
+    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${ground(x)?'<span class="chip mid">ground</span>':''}${effSummary(x)?` <span class="small muted">${esc(effSummary(x))}</span>`:''}</td></tr>`}).join('');
     h+=`<div class="ls-card"><div class="ls-lift">Session summary</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>
       <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
@@ -218,7 +219,15 @@ function lsAct(a,b){
   if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
   if(a==='rskip'){ stopRest(); return lsRender() }
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
-  if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
+  // A rating is a Done with something to say: it records how the set moved and then
+  // takes the same path, so rating costs no extra tap. Re-rating a set already done
+  // just changes the rating.
+  if(a==='eff'&&st&&st.type==='work'){
+    const was=lsStepDone(st);
+    setEffort(ls.date,st.k,st.j,b.dataset.v);
+    if(was) return lsRender();
+    a='done';
+  }
   if(a==='ww-'||a==='ww+'){ adjustWarm(ls.date,st.k,st.j,a==='ww+'?1:-1,st.w); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }

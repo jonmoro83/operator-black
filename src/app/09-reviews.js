@@ -3,6 +3,37 @@
 // (grinders, missed sets, effort on heavy weeks, readiness) and suggests next cycle's
 // max per lift. Nothing changes until you apply it.
 let reviewSel={};
+/* ---------- how each working set moved ----------
+Per set, so the review can see what a heavy week actually did rather than inferring it
+from one number for the whole session. None of the books uses RPE or reps-in-reserve,
+so this does not either; it uses their words. TB1's Golden Rule is to complete every
+rep and avoid failure, and to finish feeling fresh -- "If you feel relatively fresh
+after your strength session, you are doing it RIGHT." Ageless Athlete: "If you have to
+grind your way through your sets on day one, there is a good chance that things will be
+worse on Day 2." The three-point scale is ours. Ground is the books' word.
+
+  fast    moved quickly, plenty left -- the fresh session TB1 describes
+  solid   an honest working set, nothing to report
+  ground  it slowed and had to be fought up: a grinder, AA's warning sign
+
+`eff` sits beside `sets` on the lift, one entry per set index. */
+const EFFORT=[['fast','Fast'],['solid','Solid'],['ground','Ground']];
+function setEff(x,i){ const e=x&&Array.isArray(x.eff)?x.eff[i]:null; return EFFORT.some(([k])=>k===e)?e:null }
+// Did this lift grind? The old whole-lift checkbox, or any set rated ground. One answer,
+// read everywhere the checkbox used to be read, so old logs keep counting.
+function ground(x){ return !!(x&&(x.grinder||(Array.isArray(x.eff)&&x.eff.includes('ground')))) }
+// Tapping the rating a set already has clears it, so a slip of the thumb is undone in place.
+function setEffort(date,k,i,v){
+  if(!EFFORT.some(([e])=>e===v)) return false;
+  const x=(lg(date).lifts||{})[k]||{}, arr=Array.isArray(x.eff)?[...x.eff]:[];
+  arr[i]=arr[i]===v?null:v;
+  for(let j=0;j<arr.length;j++) if(arr[j]===undefined) arr[j]=null;
+  setLog(date,'lifts.'+k+'.eff',arr);
+  return true;
+}
+// "fast, solid, ground" for whatever was rated, in set order.
+function groundSets(x){ const n=Array.isArray(x&&x.eff)?x.eff.filter(e=>e==='ground').length:0; return Math.max(n,x&&x.grinder?1:0) }
+function effSummary(x){ return (Array.isArray(x&&x.eff)?x.eff:[]).filter(Boolean).join(', ') }
 function reviewCycleFor(date){
   const wk=weekOf(date); if(!wk) return null;
   let c=null;
@@ -24,10 +55,14 @@ function cycleStats(c){
       for(const k of dp.lifts){
         const x=(L.lifts||{})[k]; if(!x) continue;
         const sets=Array.isArray(x.sets)?x.sets:[], ticked=sets.filter(Boolean).length;
-        if(!ticked&&!x.grinder) continue;
+        if(!ticked&&!ground(x)) continue;
         const need=k==='dead'?1:+wkRx(wk).s;
-        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[],sharp:0,niggle:0,where:{}});
-        S.n++; if(x.grinder){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[],sharp:0,niggle:0,where:{},heavyRated:0,heavyFast:0,groundSets:0});
+        S.n++; if(ground(x)){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        // What each working set did, where it was rated.
+        for(let j=0;j<sets.length;j++){ const e=setEff(x,j); if(!e) continue;
+          if(e==='ground') S.groundSets++;
+          if(heavy){ S.heavyRated++; if(e==='fast') S.heavyFast++ } }
         // a complaint counts against the lifts its location plausibly belongs to
         if(L.pain==='sharp'||L.pain==='niggle'){
           const where=painAt(L), mine=where.length?where.filter(w=>((PAIN_AT[w]||{}).lifts||[]).includes(k)):[];
@@ -52,13 +87,23 @@ function recommend(S,rdAvg){
   if(!S) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
   const rpe=S.rpe.length?S.rpe.reduce((a,b)=>a+b,0)/S.rpe.length:null;
   const pain=[]; if(S.sharp) pain.push(`${S.sharp} with sharp pain${painWords(S)}`); if(S.niggle) pain.push(`${S.niggle} with a niggle`);
-  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).concat(pain).join(' · ');
+  const rated=S.heavyRated||0, fast=S.heavyFast||0;
+  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`]
+    .concat(rated?[`${fast} of ${rated} heavy sets fast`]:rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).concat(pain).join(' · ');
   // pain outranks everything else, including too few sessions to judge on
   if(S.sharp>=2) return ['reduce',bits+'. Sharp pain more than once on this lift: take the weight down and find out why before adding any.'];
   if(S.sharp>=1) return ['hold',bits+'. Sharp pain on this lift: hold the max rather than adding to it.'];
   if(S.n<3) return ['standard',(S.niggle?bits+'. ':'')+'Not enough logged sessions to judge, so the standard increase.'];
   if(S.missed>=3||S.lightGrind>=2) return ['reduce',bits+'. Grinding at moderate weights means the max is too high.'];
   if(S.missed>=1||S.heavyGrind>=1||S.grind>=2) return ['hold',bits+'. Repeat this max and own it.'];
+  // The bigger increase. Per-set ratings are the better evidence, so they decide when
+  // there are enough of them; the session's RPE is the fallback when there are not.
+  // Ours, not the book's: four rated heavy sets is the least worth judging on, and
+  // three in four fast is a heavy week that did not look heavy.
+  if(rated>=4){
+    if(fast/rated>=.75&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. The heavy sets moved fast \u2014 the max has room in it.'];
+    return ['standard',bits+'. On track.'];
+  }
   if(rpe!=null&&rpe<=7&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. Heavy weeks moved easily.'];
   return ['standard',bits+'. On track.'];
 }

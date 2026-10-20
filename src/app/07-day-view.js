@@ -184,7 +184,7 @@ function finishCard(date,dp){
     for(const k of (dp.lifts||[])){
       const x=(L.lifts||{})[k]||{}, t=((L.test||{})[k])||{};
       if(dp.t==='lift'&&wk){const r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;
-        bits.push(`${liftName(k,date)} ${dn}/${nS}${r.sMax>nS?'+':''}${x.grinder?' · grinder':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
+        bits.push(`${liftName(k,date)} ${dn}/${nS}${r.sMax>nS?'+':''}${ground(x)?' · ground':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
       else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
@@ -406,13 +406,17 @@ function liftCard(wk,k,dp){
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
   h+=`<div class="sets">`;
-  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}</small></button>`;
+  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}${setEff(L,i)?' \u00b7 '+setEff(L,i):''}</small></button>`;
   if(!viewing&&nSets<SETCAP(r)) h+=`<button class="setb add" data-act="addset" data-lift="${k}" aria-label="Add a set to ${esc(liftName(k))}">+<small>Set</small></button>`;
   const ex=+L.extra||0;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
   h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book calls 5\u201310 min normal at this load.</span>':''}</div>`;
-  h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
-  if(L.grinder&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
+  // How the most recent set moved, rated where it was just ticked. The whole-lift
+  // checkbox it replaces only shows on a day that already used it, so it can be cleared.
+  { let last=-1; for(let i=nSets-1;i>=0;i--) if(sets[i]){ last=i; break }
+    if(last>=0&&!viewing) h+=`<div class="restsel"><span>Set ${last+1} moved</span><div class="seg">${EFFORT.map(([v,t])=>`<button class="segb${setEff(L,last)===v?' on':''}" data-act="eff" data-lift="${k}" data-i="${last}" data-v="${v}" aria-pressed="${setEff(L,last)===v}">${t}</button>`).join('')}</div></div>`; }
+  h+=`<div class="row between">${L.grinder?`<label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" checked> Whole lift marked a grinder</label>`:'<span></span>'}<label class="f" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
+  if(ground(L)&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(ex>0&&!sets[nSets-1]&&!viewing) h+=`<div><button class="btn sm ghost" data-act="rmset" data-lift="${k}">− Remove the last set</button></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
   else if(r.sMax>r.s) h+=`<div class="small muted">${r.s} sets is the prescription. The dashed ones are optional — take them when you have it in you, leave them when you don’t. The two-minute rest still applies to every set you take.</div>`;

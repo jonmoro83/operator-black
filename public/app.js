@@ -3217,7 +3217,7 @@ function hardSessions(){
   const t=todayStr(), from=addDays(t,-13); let c=0;
   for(const [d,L] of Object.entries(logs)){
     if(d<from||d>t||!L.lifts) continue;
-    const g=Object.values(L.lifts).some(x=>x&&x.grinder);
+    const g=Object.values(L.lifts).some(x=>ground(x));
     const miss=L.done&&Object.values(L.lifts).some(x=>x&&Array.isArray(x.sets)&&x.sets.length&&x.sets.slice(0,2).some(v=>!v));
     if((+L.rpe>=9)||g||miss) c++;
   }
@@ -3590,7 +3590,7 @@ function finishCard(date,dp){
     for(const k of (dp.lifts||[])){
       const x=(L.lifts||{})[k]||{}, t=((L.test||{})[k])||{};
       if(dp.t==='lift'&&wk){const r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;
-        bits.push(`${liftName(k,date)} ${dn}/${nS}${r.sMax>nS?'+':''}${x.grinder?' · grinder':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
+        bits.push(`${liftName(k,date)} ${dn}/${nS}${r.sMax>nS?'+':''}${ground(x)?' · ground':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
       else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
@@ -3812,13 +3812,17 @@ function liftCard(wk,k,dp){
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
   h+=`<div class="sets">`;
-  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}</small></button>`;
+  for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}">${r.r}<small>Set ${i+1}${setEff(L,i)?' \u00b7 '+setEff(L,i):''}</small></button>`;
   if(!viewing&&nSets<SETCAP(r)) h+=`<button class="setb add" data-act="addset" data-lift="${k}" aria-label="Add a set to ${esc(liftName(k))}">+<small>Set</small></button>`;
   const ex=+L.extra||0;
   const rm=restMins(k), heavyNote=(k==='squat'||k==='dead')&&r.t==='heavy'&&rm<5;
   h+=`</div><div class="restsel"><span>Rest</span><div class="seg">${[2,3,4,5].map(m=>`<button class="segb${rm===m?' on':''}" data-act="restmin" data-lift="${k}" data-v="${m}" aria-pressed="${rm===m}">${m} min</button>`).join('')}</div>${heavyNote?'<span>Heavy week: the book calls 5\u201310 min normal at this load.</span>':''}</div>`;
-  h+=`<div class="row between"><label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" ${L.grinder?'checked':''}> Felt like a grinder</label><label class="f" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
-  if(L.grinder&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
+  // How the most recent set moved, rated where it was just ticked. The whole-lift
+  // checkbox it replaces only shows on a day that already used it, so it can be cleared.
+  { let last=-1; for(let i=nSets-1;i>=0;i--) if(sets[i]){ last=i; break }
+    if(last>=0&&!viewing) h+=`<div class="restsel"><span>Set ${last+1} moved</span><div class="seg">${EFFORT.map(([v,t])=>`<button class="segb${setEff(L,last)===v?' on':''}" data-act="eff" data-lift="${k}" data-i="${last}" data-v="${v}" aria-pressed="${setEff(L,last)===v}">${t}</button>`).join('')}</div></div>`; }
+  h+=`<div class="row between">${L.grinder?`<label class="check"><input type="checkbox" id="g-${k}" data-bind="lifts.${k}.grinder" checked> Whole lift marked a grinder</label>`:'<span></span>'}<label class="f" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px">${isBW(k)?'Added weight':'Working weight'}${numIn('lifts.'+k+'.used',L.used,r.w!=null?n(isBW(k)?Math.max(0,r.w):r.w):'','class="num-in"')}</label></div>`;
+  if(ground(L)&&r.m&&!dp.deload&&r.p<=85) h+=`<div class="banner warn"><div>A grinder at ${r.p}% means the max is too high. Lower it rather than pushing through.</div><div><button class="btn sm" data-act="lower" data-lift="${k}" data-c="${r.c}">Lower Cycle ${r.c} max 5% (${n(floorTo(r.m.v*.95,plan.round[k]))})</button></div></div>`;
   if(ex>0&&!sets[nSets-1]&&!viewing) h+=`<div><button class="btn sm ghost" data-act="rmset" data-lift="${k}">− Remove the last set</button></div>`;
   if(isDead) h+=`<div class="small muted">Deadlift stays 1–3 sets. Rest 5 min on heavy weeks.</div>`;
   else if(r.sMax>r.s) h+=`<div class="small muted">${r.s} sets is the prescription. The dashed ones are optional — take them when you have it in you, leave them when you don’t. The two-minute rest still applies to every set you take.</div>`;
@@ -4277,7 +4281,7 @@ function plyoPullback(date){
   if(c.soreness>=4) out.push('you logged high soreness today');
   let short=0;for(let i=0;i<3;i++){const x=ci(addDays(date,-i));if(x.sleepH!=null&&x.sleepH!==''&&+x.sleepH<6.5)short++}
   if(short>=2) out.push('sleep has been short for several nights');
-  const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>x&&x.grinder)) out.push('yesterday’s lifting was hard');
+  const wed=lg(addDays(date,-1)); if(+wed.rpe>=9||Object.values(wed.lifts||{}).some(x=>ground(x))) out.push('yesterday’s lifting was hard');
   return out;
 }
 // The jump-prep drills. Shared by the Thursday plyo session and the jump-test days,
@@ -4424,7 +4428,7 @@ const AIMS_LIFT = [
   { id: 'technique', label: 'Keep technique tight — no ugly reps' },
   { id: 'rest', label: 'Take the full rest between sets' },
   { id: 'short', label: 'Stop short of failure', check(d) {
-      const lifts = Object.entries((lg(d).lifts) || {}).filter(([, v]) => v && v.grinder);
+      const lifts = Object.entries((lg(d).lifts) || {}).filter(([, v]) => ground(v));
       if (!lifts.length) return { ok: true, detail: 'Nothing logged as a grinder.' };
       return { ok: false, detail: lifts.map(([k]) => liftName(k, d)).join(', ') + ' ground.' };
     } },
@@ -4596,6 +4600,37 @@ function aimsReport(date) {
 // (grinders, missed sets, effort on heavy weeks, readiness) and suggests next cycle's
 // max per lift. Nothing changes until you apply it.
 let reviewSel={};
+/* ---------- how each working set moved ----------
+Per set, so the review can see what a heavy week actually did rather than inferring it
+from one number for the whole session. None of the books uses RPE or reps-in-reserve,
+so this does not either; it uses their words. TB1's Golden Rule is to complete every
+rep and avoid failure, and to finish feeling fresh -- "If you feel relatively fresh
+after your strength session, you are doing it RIGHT." Ageless Athlete: "If you have to
+grind your way through your sets on day one, there is a good chance that things will be
+worse on Day 2." The three-point scale is ours. Ground is the books' word.
+
+  fast    moved quickly, plenty left -- the fresh session TB1 describes
+  solid   an honest working set, nothing to report
+  ground  it slowed and had to be fought up: a grinder, AA's warning sign
+
+`eff` sits beside `sets` on the lift, one entry per set index. */
+const EFFORT=[['fast','Fast'],['solid','Solid'],['ground','Ground']];
+function setEff(x,i){ const e=x&&Array.isArray(x.eff)?x.eff[i]:null; return EFFORT.some(([k])=>k===e)?e:null }
+// Did this lift grind? The old whole-lift checkbox, or any set rated ground. One answer,
+// read everywhere the checkbox used to be read, so old logs keep counting.
+function ground(x){ return !!(x&&(x.grinder||(Array.isArray(x.eff)&&x.eff.includes('ground')))) }
+// Tapping the rating a set already has clears it, so a slip of the thumb is undone in place.
+function setEffort(date,k,i,v){
+  if(!EFFORT.some(([e])=>e===v)) return false;
+  const x=(lg(date).lifts||{})[k]||{}, arr=Array.isArray(x.eff)?[...x.eff]:[];
+  arr[i]=arr[i]===v?null:v;
+  for(let j=0;j<arr.length;j++) if(arr[j]===undefined) arr[j]=null;
+  setLog(date,'lifts.'+k+'.eff',arr);
+  return true;
+}
+// "fast, solid, ground" for whatever was rated, in set order.
+function groundSets(x){ const n=Array.isArray(x&&x.eff)?x.eff.filter(e=>e==='ground').length:0; return Math.max(n,x&&x.grinder?1:0) }
+function effSummary(x){ return (Array.isArray(x&&x.eff)?x.eff:[]).filter(Boolean).join(', ') }
 function reviewCycleFor(date){
   const wk=weekOf(date); if(!wk) return null;
   let c=null;
@@ -4617,10 +4652,14 @@ function cycleStats(c){
       for(const k of dp.lifts){
         const x=(L.lifts||{})[k]; if(!x) continue;
         const sets=Array.isArray(x.sets)?x.sets:[], ticked=sets.filter(Boolean).length;
-        if(!ticked&&!x.grinder) continue;
+        if(!ticked&&!ground(x)) continue;
         const need=k==='dead'?1:+wkRx(wk).s;
-        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[],sharp:0,niggle:0,where:{}});
-        S.n++; if(x.grinder){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        const S=stats[k]||(stats[k]={n:0,grind:0,heavyGrind:0,lightGrind:0,missed:0,rpe:[],sharp:0,niggle:0,where:{},heavyRated:0,heavyFast:0,groundSets:0});
+        S.n++; if(ground(x)){S.grind++; if(heavy)S.heavyGrind++; if(p<=85)S.lightGrind++}
+        // What each working set did, where it was rated.
+        for(let j=0;j<sets.length;j++){ const e=setEff(x,j); if(!e) continue;
+          if(e==='ground') S.groundSets++;
+          if(heavy){ S.heavyRated++; if(e==='fast') S.heavyFast++ } }
         // a complaint counts against the lifts its location plausibly belongs to
         if(L.pain==='sharp'||L.pain==='niggle'){
           const where=painAt(L), mine=where.length?where.filter(w=>((PAIN_AT[w]||{}).lifts||[]).includes(k)):[];
@@ -4645,13 +4684,23 @@ function recommend(S,rdAvg){
   if(!S) return ['standard','Not enough logged sessions to judge, so the standard increase.'];
   const rpe=S.rpe.length?S.rpe.reduce((a,b)=>a+b,0)/S.rpe.length:null;
   const pain=[]; if(S.sharp) pain.push(`${S.sharp} with sharp pain${painWords(S)}`); if(S.niggle) pain.push(`${S.niggle} with a niggle`);
-  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`].concat(rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).concat(pain).join(' · ');
+  const rated=S.heavyRated||0, fast=S.heavyFast||0;
+  const bits=[`${S.n} sessions`,`${S.grind} grinder${S.grind===1?'':'s'}`,`${S.missed} missed`]
+    .concat(rated?[`${fast} of ${rated} heavy sets fast`]:rpe!=null?[`heavy-week RPE ${rpe.toFixed(1)}`]:[]).concat(pain).join(' · ');
   // pain outranks everything else, including too few sessions to judge on
   if(S.sharp>=2) return ['reduce',bits+'. Sharp pain more than once on this lift: take the weight down and find out why before adding any.'];
   if(S.sharp>=1) return ['hold',bits+'. Sharp pain on this lift: hold the max rather than adding to it.'];
   if(S.n<3) return ['standard',(S.niggle?bits+'. ':'')+'Not enough logged sessions to judge, so the standard increase.'];
   if(S.missed>=3||S.lightGrind>=2) return ['reduce',bits+'. Grinding at moderate weights means the max is too high.'];
   if(S.missed>=1||S.heavyGrind>=1||S.grind>=2) return ['hold',bits+'. Repeat this max and own it.'];
+  // The bigger increase. Per-set ratings are the better evidence, so they decide when
+  // there are enough of them; the session's RPE is the fallback when there are not.
+  // Ours, not the book's: four rated heavy sets is the least worth judging on, and
+  // three in four fast is a heavy week that did not look heavy.
+  if(rated>=4){
+    if(fast/rated>=.75&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. The heavy sets moved fast \u2014 the max has room in it.'];
+    return ['standard',bits+'. On track.'];
+  }
   if(rpe!=null&&rpe<=7&&(rdAvg==null||rdAvg>=55)) return ['bigger',bits+'. Heavy weeks moved easily.'];
   return ['standard',bits+'. On track.'];
 }
@@ -5570,7 +5619,8 @@ function lsRender(){
       <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
       ${st.type==='warm'?`<div class="ls-row"><button class="btn sm" data-ls="ww-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="ww+">+${n(plan.round[k]||5)}</button></div>`:''}
-    ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button><button class="btn sm${L.grinder?' primary':''}" data-ls="grind">${L.grinder?'✓ Grinder':'Felt like a grinder'}</button></div>
+    ${st.type==='work'?`<div class="ls-row"><button class="btn sm" data-ls="w-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="w+">+${n(plan.round[k]||5)}</button></div>
+      <div class="ls-eff"><div class="small muted">How did it move? Rating it logs the set.</div><div class="seg wide">${EFFORT.map(([v,t])=>`<button class="segb${setEff(L,st.j)===v?' on':''}" data-ls="eff" data-v="${v}" aria-pressed="${setEff(L,st.j)===v}">${t}</button>`).join('')}</div></div>
       ${st.j===st.n-1&&st.n<SETCAP(rx(wk,k,ls.date))?`<div class="ls-row"><button class="btn sm ghost" data-ls="addset">+ One more set</button></div>`:''}`:''}
     </div>`;
     h+=`<button class="btn primary ls-done" data-ls="done">${isDone?'Done ✓ · next':'Done'}</button>`;
@@ -5618,7 +5668,7 @@ function lsRender(){
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
   } else {
     const L=lg(ls.date);
-    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${x.grinder?'<span class="chip mid">grinder</span>':''}</td></tr>`}).join('');
+    const rows=dp.lifts.map(k=>{const x=(L.lifts||{})[k]||{},r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${dn}/${nS}${r.sMax>nS?'+':''}</td><td>${ground(x)?'<span class="chip mid">ground</span>':''}${effSummary(x)?` <span class="small muted">${esc(effSummary(x))}</span>`:''}</td></tr>`}).join('');
     h+=`<div class="ls-card"><div class="ls-lift">Session summary</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div>
       <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
       <button class="btn primary ls-done" data-ls="finish">${L.done?'Finished ✓ · close':'Finish session'}</button>`;
@@ -5669,7 +5719,15 @@ function lsAct(a,b){
   if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
   if(a==='rskip'){ stopRest(); return lsRender() }
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
-  if(a==='grind'){ const L=(lg(ls.date).lifts||{})[st.k]||{}; setLog(ls.date,'lifts.'+st.k+'.grinder',!L.grinder); return lsRender() }
+  // A rating is a Done with something to say: it records how the set moved and then
+  // takes the same path, so rating costs no extra tap. Re-rating a set already done
+  // just changes the rating.
+  if(a==='eff'&&st&&st.type==='work'){
+    const was=lsStepDone(st);
+    setEffort(ls.date,st.k,st.j,b.dataset.v);
+    if(was) return lsRender();
+    a='done';
+  }
   if(a==='ww-'||a==='ww+'){ adjustWarm(ls.date,st.k,st.j,a==='ww+'?1:-1,st.w); return lsRender() }
   if(a==='w-'||a==='w+'){ const inc=+plan.round[st.k]||5; setLog(ls.date,'lifts.'+st.k+'.used',Math.max(isBW(st.k)?-500:+plan.bar||0,st.w+(a==='w+'?inc:-inc))); return lsRender() }
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
@@ -6477,7 +6535,7 @@ function heavySet(k){
     const v=rx(wk,k); if(!v.m||v.p<85) continue;
     const used=x.used!=null&&x.used!==''?+x.used:loadFor(k,v.m.v,v.p,d);
     const e=estMax(k,used,v.r,d); if(e==null) continue;
-    if(!best||e>best.e) best={e,w:used,r:v.r,p:v.p,d,max:v.m.v,grinder:!!x.grinder,off:x.used!=null&&x.used!==''};
+    if(!best||e>best.e) best={e,w:used,r:v.r,p:v.p,d,max:v.m.v,grinder:ground(x),off:x.used!=null&&x.used!==''};
   }
   return best;
 }
@@ -6754,7 +6812,7 @@ function watchLine(t){
     if(drop>=READY_DROP) out.push({r:2,v:'Readiness falling',
       w:`Down ${drop} points on the week before. The book's answer to that is the rest day, not a harder session: rest periodically, and do not ignore it.`});
   }
-  let gr=0; for(let i=VERDICT_WIN;i>=0;i--){const L=lg(addDays(t,-i));for(const x of Object.values(L.lifts||{})) if(x&&x.grinder) gr++}
+  let gr=0; for(let i=VERDICT_WIN;i>=0;i--){const L=lg(addDays(t,-i));for(const x of Object.values(L.lifts||{})) gr+=groundSets(x)}
   if(gr>=3) out.push({r:1,v:'Sets are grinding',
     w:`${gr} grinder sets in four weeks. That is what the end-of-cycle review reads when it decides whether a max goes up, and it usually means the max is already where it should be.`});
   if(!out.length) return {cls:'ok',v:'Nothing flagged',w:'No pain logged in four weeks, readiness holding, nothing grinding.'};
@@ -6903,19 +6961,19 @@ function sessionsCsv(){
   return csvText(rows);
 }
 function liftsCsv(){
-  const U=u(), rows=[['date','program','week','session','lift','variant','kind','sets_prescribed','reps','pct','prescribed_'+U,'working_'+U,'sets_done','grinder','test_weight_'+U,'test_reps','est_1rm_'+U,'warmups']];
+  const U=u(), rows=[['date','program','week','session','lift','variant','kind','sets_prescribed','reps','pct','prescribed_'+U,'working_'+U,'sets_done','grinder','set_effort','test_weight_'+U,'test_reps','est_1rm_'+U,'warmups']];
   eachDateInPrograms((d,prog)=>{
     const L=logs[d], wk=weekOf(d), dp=dayPlan(d), week=wk?weekTitle(wk).t:'';
     if(dp.t==='lift'&&wk) for(const k of dp.lifts){
       const x=(L.lifts||{})[k]; if(!x) continue;
       const r=rx(wk,k,d), sets=Array.isArray(x.sets)?x.sets:[], wu=(Array.isArray(x.warmup)?x.warmup:[]).filter(w=>w&&w.w!=null&&w.w!=='');
       const used=x.used!=null&&x.used!==''?+x.used:r.w;
-      rows.push([d,prog,week,dp.short,liftName(k,d),VARS[k]?varOf(k,d):'','working',r.sMax>r.s?r.s+'-'+r.sMax:r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,x.grinder?'yes':'','','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
+      rows.push([d,prog,week,dp.short,liftName(k,d),VARS[k]?varOf(k,d):'','working',r.sMax>r.s?r.s+'-'+r.sMax:r.s,r.r,r.p,r.w??'',used??'',sets.filter(Boolean).length,ground(x)?'yes':'',(Array.isArray(x.eff)?x.eff:[]).map(e=>e||'-').join(' '),'','','',wu.map(w=>(isBW(k)?fmtLoad(k,+w.w):n(w.w))+'x'+(w.r??'')).join('; ')]);
     }
     for(const [k,t] of Object.entries(L.test||{})){
       if(!t||t.w==null||t.w==='') continue;
       const reps=t.r||(dp.t==='rm5'?5:1), e=estMax(k,t.w,reps,d);
-      rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',dp.t==='rm5'?'5RM test':'test','',reps,'','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',dp.t==='rm5'?'5RM test':'test','',reps,'','','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
     }
   });
   return csvText(rows);
@@ -8402,6 +8460,7 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     for(let j=0;j<W.length;j++) if(!W[j]) W[j]={};
     openWarm.add(k); setLog(sel,'lifts.'+k+'.warmup',W); render(); return}
+  if(a==='eff'){ setEffort(sel,b.dataset.lift,+b.dataset.i,b.dataset.v); render(); return }
   if(a==='set'){const k=b.dataset.lift,i=+b.dataset.i;const L=lg(sel);const arr=((L.lifts||{})[k]||{}).sets?[...L.lifts[k].sets]:[];
     offerUndo((arr[i]?'Set unticked':'Set ticked')+' · '+liftName(k),snapLog(sel));
     arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'lifts.'+k+'.sets',arr);
