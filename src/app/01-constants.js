@@ -433,12 +433,19 @@ const PLIB={
 
    It happens to give the same answer as the mechanical test above and is easier to
    apply: a barbell lift has a lockout to test and a weight that does not depend on what
-   your hands can hold, so there is an honest one-rep max to run percentages against. */
+   your hands can hold, so there is an honest one-rep max to run percentages against.
+
+   The weighted pull-up is the one cluster lift that is not a barbell, so it is the one
+   exception, and it is an exception to the wording rather than to the reason: change
+   the grip and it is still the same lift, with the same testable one-rep max, loaded
+   off a belt. What it does need is different arithmetic -- see `varMax`, where a share
+   of a bodyweight lift is a share of bodyweight plus the added weight, not of the
+   added weight on its own. */
 // The lift itself, as opposed to the variant of it you are running. `liftName()`
 // resolves a key to the variant in use, which is what every prescription wants and is
 // wrong anywhere the subject is the lift: a table of squat variants headed with the
 // squat you happen to be squatting reads as nonsense.
-const VAR_OF={squat:'Squat',bench:'Bench press',ohp:'Overhead press',dead:'Deadlift'};
+const VAR_OF={squat:'Squat',bench:'Bench press',ohp:'Overhead press',wpu:'Weighted pull-up',dead:'Deadlift'};
 const VARS={
   squat:{
     high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},
@@ -465,6 +472,13 @@ const VARS={
     btn:{name:'Behind-the-neck press',short:'Behind neck',r:.9,note:'Wants genuine shoulder mobility and gives a narrow margin for error. Worth it for upper-back and overhead position if you have the range; skip it if you do not.'},
     z:{name:'Z press',short:'Z press',r:.72,note:'Seated on the floor, legs straight. Removes every bit of help from below the waist, which is why the number is so much lower.'},
     pin:{name:'Pin press',short:'Pins',r:1.05,note:'Dead start from pins at forehead height. No stretch reflex and no dip, so it is the sticking point on its own.'}
+  },
+  wpu:{
+    pull:{name:'Weighted pull-up',short:'Pull-up',r:1,note:'Pronated, hands about shoulder width, chin over the bar. The reference: everything else here is a share of it.'},
+    chin:{name:'Weighted chin-up',short:'Chin-up',r:1.05,note:'Supinated, hands shoulder width. More biceps and a shorter effective pull, so most people are strongest here.'},
+    neutral:{name:'Neutral-grip pull-up',short:'Neutral',r:1.03,note:'Palms facing, on handles or a parallel bar. Usually the kindest on the elbow and the shoulder, and close to a chin-up for strength.'},
+    wide:{name:'Wide-grip pull-up',short:'Wide',r:.95,note:'Hands well outside the shoulders. Shorter range but a worse angle for the lats and arms, and it goes down rather than up.'},
+    c2b:{name:'Chest-to-bar pull-up',short:'Chest to bar',r:.92,note:'Pull until the chest touches. A longer range and real upper-back retraction at the top, which is where it gets expensive.'}
   },
   dead:{
     conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},

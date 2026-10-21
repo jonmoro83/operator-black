@@ -1052,12 +1052,19 @@ const PLIB={
 
    It happens to give the same answer as the mechanical test above and is easier to
    apply: a barbell lift has a lockout to test and a weight that does not depend on what
-   your hands can hold, so there is an honest one-rep max to run percentages against. */
+   your hands can hold, so there is an honest one-rep max to run percentages against.
+
+   The weighted pull-up is the one cluster lift that is not a barbell, so it is the one
+   exception, and it is an exception to the wording rather than to the reason: change
+   the grip and it is still the same lift, with the same testable one-rep max, loaded
+   off a belt. What it does need is different arithmetic -- see `varMax`, where a share
+   of a bodyweight lift is a share of bodyweight plus the added weight, not of the
+   added weight on its own. */
 // The lift itself, as opposed to the variant of it you are running. `liftName()`
 // resolves a key to the variant in use, which is what every prescription wants and is
 // wrong anywhere the subject is the lift: a table of squat variants headed with the
 // squat you happen to be squatting reads as nonsense.
-const VAR_OF={squat:'Squat',bench:'Bench press',ohp:'Overhead press',dead:'Deadlift'};
+const VAR_OF={squat:'Squat',bench:'Bench press',ohp:'Overhead press',wpu:'Weighted pull-up',dead:'Deadlift'};
 const VARS={
   squat:{
     high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},
@@ -1084,6 +1091,13 @@ const VARS={
     btn:{name:'Behind-the-neck press',short:'Behind neck',r:.9,note:'Wants genuine shoulder mobility and gives a narrow margin for error. Worth it for upper-back and overhead position if you have the range; skip it if you do not.'},
     z:{name:'Z press',short:'Z press',r:.72,note:'Seated on the floor, legs straight. Removes every bit of help from below the waist, which is why the number is so much lower.'},
     pin:{name:'Pin press',short:'Pins',r:1.05,note:'Dead start from pins at forehead height. No stretch reflex and no dip, so it is the sticking point on its own.'}
+  },
+  wpu:{
+    pull:{name:'Weighted pull-up',short:'Pull-up',r:1,note:'Pronated, hands about shoulder width, chin over the bar. The reference: everything else here is a share of it.'},
+    chin:{name:'Weighted chin-up',short:'Chin-up',r:1.05,note:'Supinated, hands shoulder width. More biceps and a shorter effective pull, so most people are strongest here.'},
+    neutral:{name:'Neutral-grip pull-up',short:'Neutral',r:1.03,note:'Palms facing, on handles or a parallel bar. Usually the kindest on the elbow and the shoulder, and close to a chin-up for strength.'},
+    wide:{name:'Wide-grip pull-up',short:'Wide',r:.95,note:'Hands well outside the shoulders. Shorter range but a worse angle for the lats and arms, and it goes down rather than up.'},
+    c2b:{name:'Chest-to-bar pull-up',short:'Chest to bar',r:.92,note:'Pull until the chest touches. A longer range and real upper-back retraction at the top, which is where it gets expensive.'}
   },
   dead:{
     conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
@@ -2328,6 +2342,12 @@ function varMax(k,c,date){
   const bv=blockVar(k,date), v=varOf(k,date);
   if(v===bv) return {v:base.v,src:base.src,vr:v,bv};
   const V=varsOf(k), r=V[v].r/V[bv].r;
+  /* A bodyweight lift stores the ADDED weight, but a grip variant is a share of what
+     you actually lift, which is your bodyweight plus that. Scaling the added weight
+     alone turns a chin-up that is 5% stronger into a belt 20% heavier: at 180 lb with
+     +60, the system load is 240, 5% of which is 252 -- so +72, not +63. No bodyweight
+     on file means no honest answer, the same as `loadFor` and `estMax`. */
+  if(isBW(k)){ const bw=bwFor(datestr(date)); return bw?{v:(bw+base.v)*r-bw,src:'ratio',vr:v,bv,from:base.v,r,bw}:null }
   return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
@@ -8083,8 +8103,8 @@ function vSetup(){
   const ptS=proteinTarget(todayStr());
   {
     const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-    h+=SEC('training')+`<div class="card"><h2>Lift variants</h2><p class="note" style="margin:0">Which ${esc(Object.values(VAR_OF).map(v=>v.toLowerCase()).join(', ').replace(/, ([^,]*)$/,' and $1'))} this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
-    for(const k of Object.keys(VARS)){
+    h+=SEC('training')+`<div class="card"><h2>Lift variants</h2><p class="note" style="margin:0">Which ${esc(activeLifts().filter(k=>VARS[k]).map(k=>VAR_OF[k].toLowerCase()).join(', ').replace(/, ([^,]*)$/,' and $1'))} this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
+    for(const k of Object.keys(VARS).filter(k=>activeLifts().includes(k))){
       const V=varsOf(k), bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
       h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(VAR_OF[k]||k)}</div>
       <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
@@ -8216,6 +8236,7 @@ function vGuide(){
   <li><b>Variants change the working weight and nothing else.</b> Personal records, the strength charts and the cycle review all stay on the reference lift.</li>
   <li><b>Your own</b> variants go in Setup: a name and its share of the reference max is the whole prescription. Anything from 25 to 150%.</li></ul>
   <p class="note"><b>A variant is a barbell</b> — a straight bar, or a specialty bar: safety squat, trap, football, axle. Dumbbell, kettlebell and landmine work is accessory work and lives in the accessory slots, which is where you will find it. The rule gives the same answer as the mechanical one and is easier to apply: if the limit is what your hands can hold, or there is no lockout to test, there is no honest one-rep max and the percentages would be invented. Hence no goblet squats, no double-kettlebell front squats and no Romanian deadlifts here — they are in the accessory and travel-week lists.</p>
+  <p class="note">The weighted pull-up is the exception, and it is an exception to the wording rather than to the reason: change the grip and it is still the same lift with the same testable max, loaded off a belt. Its percentages work differently, though, because the max you store is the <b>added</b> weight while the variant is a share of what you actually lift. A chin-up at 105% means 105% of bodyweight plus the belt, so at 180 lb with +60 on it — 240 in all — the chin-up equivalent is 252, which is +72 rather than +63. The app does that arithmetic; it needs a recent bodyweight to do it, and says nothing rather than guessing if it has not got one.</p>
   ${Object.keys(VARS).map(k=>`<h4 class="sub-h">${esc(VAR_OF[k]||k)}</h4><div class="tbl-wrap" style="margin-top:6px"><table><thead><tr><th>Variant</th><th class="n">Of the reference max</th><th>What it is</th></tr></thead><tbody>${Object.values(varsOf(k)).map((v,i)=>`<tr><td><b>${esc(v.name)}</b></td><td class="n mono small">${i?Math.round(v.r*100)+'%':'reference'}</td><td class="small">${esc(v.note||'')}</td></tr>`).join('')}</tbody></table></div>`).join('')}</div>
   <div class="card guide"><h3>Pull-ups</h3>
   <p>The one accessory the app programs rather than just lists, because it is the one that takes years and responds to being told what to do next. Wednesday's card prints the prescription for whichever rung your best logged set puts you on, and moves you up on its own.</p>

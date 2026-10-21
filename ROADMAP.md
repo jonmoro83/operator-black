@@ -235,6 +235,25 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Pull-up variants, and the arithmetic they needed (2026-10-21)**
+- Asked for straight after the presses. Chin-up 1.05, neutral 1.03, wide .95,
+  chest-to-bar .92, against the plain pull-up.
+- **The weighted pull-up breaks the barbell rule, and should.** It is an exception to
+  the wording rather than to the reason: change the grip and it is still the same lift
+  with the same testable one-rep max, loaded off a belt. Both the constants comment and
+  the Guide say so rather than quietly bending the rule.
+- **The real problem was the ratio, not the rule.** `plan.maxes.wpu` is the *added*
+  weight, but a grip variant is a share of the system load. Scaling the stored number
+  turns a chin-up that is 5% stronger into a belt 20% heavier: at 180 lb with +60, the
+  load is 240, 105% of that is 252, so the belt carries 72 and not 63. `varMax` now
+  goes through bodyweight for a `isBW` lift and returns null without one, which is what
+  `loadFor` and `estMax` already do. A test pins the worked example both ways round.
+- Setup now offers a picker only for lifts in `activeLifts()`. Overhead press and the
+  weighted pull-up are Lift 3 options, so a program running a pulldown was being asked
+  to choose variants for two lifts it never performs.
+- Watch for, if another bodyweight cluster lift is ever added: `isBW()` is still
+  `k==='wpu'`, and three separate places now special-case it.
+
 **Bench and overhead press variants (2026-10-21)**
 - Asked for, and the owner stated the rule that decides what belongs: **a lift variant
   is a barbell** — straight or specialty, safety squat / trap / football / axle —

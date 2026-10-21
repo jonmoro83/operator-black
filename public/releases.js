@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.44',date:'2026-10-21',title:"Pull-up variants",items:[
+    "Weighted chin-up, neutral grip, wide grip and chest-to-bar, alongside the plain pull-up. Same as the other cluster lifts: pick one for the cycle in Setup, or swap on a single day from the card.",
+    "The percentages work differently here and it matters. The max you store for a pull-up is the weight you add, but a grip variant is a share of what you actually lift, which is you plus the belt. At 180 lb with +60 on it, that's 240 in all, and a chin-up at 105% is 252 \u2014 so +72, not +63. Getting that wrong would have turned a 5% harder lift into a belt 20% heavier.",
+    "It needs a recent bodyweight to do that arithmetic, and says nothing rather than guessing if it hasn't got one.",
+    "Setup only offers a variant picker for the lifts your program actually runs now, so overhead press and pull-ups stop appearing if Lift 3 is a pulldown."]},
   {v:'3.43',date:'2026-10-21',title:"Bench and overhead press variants",items:[
     "Both now have a variant list, the same as squat and deadlift. Setup \u2192 Lift variants picks which one this cycle runs on, and you can swap on a single day from the lift's card when the rack or the shoulder says otherwise.",
     "Bench: close-grip, incline, floor press, paused, neutral-grip bar, and pin or board press.",

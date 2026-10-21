@@ -1233,10 +1233,12 @@ test("a day's note matches how many lifts that day actually has", () => {
 
 test("a variant list is barbells only, and every entry has an honest ratio", () => {
   const x = app({ now: "2026-10-21" });
+  x.plan.l3 = { on: { pull: true, ohp: true, wpu: true } }; x.bump();
   // The owner's rule: a lift variant is a barbell, straight or specialty. Dumbbell,
   // kettlebell and landmine work is accessory work. It gives the same answer as the
-  // mechanical test -- a lockout to test, and a weight that does not depend on grip --
-  // and it is the one that is easy to apply when adding to the list.
+  // mechanical test -- a lockout to test, and a weight that does not depend on grip.
+  // The weighted pull-up is the one cluster lift that is not a barbell, so it is the
+  // one exception, and it is to the wording rather than to the reason.
   const banned = /dumbbell|kettlebell|landmine|goblet|machine|cable|romanian/i;
   for (const [k, list] of Object.entries(x.VARS)) {
     a.ok(x.VAR_OF[k], `${k} has a plain lift name for headings`);
@@ -1252,8 +1254,43 @@ test("a variant list is barbells only, and every entry has an honest ratio", () 
   // Every lift with variants is pickable in Setup, not just the two it started with.
   const h = x.vSetup();
   for (const k of Object.keys(x.VARS)) a.match(h, new RegExp(`data-pbind="liftVar\\.${k}"`), `${k} has a Setup picker`);
+  // But only for the lifts this program runs: Lift 3 is a choice, so OHP and the
+  // weighted pull-up are not always on.
+  x.plan.l3 = { on: { pull: true } }; x.bump();
+  const only = x.vSetup();
+  a.doesNotMatch(only, /data-pbind="liftVar\.wpu"/, "no picker for a lift you do not run");
+  a.match(only, /data-pbind="liftVar\.squat"/, "the ones you always run stay");
   // And the order is the order the week runs them.
   a.deepEqual(Object.keys(x.VARS), x.LK.filter((k) => x.VARS[k]), "VARS follows LK");
+});
+
+test("a pull-up variant is a share of bodyweight plus the belt, not of the belt", () => {
+  const x = app({ now: "2026-10-21" });
+  x.plan.l3 = { on: { wpu: true } };
+  x.plan.unit = "lb"; x.plan.round = Object.assign({}, x.plan.round, { wpu: 1 });
+  x.plan.maxes = Object.assign({}, x.plan.maxes, { wpu: 60 });
+  x.bump();
+  const d = "2026-10-21";
+  x.seed({ [d]: { date: d, checkin: { bw: 180 } } });  // 180 + 60 = 240 in all
+  a.equal(x.bwFor(d), 180, "the bodyweight is on file");
+
+  // The block runs plain pull-ups; today is a chin-up.
+  x.setLog(d, "var.wpu", "chin");
+  const m = x.varMax("wpu", 1, d);
+  // 105% of the 240 system load is 252, so the belt carries 72 -- not 63, which is
+  // what scaling the stored 60 on its own would have given.
+  a.equal(Math.round(m.v), 72, "scaled on what you actually lift");
+  a.notEqual(Math.round(m.v), 63, "not on the added weight alone");
+
+  // And the working weight follows from it: 80% of 252 is 201.6, less bodyweight.
+  a.equal(x.loadFor("wpu", m.v, 80, d), Math.round((180 + m.v) * 0.8 - 180));
+
+  // No bodyweight on file, no honest answer -- the same as loadFor and estMax.
+  const y = app({ now: "2026-10-21" });
+  y.plan.l3 = { on: { wpu: true } };
+  y.plan.maxes = Object.assign({}, y.plan.maxes, { wpu: 60 }); y.bump();
+  y.seed({ [d]: { date: d, var: { wpu: "chin" } } });
+  a.equal(y.varMax("wpu", 1, d), null, "it says nothing rather than guessing");
 });
 
 test("a lift name asked for without a date is not handed an array index", () => {

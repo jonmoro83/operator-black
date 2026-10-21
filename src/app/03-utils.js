@@ -62,6 +62,12 @@ function varMax(k,c,date){
   const bv=blockVar(k,date), v=varOf(k,date);
   if(v===bv) return {v:base.v,src:base.src,vr:v,bv};
   const V=varsOf(k), r=V[v].r/V[bv].r;
+  /* A bodyweight lift stores the ADDED weight, but a grip variant is a share of what
+     you actually lift, which is your bodyweight plus that. Scaling the added weight
+     alone turns a chin-up that is 5% stronger into a belt 20% heavier: at 180 lb with
+     +60, the system load is 240, 5% of which is 252 -- so +72, not +63. No bodyweight
+     on file means no honest answer, the same as `loadFor` and `estMax`. */
+  if(isBW(k)){ const bw=bwFor(datestr(date)); return bw?{v:(bw+base.v)*r-bw,src:'ratio',vr:v,bv,from:base.v,r,bw}:null }
   return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
