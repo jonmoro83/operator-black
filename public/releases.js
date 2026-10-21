@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.45',date:'2026-10-21',title:"Spoto press",items:[
+    "Added to the bench variants at 90%, alongside the paused bench rather than instead of it. They're the same family but not the same lift: a paused bench stops on the chest, which gives you something to settle against and start from, and a Spoto stops an inch or two above it with no contact at all.",
+    "That makes the Spoto harder at the same weight, which is why it sits lower, and it's the one that catches a bar quietly sinking into the chest.",
+    "The paused bench's description now says what it's for \u2014 the dead start off the chest, and the carryover to a competition bench \u2014 so the two read as the pair they are."]},
   {v:'3.44',date:'2026-10-21',title:"Pull-up variants",items:[
     "Weighted chin-up, neutral grip, wide grip and chest-to-bar, alongside the plain pull-up. Same as the other cluster lifts: pick one for the cycle in Setup, or swap on a single day from the card.",
     "The percentages work differently here and it matters. The max you store for a pull-up is the weight you add, but a grip variant is a share of what you actually lift, which is you plus the belt. At 180 lb with +60 on it, that's 240 in all, and a chin-up at 105% is 252 \u2014 so +72, not +63. Getting that wrong would have turned a 5% harder lift into a belt 20% heavier.",

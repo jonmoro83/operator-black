@@ -235,6 +235,20 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Spoto press, and a classification I got lazy about (2026-10-21)**
+- Asked whether a paused bench and a Spoto press are the same thing. They are not, and
+  when drafting the bench list I had dropped Spoto as "overlapping with pause", which
+  treated them as near-duplicates. Contact is the whole distinction: a paused bench
+  stops on the chest, which is a reference to settle against and start from and is the
+  competition command; a Spoto stops an inch or two above it with no contact, in the
+  worst leverage of the lift. The Spoto is harder at the same weight — .90 against .93
+  — and it is the one that catches a bar sinking into the chest.
+- Both are in the list now, next to each other, and the paused note was rewritten so
+  the pair reads as a pair rather than as two ways of saying "no bounce".
+- Worth remembering when extending any of these lists: "overlapping" was a judgement
+  made while writing seven entries at once, and it was wrong. Two variants that train
+  different things and load differently are two entries, however similar they sound.
+
 **Pull-up variants, and the arithmetic they needed (2026-10-21)**
 - Asked for straight after the presses. Chin-up 1.05, neutral 1.03, wide .95,
   chest-to-bar .92, against the plain pull-up.
