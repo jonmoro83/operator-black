@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.42',date:'2026-10-21',title:"Fix the headings on the new Guide tables",items:[
+    "The squat variant table was headed \u201cHigh-bar back squat\u201d, above a list of squat variants that included high-bar back squat. It used the name of whichever squat your block is running, so for anyone on a safety squat bar it would have been headed with that instead. Both tables now say \u201cSquat\u201d and \u201cDeadlift\u201d, with the columns named Variant, Of the reference max, and What it is.",
+    "Same mistake in the supplement tables, where \u201cLevel 1\u201d sat as a column header over the supplement names. The level is a heading above the table now and the column says Supplement.",
+    "The pull-up table's first column said \u201cFrom\u201d over a list of rep counts. It says Best set."]},
   {v:'3.41',date:'2026-10-21',title:"The Guide caught up",items:[
     "It had fallen a long way behind. Whole features had been built and never written down: squat and deadlift variants, the pull-up progression, five of the twelve conditioning activities, what elevation gain does, benchmarks, the travel week, archiving a program, every supplement in the list, and every report the app writes you.",
     "Cluster lifts and their variants is new, with both full tables. The short version: the lift your block runs on uses the max you typed, unscaled, and a one-day swap is scaled off it. Test weeks always use the reference lift, or a front-squat single would quietly become your back-squat max.",

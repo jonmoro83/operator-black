@@ -427,6 +427,11 @@ const PLIB={
 // weight when you have not tested the variant itself; enter a real max in Setup and that
 // wins instead. The first entry in each list is the reference: the max everything else is
 // derived from, the one retests measure, and what you get if you never touch this.
+// The lift itself, as opposed to the variant of it you are running. `liftName()`
+// resolves a key to the variant in use, which is what every prescription wants and is
+// wrong anywhere the subject is the lift: a table of squat variants headed with the
+// squat you happen to be squatting reads as nonsense.
+const VAR_OF={squat:'Squat',dead:'Deadlift'};
 const VARS={
   squat:{
     high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},

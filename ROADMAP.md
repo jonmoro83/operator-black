@@ -235,6 +235,22 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Headings that named a row instead of a column (2026-10-21)**
+- Reported straight after 3.41: the headings under the cluster-lift cards made no
+  sense. They did not. The squat table was headed `liftName('squat')`, which resolves
+  the variant the block is running — so it read "High-bar back squat" over a list of
+  squat variants that included high-bar back squat, and would have read "Safety squat
+  bar squat" for anyone running one. `VAR_OF` is the lift itself, as against the
+  variant in use, and lives next to `VARS` so nothing else repeats the mistake.
+- The same error twice more in the same release, which is what makes it worth an
+  entry: "Level 1" as a column header over the supplement names, and "From" over the
+  pull-up rep thresholds. All three came from generating a table and labelling the
+  first column with the group rather than with what the column holds.
+- Swept every table in the Guide afterwards, headers against first row. The other
+  eleven were already right — this was new, not latent.
+- The test now asserts each variant table is headed with the lift and that the heading
+  is not one of that lift's own variants, plus no `<th>Level n</th>` anywhere.
+
 **The Guide caught up with the app (2026-10-21)**
 - Audited it the only way prose can be audited: enumerate what the app can prescribe
   and check each name against the rendered page. Twelve activities, 7/12 named. Eleven

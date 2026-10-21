@@ -1281,6 +1281,18 @@ test("the Guide explains the things that change what the app prescribes", () => 
     ["a block lift's max being the stored max", /uses the max you stored, unscaled/],
     ["weighted pull-up loading", /bodyweight plus the added weight/],
   ]) a.match(g, needle, `the Guide covers ${topic}`);
+
+  // Each variant table is headed with the lift, not with a variant of it. liftName()
+  // resolves whichever variant the block is running, so using it here headed the squat
+  // table "High-bar back squat" above a list that included it -- and would have read
+  // "Safety squat bar squat" for anyone running one.
+  for (const k of Object.keys(x.VARS)) {
+    a.match(g, new RegExp(`<h4 class="sub-h">${x.VAR_OF[k]}</h4>`), `${k}'s table is headed with the lift`);
+    a.ok(x.VAR_OF[k] && !Object.values(x.varsOf(k)).some((v) => v.name === x.VAR_OF[k]),
+      `${k}'s heading is not one of its own variants`);
+  }
+  // A column header names what is in the column, never the first thing in it.
+  a.doesNotMatch(g, /<th>Level \d<\/th>/, "the supplement level is a heading, not a column name");
 });
 
 test("every warm-up and mobility movement has an entry, and the Guide lists them all", () => {
