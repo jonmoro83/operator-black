@@ -76,6 +76,27 @@ Genuinely open: things that still need doing or confirming.
 
 Closed. Here because the reasoning is worth keeping, not because anything is pending.
 
+- **"Can the timer run in the background, unaffected by locks or app switching?"
+  Asked 2026-10-21. Half of it already does; the other half is not available to a web
+  app at all.**
+  - **The count is already lock-proof** and always has been. Every timer is an absolute
+    end time in localStorage, not a tick count, so locking the phone, switching apps or
+    reloading cannot make it drift. It is right whenever you next look at it.
+  - **The sound cannot be.** iOS freezes a web page when the screen locks or the app
+    goes to the background: no script, no `setInterval`, no Web Audio. There is no API
+    that changes this. A service worker cannot run on a schedule (Periodic Background
+    Sync is Chrome-only and absent on iOS), and a Web Worker is frozen with its page.
+  - **The one thing that does make a noise is the server.** Web Push: the Durable Object
+    holds an alarm per rest and per interval change, queued in advance at `ivStart`, so
+    a lock cannot disturb it. That *is* the background timer, and it is already built.
+    What was missing was any sign of it from the timer itself, so 3.39 puts the state on
+    both bars.
+  - **The two ways to get real audio while locked, both already weighed:** a
+    pre-rendered audio track for the session, built and tested in `a983b65` and removed
+    at the user's request because it pauses music; and a native wrapper, whose single
+    real win is `AVAudioSession` `.playback` + `.mixWithOthers` — see the tabled
+    TestFlight analysis below. Nothing has changed to reopen either.
+
 - **The rest beep works. Confirmed on a phone 2026-10-14**, ring switch on, through
   Setup → Sound → Test the beep. Four reports and four rounds of work; 1.84 was the one
   that landed, after settling the why (iOS audio sessions are exclusive or mixable,

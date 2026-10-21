@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.39',date:'2026-10-21',title:"The timer says what happens when you lock the phone",items:[
+    "Asked whether the timer could keep running in the background. The count already does: it's an end time, not a tick, so lock the phone, switch apps or reload and it's on the right second when you come back. What can't run is the beep. iOS freezes the page when the screen goes off, and no web app can make a sound from a frozen page.",
+    "What does make a sound is the alert the server holds for every rest and every interval change. That's the background timer, and it's been there all along \u2014 but with alerts off there's nothing at all once the screen is off, and the only place that said so was a card in Setup.",
+    "So the timers say it themselves now. A running rest or interval with alerts off shows \u201cAlerts off \u00b7 tap for sound when locked\u201d, and the tap turns them on. If they're blocked in iOS Settings it says that instead, since no tap here will fix that one."]},
   {v:'3.38',date:'2026-10-21',title:"The screen lock takes itself back",items:[
     "This is the reason HIC beeps stop partway through a session. iOS hands back the screen lock partway through for reasons of its own, and nothing took it back \u2014 the app asked once when the session started and then not again until you next picked the phone up. So the screen slept, and a sleeping screen freezes the page: every beep due while it slept simply never happened.",
     "That is also why unlocking the phone sets off a beep in the middle of a rest or an interval. It was the timer catching up on a change it slept through.",

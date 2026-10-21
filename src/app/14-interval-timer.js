@@ -135,11 +135,13 @@ function ivPush(){
 }
 function ivShow(){
   const el=document.getElementById('iv');
+  showCover();
   if(!iv){el.hidden=true;document.body.classList.remove('iv-mini');clearInterval(ivTick);ivTick=null;return}
   el.hidden=false; el.classList.toggle('mini',!!iv.mini); document.body.classList.toggle('iv-mini',!!iv.mini);
   document.getElementById('iv-size').textContent=iv.mini?'Expand':'Minimize';
   document.getElementById('iv-title').textContent=MOD[iv.mod].name+' · '+HIC[iv.fmt].name;
   if(!ivTick) ivTick=setInterval(ivRender,200);
+  showWake();
   ivRender();
 }
 function ivRender(){
@@ -210,6 +212,7 @@ function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();render()}
 document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
+  if(a==='cover'){ coverTap(); return }
   unlockAudio();
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
     if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();

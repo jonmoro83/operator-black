@@ -7710,6 +7710,48 @@ test("a wake that never answers leaves a line saying so, not nothing at all", as
   a.equal(x.tlogText().split("\n").filter((l) => /go \u00b7/.test(l)).length, 1, "as one line, amended, not two");
 });
 
+test("a running timer says when nothing will make a sound once the screen is off", () => {
+  const x = app({ now: "2026-10-19" });
+  const keepN = window.Notification, keepP = window.PushManager;
+  try {
+    // The page is frozen while the phone is locked, so the only thing that can make a
+    // noise is the alert the server holds. Off means this session goes quiet with the
+    // screen, and that belongs on the timer, not three taps away in Setup.
+    window.PushManager = function () {}; window.Notification = { permission: "granted" };
+    global.Notification = window.Notification;
+    x.startRest("squat", "Squat · set 2", 120);
+    const tag = document.getElementById("rest-push");
+    a.equal(tag.hidden, false, "the rest bar says so");
+    a.match(tag.textContent, /tap for sound when locked/, "and offers the one tap that fixes it");
+    // Turned on, there is nothing to say.
+    localStorage.setItem("ob.push", JSON.stringify("https://push.example/abc"));
+    x.showCover();
+    a.equal(tag.hidden, true);
+    // Blocked in iOS Settings is a different sentence: no tap here will fix it.
+    localStorage.removeItem("ob.push");
+    window.Notification = { permission: "denied" }; global.Notification = window.Notification;
+    x.showCover();
+    a.match(document.getElementById("rest-push").textContent, /blocked/i);
+    // And it goes away with the timer.
+    x.stopRest();
+    a.equal(document.getElementById("rest-push").hidden, true);
+  } finally { window.Notification = keepN; global.Notification = keepN; window.PushManager = keepP }
+});
+
+test("the interval panel carries the same warning, since that is the screen in front of you", () => {
+  const x = app({ now: "2026-10-19" });
+  const keepN = window.Notification, keepP = window.PushManager;
+  try {
+    window.PushManager = function () {}; window.Notification = { permission: "granted" };
+    global.Notification = window.Notification;
+    x.ivStart("map");
+    a.equal(document.getElementById("iv-push").hidden, false);
+    a.equal(document.getElementById("rest-push").hidden, true, "and the rest bar stays out of it");
+    x.iv = null; x.showCover();
+    a.equal(document.getElementById("iv-push").hidden, true);
+  } finally { window.Notification = keepN; global.Notification = keepN; window.PushManager = keepP }
+});
+
 test("a screen lock iOS lets go of is taken back while the session is still running", async () => {
   const x = app({ now: "2026-10-19" });
   const keep = navigator.wakeLock;

@@ -11,6 +11,36 @@ function alertsSupport(){
   return 'ok';
 }
 function alertsOn(){return !!LS.get('ob.push')&&window.Notification&&Notification.permission==='granted'}
+/* ---------- what is still running when the page is not ----------
+A locked phone freezes the page: no script, no Web Audio, no beep. The timer itself is
+fine -- it is an absolute end time, so it is on the right second whenever you come back
+-- but the sound cannot come from here. The only thing that makes a noise while the
+screen is off is the alert the server already holds for every rest and every interval
+change. Which makes "alerts off" a different thing during a session than it is in a
+settings card: it means this session goes silent the moment the screen does. It only
+ever said so in Setup, three taps away from the timer, so the timers say it now. */
+function coverText(){
+  if(alertsOn()) return null;
+  switch(alertsSupport()){
+    case 'ok': return 'Alerts off \u00b7 tap for sound when locked';
+    case 'denied': return 'Alerts blocked \u00b7 silent once the screen is off';
+    case 'install': return 'Add to Home Screen for sound when locked';
+    default: return 'No alerts here \u00b7 silent once the screen is off';
+  }
+}
+function showCover(){
+  if(typeof document==='undefined') return;
+  const t=coverText();
+  const set=(id,on)=>{ const el=document.getElementById(id); if(!el) return; if(on) el.textContent=t; el.hidden=!on };
+  set('rest-push',!!t&&!!rest&&!rest.done);
+  set('iv-push',!!t&&!!iv&&!iv.done);
+}
+// Tapping it: turn them on where that is all it takes, or go to the card that explains
+// why it is not.
+function coverTap(){
+  if(alertsSupport()==='ok'){ enableAlerts(); return }
+  view='setup'; render();
+}
 function b64uBytes(str){const b=str.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(str.length/4)*4,'=');return Uint8Array.from(atob(b),c=>c.charCodeAt(0))}
 // If this device thinks alerts are on but the server has no subscription for this
 // person (e.g. after the move to per-user alert stores), quietly register it again.
@@ -32,14 +62,14 @@ async function enableAlerts(){
     try{ if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)}) }
     catch(e){ if(sub) await sub.unsubscribe(); sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)}) }
     await api('POST','/push/subscribe',{subscription:sub.toJSON()});
-    LS.set('ob.push',sub.endpoint); alerts.msg='Rest alerts are on for this device.';
+    LS.set('ob.push',sub.endpoint); alerts.msg='Rest alerts are on for this device.'; showCover(); syncPush(); ivPush();
   }catch(e){ alerts.msg=e&&e.status?'The server refused the subscription ('+e.status+'). Try again.':'Couldn’t turn on alerts. Check your connection and try again.' }
   finally{ alerts.busy=false; render() }
 }
 async function disableAlerts(){
   alerts.busy=true; render();
   try{ const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription(); if(sub){ await api('POST','/push/unsubscribe',{endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe() } }catch(e){}
-  LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; render();
+  LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; showCover(); render();
 }
 async function testAlert(){
   try{ await api('POST','/push/schedule',{at:Date.now()+8000,title:'Test alert',body:'Rest alerts work. This is what the end of a rest looks like.'}); alerts.msg='Test alert coming in 8 seconds. Lock your phone now to see it on the lock screen.' }
@@ -71,6 +101,7 @@ function startRest(k,next,secs,lbl){
 function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();if(was)syncPush()}
 function showRest(){
   const el=document.getElementById('rest');
+  showCover();
   if(!rest){el.hidden=true;document.body.classList.remove('timing');return}
   el.hidden=false;document.body.classList.add('timing');
   document.getElementById('rest-lbl').textContent=rest.lbl+(rest.sides>1?' · side '+rest.side+' of '+rest.sides:'');
@@ -121,6 +152,7 @@ function tickRest(){
 }
 document.getElementById('rest').addEventListener('click',e=>{
   const b=e.target.closest('[data-rest]'); if(!b||!rest) return; const v=b.dataset.rest;
+  if(v==='cover'){ coverTap(); return }
   if(v==='stop') return stopRest();
   if(v==='unquiet'){ unquiet(); return }
   unlockAudio();
