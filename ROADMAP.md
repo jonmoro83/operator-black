@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-10-16.
+Update it as things ship. Last updated 2026-10-21.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -17,11 +17,29 @@ Genuinely open: things that still need doing or confirming.
   alerts on the lock screen, spoken cues through AirPods with the app open, and the
   rest beep in a real session — **with the ring switch off as well as on**
   (2026-10-16), which the research said was impossible.
+- **HIC beeps stop partway through a session. Reported 2026-10-21, open.** "First
+  couple of rounds beep but then the beep stops." Not reproducible off the device: a
+  whole session driven through `ivRender` at 200 ms, with speech parking the context
+  after every cue the way iOS does, sounds every segment. So the logic is not it, and
+  the cause is in the audio session on the phone.
+  - **The log could not hold the evidence**, which is why four rounds of work on this
+    family of bugs have all had to guess. The cap was 80 lines and a four-round MAP
+    writes about 88, so the moment the beeps stopped was pushed off the end by the
+    ticks of the rounds that followed, leaving a log that reads as working. Fixed in
+    3.37, along with the other blind spot: a `resume()` that never settles wrote no
+    line at all, so a sound lost that way and a sound never asked for looked identical.
+  - **Leading hypothesis, untested:** with alerts on, `ivPush` queues a lock-screen
+    notification for *every* segment change, and they keep arriving while the app is in
+    the foreground. Each one can take the audio session. That would fit the shape of
+    the report exactly — fine at first, then silent for the rest of the session. The fix
+    would be to cancel the queue while the page is visible and re-arm it when it hides,
+    which is a real behaviour change (lock the phone mid-session and there is a race),
+    so it waits on the log rather than being shipped on a hunch.
+  - **Next step: one HIC session, then Setup → Sound → Timer log → Copy.** The lines to
+    look for are `wake never answered`, `wake did not take` and `waiting for a tap`.
 - **The timer, on the phone (3.25).** The two-paths bug is certain and fixed; the rest
-  is research plus a model, not a device. What to check after a real session: that the
-  interval timer's 3-2-1 and its changes sound every time with spoken cues on, that the
-  rest beep comes on time, and that it is clearly louder. If anything is still off,
-  Setup → Sound → Timer log has the answer — copy it straight after.
+  is research plus a model, not a device. Still to check: that the rest beep comes on
+  time and is clearly louder.
 - **Does the coach give good advice?** The agreed gate for letting it apply changes
   rather than only suggest them. **2026-10-20: "OK so far, still evaluating."** It
   needs a few more weeks of reading what it said against what happened.

@@ -7664,13 +7664,50 @@ test("the log says how late each rest's end was noticed", () => {
   a.match(x.tlogText(), /rest · started \(120 s\)/);
 });
 
-test("the log keeps the last eighty, and copies with the version attached", () => {
+test("the log holds a long session, folds repeats, and copies with the version attached", () => {
   const x = app({ now: "2026-10-19" });
-  for (let i = 0; i < 120; i++) x.tlog("test", "event " + i);
-  const lines = x.tlogText().split("\n");
-  a.equal(lines.length, 80, "capped");
-  a.match(lines[79], /event 119/, "newest last");
+  for (let i = 0; i < 500; i++) x.tlog("test", "event " + i);
+  let lines = x.tlogText().split("\n");
+  a.equal(lines.length, x.TLOG_MAX, "capped");
+  a.match(lines[lines.length - 1], /event 499/, "newest last");
   a.match(x.tlogReport(), /^Operator \+ Black .* timer log/);
+  // The 3-2-1 is three identical lines a segment, and three a segment is what used to
+  // push the interesting part of a session off the end.
+  const y = app({ now: "2026-10-19" });
+  y.tlog("sound", "tick \u00b7 played"); y.tlog("sound", "tick \u00b7 played"); y.tlog("sound", "tick \u00b7 played");
+  y.tlog("sound", "go \u00b7 played");
+  lines = y.tlogText().split("\n");
+  a.equal(lines.length, 2, "the three ticks are one line");
+  a.match(lines[0], /tick \u00b7 played \u00d73/, "with the count on it");
+  a.match(lines[1], /go \u00b7 played/, "and a different sound is its own line");
+});
+
+test("a whole HIC session fits in the log, which is the point of keeping one", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.soundMode = "duck"; x.plan.ivRounds = { map: 8 }; x.bump();
+  x.unlockAudio(); x.audio.ctx.state = "running";
+  const o = Object.assign(x.ivOpts("2026-10-19", "map"), { rounds: 8, warm: true });
+  const segs = x.ivSegments("map", o);
+  a.equal(segs.length, 22, "warm-up plus eight rounds");
+  // What a session writes: the change cue for each segment, and its 3-2-1 folded to one.
+  for (const s of segs) { x.sfx(s.k === "work" ? "go" : "easy"); for (let i = 0; i < 3; i++) x.sfx("tick") }
+  const lines = x.tlogText().split("\n");
+  a.ok(lines.length < x.TLOG_MAX, `a session writes ${lines.length} lines, under the ${x.TLOG_MAX} cap`);
+  a.match(lines[0], /channel opened|easy|go/, "and the first line is still the start of the session");
+});
+
+test("a wake that never answers leaves a line saying so, not nothing at all", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); await settle();
+  // WebKit leaves resume() pending for the length of an interruption. Before, the only
+  // log line came from the callback, so a sound lost this way wrote nothing.
+  x.audio.ctx.state = "interrupted";
+  x.audio.ctx.resume = () => new Promise(() => {});
+  a.equal(x.sfx("go"), "resuming");
+  a.match(x.tlogText(), /go \u00b7 waking/, "the attempt is on the record straight away");
+  await new Promise((r) => setTimeout(r, 2100));
+  a.match(x.tlogText(), /go \u00b7 wake never answered/, "and is marked lost once it is clear it is");
+  a.equal(x.tlogText().split("\n").filter((l) => /go \u00b7/.test(l)).length, 1, "as one line, amended, not two");
 });
 
 test("a refused screen lock is shown on the rest bar, not discovered at the end", async () => {

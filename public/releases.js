@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.37',date:'2026-10-21',title:"The timer log keeps up with a session",items:[
+    "Reported: the beeps in a HIC session go for a couple of rounds and then stop. I can't make it happen off the phone, so this release is about catching it in the act rather than guessing at it again.",
+    "The timer log was too small to hold one interval session. Every segment wrote four lines, so by the end of eight rounds the part where the beeps stopped had already scrolled off and the log read as if everything was fine. It folds the repeated 3-2-1 lines into one with a count now, and keeps enough for a whole session.",
+    "A sound that goes missing because the phone never answers the request for the speaker used to write nothing at all, which looked the same in the log as a sound that was never asked for. Each one now goes in when it's asked for and gets its answer written next to it, and if there's no answer after two seconds it says so.",
+    "Nothing about how the beeps work has changed. Next HIC session: when they stop, finish the session, then Setup, Sound, Timer log, Copy, and send it."]},
   {v:'3.36',date:'2026-10-20',title:'A weekly debrief from the coach',items:[
     'Every Monday morning the coach reads back over the week you just finished and writes a short review: how it went, what is going well, what to watch, and the one thing worth changing this week. If nothing needs to change it says so.',
     "It's waiting on Today when you open the app. Tap Got it and it goes, but it stays at the top of the Coach tab for the week if you want to read it again or talk it over.",

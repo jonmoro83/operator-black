@@ -195,6 +195,11 @@ function sfx(name){
   const play=()=>{ try{ const t0=audioCtx.currentTime+.005; for(const n of notes) sfxNote(audioCtx,t0+(n.at||0),n) }catch(e){} };
   const was=audioCtx.state;
   if(was==='running'){ play(); tlog('sound',name+' \u00b7 played'); return 'running' }
+  // The line goes in now, pending, and the outcome amends it. Before, a wake that never
+  // answered wrote nothing at all, so a beep lost that way and a beep never asked for
+  // looked identical in the log -- which is the one distinction a report needs.
+  const id=tlog('sound',name+' \u00b7 waking',was,true);
+  let settled=false;
   // Not running -- 'suspended' after a lock, 'interrupted' after speech, a call or
   // another app. Wake it and play once it is awake. Reading the clock first was the old
   // bug: a parked context's clock is stale, and notes scheduled on it never sound. If
@@ -204,13 +209,17 @@ function sfx(name){
     const p=audioCtx.resume();
     if(p&&p.then){
       p.then(()=>{
-        if(audioCtx.state==='running'){ sfxUntil=Date.now()+sfxLen(name)*1000+120; play(); tlog('sound',name+' \u00b7 played after waking',was) }
-        else tlog('sound',name+' \u00b7 wake did not take',was+' → '+audioCtx.state);
-      },e=>tlog('sound',name+' \u00b7 wake refused',was+' '+((e&&e.name)||'')));
+        settled=true;
+        if(audioCtx.state==='running'){ sfxUntil=Date.now()+sfxLen(name)*1000+120; play(); tlogAmend(id,name+' \u00b7 played after waking',was) }
+        else tlogAmend(id,name+' \u00b7 wake did not take',was+' → '+audioCtx.state);
+      },e=>{ settled=true; tlogAmend(id,name+' \u00b7 wake refused',was+' '+((e&&e.name)||'')) });
+      // WebKit leaves resume() pending for as long as an interruption lasts, so a promise
+      // that has not settled in two seconds is a sound going missing, not one running late.
+      setTimeout(()=>{ if(!settled) tlogAmend(id,name+' \u00b7 wake never answered',was+', still waiting after 2 s') },2000);
       return 'resuming';
     }
-    play(); tlog('sound',name+' \u00b7 played',was); return 'resumed';
-  }catch(e){ tlog('sound',name+' \u00b7 wake threw',was); return 'resume-threw' }
+    play(); tlogAmend(id,name+' \u00b7 played',was); return 'resumed';
+  }catch(e){ tlogAmend(id,name+' \u00b7 wake threw',was); return 'resume-threw' }
 }
 /* Keeping the channel awake between sounds.
 
@@ -245,21 +254,52 @@ channel was doing when it was asked for, how late each rest's end was noticed, t
 lock, the page going to the background and back. "Inconsistent" has now been reported
 five times and fixed four; the next report should come with what happened, not a
 description of it. Copy it from Setup, Sound. */
-const TLOG_MAX=80;
-function tlog(ev,what,detail){
+/* The cap was 80, which one HIC session overruns before it is finished: every segment
+   writes its 3-2-1 and its change cue, so a four-round MAP with a warm-up fills the log
+   on its own and the earliest line still held is already past the warm-up. Beeps that
+   stop in round two were being pushed out by the ticks of the rounds after them, and the
+   log then read as working because the part where it broke had scrolled off. Hence both
+   changes: a cap that holds a long session, and repeats folded into one line with a
+   count, since three identical ticks a segment are what filled it. Folded, a ten-round
+   session writes about 50 lines, so 200 holds a whole one with room for the audio and
+   page events around it -- and the file is written on every line, so a bigger cap is
+   paid for once a second in a session rather than saved up for later. */
+const TLOG_MAX=200;
+let tlogId=0;
+function tlogSame(a,b){ return a&&a.ev===b.ev&&a.what===b.what&&a.d===b.d&&a.ctx===b.ctx&&a.vis===b.vis&&a.wl===b.wl }
+/** Append a line. `pend` marks it as awaiting an outcome; returns an id for `tlogAmend`. */
+function tlog(ev,what,detail,pend){
   try{
     const a=LS.get('ob.tlog')||[];
-    a.push({t:Date.now(),ev,what:String(what),d:detail==null?'':String(detail),ctx:audioCtx?audioCtx.state:'none',
-      vis:typeof document!=='undefined'?(document.visibilityState||''):'',wl:wakeState});
+    const e={id:++tlogId,t:Date.now(),ev,what:String(what),d:detail==null?'':String(detail),ctx:audioCtx?audioCtx.state:'none',
+      vis:typeof document!=='undefined'?(document.visibilityState||''):'',wl:wakeState};
+    if(pend) e.p=1;
+    const last=a[a.length-1];
+    // Never fold into a line still waiting for its outcome: it has an id to amend.
+    if(!pend&&last&&!last.p&&tlogSame(last,e)){ last.n=(last.n||1)+1; last.t=e.t }
+    else a.push(e);
     while(a.length>TLOG_MAX) a.shift();
     LS.set('ob.tlog',a);
+    return e.id;
+  }catch(e){ return 0 }
+}
+/** Replace a pending line's outcome, leaving it where it happened in the sequence. */
+function tlogAmend(id,what,detail){
+  if(!id) return;
+  try{
+    const a=LS.get('ob.tlog')||[];
+    for(let i=a.length-1;i>=0;i--) if(a[i].id===id){
+      a[i].what=String(what); if(detail!=null) a[i].d=String(detail);
+      a[i].ctx=audioCtx?audioCtx.state:'none'; delete a[i].p;
+      LS.set('ob.tlog',a); return;
+    }
   }catch(e){}
 }
 function tlogText(){
   const a=LS.get('ob.tlog')||[];
   if(!a.length) return 'Nothing logged yet. Run a rest or an interval session and this fills in.';
   const hh=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
-  return a.map(e=>`${hh(e.t)}  ${e.ev} · ${e.what}${e.d?' ('+e.d+')':''}  [audio ${e.ctx}, page ${e.vis||'?'}, screen ${e.wl}]`).join('\n');
+  return a.map(e=>`${hh(e.t)}  ${e.ev} · ${e.what}${e.n>1?' ×'+e.n:''}${e.d?' ('+e.d+')':''}  [audio ${e.ctx}, page ${e.vis||'?'}, screen ${e.wl}]`).join('\n');
 }
 function tlogReport(){
   return 'Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' · timer log\n'+
