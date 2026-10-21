@@ -235,6 +235,39 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Bench and overhead press variants (2026-10-21)**
+- Asked for, and the owner stated the rule that decides what belongs: **a lift variant
+  is a barbell** — straight or specialty, safety squat / trap / football / axle —
+  and dumbbell and landmine work is accessory work. That is now the comment above
+  `VARS`, the note in the Guide, and a test that rejects a variant whose name mentions
+  a dumbbell, kettlebell, landmine, machine, cable or RDL. It agrees with the older
+  mechanical test (a lockout to test, a weight that does not depend on grip) and is
+  far easier to apply when adding to the list.
+- Bench: close-grip .92, incline .82, floor .92, paused .93, neutral-grip bar .92,
+  pin/board 1.05. Overhead: push press 1.25, seated .95, behind-the-neck .90,
+  Z press .72, pin press 1.05. Ours, not the books' — TB1, TB2, TB3 and Ageless
+  Athlete were searched first and give no press variants with ratios.
+- **The ratios matter less than they look.** `varMax` scales only a one-day swap; run a
+  block on a variant and the stored max *is* that variant's max, and retests force the
+  reference. So a ratio being a few points out costs a single session's weight.
+- The reference entries are named `Bench press` and `Overhead press`, not
+  `Flat barbell bench` and `Standing barbell press`. `liftName()` resolves the variant
+  in use, so a longer reference name would have renamed the lift on Status, in the
+  reports and in the CSV for no gain. Unqualified, a bench press *is* a flat barbell
+  bench; an unqualified squat is not a high-bar back squat, which is why squat's
+  reference is specific and these are not.
+- **A latent bug this exposed:** `.map(liftName)` passes the array index as the `date`
+  argument, which reached `weekOf()` as a number and threw. Harmless while only squat
+  and deadlift had variants, because neither appears in those two lists; adding `ohp`
+  made Setup fail to render. Fixed at both call sites and at the root — `datestr()`
+  treats anything that is not a date string as "no date given". Worth remembering: an
+  optional trailing argument makes `fn(k)` and `arr.map(fn)` look identical.
+- Everything else was already generic and needed nothing: day swaps, scaling, the CSV
+  column, custom variants, the Guide tables. Only the Setup picker's hard-coded
+  `['squat','dead']` had to go.
+- **Not done:** grip variants for weighted pull-ups. By the stated rule a pull-up is
+  not a barbell lift, so chin-ups and neutral grip are a different category.
+
 **Headings that named a row instead of a column (2026-10-21)**
 - Reported straight after 3.41: the headings under the cluster-lift cards made no
   sense. They did not. The squat table was headed `liftName('squat')`, which resolves

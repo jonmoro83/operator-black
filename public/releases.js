@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.43',date:'2026-10-21',title:"Bench and overhead press variants",items:[
+    "Both now have a variant list, the same as squat and deadlift. Setup \u2192 Lift variants picks which one this cycle runs on, and you can swap on a single day from the lift's card when the rack or the shoulder says otherwise.",
+    "Bench: close-grip, incline, floor press, paused, neutral-grip bar, and pin or board press.",
+    "Overhead: push press, seated, behind-the-neck, Z press, and pin press.",
+    "The rule for what belongs here is now written down in the Guide: a variant is a barbell, straight or specialty \u2014 safety squat, trap, football, axle. Dumbbell, kettlebell and landmine work is accessory work and stays in the accessory slots.",
+    "The percentages only matter for a one-day swap. Run a whole block on incline bench and the max you enter is your incline max, used as it stands. Test weeks always go back to the plain lift, so a variant can never be written back as your bench max.",
+    "Fixed on the way: asking for a lift's name without a date could hand it a list position instead. Nothing showed it until a Lift 3 option had variants, and then the Setup page would not draw."]},
   {v:'3.42',date:'2026-10-21',title:"Fix the headings on the new Guide tables",items:[
     "The squat variant table was headed \u201cHigh-bar back squat\u201d, above a list of squat variants that included high-bar back squat. It used the name of whichever squat your block is running, so for anyone on a safety squat bar it would have been headed with that instead. Both tables now say \u201cSquat\u201d and \u201cDeadlift\u201d, with the columns named Variant, Of the reference max, and What it is.",
     "Same mistake in the supplement tables, where \u201cLevel 1\u201d sat as a column header over the supplement names. The level is a heading above the table now and the column says Supplement.",

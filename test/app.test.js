@@ -1231,6 +1231,39 @@ test("a day's note matches how many lifts that day actually has", () => {
   a.deepEqual(seen, [1, 2], "two Lift 3 variants leaves one for Saturday, three leaves two");
 });
 
+test("a variant list is barbells only, and every entry has an honest ratio", () => {
+  const x = app({ now: "2026-10-21" });
+  // The owner's rule: a lift variant is a barbell, straight or specialty. Dumbbell,
+  // kettlebell and landmine work is accessory work. It gives the same answer as the
+  // mechanical test -- a lockout to test, and a weight that does not depend on grip --
+  // and it is the one that is easy to apply when adding to the list.
+  const banned = /dumbbell|kettlebell|landmine|goblet|machine|cable|romanian/i;
+  for (const [k, list] of Object.entries(x.VARS)) {
+    a.ok(x.VAR_OF[k], `${k} has a plain lift name for headings`);
+    const ids = Object.keys(list);
+    a.equal(ids[0], x.varRef(k), `${k}'s reference is first`);
+    a.equal(list[ids[0]].r, 1, `${k}'s reference is 1.0 by definition`);
+    for (const [id, v] of Object.entries(list)) {
+      a.ok(v.r > 0.25 && v.r < 1.5, `${k}.${id} has a plausible ratio (${v.r})`);
+      a.ok(v.name && v.short && v.note, `${k}.${id} is fully described`);
+      a.doesNotMatch(v.name, banned, `${k}.${id} is a barbell`);
+    }
+  }
+  // Every lift with variants is pickable in Setup, not just the two it started with.
+  const h = x.vSetup();
+  for (const k of Object.keys(x.VARS)) a.match(h, new RegExp(`data-pbind="liftVar\\.${k}"`), `${k} has a Setup picker`);
+  // And the order is the order the week runs them.
+  a.deepEqual(Object.keys(x.VARS), x.LK.filter((k) => x.VARS[k]), "VARS follows LK");
+});
+
+test("a lift name asked for without a date is not handed an array index", () => {
+  const x = app({ now: "2026-10-21" });
+  // `.map(liftName)` passes (item, index, array), so the index arrived as the date and
+  // reached weekOf() as a number. Latent until a Lift 3 option gained variants.
+  a.equal(x.liftName("ohp", 1), x.liftName("ohp"), "an index is not a date");
+  a.doesNotThrow(() => ["squat", "bench", "ohp", "dead"].map(x.liftName), "and mapping it bare is safe");
+});
+
 test("the Guide names everything the app can prescribe", () => {
   const x = app({ now: "2026-10-21" });
   // The Guide fell a long way behind between 3.1 and 3.41 without anything noticing:
@@ -1287,9 +1320,14 @@ test("the Guide explains the things that change what the app prescribes", () => 
   // table "High-bar back squat" above a list that included it -- and would have read
   // "Safety squat bar squat" for anyone running one.
   for (const k of Object.keys(x.VARS)) {
-    a.match(g, new RegExp(`<h4 class="sub-h">${x.VAR_OF[k]}</h4>`), `${k}'s table is headed with the lift`);
-    a.ok(x.VAR_OF[k] && !Object.values(x.varsOf(k)).some((v) => v.name === x.VAR_OF[k]),
-      `${k}'s heading is not one of its own variants`);
+    const head = new RegExp(`<h4 class="sub-h">${x.VAR_OF[k]}</h4>`);
+    a.match(g, head, `${k}'s table is headed with the lift`);
+    // Run the block on something other than the reference and the heading must not
+    // follow: that was the bug, not the heading merely matching a variant's name.
+    const other = Object.keys(x.varsOf(k)).find((id) => id !== x.varRef(k));
+    x.plan.liftVar = Object.assign({}, x.plan.liftVar, { [k]: other });
+    x.bump();
+    a.match(x.vGuide(), head, `${k}'s heading holds when the block runs the ${other}`);
   }
   // A column header names what is in the column, never the first thing in it.
   a.doesNotMatch(g, /<th>Level \d<\/th>/, "the supplement level is a heading, not a column name");
@@ -6770,7 +6808,7 @@ test("Status keeps the current max and its direction without a chart", () => {
   const h = x.vStatus();
   // Treatment B: each lift a row with its max as the big number.
   a.match(h, /<h3>Strength<\/h3>[\s\S]*?class="mbs"/, "the lifts are rows");
-  a.match(h, /class="mb-l">Bench<\/span><span><span class="mb-n">\d+</, "the max is the big number");
+  a.match(h, /class="mb-l">Bench press<\/span><span><span class="mb-n">\d+</, "the max is the big number");
   a.ok(!/<h3>Strength<\/h3>[\s\S]{0,4000}class="mb-bar"[\s\S]{0,200}since C1/.test(h), "and no bar: a max has no target to fill toward");
   for (const k of x.activeLifts()) a.ok(h.includes(x.liftName(k)), `${k} is listed`);
   a.match(h, /since C1/, "each row says where the max has gone");

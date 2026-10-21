@@ -38,14 +38,18 @@ function liftName(k,date){
 // their whole job is to measure the max the next block is built on.
 function varOf(k,date){
   if(!VARS[k]) return null;
-  const d=date||sel, wk=d?weekOf(d):null, bv=blockVar(k,d);
+  const d=datestr(date), wk=d?weekOf(d):null, bv=blockVar(k,d);
   if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return bv;
   const o=((logs[d]||{}).var||{})[k];
   return varsOf(k)[o]?o:bv;
 }
+/* A date argument is optional everywhere it appears, so `fn(k)` and `arr.map(fn)` look
+   alike and the second quietly passes 0, 1, 2 as the date. Anything that is not a date
+   string means "no date given". */
+function datestr(d){ return (typeof d==='string'&&d)||sel }
 function blockVar(k,date){
   if(!VARS[k]) return null;
-  const d=date||sel, wk=d?weekOf(d):null;
+  const d=datestr(date), wk=d?weekOf(d):null;
   const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
   const cv=((plan.cycleVar||{})[c]||{})[k];
   return varsOf(k)[cv]?cv:varDefault(k);

@@ -1046,11 +1046,18 @@ const PLIB={
 // weight when you have not tested the variant itself; enter a real max in Setup and that
 // wins instead. The first entry in each list is the reference: the max everything else is
 // derived from, the one retests measure, and what you get if you never touch this.
+/* The rule, in the owner's words: a lift variant is a barbell. A straight bar, or a
+   specialty bar -- safety squat, trap, football, axle. Dumbbell and landmine work is
+   accessory work and lives in the accessory slots, which is where it already is.
+
+   It happens to give the same answer as the mechanical test above and is easier to
+   apply: a barbell lift has a lockout to test and a weight that does not depend on what
+   your hands can hold, so there is an honest one-rep max to run percentages against. */
 // The lift itself, as opposed to the variant of it you are running. `liftName()`
 // resolves a key to the variant in use, which is what every prescription wants and is
 // wrong anywhere the subject is the lift: a table of squat variants headed with the
 // squat you happen to be squatting reads as nonsense.
-const VAR_OF={squat:'Squat',dead:'Deadlift'};
+const VAR_OF={squat:'Squat',bench:'Bench press',ohp:'Overhead press',dead:'Deadlift'};
 const VARS={
   squat:{
     high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},
@@ -1060,6 +1067,23 @@ const VARS={
     box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
     pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
     zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'}
+  },
+  bench:{
+    flat:{name:'Bench press',short:'Bench',r:1,note:'Straight bar, flat, feet down, touch and press. The reference: everything else here is a share of it.'},
+    close:{name:'Close-grip bench',short:'Close grip',r:.92,note:'Hands about shoulder width, elbows tucked. More triceps, less shoulder, and the usual answer to a front delt that complains on the wide grip.'},
+    incline:{name:'Incline barbell bench',short:'Incline',r:.82,note:'Thirty to forty-five degrees. Upper chest and front delt, which is the one gap three days of flat pressing leaves.'},
+    floor:{name:'Floor press',short:'Floor',r:.92,note:'Flat on the floor, upper arms stop on the way down. No leg drive and no stretch at the bottom, so it is lockout strength and it is kind to the shoulder.'},
+    pause:{name:'Paused bench',short:'Paused',r:.93,note:'A dead stop on the chest, no bounce. Exposes whether the weight was ever under control.'},
+    neutral:{name:'Neutral-grip bar bench',short:'Neutral grip',r:.92,note:'Football or Swiss bar, palms facing. The one to run for a whole block when the shoulder will not tolerate a straight bar.'},
+    pin:{name:'Pin or board press',short:'Pins',r:1.05,note:'Short range from pins or boards, overloading the top half. Easy to flatter yourself with \u2014 pick one height and keep it.'}
+  },
+  ohp:{
+    strict:{name:'Overhead press',short:'Strict',r:1,note:'Standing, strict, no leg drive and no layback beyond a braced trunk. The reference: everything else here is a share of it.'},
+    push:{name:'Push press',short:'Push press',r:1.25,note:'A dip and drive off the legs, then press it out. More weight overhead and more total-body coordination; the lockout is still yours.'},
+    seated:{name:'Seated barbell press',short:'Seated',r:.95,note:'Takes the legs and the hips out of it. Less weight, and nowhere to hide a sloppy brace.'},
+    btn:{name:'Behind-the-neck press',short:'Behind neck',r:.9,note:'Wants genuine shoulder mobility and gives a narrow margin for error. Worth it for upper-back and overhead position if you have the range; skip it if you do not.'},
+    z:{name:'Z press',short:'Z press',r:.72,note:'Seated on the floor, legs straight. Removes every bit of help from below the waist, which is why the number is so much lower.'},
+    pin:{name:'Pin press',short:'Pins',r:1.05,note:'Dead start from pins at forehead height. No stretch reflex and no dip, so it is the sticking point on its own.'}
   },
   dead:{
     conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
@@ -2280,14 +2304,18 @@ function liftName(k,date){
 // their whole job is to measure the max the next block is built on.
 function varOf(k,date){
   if(!VARS[k]) return null;
-  const d=date||sel, wk=d?weekOf(d):null, bv=blockVar(k,d);
+  const d=datestr(date), wk=d?weekOf(d):null, bv=blockVar(k,d);
   if(wk&&(wk.kind==='test'||wk.kind==='bridge')) return bv;
   const o=((logs[d]||{}).var||{})[k];
   return varsOf(k)[o]?o:bv;
 }
+/* A date argument is optional everywhere it appears, so `fn(k)` and `arr.map(fn)` look
+   alike and the second quietly passes 0, 1, 2 as the date. Anything that is not a date
+   string means "no date given". */
+function datestr(d){ return (typeof d==='string'&&d)||sel }
 function blockVar(k,date){
   if(!VARS[k]) return null;
-  const d=date||sel, wk=d?weekOf(d):null;
+  const d=datestr(date), wk=d?weekOf(d):null;
   const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
   const cv=((plan.cycleVar||{})[c]||{})[k];
   return varsOf(k)[cv]?cv:varDefault(k);
@@ -5451,7 +5479,7 @@ function vWelcome(){
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
-    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(liftName).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
+    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(k=>liftName(k)).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
     <div class="note">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
@@ -7971,7 +7999,7 @@ function vSetup(){
   <div class="stack">${L3K.map(k=>`<label class="check"><input type="checkbox" id="l3-${k}" data-pbind="l3.on.${k}" ${on.includes(k)&&(L3.on||{})[k]?'checked':''}> ${esc(liftName(k))}${k==='wpu'?' <span class="small muted">(percentages use bodyweight + added weight)</span>':''}</label>`).join('')}</div>
   ${on.length>1?`<div class="grid2"><label class="f">Rotation<select id="l3-mode" data-pbind="l3.mode">${[['same','Same every session'],['alt-day','Alternate Monday ↔ Wednesday'],['alt-week','Alternate each week'],['alt-cycle','Alternate each cycle']].map(([v,l])=>`<option value="${v}"${L3.mode===v?' selected':''}>${l}</option>`).join('')}</select></label>${L3.mode==='same'||!L3.mode?`<label class="f">Default<select id="l3-primary" data-pbind="l3.primary">${on.map(k=>`<option value="${k}"${L3.primary===k?' selected':''}>${esc(liftName(k))}</option>`).join('')}</select></label>`:''}</div>`:''}
   ${on.includes('pull')?`<div class="grid2"><label class="f">Pulldown name<input type="text" id="p-l3" data-pbind="lift3Name" value="${esc(plan.lift3Name)}"></label><label class="f">Machine and pin setting<input type="text" id="p-mn" data-pbind="machineNote" value="${esc(plan.machineNote)}" placeholder="e.g. Hammer Strength pulldown, seat 4"></label></div>`:''}
-  ${on.some(k=>plan.maxes[k]==null||plan.maxes[k]==='')?`<div class="banner warn"><div class="small">Add a 1RM above for ${on.filter(k=>plan.maxes[k]==null||plan.maxes[k]==='').map(liftName).join(' and ')}. Until then its sessions show no working weight.</div></div>`:''}</div>`;
+  ${on.some(k=>plan.maxes[k]==null||plan.maxes[k]==='')?`<div class="banner warn"><div class="small">Add a 1RM above for ${on.filter(k=>plan.maxes[k]==null||plan.maxes[k]==='').map(k=>liftName(k)).join(' and ')}. Until then its sessions show no working weight.</div></div>`:''}</div>`;
   {
     const sup=alertsSupport(), on=alertsOn();
     h+=SEC('sound')+`<div class="card"><div class="lift-h"><h2>Rest alerts</h2>${on?'<span class="chip light">On</span>':'<span class="chip">Off</span>'}</div><p class="note" style="margin:0">A notification when each rest ends, even with the phone locked or another app open. Set per device.</p>`;
@@ -8055,10 +8083,10 @@ function vSetup(){
   const ptS=proteinTarget(todayStr());
   {
     const wk=weekOf(todayStr()), cyc=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):null;
-    h+=SEC('training')+`<div class="card"><h2>Lift variants</h2><p class="note" style="margin:0">Which squat and which deadlift this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
-    for(const k of ['squat','dead']){
+    h+=SEC('training')+`<div class="card"><h2>Lift variants</h2><p class="note" style="margin:0">Which ${esc(Object.values(VAR_OF).map(v=>v.toLowerCase()).join(', ').replace(/, ([^,]*)$/,' and $1'))} this program runs on. Tactical Barbell picks its cluster lifts for a block and keeps them for the block, so this is a per-cycle choice \u2014 and the max you enter above is that lift\u2019s max, used as it stands with no conversion.</p>`;
+    for(const k of Object.keys(VARS)){
       const V=varsOf(k), bv=blockVar(k,todayStr()), def=varDefault(k), m=cyc?maxFor(cyc)[k]:null;
-      h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(k==='squat'?'Squat':'Deadlift')}</div>
+      h+=`<div class="stack" style="gap:8px;margin-top:14px"><div class="small muted" style="font-weight:650">${esc(VAR_OF[k]||k)}</div>
       <div class="grid2">${cyc?`<label class="f">Cycle ${cyc} (now)<select id="p-cv-${k}" data-pbind="cycleVar.${cyc}.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===bv?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
       <label class="f">Later cycles<select id="p-var-${k}" data-pbind="liftVar.${k}">${Object.entries(V).map(([id,x])=>`<option value="${id}"${id===def?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
       <div class="small muted">${esc(V[bv].note)}</div>`;
@@ -8181,13 +8209,13 @@ function vGuide(){
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Cluster lifts and their variants</h3>
-  <p>Squat and deadlift each have a list of variants, and the first on each list is the <b>reference</b> — the lift your stored max belongs to. Pick the one your block actually runs in Setup \u2192 Program; it is a per-cycle choice, like your accessories, because the wave builds to heavy weeks on a max for a particular lift and changing it mid-block makes those weeks mean nothing.</p>
+  <p>Each cluster lift has a list of variants, and the first on each list is the <b>reference</b> — the lift your stored max belongs to. Pick the one your block actually runs in Setup \u2192 Program; it is a per-cycle choice, like your accessories, because the wave builds to heavy weeks on a max for a particular lift and changing it mid-block makes those weeks mean nothing.</p>
   <ul class="tight"><li><b>The block's lift uses the max you stored, unscaled.</b> Choose the safety squat bar for a cycle and the number you type is your safety squat bar max. The app does not derive it from a back squat you were never asked for.</li>
   <li><b>A one-day swap is scaled.</b> Change the lift on a single day's card and the weight is your block max times the ratio between the two variants, so a front squat on a Wednesday is prescribed off the squat you are actually training.</li>
   <li><b>Test and bridge weeks always use the reference</b>, even against an explicit swap. Otherwise a front-squat single would be written back as a back-squat max and quietly drop every weight in the next cycle.</li>
   <li><b>Variants change the working weight and nothing else.</b> Personal records, the strength charts and the cycle review all stay on the reference lift.</li>
   <li><b>Your own</b> variants go in Setup: a name and its share of the reference max is the whole prescription. Anything from 25 to 150%.</li></ul>
-  <p class="note">Not on the list on purpose: goblet squats, double-kettlebell front squats and Romanian deadlifts. If the limit is what you can hold, or there is no lockout to test, there is no honest one-rep max and the percentages would be invented. They live in the travel week and in the accessory slots instead.</p>
+  <p class="note"><b>A variant is a barbell</b> — a straight bar, or a specialty bar: safety squat, trap, football, axle. Dumbbell, kettlebell and landmine work is accessory work and lives in the accessory slots, which is where you will find it. The rule gives the same answer as the mechanical one and is easier to apply: if the limit is what your hands can hold, or there is no lockout to test, there is no honest one-rep max and the percentages would be invented. Hence no goblet squats, no double-kettlebell front squats and no Romanian deadlifts here — they are in the accessory and travel-week lists.</p>
   ${Object.keys(VARS).map(k=>`<h4 class="sub-h">${esc(VAR_OF[k]||k)}</h4><div class="tbl-wrap" style="margin-top:6px"><table><thead><tr><th>Variant</th><th class="n">Of the reference max</th><th>What it is</th></tr></thead><tbody>${Object.values(varsOf(k)).map((v,i)=>`<tr><td><b>${esc(v.name)}</b></td><td class="n mono small">${i?Math.round(v.r*100)+'%':'reference'}</td><td class="small">${esc(v.note||'')}</td></tr>`).join('')}</tbody></table></div>`).join('')}</div>
   <div class="card guide"><h3>Pull-ups</h3>
   <p>The one accessory the app programs rather than just lists, because it is the one that takes years and responds to being told what to do next. Wednesday's card prints the prescription for whichever rung your best logged set puts you on, and moves you up on its own.</p>

@@ -427,11 +427,18 @@ const PLIB={
 // weight when you have not tested the variant itself; enter a real max in Setup and that
 // wins instead. The first entry in each list is the reference: the max everything else is
 // derived from, the one retests measure, and what you get if you never touch this.
+/* The rule, in the owner's words: a lift variant is a barbell. A straight bar, or a
+   specialty bar -- safety squat, trap, football, axle. Dumbbell and landmine work is
+   accessory work and lives in the accessory slots, which is where it already is.
+
+   It happens to give the same answer as the mechanical test above and is easier to
+   apply: a barbell lift has a lockout to test and a weight that does not depend on what
+   your hands can hold, so there is an honest one-rep max to run percentages against. */
 // The lift itself, as opposed to the variant of it you are running. `liftName()`
 // resolves a key to the variant in use, which is what every prescription wants and is
 // wrong anywhere the subject is the lift: a table of squat variants headed with the
 // squat you happen to be squatting reads as nonsense.
-const VAR_OF={squat:'Squat',dead:'Deadlift'};
+const VAR_OF={squat:'Squat',bench:'Bench press',ohp:'Overhead press',dead:'Deadlift'};
 const VARS={
   squat:{
     high:{name:'High-bar back squat',short:'High bar',r:1,note:'Bar on the traps, upright torso, deeper knee bend. The reference: everything else here is a share of it.'},
@@ -441,6 +448,23 @@ const VARS={
     box:{name:'Box squat',short:'Box',r:.95,note:'Sit to a box at or just below parallel, pause, drive up. Kills the stretch reflex, so it is honest hip strength.'},
     pause:{name:'Paused squat',short:'Paused',r:.9,note:'Two seconds in the hole, no bounce. Exposes whether the bottom position is actually under control.'},
     zercher:{name:'Zercher squat',short:'Zercher',r:.77,note:'Bar in the crooks of the elbows. Brutal on the upper back and trunk, and the limiter is usually how much your arms will take.'}
+  },
+  bench:{
+    flat:{name:'Bench press',short:'Bench',r:1,note:'Straight bar, flat, feet down, touch and press. The reference: everything else here is a share of it.'},
+    close:{name:'Close-grip bench',short:'Close grip',r:.92,note:'Hands about shoulder width, elbows tucked. More triceps, less shoulder, and the usual answer to a front delt that complains on the wide grip.'},
+    incline:{name:'Incline barbell bench',short:'Incline',r:.82,note:'Thirty to forty-five degrees. Upper chest and front delt, which is the one gap three days of flat pressing leaves.'},
+    floor:{name:'Floor press',short:'Floor',r:.92,note:'Flat on the floor, upper arms stop on the way down. No leg drive and no stretch at the bottom, so it is lockout strength and it is kind to the shoulder.'},
+    pause:{name:'Paused bench',short:'Paused',r:.93,note:'A dead stop on the chest, no bounce. Exposes whether the weight was ever under control.'},
+    neutral:{name:'Neutral-grip bar bench',short:'Neutral grip',r:.92,note:'Football or Swiss bar, palms facing. The one to run for a whole block when the shoulder will not tolerate a straight bar.'},
+    pin:{name:'Pin or board press',short:'Pins',r:1.05,note:'Short range from pins or boards, overloading the top half. Easy to flatter yourself with \u2014 pick one height and keep it.'}
+  },
+  ohp:{
+    strict:{name:'Overhead press',short:'Strict',r:1,note:'Standing, strict, no leg drive and no layback beyond a braced trunk. The reference: everything else here is a share of it.'},
+    push:{name:'Push press',short:'Push press',r:1.25,note:'A dip and drive off the legs, then press it out. More weight overhead and more total-body coordination; the lockout is still yours.'},
+    seated:{name:'Seated barbell press',short:'Seated',r:.95,note:'Takes the legs and the hips out of it. Less weight, and nowhere to hide a sloppy brace.'},
+    btn:{name:'Behind-the-neck press',short:'Behind neck',r:.9,note:'Wants genuine shoulder mobility and gives a narrow margin for error. Worth it for upper-back and overhead position if you have the range; skip it if you do not.'},
+    z:{name:'Z press',short:'Z press',r:.72,note:'Seated on the floor, legs straight. Removes every bit of help from below the waist, which is why the number is so much lower.'},
+    pin:{name:'Pin press',short:'Pins',r:1.05,note:'Dead start from pins at forehead height. No stretch reflex and no dip, so it is the sticking point on its own.'}
   },
   dead:{
     conv:{name:'Conventional deadlift',short:'Conventional',r:1,note:'The reference. Everything else here is expressed against it.'},
