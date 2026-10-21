@@ -2837,11 +2837,12 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   a.match(nav, /data-view="admin"[^>]*hidden/, "it ships hidden, not absent");
   a.ok(!/data-act=/.test(nav), "the header navigates by view, never by action");
   const tabs = [...nav.matchAll(/data-view="([a-z]+)"/g)].map((m) => m[1]);
-  // Guide is reference rather than a daily destination, so it moved to the account
-  // menu to get the tab bar back under a thumb's width.
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "coach", "admin"], "admin is last");
+  // The Guide went to the account menu in 3.1 to get the tab bar under a thumb's
+  // width, and came back by request: it is the reference for the programs and the
+  // lifts, and a menu is not where anybody looks for that. The row scrolls instead.
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "coach", "guide", "admin"], "admin is last");
   const acct = html.slice(html.indexOf('id="acct-m"'), html.indexOf('<nav id="nav"'));
-  a.match(acct, /data-view="guide"/, "and the Guide is still reachable");
+  a.match(acct, /data-view="guide"/, "and the menu route is kept, since it has been there a week");
 
   // Every tab the nav offers has a view behind it.
   x.view = "admin"; x.amAdmin = true; x.loaded = true;

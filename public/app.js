@@ -3455,7 +3455,15 @@ function renderMain(){
   if(view==='admin'&&!amAdmin&&loaded) view='setup';
   const ab=document.querySelector&&document.querySelector('#nav button[data-view="admin"]');
   if(ab) ab.hidden=!amAdmin;
-  document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===view?'page':'false'));
+  /* Seven tabs do not fit a phone -- at 390px the row is about 480px wide -- so `nav`
+     scrolls sideways. Which is fine until the tab you are on is the one off the end:
+     Guide sits last, so opening it from the account menu used to leave the row still
+     showing Today and no sign of where you were. Bring the current one into view. */
+  document.querySelectorAll('#nav button').forEach(b=>{
+    const on=b.dataset.view===view;
+    b.setAttribute('aria-current',on?'page':'false');
+    if(on&&!b.hidden&&b.scrollIntoView) try{ b.scrollIntoView({block:'nearest',inline:'nearest'}) }catch(e){}
+  });
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
   if(wz&&!viewing){ if(!morph(m,vWelcome())&&aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})} return }

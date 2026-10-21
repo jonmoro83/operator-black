@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.40',date:'2026-10-21',title:"The Guide is a tab again",items:[
+    "It's back on the tab row, at the right-hand end. It went into the account menu a week ago on the theory that it's reference material nobody opens between sets, which was the wrong call: it's where the programs, the lifts, the plyo and mobility libraries and every rule the app follows are written down.",
+    "Nothing in it changed or needed rebuilding \u2014 all thirteen sections were still there behind the menu.",
+    "Seven tabs don't fit across a phone, so the row scrolls sideways and the Guide is past the end of it. The tab you're on now scrolls itself into view, so landing on the Guide no longer leaves the row showing Today.",
+    "It's still in the account menu too, since that's been the way there for a week."]},
   {v:'3.39',date:'2026-10-21',title:"The timer says what happens when you lock the phone",items:[
     "Asked whether the timer could keep running in the background. The count already does: it's an end time, not a tick, so lock the phone, switch apps or reload and it's on the right second when you come back. What can't run is the beep. iOS freezes the page when the screen goes off, and no web app can make a sound from a frozen page.",
     "What does make a sound is the alert the server holds for every rest and every interval change. That's the background timer, and it's been there all along \u2014 but with alerts off there's nothing at all once the screen is off, and the only place that said so was a card in Setup.",

@@ -235,6 +235,22 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The Guide is a tab again (2026-10-21)**
+- Asked for it back. 3.1 moved it into the account menu on the grounds that it is
+  reference rather than a daily destination and the one nobody opens between sets.
+  The width arithmetic was right and the premise was wrong: it is where the programs,
+  the lifts, the plyo and mobility libraries and every rule the app follows are
+  written down, and a menu behind an avatar is not where anyone looks for that.
+- Nothing had to be rebuilt. `vGuide()` was still wired into the view table the whole
+  time and still renders all thirteen sections, 92 KB of them; only the tab was gone.
+- Seven tabs genuinely do not fit a phone — the row measures about 480px against the
+  314px a 390px screen has for it — so `nav` keeps scrolling sideways and the Guide
+  sits at the right-hand end. What is new is that `render()` scrolls the current tab
+  into view, so arriving on the Guide no longer leaves the row showing Today with no
+  sign of where you are.
+- The account-menu route stays. It has been the way there for a week, and removing a
+  path somebody has learned to fix a tidiness complaint nobody made is a bad trade.
+
 **Settings done in Cloudflare**
 - Deploys: closed as not needed. Changes go live with `npm run deploy` (wrangler,
   tagged with the commit). Pushing to GitHub does **not** deploy on its own; the
@@ -909,6 +925,8 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - **The Guide moved off the tab bar** into the account menu, next to What's new. Eight
   tabs is about 48px each at phone width; it is reference material rather than a daily
   destination, and it was the only one of the eight nobody opens mid-session.
+  **Reversed on 2026-10-21 by request** — see the 3.40 entry. The width argument held;
+  the premise did not.
 - 318 tests, 6 mutants, all caught.
 
 **Macro averages, over a window you choose (2026-10-16)**
