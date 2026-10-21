@@ -390,24 +390,60 @@ function beepReport(){
     ['media clip',d.media],['web audio',d.tones],['audio channel',d.ctx],['audio session',d.session]];
   return head+'\n'+rows.map(r=>r[0]+': '+r[1]).join('\n')+'\n'+d.ua+'\n\n'+beepAdvice(d).join('\n');
 }
-// iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
-// object, so re-check `released` rather than trusting we still hold it.
+/* iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
+   object, so re-check `released` rather than trusting we still hold it.
+
+   It also lets go mid-session for reasons of its own, and until 3.38 nothing took it
+   back: the request happened when a session started, the release handler only wrote the
+   state down, and the next attempt was whenever the page was next hidden and shown. One
+   release and the screen slept for the rest of the session -- which freezes the page, so
+   every beep due while it slept never happened, and the one you hear on unlocking is the
+   timer catching up. That is the reported "first couple of rounds beep and then it
+   stops", from the other end.
+
+   So: take it back when it goes, and let the running timers ask on every tick. Asking is
+   free while it is held (the `released` check returns), and `SCREEN_RETRY` keeps a
+   refusal -- Low Power Mode refuses -- from turning a 5 Hz tick into 5 requests a
+   second. */
+const SCREEN_RETRY=4000;
+let screenAsked=0, screenBusy=false;
 async function holdScreen(on){
+  if(on){
+    if(wakeLock&&!wakeLock.released) return;
+    const now=Date.now();
+    if(screenBusy||now-screenAsked<SCREEN_RETRY) return;
+    screenAsked=now; screenBusy=true;
+  }
   try{
     if(on){
       if(!navigator.wakeLock){ if(wakeState!=='unsupported'){ wakeState='unsupported'; tlog('screen','no screen lock on this device') } return }
-      if(wakeLock&&!wakeLock.released) return;
       wakeLock=await navigator.wakeLock.request('screen');
       wakeState='held'; tlog('screen','held');
-      wakeLock.addEventListener('release',()=>{wakeLock=null; if(wakeState==='held'){ wakeState='off'; tlog('screen','released') } showWake()});
+      wakeLock.addEventListener('release',()=>{
+        wakeLock=null;
+        if(wakeState==='held'){ wakeState='off'; tlog('screen','released') }
+        showWake();
+        // Hidden means the phone is already locked or the app is away, and iOS refuses a
+        // request from a hidden page anyway. The visibilitychange handler does that one.
+        if(wantScreen()&&typeof document!=='undefined'&&document.visibilityState==='visible'){
+          screenAsked=0; tlog('screen','taking it back'); syncScreen();
+        }
+      });
     } else if(wakeLock){ const w=wakeLock; wakeLock=null; wakeState='off'; await w.release() }
   }catch(e){ wakeLock=null; wakeState='refused'; tlog('screen','refused',(e&&e.name)||'') }
+  finally{ screenBusy=false }
   showWake();
 }
-// Said on the rest bar, where it matters, rather than discovered at the end of a rest.
+/* Said where you are looking, rather than discovered at the end of a rest. This only
+   went on the rest bar, so an interval session -- the one you set down and walk away
+   from, and the one Low Power Mode is most likely to be on for -- said nothing at all
+   while the screen was about to sleep under it. */
 function showWake(){
-  const el=typeof document!=='undefined'&&document.getElementById('rest-wake'); if(!el) return;
-  el.hidden=!(wakeState==='refused'&&wantScreen());
+  if(typeof document==='undefined') return;
+  const warn=wakeState==='refused'&&wantScreen();
+  const set=(id,on)=>{ const el=document.getElementById(id); if(el) el.hidden=!on };
+  set('rest-wake',warn&&!!rest);
+  set('iv-wake',warn&&!!iv&&!iv.done);
 }
 // The screen stays on for as long as anything is actually going on, not just while a
 // rest happens to be counting: a session is open, or any timer is running.

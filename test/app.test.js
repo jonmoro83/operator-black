@@ -7710,6 +7710,93 @@ test("a wake that never answers leaves a line saying so, not nothing at all", as
   a.equal(x.tlogText().split("\n").filter((l) => /go \u00b7/.test(l)).length, 1, "as one line, amended, not two");
 });
 
+test("a screen lock iOS lets go of is taken back while the session is still running", async () => {
+  const x = app({ now: "2026-10-19" });
+  const keep = navigator.wakeLock;
+  let made = 0;
+  const mk = () => { made++; const L = { released: false, _h: [],
+    addEventListener(ev, fn) { if (ev === "release") L._h.push(fn) },
+    release() { L.released = true; L._h.forEach((f) => f()); return Promise.resolve() } }; return L };
+  let live = null;
+  navigator.wakeLock = { request: () => { live = mk(); return Promise.resolve(live) } };
+  try {
+    x.startRest("squat", "Squat · set 2", 120);
+    await settle(); await settle();
+    a.equal(x.wakeState, "held"); a.equal(made, 1);
+    // iOS drops it mid-rest. Before 3.38 nothing asked again until the page was hidden
+    // and shown, so the screen slept and the page froze for the rest of the session.
+    live.release();
+    await settle(); await settle(); await settle();
+    a.equal(made, 2, "it is requested again straight away");
+    a.equal(x.wakeState, "held", "and held again");
+    a.match(x.tlogText(), /screen · taking it back/);
+    // Nothing to keep awake: a release is just a release.
+    x.stopRest(); await settle();
+    const was = made;
+    if (live) { live.release(); await settle(); await settle() }
+    a.equal(made, was, "no request once the session is over");
+  } finally { navigator.wakeLock = keep }
+});
+
+test("a refused screen lock is not re-asked five times a second", async () => {
+  const x = app({ now: "2026-10-19" });
+  const keep = navigator.wakeLock;
+  let asked = 0;
+  // Low Power Mode refuses. The timers call syncScreen on every tick now, so the only
+  // thing stopping that being 5 requests a second is the retry window.
+  navigator.wakeLock = { request: () => (asked++, Promise.reject(Object.assign(new Error("no"), { name: "NotAllowedError" }))) };
+  try {
+    x.startRest("squat", "Squat · set 2", 120);
+    await settle(); await settle();
+    a.equal(asked, 1);
+    for (let i = 0; i < 40; i++) { x.tickRest(); await settle() }
+    a.equal(asked, 1, "still one, inside the retry window");
+    a.equal(x.wakeState, "refused");
+    a.equal(document.getElementById("iv-wake").hidden, true, "no interval running, so no warning there");
+  } finally { navigator.wakeLock = keep; x.stopRest() }
+});
+
+test("an interval session says the screen may sleep, where you are actually looking", async () => {
+  const x = app({ now: "2026-10-19" });
+  const keep = navigator.wakeLock;
+  navigator.wakeLock = { request: () => Promise.reject(Object.assign(new Error("no"), { name: "NotAllowedError" })) };
+  try {
+    x.ivStart("map");
+    await settle(); await settle();
+    a.equal(x.wakeState, "refused");
+    a.equal(document.getElementById("iv-wake").hidden, false,
+      "the interval panel is the one on screen, and it used to say nothing");
+    x.iv = null; x.syncScreen(); await settle();
+    a.equal(document.getElementById("iv-wake").hidden, true);
+  } finally { navigator.wakeLock = keep }
+});
+
+test("coming back mid-segment picks the session up silently instead of crying a change", async () => {
+  const x = app({ now: "2026-10-19" });
+  x.unlockAudio(); x.audio.ctx.state = "running";
+  const segs = [{ k: "work", l: "Hard", s: 60, round: 1, sub: "Round 1 of 3" },
+                { k: "easy", l: "Easy", s: 60, round: 1, sub: "Round 1 of 3 done" },
+                { k: "work", l: "Hard", s: 60, round: 2, sub: "Round 2 of 3" },
+                { k: "easy", l: "Easy", s: 60, round: 2, sub: "Round 2 of 3 done" }];
+  x.iv = { date: "2026-10-19", fmt: "map", mod: "bike", segs, start: Date.now() - 100,
+           paused: null, pausedMs: 0, mini: false, rounds: 3, done: false };
+  x.ivRender();                                   // settle onto segment 0
+  x.audio.tones.length = 0;
+  // The screen slept through the whole easy minute and most of the next hard one. The
+  // cue for a round that started 40 s ago is worse than no cue: it sounds like a change
+  // that is not happening, and it is the beep you hear on unlocking.
+  x.iv.start = Date.now() - 160000;
+  x.ivRender();
+  a.equal(x.audio.tones.length, 0, "no cue for a segment that began while the page was frozen");
+  a.match(x.tlogText(), /came back 40 s into Hard, no cue/, "and the log says what happened");
+  // A change caught normally still sounds: the tick is 200 ms, so into is near zero.
+  x.audio.tones.length = 0;
+  x.iv.start = Date.now() - 180100;
+  x.ivRender();
+  a.deepEqual(x.audio.tones.map((t) => t.hz), [660], "the easy cue, on time");
+  x.iv = null;
+});
+
 test("a refused screen lock is shown on the rest bar, not discovered at the end", async () => {
   const x = app({ now: "2026-10-19" });
   const keep = navigator.wakeLock;

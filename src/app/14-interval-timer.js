@@ -15,6 +15,9 @@ const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds
   predator:{work:15,rest:420,lead:true,every:[300,600],count:'total',mins:[30,45,60],def:45,
     mv:[['Sprint 50 to 100 m',{s:15}]]}};
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
+// How far into a segment a change cue is still worth sounding. The tick is 200 ms, so
+// anything past a second and a half means the page was not running.
+const IV_CUE_LATE=1.5;
 function mmss(t){t=Math.max(0,Math.round(t));return Math.floor(t/60)+':'+pad(t%60)}
 /* Two different reasons to go easier, and only one of them is the book's.
 
@@ -160,9 +163,19 @@ function ivRender(){
   document.getElementById('iv-pause').textContent=seg.hold?'Done':iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
   if(!iv.paused){
-    if(p.i!==ivLast.idx){ if(ivLast.idx>=0||p.into<1){ if(seg.k==='work'){sfx('go');vib([300])} else {sfx('easy');vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) } ivLast.idx=p.i; }
+    // Ticking at 5 Hz, a change is caught within 200 ms of it happening. Being a long way
+    // into a segment means the page was frozen -- the screen slept, or the app was away --
+    // and the cue for a round that started while you were gone is worse than no cue: it
+    // sounds like a change that is not happening. Pick the session up silently instead.
+    if(p.i!==ivLast.idx){
+      if(p.into<IV_CUE_LATE){ if(seg.k==='work'){sfx('go');vib([300])} else {sfx('easy');vib([150,80,150])} setTimeout(()=>say(ivSpeech(seg)),450) }
+      else tlog('iv','came back '+Math.round(p.into)+' s into '+seg.l+', no cue');
+      ivLast.idx=p.i;
+    }
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
+    // iOS lets the screen lock go mid-session; this is what notices. Free while it holds.
+    syncScreen();
   }
 }
 function durText(t){const m=Math.floor(t/60),sec=t%60,mins=m+(m===1?' minute':' minutes');return t<60?t+' seconds':sec?mins+' '+sec+' seconds':mins}

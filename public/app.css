@@ -186,6 +186,8 @@ svg.loader.big{max-width:420px}
 #iv-time{font-family:var(--f-display);font-stretch:62%;font-weight:900;font-size:clamp(120px,42vw,260px);line-height:.85;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 #iv-sub{font-size:18px;font-weight:700}
 #iv-next{font-size:15px;color:var(--muted)}
+/* The pill is left-aligned on the rest bar; the interval panel is a centred column. */
+#iv-wake{align-self:center}
 .iv-bar{width:min(100%,520px);height:8px;border-radius:4px;background:rgb(0 0 0 / .08);overflow:hidden}
 .iv-bar i{display:block;height:100%;width:0;background:var(--ink);opacity:.55}
 .iv-btns{display:flex;gap:10px;width:min(100%,520px);margin-top:6px}

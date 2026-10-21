@@ -113,6 +113,9 @@ function tickRest(){
     if(rest.hold&&rest.sides>rest.side){ const r=rest; say('Switch sides'); setTimeout(()=>{ if(rest===r) startHold(r.baseLbl,r.dur,r.sides,r.side+1) },1200); }
     else setTimeout(()=>say(rest&&rest.hold?(rest.baseLbl+' done'):rest&&rest.next?'Rest over. '+rest.next.replace(' · ',', '):'Rest over.'),700);
   }
+  // The same re-check the interval timer does: iOS lets the screen lock go mid-rest and
+  // nothing used to take it back until the page was hidden and shown again.
+  if(left>0) syncScreen();
   // clear a finished timer after two minutes if nobody dismisses it
   if(left===0&&leftMs<-120000) stopRest();
 }

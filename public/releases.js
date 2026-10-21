@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.38',date:'2026-10-21',title:"The screen lock takes itself back",items:[
+    "This is the reason HIC beeps stop partway through a session. iOS hands back the screen lock partway through for reasons of its own, and nothing took it back \u2014 the app asked once when the session started and then not again until you next picked the phone up. So the screen slept, and a sleeping screen freezes the page: every beep due while it slept simply never happened.",
+    "That is also why unlocking the phone sets off a beep in the middle of a rest or an interval. It was the timer catching up on a change it slept through.",
+    "The lock is taken straight back now whenever it is let go and a session is still running, and both timers check it as they count rather than trusting it is still there.",
+    "Coming back to a round that started while the screen was off no longer sounds its cue. A beep for a change that happened a minute ago is worse than no beep, so the session is picked up quietly instead.",
+    "If your phone refuses the screen lock altogether \u2014 Low Power Mode does \u2014 the interval timer now says so on screen while it runs. It only ever said it on the rest bar before, which is not the screen you are looking at on the bike."]},
   {v:'3.37',date:'2026-10-21',title:"The timer log keeps up with a session",items:[
     "Reported: the beeps in a HIC session go for a couple of rounds and then stop. I can't make it happen off the phone, so this release is about catching it in the act rather than guessing at it again.",
     "The timer log was too small to hold one interval session. Every segment wrote four lines, so by the end of eight rounds the part where the beeps stopped had already scrolled off and the log read as if everything was fine. It folds the repeated 3-2-1 lines into one with a count now, and keeps enough for a whole session.",

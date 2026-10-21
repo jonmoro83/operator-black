@@ -17,26 +17,38 @@ Genuinely open: things that still need doing or confirming.
   alerts on the lock screen, spoken cues through AirPods with the app open, and the
   rest beep in a real session — **with the ring switch off as well as on**
   (2026-10-16), which the research said was impossible.
-- **HIC beeps stop partway through a session. Reported 2026-10-21, open.** "First
-  couple of rounds beep but then the beep stops." Not reproducible off the device: a
-  whole session driven through `ivRender` at 200 ms, with speech parking the context
-  after every cue the way iOS does, sounds every segment. So the logic is not it, and
-  the cause is in the audio session on the phone.
-  - **The log could not hold the evidence**, which is why four rounds of work on this
-    family of bugs have all had to guess. The cap was 80 lines and a four-round MAP
-    writes about 88, so the moment the beeps stopped was pushed off the end by the
-    ticks of the rounds that followed, leaving a log that reads as working. Fixed in
-    3.37, along with the other blind spot: a `resume()` that never settles wrote no
-    line at all, so a sound lost that way and a sound never asked for looked identical.
-  - **Leading hypothesis, untested:** with alerts on, `ivPush` queues a lock-screen
-    notification for *every* segment change, and they keep arriving while the app is in
-    the foreground. Each one can take the audio session. That would fit the shape of
-    the report exactly — fine at first, then silent for the rest of the session. The fix
-    would be to cancel the queue while the page is visible and re-arm it when it hides,
-    which is a real behaviour change (lock the phone mid-session and there is a race),
-    so it waits on the log rather than being shipped on a hunch.
-  - **Next step: one HIC session, then Setup → Sound → Timer log → Copy.** The lines to
-    look for are `wake never answered`, `wake did not take` and `waiting for a tap`.
+- **HIC beeps stop partway through a session. Reported 2026-10-21; cause found, fix
+  shipped in 3.38, not yet confirmed on the phone.** It was never an audio bug. The
+  clue that cracked it was the second half of the report: *"if I lock and then unlock
+  the timer will beep even if it's in the middle of a rest period or interval."*
+  - **What was happening.** A sleeping screen freezes the page, so no beep due while it
+    slept ever fires, and the one you hear on unlocking is `ivRender` catching up on a
+    segment change it slept through. The screen was sleeping because the wake lock was
+    taken once at `ivStart` and never again: the `release` handler wrote the state down
+    and stopped there, and the only other caller was `visibilitychange` — which cannot
+    run until you have already picked the phone up. One release from iOS and the screen
+    slept for the rest of the session. "First couple of rounds beep and then it stops"
+    is that, from the other end.
+  - **Fixed:** the lock is re-requested the moment it is released while something still
+    wants it and the page is visible, and both timers call `syncScreen()` as they tick,
+    which is free while the lock is held. `SCREEN_RETRY` (4 s) stops a refusal turning a
+    5 Hz tick into five requests a second.
+  - **Also fixed:** a change cue more than `IV_CUE_LATE` (1.5 s) into its segment is
+    dropped and logged instead of sounded. At a 200 ms tick a real change is caught
+    within 200 ms, so anything later means the page was not running, and a cue for a
+    round that started a minute ago is worse than none.
+  - **Also fixed:** a refused lock (Low Power Mode) warns on the interval panel, not
+    only the rest bar, which is not the screen you are looking at on a bike.
+  - **To confirm:** one HIC session with the phone left alone. The beeps should run the
+    whole way. If they still stop, the log holds a whole session now (3.37) — look for
+    `screen · released` without a `taking it back` after it, `screen · refused`, and
+    `page hidden`.
+  - **Not pursued, and still possible as a second cause:** with alerts on, `ivPush`
+    queues a lock-screen notification for every segment change and they keep arriving
+    while the app is in the foreground, where each one can take the audio session. If
+    3.38 does not settle it, that is next. The fix would be to cancel the queue while
+    the page is visible and re-arm it when it hides, which is a real behaviour change
+    (lock the phone mid-session and there is a race), so it waits on evidence.
 - **The timer, on the phone (3.25).** The two-paths bug is certain and fixed; the rest
   is research plus a model, not a device. Still to check: that the rest beep comes on
   time and is clearly louder.
