@@ -1231,6 +1231,58 @@ test("a day's note matches how many lifts that day actually has", () => {
   a.deepEqual(seen, [1, 2], "two Lift 3 variants leaves one for Saturday, three leaves two");
 });
 
+test("the Guide names everything the app can prescribe", () => {
+  const x = app({ now: "2026-10-21" });
+  // The Guide fell a long way behind between 3.1 and 3.41 without anything noticing:
+  // lift variants, the pull-up rungs, half the conditioning activities, the whole
+  // supplement list and every report the app writes were missing. Prose cannot be
+  // checked, but a name can, and a feature nobody named is one nobody documented.
+  const txt = x.vGuide().replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").toLowerCase();
+  const has = (n) => txt.includes(String(n).toLowerCase());
+  const named = (o) => Object.values(o).map((v) => v && v.name).filter(Boolean);
+  const sets = {
+    "strength templates": named(x.STEMPL),
+    "conditioning protocols": named(x.CPROTO),
+    "HIC formats": named(x.HIC),
+    "activities": named(x.MOD),
+    "FOBBITs": named(x.FOBBIT),
+    "plyo phases": x.PLYO.map((p) => p.name),
+    "pull-up rungs": x.PULLUP.map((p) => p.name),
+    "supplements": named(x.SUPP),
+    "squat variants": Object.values(x.varsOf("squat")).map((v) => v.name),
+    "deadlift variants": Object.values(x.varsOf("dead")).map((v) => v.name),
+    // "Mine" is the write-your-own option and has no fixed content to document; the
+    // Guide points at Setup for it instead of listing an empty cluster.
+    "SE clusters": named(x.SE_CLUSTERS).filter((n) => n !== "Mine"),
+  };
+  for (const [what, names] of Object.entries(sets)) {
+    const missing = names.filter((n) => !has(n));
+    a.deepEqual(missing, [], `the Guide names every one of the ${what}`);
+  }
+});
+
+test("the Guide explains the things that change what the app prescribes", () => {
+  const x = app({ now: "2026-10-21" });
+  const g = x.vGuide();
+  // Each of these decides a weight, a session or a next max. A reference that leaves
+  // them out sends you to the code to find out why a number moved.
+  for (const [topic, needle] of [
+    ["per-set effort", /how did it move\?<\/b> <b>Fast<\/b>/],
+    ["the session RPE and grinders", /an RPE/],
+    ["what sharp pain does to a max", /Sharp pain is the one answer that outranks/],
+    ["climbing as flat-equivalent distance", /Climbing counts as distance/],
+    ["benchmarks", /<b>Benchmarks\.<\/b>/],
+    ["the travel week", /A travel week<\/b>/],
+    ["archiving and starting over", /Starting over\.<\/b>/],
+    ["the end-of-cycle review", /end-of-cycle review/],
+    ["the weekly debrief", /weekly debrief/],
+    ["the coach", /The coach<\/b>/],
+    ["core and carries running last", /carries run last/],
+    ["a block lift's max being the stored max", /uses the max you stored, unscaled/],
+    ["weighted pull-up loading", /bodyweight plus the added weight/],
+  ]) a.match(g, needle, `the Guide covers ${topic}`);
+});
+
 test("every warm-up and mobility movement has an entry, and the Guide lists them all", () => {
   const x = app({});
   // Nothing in the built-in checklists is left without an explanation.

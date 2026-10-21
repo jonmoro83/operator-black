@@ -6,6 +6,15 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.41',date:'2026-10-21',title:"The Guide caught up",items:[
+    "It had fallen a long way behind. Whole features had been built and never written down: squat and deadlift variants, the pull-up progression, five of the twelve conditioning activities, what elevation gain does, benchmarks, the travel week, archiving a program, every supplement in the list, and every report the app writes you.",
+    "Cluster lifts and their variants is new, with both full tables. The short version: the lift your block runs on uses the max you typed, unscaled, and a one-day swap is scaled off it. Test weeks always use the reference lift, or a front-squat single would quietly become your back-squat max.",
+    "Pull-ups is new: the five rungs, what each one prescribes, and what moves you up. Weighted pull-ups work off bodyweight plus the added weight.",
+    "After the session is new, and it's the one worth reading. Three questions at three grains \u2014 how each heavy set moved, the session RPE, and whether anything hurt \u2014 and what each one does to your next max. Sharp pain outranks every other rule in the review.",
+    "What the app works out for you is new: the end-of-cycle review, the weekly debrief, the cycle and six-month reports, the coach and Status.",
+    "Supplements is new, straight out of the books, including the ones they mention and then decline to recommend.",
+    "Conditioning now lists all twelve activities with how each is measured, explains elevation as flat-equivalent distance, and covers benchmarks and the rut warning.",
+    "Most of it is generated from the same lists the app prescribes from, so it can't drift, and a test now fails if anything the app can prescribe goes unnamed in the Guide."]},
   {v:'3.40',date:'2026-10-21',title:"The Guide is a tab again",items:[
     "It's back on the tab row, at the right-hand end. It went into the account menu a week ago on the theory that it's reference material nobody opens between sets, which was the wrong call: it's where the programs, the lifts, the plyo and mobility libraries and every rule the app follows are written down.",
     "Nothing in it changed or needed rebuilding \u2014 all thirteen sections were still there behind the menu.",

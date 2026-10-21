@@ -235,6 +235,30 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The Guide caught up with the app (2026-10-21)**
+- Audited it the only way prose can be audited: enumerate what the app can prescribe
+  and check each name against the rendered page. Twelve activities, 7/12 named. Eleven
+  supplements, 0/11. Five pull-up rungs, 1/5. Fourteen lift variants, none. A keyword
+  pass over concepts found no elevation, no benchmarks, no travel week, no archiving,
+  no post-lift check-in, no per-set effort and no mention of any report the app writes.
+- Four new cards — *Cluster lifts and their variants*, *Pull-ups*, *After the session*,
+  *What the app works out for you*, plus *Supplements* — and the conditioning card
+  gained the full activity table, flat-equivalent climbing, benchmarks and the rut
+  warning. Programs gained the travel week and archiving.
+- **Generated, not written, wherever there is a list behind it**: `varsOf()`, `PULLUP`,
+  `MOD`, `SUPP` and `SUPP_LVL` all render their own tables, which is what the Guide
+  already did for `HIC`, `STEMPL`, `CPROTO`, `PLYO`, `FOBBIT` and `SE_CLUSTERS`. A
+  variant or a rung added in the constants turns up in the Guide without anyone
+  remembering to go and write it in.
+- **Two tests hold the line.** One walks every named set the app prescribes from and
+  fails on anything the Guide does not name; the other pins the dozen explanations
+  that decide a weight, a session or a next max. The first would have caught this
+  whole drift the week it started.
+- Worth remembering: the earlier keyword pass gave false positives everywhere —
+  "Ground" matched a FOBBIT's *ground to shoulder*, "coach" matched *a coach's eye*,
+  "supplement" matched *supplementary work*. Checking a reference page for coverage
+  needs the structured lists, not grep.
+
 **The Guide is a tab again (2026-10-21)**
 - Asked for it back. 3.1 moved it into the account menu on the grounds that it is
   reference rather than a daily destination and the one nobody opens between sets.
