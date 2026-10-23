@@ -235,6 +235,37 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Rescheduling, rebuilt on dates (2026-10-23)**
+- Reported as "still all messed up... I don't want the move tool to do a swap, just a
+  straight move". Right, and not fixable in the old model: `plan.order[monday]` was a
+  permutation of seven slots over seven days, strictly one-to-one, so a straight move
+  could not be expressed. Every move had to be a swap or a multi-day shuffle, and a
+  full day had to refuse. 3.46 removed the refusals; it could not remove the swaps.
+- **A session is an item with a date.** It is identified by its week and its slot,
+  `<monday>:<slot>`, and `plan.at` records only the ones that have been moved, to any
+  date at all. Days hold 0..n sessions; rest is the absence of one. `dayPlans(date)`
+  is the list, `dayPlan(date)` the main one with the rest on `.more`, which kept the
+  45 existing `dayPlan` callers working untouched.
+- **Deleted**: `swapOrder`, `bestOrder` and its cost model, `calOptions`, `calSetMode`,
+  `calApply`, `calChooser`, `calOrd`, the whole `plan.stack` subsystem (`stackTo`,
+  `stackFrom`, `stackMerge`, `canStack`, `stackWhyNot`, `stackWarn`, `bareDay`),
+  `slotKinds`, `edgeKinds`, and the Rearrange mode. About 250 lines out, 120 in.
+- **Migration to schema 7** folds `order` and `stack` into `at`. Order first, then
+  stack, because a stacked day was recorded against the day as the order had already
+  arranged it.
+- **Two traps worth remembering.** `dayPlans` first attached `slot` to each session and
+  silently overwrote travel days' own `slot` ('day3'), which moved the mobility block
+  off the hinge day — the placement fields are under `sess` now. And a session's Lift 3
+  rotation must be read from its *home* date, not where it was moved to, or moving a
+  session changes what the session is. `dow(home) === slot` always, which is what lets
+  `slotOf` fall back to the weekday and still be right.
+- **Drag was never broken, but it needed a mode on first.** It is pointer-based with
+  `touch-action:none`, armed only while `calRe` was set, which is almost certainly the
+  "I cannot drag and drop" — the Rearrange button had to be found first. The mode is
+  gone and dragging is always live.
+- Open: the calendar feed emits one event for a doubled-up day, titled with both
+  sessions, rather than two events. Fine to read, not ideal.
+
 **Spoto press, and a classification I got lazy about (2026-10-21)**
 - Asked whether a paused bench and a Spoto press are the same thing. They are not, and
   when drafting the bench list I had dropped Spoto as "overlapping with pause", which

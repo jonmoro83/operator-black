@@ -302,23 +302,24 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='varswap'){const k=b.dataset.k,v=b.dataset.v;if(v===varOf(k,sel))return;const cur=(lg(sel).var)||{};setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v}));openWarm.clear();render();return}
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
-  if(a==='calre'){calRe=!calRe;calMove=null;render();return}
-  if(a==='calcancel'){calMove=null;render();return}
+  if(a==='calcancel'){calCancel();return}
   if(a==='calpick'){ calTarget(b.dataset.date); return }
   // Which of the three a drop meant. Chosen after the drop rather than before, so the
   // reasons the other two are unavailable are visible at the moment of deciding.
-  if(a==='calmode'){ calSetMode(b.dataset.k); render(); return }
-  if(a==='calapply'){ calApply(); render(); return }
   if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
   if(a==='move'){moveOpen=!moveOpen;render();return}
   if(a==='movex'){moveOpen=false;render();return}
-  if(a==='swap'){
-    const mon=mondayOf(sel), r=bestOrder(mon,dow(sel),+b.dataset.sl); if(!r) return;
-    offerUndo('Days moved',snapPlan());
-    mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:r.ord})});
+  if(a==='moveto'){
+    offerUndo('Session moved',snapPlan());
+    moveSession(b.dataset.mon,+b.dataset.sl,b.dataset.to);
     moveOpen=false; openWarm.clear(); openPx.clear(); render(); return;
   }
-  if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week order reset',snapPlan());mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
+  if(a==='moveback'){
+    offerUndo('Session put back',snapPlan());
+    moveSession(b.dataset.mon,+b.dataset.sl,addDays(b.dataset.mon,+b.dataset.sl));
+    moveOpen=false; render(); return;
+  }
+  if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week put back',snapPlan());resetWeekPlacement(mon);moveOpen=false;render();return}
   if(a==='guide'){gdStart(b.dataset.k);return}
   if(a==='theme'){LS.set('ob.theme',b.dataset.v);applyTheme();render();return}
   if(a==='gym'){LS.set('ob.gym',!gymOn());applyTheme();render();return}
@@ -330,8 +331,6 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
-  if(a==='stack'){ if(setStack(b.dataset.from,b.dataset.to)){moveOpen=false;render()} return }
-  if(a==='unstack'){ clearStack(b.dataset.from); return }
   if(a==='addon'){ addonAdd(sel,b.dataset.kind); render(); return }
   if(a==='addondel'){ offerUndo('Session removed',snapLog(sel)); addonDel(sel,+b.dataset.i); render(); return }
   if(a==='addonsetadd'){ addonSetAdd(sel,+b.dataset.i); render(); return }
@@ -451,9 +450,10 @@ function calDragEnd(){
   return was;
 }
 document.addEventListener('pointerdown',e=>{
-  if(!calRe||viewing||e.button) return;
+  if(viewing||e.button) return;
   const c=e.target.closest&&e.target.closest('.cal-d');
   if(!c||c.disabled||!c.dataset.date) return;
+  if(!calMove&&!dayPlans(c.dataset.date).length) return;   // nothing on that day to pick up
   calDrag.id=e.pointerId; calDrag.from=c.dataset.date; calDrag.x=e.clientX; calDrag.y=e.clientY; calDrag.on=false;
 });
 document.addEventListener('pointermove',e=>{
@@ -466,14 +466,14 @@ document.addEventListener('pointermove',e=>{
     const d=document.createElement('div');
     d.className='cal-ghost'; d.textContent=fmtD(calDrag.from,true);
     document.body&&document.body.appendChild(d); calDrag.el=d;
-    // Picking the source up front means the drop only has to name the target.
-    if(!calMove||calMove.to||calMove.mode||calMove.from!==calDrag.from){ calMove={from:calDrag.from}; render() }
+    // Picking the session up front means the drop only has to name the target.
+    if(!calMove||calMove.from!==calDrag.from){ calMove=null; calTarget(calDrag.from) }
   }
   e.preventDefault();
   if(calDrag.el&&calDrag.el.style){ calDrag.el.style.left=e.clientX+'px'; calDrag.el.style.top=e.clientY+'px' }
   const over=calCell(e.clientX,e.clientY);
   document.querySelectorAll&&document.querySelectorAll('.cal-d.over').forEach(x=>x.classList.remove('over'));
-  if(over&&over.dataset.date!==calDrag.from&&mondayOf(over.dataset.date)===mondayOf(calDrag.from)) over.classList.add('over');
+  if(over&&over.dataset.date!==calDrag.from&&idxOf(over.dataset.date)>=0) over.classList.add('over');
 },{passive:false});
 document.addEventListener('pointerup',e=>{
   if(calDrag.id!==e.pointerId) return;

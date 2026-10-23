@@ -86,7 +86,7 @@ function freezePast(){
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
-    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))}
     fz[wk.monday]=f; changed=true; planV++;
   }
   const curMon=list[cur]&&list[cur].monday;
@@ -169,11 +169,79 @@ function rx(wk,k,date){
     // and its down sets are a percentage of that set, not of a 1RM.
     top:!!v.top,down:v.down||null,downPct:v.downPct||null};
 }
-// A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
-function dayOrder(monday){const o=(plan.order||{})[monday];return Array.isArray(o)&&o.length===7&&o.slice().sort().join()==='0,1,2,3,4,5,6'?o:[0,1,2,3,4,5,6]}
-function slotOf(date){return dayOrder(mondayOf(date))[dow(date)]}
-function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
+/* ---------------- where a session actually happens ----------------
+
+Until 3.48 a week was a permutation: `plan.order[monday]` held seven slots in seven
+days, one each. That made a straight move impossible to express. Asking for Tuesday's
+session on Thursday could only ever mean "and Thursday's on Tuesday", or "shuffle four
+days so it fits" -- which is why every move came back as something the person had not
+asked for, and why a day that was already full had to refuse.
+
+A session is now an item with a date. It is identified by the week it belongs to and
+its slot in that week's template, and `plan.at` records the ones that have been moved:
+
+    plan.at["2026-10-19:1"] = "2026-10-22"     Tuesday's session, done on Thursday
+
+Nothing else moves, ever. A day holds however many sessions point at it -- none, one,
+four. Rest is the absence of a session rather than a slot of its own, so moving the
+last session off a day leaves a rest day behind with no bookkeeping. A date anywhere is
+allowed, including another week: losing Friday and picking it up on Monday is the
+commonest thing that happens to a training week.
+
+The cost is that nothing is bijective any more, so anything that used to assume one
+session per day has to say which it means. `dayPlan` answers "the main one", which is
+what almost every caller wanted; `dayPlans` answers "all of them". */
+function atMap(){ const m=plan.at; return m&&typeof m==='object'?m:{} }
+function sessId(monday,slot){ return monday+':'+slot }
+function isDateStr(v){ return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v) }
+/* `addDays(monday,slot)` is a session's *home*: where it would be if nothing had been
+   moved, and the date everything about what the session IS is computed from. `dow(home)`
+   is the slot, which is why `slotOf` can fall back to the weekday and still be right.
+   `slotDate` is where it actually happens. Keep the two straight: a Lift 3 rotation read
+   off the date it was moved to would change the session by moving it. */
+/** The date a slot's session happens on: its own day unless it has been moved. */
+function slotDate(monday,slot){ const v=atMap()[sessId(monday,slot)]; return isDateStr(v)?v:addDays(monday,slot) }
+function sessMoved(monday,slot){ return slotDate(monday,slot)!==addDays(monday,slot) }
+/** Every session that lands on this date, as {monday,slot,home}. */
+function sessionsOn(date){
+  const out=[], seen={};
+  const add=(monday,slot)=>{ const id=sessId(monday,slot); if(seen[id]) return; seen[id]=1;
+    out.push({monday,slot,home:addDays(monday,slot)}) };
+  // Its own week's slots, minus any that have been moved away.
+  const mon=mondayOf(date);
+  if(idxOf(mon)>=0) for(let sl=0;sl<7;sl++) if(slotDate(mon,sl)===date) add(mon,sl);
+  // Anything moved here from elsewhere, from any week.
+  for(const [id,v] of Object.entries(atMap())){
+    if(v!==date) continue;
+    const i=id.lastIndexOf(':'); if(i<0) continue;
+    const m=id.slice(0,i), sl=+id.slice(i+1);
+    if(!isDateStr(m)||!(sl>=0&&sl<7)||idxOf(m)<0) continue;
+    add(m,sl);
+  }
+  // Earliest home first, so a day that collected two reads in the order they were due.
+  return out.sort((a,b)=>a.home<b.home?-1:a.home>b.home?1:a.slot-b.slot);
+}
+function moveSession(monday,slot,to){
+  if(readOnly()||!isDateStr(to)||idxOf(monday)<0) return false;
+  const id=sessId(monday,slot), home=addDays(monday,slot);
+  mutatePlan(p=>{ const m=Object.assign({},atMap()); if(to===home) delete m[id]; else m[id]=to; p.at=m });
+  return true;
+}
+function resetWeekPlacement(monday){
+  mutatePlan(p=>{ const m=Object.assign({},atMap());
+    for(let sl=0;sl<7;sl++) delete m[sessId(monday,sl)];
+    p.at=m });
+}
+// Has anything in this week been moved, or anything moved into it?
+function isReordered(monday){
+  for(let sl=0;sl<7;sl++) if(sessMoved(monday,sl)) return true;
+  for(const v of Object.values(atMap())) if(isDateStr(v)&&mondayOf(v)===monday) return true;
+  return false;
+}
+// The slot a date's main session comes from, kept because a great deal of the app asks
+// for it. Falls back to the day's own slot when the day is empty.
+function slotOf(date){ const ss=sessionsOn(date); return ss.length?ss[0].slot:dow(date) }
 // For adjacency: two strength days or two hard conditioning days must not touch.
 function sessKind(dp){
   if(!dp) return 'other';
@@ -208,7 +276,10 @@ function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
 // arrangement the books allow.
 const ADJACENT_SOFT=['hic','se'];
 function crowds(a,b){return !!a&&a===b&&ADJACENT_SOFT.includes(a)}
-// Conflicts a proposed order would create, including the days either side of the week.
+/* Whether a week's own layout puts two hard days of a kind together. Nothing refuses
+   on this any more -- moving a session is the person's call -- so what is left is a
+   check on the shape the templates and protocols generate, which is where it belongs:
+   a protocol that lays out a clashing week by default is a bug in the protocol. */
 function orderIssues(monday,ord){
   const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
   K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
@@ -300,92 +371,38 @@ function setPlyoDay(monday,d){
   });
   return true;
 }
-/* ---------------- doing two sessions on one day ----------------
-The week arranges one session per day and the Move sheet swaps them around, which cannot
-express "I missed Thursday, so I will do it after Friday's lift". Tactical Barbell II is
-explicit that you may: "You can also do your conditioning sessions on the same days as
-your strength work. If you're doing them during the same session, do your strength work
-first, and conditioning afterward."
-
-So: `plan.stack[from] = to` moves one day's session onto another in the same week. The
-day it came from reads as moved rather than missed, and the day it lands on runs the
-lifting first with the conditioning after it — the order the book asks for, and the one
-the ride-along already draws for Zulu + Black.
-
-Same week only. Crossing a Monday would mean reaching into a week that may be frozen,
-and the thing this is for is rescuing a session a day or two late. */
-function stackMap(){ const m=plan.stack; return m&&typeof m==='object'?m:{} }
-function stackTo(date){ const v=stackMap()[date]; return typeof v==='string'?v:null }
-function stackFrom(date){ for(const [f,t] of Object.entries(stackMap())) if(t===date&&f!==date) return f; return null }
-// What a day holds before any stacking, which is what gets moved.
-function bareDay(date){ return dayPlanSlot(date,slotOf(date)) }
+/* Lifting, conditioning, or neither. The only ordering rule the books give for two
+   sessions on one day is that the lifting comes first, so this is what decides it. */
 function stackKindOf(dp){
   const k=sessKind(dp);
   if(/^strength/.test(k)) return 'lift';
   if(k==='hic'||k==='easy'||dp.t==='se') return 'cond';
   return 'rest';
 }
-/* Whether these two can share a day. Returns null when they can, which is now nearly
-   always: what is left here is what cannot be done rather than what is unadvisable.
-   Two lifting sessions in one day used to be refused as "a different program". It is
-   a warning now — see `stackWarn`. Somebody catching up a session they missed on
-   Tuesday is not redesigning their programme, and telling them so was not useful. */
-function stackWhyNot(from,to){
-  if(!from||!to||from===to) return 'A day cannot be moved onto itself.';
-  if(mondayOf(from)!==mondayOf(to)) return 'Both days have to be in the same week.';
-  if(idxOf(from)<0||idxOf(to)<0) return 'That week is not part of the program.';
-  if(stackTo(to)||stackFrom(to)) return `${DAYN[dow(to)]} already has a session moved onto it.`;
-  if(stackFrom(from)) return `${DAYN[dow(from)]} already has another session on it.`;
-  if(stackKindOf(bareDay(from))==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
-  return null;
-}
-/* Allowed, and worth a word. Two lifting sessions on one day is a lot of barbell work
-   in one go, and the book's order — heavy first — is the thing worth saying. */
-function stackWarn(from,to){
-  if(stackWhyNot(from,to)) return null;
-  const a=stackKindOf(bareDay(from)), b=stackKindOf(bareDay(to));
-  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a lot of barbell work at once. Do the heavier one first and cut the accessories on the second.';
-  if(a==='lift'||b==='lift') return 'Lifting goes first, then the conditioning.';
-  return null;
-}
-function canStack(from,to){ return stackWhyNot(from,to)===null }
-function setStack(from,to){
-  if(!canStack(from,to)) return false;
-  mutatePlan(p=>{ p.stack=Object.assign({},stackMap(),{[from]:to}) });
-  return true;
-}
-function clearStack(from){
-  if(!stackMap()[from]) return false;
-  mutatePlan(p=>{ const m=Object.assign({},stackMap()); delete m[from]; p.stack=m });
-  return true;
-}
-// The two merged, strength first. Whichever of them lifts is the base and the
-// conditioning rides along on it, which is both the book's order and the shape the
-// day view already knows how to draw.
-function stackMerge(base,moved,from){
-  const bk=stackKindOf(base), mk=stackKindOf(moved);
-  const lift=bk==='lift'?base:mk==='lift'?moved:null;
-  const cond=bk==='cond'?base:mk==='cond'?moved:null;
-  const tag=` + ${DAYN[dow(from)]}’s`;
-  if(lift&&cond){
-    const o=Object.assign({},lift,{stacked:from,short:(lift.short||'Lift')+tag});
-    if(cond.t==='se'){ o.ride='se'; o.circuits=cond.circuits; o.reps=cond.reps }
-    else { o.ride='hic'; o.cardio=true; o.fmt=cond.fmt; if(cond.note) o.condNote=cond.note }
-    return o;
+/* Every session on a date, in the order they should be done: lifting first, which is
+   the only ordering the book asks for when two share a day. Each carries where it came
+   from, so a session sitting on a day that is not its own can say so and be put back.
+   A date with nothing on it returns an empty list, and that is what a rest day is. */
+function dayPlans(date){
+  const out=[];
+  for(const {monday,slot,home} of sessionsOn(date)){
+    const wk=weekAt(monday); if(!wk) continue;
+    const dp=dayPlanSlot(home,slot);
+    if(!dp||dp.t==='off'||dp.t==='pre') continue;      // a rest slot is not a session
+    // Namespaced: a travel day already has its own `slot` ('day3'), and quietly
+    // overwriting it moved the mobility block off the hinge day.
+    out.push(Object.assign({},dp,{sess:{monday,slot,home},moved:home!==date}));
   }
-  // One of them was a rest day, so the other simply happens here.
-  const only=bk==='rest'?moved:base;
-  return Object.assign({},only,{stacked:from,short:(only.short||'Session')+(bk==='rest'?'':tag)});
+  const rank=d=>stackKindOf(d)==='lift'?0:1;
+  return out.sort((a,b)=>rank(a)-rank(b));
 }
-
+function weekAt(monday){ const i=idxOf(monday); if(i<0) return null; return weeks(i+10)[i] }
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
-  const away=stackTo(date);
-  if(away) return {t:'off',movedTo:away,short:'Moved',
-    note:`This session is being done on ${DAYN[dow(away)]} instead.`};
-  let dp=dayPlanSlot(date,slotOf(date));
-  const came=stackFrom(date);
-  if(came) dp=stackMerge(dp,bareDay(came),came);
+  const all=dayPlans(date);
+  let dp=all.length?all[0]:{t:'off',short:'Off'};
+  if(all.length>1) dp=Object.assign({},dp,{more:all.slice(1),short:all.map(x=>x.short||'Session').join(' + ')});
+  else if(all.length===1&&dp.moved) dp=Object.assign({},dp,{short:dp.short||'Session'});
   const pn=weekHasPlyo(wk)?plyoDows(mondayOf(date)).indexOf(dow(date)):-1;
   if(pn>=0){
     // A deload halves the contacts, as the week it sits in does to everything else.

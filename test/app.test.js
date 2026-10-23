@@ -7,49 +7,6 @@ const path = require("node:path");
 const maxes = { squat: 300, bench: 200, pull: 180, ohp: 135, dead: 400 };
 function app(o) { const x = loadApp(o); Object.assign(x.plan.maxes, maxes); x.bump(); return x }
 
-test("rearranging never leaves two strength or two hard conditioning days together", () => {
-  const x = app({ now: "2026-10-19" });
-  const mon = "2026-10-19", K = x.slotKinds(mon);
-  let checked = 0;
-  for (let slot = 0; slot < 7; slot++) {
-    for (let day = 0; day < 7; day++) {
-      const r = x.bestOrder(mon, day, slot);
-      if (!r) continue;
-      checked++;
-      a.equal(r.ord[day], slot, "the day we asked for gets the session we asked for");
-      a.deepEqual([...r.ord].sort().join(), "0,1,2,3,4,5,6", "every session still appears once");
-      const kinds = r.ord.map((s) => K[s]);
-      for (let i = 1; i < 7; i++) {
-        const bad = (kinds[i] === "strength" || kinds[i] === "hic") && kinds[i] === kinds[i - 1];
-        a.equal(bad, false, `day ${i} would double up on ${kinds[i]}`);
-      }
-    }
-  }
-  a.ok(checked > 20, "a good number of arrangements were reachable");
-});
-
-test("an awkward week is offered with a warning, never refused", () => {
-  const x = app();
-  // This used to come back null -- "nothing valid this week" and a dead button --
-  // because putting a lifting session on Sunday butts it against Monday's. The
-  // arranger prices that now instead of refusing it: life does not care about the
-  // book's one rule, and the person asking has a reason the app cannot see.
-  const r = x.bestOrder("2026-10-19", 6, 0);
-  a.ok(r, "there is always an arrangement");
-  a.ok(r.warns.length, "and it says what is wrong with it");
-  a.match(r.warns[0], /Back-to-back strength/);
-  // It is still a last resort: a week that can be arranged cleanly is.
-  const clean = x.bestOrder("2026-10-19", 3, 5);
-  a.deepEqual(clean.warns, [], "no warning when none is needed");
-});
-
-test("days already done this week stay put", () => {
-  const x = app({ now: "2026-10-22" });               // Thursday
-  const r = x.bestOrder("2026-10-19", 3, 5);
-  a.ok(r, "Thursday can still take Saturday's conditioning");
-  a.deepEqual(r.ord.slice(0, 3), [0, 1, 2], "Monday to Wednesday are untouched");
-});
-
 test("personal records track the best and what it beat", () => {
   const x = app({ now: "2027-02-20" });
   x.seed({
@@ -6052,112 +6009,6 @@ test("with two sessions both days stay lit, and a third replaces the older", () 
   a.deepEqual(lit(), [3, 6]);
 });
 
-test("a session can be moved onto another day and done after it", () => {
-  const x = app({ now: "2026-10-22" });
-  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
-  const thu = "2026-10-22", fri = "2026-10-23";
-  a.equal(x.dayPlan(thu).t, "hic", "Thursday conditions");
-  a.equal(x.dayPlan(fri).t, "lift", "Friday lifts");
-
-  a.equal(x.setStack(thu, fri), true);
-
-  // The day it came from reads as moved, not as missed.
-  const gone = x.dayPlan(thu);
-  a.equal(gone.t, "off");
-  a.equal(gone.movedTo, fri);
-  a.match(gone.note, /being done on Fri/);
-
-  // The day it lands on lifts first and conditions after — the book's order.
-  const both = x.dayPlan(fri);
-  a.equal(both.t, "lift", "still a lifting day at heart");
-  a.equal(both.stacked, thu);
-  a.equal(both.ride, "hic");
-  a.equal(both.cardio, true);
-  a.equal(both.fmt, x.dayPlanSlot(thu, x.slotOf(thu)).fmt, "and it is Thursday's session, not a new one");
-  a.match(both.short, /Op 3 \+ Thu/);
-
-  x.sel = fri;
-  const h = x.sessionHtml(x.weekOf(fri), both);
-  a.ok(h.indexOf("Working weight") < h.indexOf("Then, conditioning"), "lifting first");
-  a.match(h, /Interval timer/, "and the conditioning is there to run and log");
-
-  // The other way round too: a lift moved onto a conditioning day. Whichever was moved,
-  // the lifting is the base and the conditioning rides on it, because the book asks for
-  // the strength work first either way.
-  x.clearStack(thu);
-  const mon = "2026-10-19", tue = "2026-10-20";
-  a.equal(x.dayPlan(mon).t, "lift");
-  a.equal(x.dayPlan(tue).t, "hic");
-  a.equal(x.setStack(mon, tue), true);
-  const merged = x.dayPlan(tue);
-  a.equal(merged.t, "lift", "the lift is the session, not the thing riding along");
-  a.deepEqual(merged.lifts, x.dayPlanSlot(mon, x.slotOf(mon)).lifts, "Monday's lifts");
-  a.equal(merged.ride, "hic", "with Tuesday's conditioning after it");
-  a.equal(merged.fmt, x.dayPlanSlot(tue, x.slotOf(tue)).fmt);
-  a.equal(x.dayPlan(mon).t, "off");
-  x.clearStack(mon);
-  x.setStack(thu, fri);
-
-  // Undo puts it back.
-  a.equal(x.clearStack(thu), true);
-  a.equal(x.dayPlan(thu).t, "hic");
-  a.equal(x.dayPlan(fri).ride, undefined);
-  a.equal(x.clearStack(thu), false, "and undoing twice does nothing");
-});
-
-test("stacking refuses only what cannot be done, and warns about the rest", () => {
-  const x = app({ now: "2026-10-22" });
-  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
-  const mon = "2026-10-19", wed = "2026-10-21", thu = "2026-10-22", fri = "2026-10-23", sun = "2026-10-25";
-
-  a.equal(x.stackWhyNot(thu, fri), null, "conditioning onto a lifting day is the whole point");
-  a.equal(x.stackWhyNot(thu, sun), null, "and onto an empty day is just rescheduling");
-  a.equal(x.stackWhyNot(mon, wed), null, "and two lifting days in one is allowed, because life");
-  a.match(x.stackWarn(mon, wed), /a lot of barbell work at once/, "with a word about it");
-  a.match(x.stackWarn(thu, fri), /Lifting goes first/, "and the book's order where that is the point");
-  a.match(x.stackWhyNot(thu, thu), /onto itself/);
-  a.match(x.stackWhyNot(sun, fri), /nothing on it to move/, "a rest day has nothing to give");
-  a.match(x.stackWhyNot(thu, "2026-10-30"), /same week/, "and it does not reach across weeks");
-
-  // One at a time: a day that has already taken a session cannot take another.
-  x.setStack(thu, fri);
-  a.match(x.stackWhyNot("2026-10-24", fri), /already has a session moved onto it/);
-  a.match(x.stackWhyNot(fri, sun), /already has another session on it/);
-  a.equal(x.setStack("2026-10-24", fri), false, "and refusing means refusing");
-  a.equal(x.dayPlan(fri).stacked, thu, "the first move stands");
-});
-
-test("the move sheet offers the stack, with the warning the book's caution is about", () => {
-  const x = app({ now: "2026-10-22" });
-  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.plyoOn = false;
-  x.sel = "2026-10-22"; x.bump();
-
-  const sheet = x.moveCard();
-  a.match(sheet, /Two in one day/);
-  a.match(sheet, /data-act="stack"[^>]*data-to="2026-10-23"(?![^>]*disabled)/, "Friday is offered");
-  // From a conditioning day every other day is a legal target, so nothing is refused.
-  a.doesNotMatch(sheet, /data-act="stack"[^>]*disabled/);
-
-  // From a lifting day, another lifting day is offered too — with the warning, not
-  // a disabled button. Two sessions in a day is a hard day, not an impossible one.
-  x.sel = "2026-10-19";
-  const liftSheet = x.moveCard();
-  a.match(liftSheet, /data-act="stack"[^>]*data-to="2026-10-21"(?![^>]*disabled)/, "Wednesday lifts too, and is offered");
-  a.match(liftSheet, /a lot of barbell work at once/, "with what to do about it");
-  a.match(liftSheet, /data-act="stack"[^>]*data-to="2026-10-20"(?![^>]*disabled)/, "Tuesday conditions");
-  x.sel = "2026-10-22";
-  a.match(sheet, /lifting comes first/, "it says what order to do them in");
-  a.match(sheet, /not worth planning every week/, "and that this is for rescuing a session");
-
-  // Once stacked, both days offer the undo rather than another move.
-  x.setStack("2026-10-22", "2026-10-23");
-  a.match(x.moveCard(), /data-act="unstack"/);
-  x.sel = "2026-10-23";
-  const onto = x.moveCard();
-  a.match(onto, /has been moved onto this day/);
-  a.match(onto, /data-act="unstack"/);
-});
-
 test("the stair machine logs floors, and floors are not a distance", () => {
   const x = app({ now: "2026-10-13" });
   a.equal(x.MOD.stair.name, "Stair machine");
@@ -6330,190 +6181,6 @@ test("goals are written once in Setup and kept out of the way", () => {
   // happens to be spelled almost the same.
   a.equal(typeof x.plan.goal, "string");
   a.equal(typeof x.plan.programGoals, "object");
-});
-
-test("a day dropped on another offers three things, and says why not", () => {
-  const x = app({ now: "2026-10-19" });
-  const mon = "2026-10-19";
-  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.stempl = "operator"; x.plan.cproto = "black"; x.bump();
-  // Operator + Black: lift, HIC, lift, HIC, lift, HIC, off.
-  const day = (i) => x.addDays(mon, i);
-  const opt = (a, b) => Object.fromEntries(x.calOptions(day(a), day(b)).map((o) => [o.k, o]));
-
-  // Two conditioning days: everything is on the table.
-  let o = opt(1, 3);
-  a.ok(o.swap.ord, "swap works between two like days");
-  a.equal(o.swap.moved, 2, "and moves only the two");
-  a.ok(o.shift.ord, "so does shifting");
-  a.equal(o.stack.stack, true, "and they can share a day");
-
-  // Two lifting days: all three are on the table, and the hard one says what it costs.
-  o = opt(0, 2);
-  a.ok(o.swap.ord); a.ok(o.shift.ord);
-  a.equal(o.stack.stack, true, "two lifting sessions can be combined, with a warning");
-  a.match(o.stack.sub, /a lot of barbell work at once/);
-
-  // A swap that puts two strength days together is offered with the warning, not
-  // refused. It is the week somebody actually has to train.
-  o = opt(0, 1);
-  a.ok(o.swap.ord, "lift onto the next day is allowed");
-  a.match(o.swap.sub, /Back-to-back strength/, "with the book's rule said out loud");
-  a.ok(o.shift.ord, "and shifting is still there as the tidier option");
-
-  // Across weeks there is nothing to offer.
-  a.equal(x.calOptions(day(0), x.addDays(mon, 7)), null);
-
-  // A day already gone this week is not a candidate at either end: the session was
-  // either done or missed, and moving it now would rewrite history.
-  const y = app({ now: x.addDays(mon, 3) });            // it is Thursday
-  y.plan.startMonday = mon; y.plan.bridge = false; y.bump();
-  const past = (i, j) => Object.fromEntries(y.calOptions(y.addDays(mon, i), y.addDays(mon, j)).map((o) => [o.k, o]));
-  a.match(past(1, 5).swap.why, /already passed/, "Tuesday cannot be dragged anywhere");
-  a.match(past(5, 1).swap.why, /already passed/, "nor can anything be dropped on it");
-  a.ok(past(5, 6).swap.ord, "but two days still ahead swap freely");
-});
-
-test("tapping and dragging reach the same three choices", () => {
-  const x = app({ now: "2026-10-19" });
-  const mon = "2026-10-19";
-  x.plan.startMonday = mon; x.plan.bridge = false; x.bump();
-  x.calRe = true;
-
-  // calTarget is the single entry point: the click handler calls it, and so does the
-  // end of a drag. One set of rules rather than two.
-  a.equal(x.calTarget(x.addDays(mon, 1)), true, "first tap picks a source");
-  a.equal(x.calMove.from, x.addDays(mon, 1));
-  a.ok(!x.calMove.to, "and nothing is chosen yet");
-
-  a.equal(x.calTarget(x.addDays(mon, 3)), true, "second names the target");
-  a.equal(x.calMove.to, x.addDays(mon, 3));
-  a.ok(!x.calMove.mode, "still nothing applied");
-
-  // Tapping the source again cancels.
-  x.calMove = { from: x.addDays(mon, 1) };
-  a.equal(x.calTarget(x.addDays(mon, 1)), true);
-  a.equal(x.calMove, null);
-
-  // A different week is refused rather than starting a cross-week move.
-  x.calMove = { from: x.addDays(mon, 1) };
-  a.equal(x.calTarget(x.addDays(mon, 8)), false);
-  a.equal(x.calMove.to, undefined, "and nothing was set");
-
-  // Nothing is written to the plan by any of this.
-  a.deepEqual(x.plan.order || {}, {}, "choosing is not applying");
-});
-
-test("the chooser shows all three and disables what cannot be done", () => {
-  const x = app({ now: "2026-10-19" });
-  const mon = "2026-10-19";
-  x.plan.startMonday = mon; x.plan.bridge = false; x.bump();
-  x.calRe = true;
-  x.calMove = { from: mon, to: x.addDays(mon, 2) };        // lift onto lift
-  const h = x.calChooser();
-  for (const k of ["swap", "shift", "stack"]) a.match(h, new RegExp(`data-act="calmode" data-k="${k}"`), k + " is offered");
-  // Nothing here is impossible any more, so nothing is disabled: the hard one carries
-  // its warning instead.
-  a.doesNotMatch(h, /data-k="stack"[^>]*disabled|disabled[^>]*data-k="stack"/, "combining is available");
-  a.match(h, /a lot of barbell work at once/);
-  // And it closes without doing anything.
-  a.match(h, /data-act="calcancel"/);
-  // Once a mode is chosen the chooser gets out of the way for the preview.
-  x.calMove = { from: mon, to: x.addDays(mon, 2), mode: "swap", ord: [2, 1, 0, 3, 4, 5, 6], moved: 2 };
-  a.equal(x.calChooser(), "");
-});
-
-test("applying a choice does what the choice said, and nothing else", () => {
-  const mon = "2026-10-19";
-  const fresh = () => { const x = app({ now: mon }); x.plan.startMonday = mon; x.plan.bridge = false; x.calRe = true; x.bump(); return x };
-
-  // Swap moves exactly two days and leaves the rest of the order alone.
-  let x = fresh();
-  const before = x.dayOrder(mon).slice();
-  x.calMove = { from: x.addDays(mon, 1), to: x.addDays(mon, 3) };
-  a.equal(x.calSetMode("swap"), true); a.equal(x.calApply(), true);
-  const after = x.plan.order[mon];
-  a.deepEqual([after[1], after[3]], [before[3], before[1]], "the two traded");
-  a.deepEqual(after.filter((_, i) => i !== 1 && i !== 3), before.filter((_, i) => i !== 1 && i !== 3), "and nothing else moved");
-  a.deepEqual(x.orderIssues(mon, after), [], "still a legal week");
-
-  // Shifting is allowed to move more, which is the difference between the two.
-  x = fresh();
-  x.calMove = { from: mon, to: x.addDays(mon, 1) };
-  a.equal(x.calSetMode("shift"), true); a.equal(x.calApply(), true);
-  a.deepEqual(x.orderIssues(mon, x.plan.order[mon]), [], "and it is still legal");
-  a.equal(x.slotOf(x.addDays(mon, 1)), 0, "the session landed where it was dropped");
-
-  // Combining writes a stack, not an order, and the source day reads as moved.
-  x = fresh();
-  x.calMove = { from: x.addDays(mon, 1), to: x.addDays(mon, 3) };
-  a.equal(x.calSetMode("stack"), true); a.equal(x.calApply(), true);
-  a.equal((x.plan.order || {})[mon], undefined, "the week order is untouched");
-  a.equal(x.stackTo(x.addDays(mon, 1)), x.addDays(mon, 3), "the session rides along");
-  a.equal(x.dayPlan(x.addDays(mon, 1)).t, "off", "and its own day is clear");
-
-  // A mode that is unavailable cannot be applied by asking for it directly. What is
-  // left unavailable is only the impossible: a rest day has no session to move.
-  x = fresh();
-  x.calMove = { from: x.addDays(mon, 6), to: mon };           // Sunday is off
-  a.equal(x.calSetMode("stack"), false, "refused");
-  a.ok(!x.calMove.mode);
-  a.equal(x.calApply(), false);
-  a.equal((x.plan.order || {})[mon], undefined, "and nothing was written");
-  a.equal(x.stackTo(mon), null);
-});
-
-test("conditioning may run on consecutive days, which is what the book says", () => {
-  const x = app({ now: "2026-10-19" });
-  const mon = "2026-10-19";
-  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.stempl = "operator"; x.plan.cproto = "black"; x.bump();
-
-  // TB II, on moving conditioning around: "Your HIC and E can be done on any day, not
-  // just days 2, 4, and 6. You can do two days in a row, or whatever. As long as
-  // you're hitting your weekly minimums." The app used to refuse exactly that.
-  a.deepEqual(x.ADJACENT_BAN, ["strength", "strengthA", "strengthB"], "only strength is banned");
-  a.equal(x.clashes("hic", "hic"), false, "two hard conditioning days are not a clash");
-  a.equal(x.clashes("se", "se"), false);
-  a.equal(x.clashes("strength", "strength"), true, "the book's one rule still holds");
-  a.equal(x.clashes("strengthA", "strengthB"), false, "Zulu's halves are different sessions");
-
-  // Swapping two lifting days together is allowed now, with the rule as a warning.
-  const btb = x.swapOrder(mon, 1, 2);
-  a.ok(btb.ord, "allowed: a warning, not a veto");
-  a.match(btb.warn, /Back-to-back strength/);
-  a.ok(x.orderIssues(mon, btb.ord).length, "it really is the arrangement the book warns about");
-
-  // A swap that doubles up conditioning goes through, with a remark rather than a veto.
-  const ok = x.swapOrder(mon, 4, 5);
-  a.ok(ok.ord, "allowed");
-  a.match(ok.warn, /both become hard conditioning/);
-  a.match(ok.warn, /two days in a row, or whatever/, "quoting the book that permits it");
-  a.deepEqual(x.orderIssues(mon, ok.ord), [], "and it is a legal week");
-  a.ok(x.orderCrowding(mon, ok.ord).length, "just a crowded one");
-
-  // The chooser offers it rather than greying it out, and carries the remark.
-  x.calRe = true; x.calMove = { from: x.addDays(mon, 4), to: x.addDays(mon, 5) };
-  const h = x.calChooser();
-  a.ok(!/data-k="swap"[^>]*disabled/.test(h), "swap is available");
-  a.match(h, /both become hard conditioning/, "with the warning shown");
-});
-
-test("spreading conditioning out is still preferred when the week allows it", () => {
-  const x = app({ now: "2026-10-19" });
-  const mon = "2026-10-19";
-  x.plan.startMonday = mon; x.plan.bridge = false; x.bump();
-
-  // Allowed is not the same as chosen. Left to itself the week still alternates, and
-  // bestOrder keeps preferring that -- crowding costs more than any amount of
-  // shuffling, so it is only taken when nothing else fits.
-  const kinds = [0, 1, 2, 3, 4, 5, 6].map((i) => x.sessKind(x.dayPlanSlot(x.addDays(mon, i), i)));
-  a.ok(!kinds.some((k, i) => i && k === "hic" && kinds[i - 1] === "hic"), "the default week spreads them");
-  a.deepEqual(x.orderCrowding(mon, x.dayOrder(mon)), [], "nothing to remark on");
-
-  // Asking to move a lifting day still returns a week that avoids crowding if it can.
-  const r = x.bestOrder(mon, 1, 0);
-  a.ok(r, "an arrangement exists");
-  a.deepEqual(x.orderIssues(mon, r.ord), [], "legal");
-  a.deepEqual(x.orderCrowding(mon, r.ord), [], "and uncrowded, because it could be");
 });
 
 test("the rest timer warns before it ends, and does not sound like the end", async () => {
@@ -8828,4 +8495,157 @@ test("the debrief can be switched off in Setup, and says what it costs", () => {
   a.match(h, /counts as one of the month's coach questions/);
   x.plan.coachDebrief = false; x.render();
   a.match(x.dom.made.main.innerHTML, /id="p-debrief" data-pbind="coachDebrief" >/);
+});
+
+/* ---------------- moving a session ----------------
+   A session is an item with a date. One verb, nothing else moves, nothing refused. */
+
+test("a move moves one session and nothing else", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
+  const day = (i) => x.addDays(mon, i);
+  const before = [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlan(day(i)).short);
+
+  // Tuesday's conditioning, done on Thursday. Thursday keeps what it had.
+  a.equal(x.moveSession(mon, 1, day(3)), true);
+  a.equal(x.dayPlans(day(1)).length, 0, "Tuesday is now empty");
+  a.equal(x.dayPlan(day(1)).t, "off", "which is what a rest day is");
+  a.equal(x.dayPlans(day(3)).length, 2, "Thursday holds both");
+  const after = [0, 2, 4, 5, 6].map((i) => x.dayPlan(day(i)).short);
+  a.deepEqual(after, [before[0], before[2], before[4], before[5], before[6]],
+    "and every other day is untouched");
+
+  // Put it back.
+  a.equal(x.moveSession(mon, 1, day(1)), true);
+  a.deepEqual([0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlan(day(i)).short), before);
+  a.equal(x.isReordered(mon), false, "and the week is back to standard");
+});
+
+test("two sessions on a day are listed lifting first", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false;
+  x.plan.stempl = "operator"; x.plan.cproto = "black"; x.bump();
+  const day = (i) => x.addDays(mon, i);
+  // Monday lifts, Tuesday conditions. Put the lift onto Tuesday.
+  x.moveSession(mon, 0, day(1));
+  const ss = x.dayPlans(day(1));
+  a.equal(ss.length, 2);
+  a.equal(x.stackKindOf(ss[0]), "lift", "the lifting comes first, which is the book's one rule");
+  a.equal(x.stackKindOf(ss[1]), "cond");
+  a.match(x.dayPlan(day(1)).short, /\+/, "and the day says it holds both");
+  a.ok(x.dayPlan(day(1)).more, "the rest are reachable from the main one");
+});
+
+test("a session can be moved into another week, because that is what happens", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19", next = "2026-10-26";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
+  // Friday lost. Pick it up on Monday.
+  a.equal(x.moveSession(mon, 4, next), true);
+  a.equal(x.dayPlans(x.addDays(mon, 4)).length, 0);
+  const landed = x.dayPlans(next).filter((d) => d.sess.monday === mon);
+  a.equal(landed.length, 1, "it is there, still belonging to its own week");
+  a.equal(landed[0].moved, true);
+  a.equal(landed[0].sess.home, x.addDays(mon, 4), "and it remembers where it came from");
+  a.equal(x.isReordered(mon), true, "both weeks know something moved");
+  a.equal(x.isReordered(next), true);
+});
+
+test("nothing about a move is refused, and the warnings say what is worth knowing", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false;
+  x.plan.stempl = "operator"; x.plan.cproto = "black"; x.bump();
+  const day = (i) => x.addDays(mon, i);
+  const wed = { monday: mon, slot: 2, home: day(2) };
+
+  // Onto the other lifting day: allowed, with the thing worth knowing.
+  let w = x.moveWarn(day(0), wed);
+  a.ok(w.length); a.match(w[0], /a lot of barbell work at once/);
+  // Next to a lifting day: allowed, with the book's rule as a remark.
+  w = x.moveWarn(day(1), wed);
+  a.ok(w.some((t) => /back-to-back days/.test(t)), "it notices the day either side");
+  // Sunday is empty, but next Monday lifts, so the adjacency remark still applies --
+  // the week boundary is not a wall, which is the point of letting moves cross it.
+  a.deepEqual(x.moveWarn(day(6), wed), [
+    "That puts lifting on back-to-back days. The book asks you not to, so keep one of them light."]);
+  // And every one of them actually goes through.
+  for (const i of [0, 1, 6]) a.equal(x.moveSession(mon, 2, day(i)), true, `day ${i} accepts it`);
+});
+
+test("the move sheet lists the day's sessions and offers plain days to move them to", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false; x.sel = mon; x.bump();
+  const h = x.moveCard();
+  a.match(h, /Move a session/);
+  a.match(h, /data-act="moveto"[^>]*data-mon="2026-10-19"[^>]*data-sl="0"/, "Monday's session can go somewhere");
+  a.doesNotMatch(h, /data-act="swap"/, "there is no swap any more");
+  a.match(h, /Only the session you pick moves/);
+  // Nothing is ever disabled on programming grounds.
+  a.doesNotMatch(h, /data-act="moveto"[^>]*disabled/);
+  // An empty day has nothing to move, and says so rather than offering a dead list.
+  x.moveSession(mon, 0, x.addDays(mon, 1));
+  x.sel = mon;
+  a.match(x.moveCard(), /Nothing on Mon to move/);
+  // Where it landed, it can be sent home again.
+  x.sel = x.addDays(mon, 1);
+  a.match(x.moveCard(), /data-act="moveback"/);
+});
+
+test("the calendar moves a session straight, with no mode to turn on first", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
+  const day = (i) => x.addDays(mon, i);
+
+  const h = x.calCard();
+  a.doesNotMatch(h, /data-act="calre"/, "no Rearrange button to find first");
+  a.match(h, /data-act="calpick"/, "every cell is live");
+  a.doesNotMatch(h, /disabled/, "and none of them is dimmed");
+
+  // Tap the session, tap the day: that is the whole interaction.
+  a.equal(x.calTarget(day(0)), true, "picked up");
+  a.deepEqual([x.calMove.monday, x.calMove.slot], [mon, 0]);
+  a.equal(x.calTarget(day(5)), true, "put down");
+  a.equal(x.calMove, null, "and the chooser never appears, because there is nothing to choose");
+  a.equal(x.dayPlans(day(0)).length, 0);
+  a.equal(x.dayPlans(day(5)).length, 2);
+
+  // An empty day cannot be picked up, and tapping the carried one puts it down.
+  a.equal(x.calTarget(day(0)), false, "nothing there to carry");
+  x.calTarget(day(5)); a.ok(x.calMove);
+  x.calTarget(day(5)); a.equal(x.calMove, null, "tapping it again cancels");
+});
+
+test("an old week of slots migrates into sessions with dates", () => {
+  const x = app({ now: "2026-10-21" });
+  const m = x.MIGRATIONS.find((v) => v.to === 7);
+  a.ok(m, "schema 7 exists");
+  const p = { order: { "2026-10-19": [2, 1, 0, 3, 4, 5, 6] }, stack: { "2026-10-22": "2026-10-23" } };
+  m.run({}, p);
+  // The swap: slot 2 was shown on Monday, slot 0 on Wednesday.
+  a.equal(p.at["2026-10-19:2"], "2026-10-19");
+  a.equal(p.at["2026-10-19:0"], "2026-10-21");
+  // The stack was recorded against the day as the order had already arranged it, so
+  // Thursday's session is slot 3, and it was being done on Friday.
+  a.equal(p.at["2026-10-19:3"], "2026-10-23");
+  a.equal(p.order, undefined, "and the old shapes are gone");
+  a.equal(p.stack, undefined);
+});
+
+test("moving a session does not change what the session is", () => {
+  const x = app({ now: "2026-10-19" });
+  const mon = "2026-10-19";
+  x.plan.startMonday = mon; x.plan.bridge = false; x.plan.plyoOn = false;
+  x.plan.l3 = { on: { pull: true, ohp: true }, mode: "alt-day" }; x.bump();
+  // Lift 3 alternates by slot, so reading the rotation off the date a session was
+  // moved to would silently turn Monday's pulldown into Wednesday's press.
+  const was = x.dayPlan(x.addDays(mon, 2)).lifts;
+  x.moveSession(mon, 2, x.addDays(mon, 5));
+  const now = x.dayPlans(x.addDays(mon, 5)).find((d) => d.sess.slot === 2);
+  a.deepEqual(now.lifts, was, "it is the same session, on a different day");
+  a.equal(now.sess.home, x.addDays(mon, 2), "and it knows which day is its own");
 });

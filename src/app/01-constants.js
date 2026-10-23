@@ -779,7 +779,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=6;
+const SCHEMA=7;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -849,6 +849,34 @@ const MIGRATIONS=[
     // actually want, and ducking gives it whenever the ring switch is on.
     if(!p.soundMode) p.soundMode=p.quietTimer?'silent':'duck';
     delete p.quietTimer;
+  }},
+  {to:7,note:'A week of slots becomes sessions with dates',run(d,p){
+    /* `order` was a permutation of seven slots over seven days and `stack` was a
+       separate map for the one case it could not express. Both collapse into `at`,
+       which says where a session happens and nothing else. A permutation is just the
+       special case where every session is somewhere in its own week.
+
+       Order first, then stack, because a stacked day was recorded against the day as
+       the order had already arranged it. */
+    const at=Object.assign({},p.at);
+    const slotOnDay={};
+    for(const [mon,ord] of Object.entries(p.order||{})){
+      if(!Array.isArray(ord)||ord.length!==7) continue;
+      slotOnDay[mon]={};
+      for(let i=0;i<7;i++){
+        const sl=ord[i]; if(!(sl>=0&&sl<7)) continue;
+        slotOnDay[mon][i]=sl;
+        if(sl!==i) at[mon+':'+sl]=addDays(mon,i);
+      }
+    }
+    for(const [from,to] of Object.entries(p.stack||{})){
+      if(typeof to!=='string') continue;
+      const mon=mondayOf(from), i=dow(from);
+      const sl=(slotOnDay[mon]&&slotOnDay[mon][i]!=null)?slotOnDay[mon][i]:i;
+      at[mon+':'+sl]=to;
+    }
+    if(Object.keys(at).length) p.at=at;
+    delete p.order; delete p.stack;
   }},
 ];
 

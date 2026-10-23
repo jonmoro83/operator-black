@@ -180,109 +180,56 @@ function startProgram(){
   newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }
 
-// Rearranging in the calendar: tap a session, tap the day to move it to, see the
-// whole week previewed, then apply. calMove = {from, to, ord, moved}.
-let calRe=false, calMove=null;
-function calOrd(mon){return calMove&&calMove.ord&&mondayOf(calMove.from)===mon?calMove.ord:dayOrder(mon)}
-/* The three things a drop can mean, each with the reason it is unavailable rather
-   than just being greyed out. In a full week most straight swaps break the rule
-   against the same strength session running twice, and being told which rule and why
-   is more use than being refused with no explanation.
-
-   Combining is the stacking already built for the day view, so it answers to the same
-   rule: everything may share a day except two lifting sessions, which is a different
-   program rather than a rearranged week. */
-function calOptions(from,to){
-  const mon=mondayOf(from);
-  if(mondayOf(to)!==mon) return null;
-  const sw=swapOrder(mon,dow(from),dow(to));
-  const sh=bestOrder(mon,dow(to),slotOf(from));
-  const why=stackWhyNot(from,to), stw=stackWarn(from,to);
-  const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
-  return [
-    {k:'swap',  label:'Swap the two days',
-     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.${sw.warn?' '+esc(sw.warn):''}`, ...sw},
-    {k:'shift', label:'Move it and shift the rest',
-     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.${sh.warns.length?' '+esc(sh.warns[0]):''}`:'',
-     ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
-    {k:'stack', label:'Do both on the same day',
-     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.${stw?' '+esc(stw):''}`,
-     ...(why?{why}:{stack:true})},
-  ];
-}
-/* Both a tap and a drop land here, so the keyboard path and the drag path offer the
-   same three choices and there is only one place for the rules to live. */
+/* ---------------- rearranging in the calendar ----------------
+Pick a session, pick the day, done. There is no mode to turn on first and no chooser
+afterwards, because there is only one thing a move can mean now: that session happens
+on that day. `calMove` holds the session being carried, as {monday, slot, from}. */
+let calMove=null;
+/* A tap and a drop both land here. The first tap picks a session up -- the first one
+   on the day, since a cell that holds two shows both and either is a reasonable thing
+   to mean -- and the second puts it down. */
 function calTarget(d){
-  if(!d) return false;
-  if(!calMove||calMove.mode||calMove.to){ calMove={from:d}; render(); return true }
-  if(calMove.from===d){ calMove=null; render(); return true }
-  if(mondayOf(calMove.from)!==mondayOf(d)) return false;
-  calMove={from:calMove.from,to:d};
-  render(); return true;
-}
-/* Choosing and applying live here rather than in the click handler, so both are
-   reachable from a test. A mode that is unavailable cannot be set, which is what
-   stops a stale chooser from applying something the rules refused. */
-function calSetMode(k){
-  if(!calMove||!calMove.to) return false;
-  const o=(calOptions(calMove.from,calMove.to)||[]).find(x=>x.k===k);
-  if(!o||o.why) return false;
-  calMove=Object.assign({},calMove,{mode:o.k,ord:o.ord||null,moved:o.moved||0});
-  return true;
-}
-function calApply(){
-  if(!calMove||!calMove.mode) return false;
-  const from=calMove.from, to=calMove.to, mode=calMove.mode, ord=calMove.ord, mon=mondayOf(from);
-  offerUndo('Days moved',snapPlan());
-  if(mode==='stack'){ if(!setStack(from,to)) return false }
-  else mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:ord})});
-  calMove=null; openWarm.clear(); openPx.clear();
-  return true;
-}
-function calChooser(){
-  if(!calMove||!calMove.to||calMove.mode) return '';
-  const opts=calOptions(calMove.from,calMove.to);
-  if(!opts) return '';
-  let h=`<div class="banner info"><div class="small" style="font-weight:650;margin-bottom:6px">${esc(fmtD(calMove.from,true))} onto ${esc(fmtD(calMove.to,true))}</div><div class="stack" style="gap:6px">`;
-  for(const o of opts){
-    h+=`<button class="btn sm${o.why?' ghost':''}" ${o.why?'disabled':''} data-act="calmode" data-k="${o.k}" style="justify-content:flex-start;text-align:left;height:auto;padding:8px 10px">
-      <span><b>${esc(o.label)}</b><br><span class="small">${o.why?esc(o.why):o.sub}</span></span></button>`;
+  if(!d||viewing) return false;
+  if(!calMove){
+    const ss=dayPlans(d); if(!ss.length) return false;
+    calMove={monday:ss[0].sess.monday,slot:ss[0].sess.slot,from:d}; render(); return true;
   }
-  return h+`</div><div class="row" style="margin-top:6px"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div></div>`;
+  if(calMove.from===d){ calMove=null; render(); return true }
+  if(idxOf(d)<0) return false;
+  offerUndo('Session moved',snapPlan());
+  moveSession(calMove.monday,calMove.slot,d);
+  calMove=null; openWarm.clear(); openPx.clear(); render();
+  return true;
 }
+function calCancel(){ calMove=null; render() }
 function calCard(){
-  const t=realToday(), thisMon=mondayOf(t);
+  const t=realToday();
   if(!calMonth) calMonth=(viewing?viewing.end:(sel||t)).slice(0,7);
   const y=+calMonth.slice(0,4), m=+calMonth.slice(5,7);
   const first=S(Date.UTC(y,m-1,1)), last=S(Date.UTC(y,m,0)), start=mondayOf(first);
   const rows=Math.round(((D(mondayOf(last))-D(start))/864e5)/7)+1;
-  const re=calRe&&!viewing;
-  // The class the drag CSS hangs off, so touch-action only changes while rearranging.
-  if(document.body) document.body.classList.toggle('rearranging',!!re);
-  let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">‹</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">›</button></div>`;
-  if(!viewing) h+=`<div class="row between"><button class="btn sm${re?' primary':''}" data-act="calre">${re?'✓ Rearranging':'Rearrange days'}</button>${calMonth!==t.slice(0,7)?`<button class="btn sm ghost" data-act="calm" data-v="0">This month</button>`:''}</div>`;
-  if(re) h+=calChooser();
-  if(re) h+=`<div class="banner info"><div class="small">${calMove?(calMove.ord?`<b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'Session')}</b> moves to ${fmtD(calMove.to,true)}${calMove.moved>1?`, and ${calMove.moved-1} other day${calMove.moved>2?'s':''} shift`:' with no other changes'}. The preview is below.`:`Tap the day to move <b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'')}</b> to. Grayed days can’t take it without doubling up strength or hard conditioning.`):'Tap a session, then tap the day you want to do it on. The week keeps all seven sessions and never lands two strength days or two hard conditioning days together.'}</div>${calMove?`<div class="row">${calMove.ord?`<button class="btn sm primary" data-act="calapply">Apply</button>`:''}<button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
+  const live=!viewing;
+  // Dragging needs touch-action off the cells, and it is always available now, so the
+  // class goes on whenever the calendar is live rather than only in a mode.
+  if(document.body) document.body.classList.toggle('rearranging',!!live);
+  let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">\u2039</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">\u203a</button></div>`;
+  if(live&&calMonth!==t.slice(0,7)) h+=`<div class="row"><button class="btn sm ghost" data-act="calm" data-v="0">This month</button></div>`;
+  if(live) h+=`<div class="banner info"><div class="small">${calMove
+    ? `Carrying <b>${esc(dayPlanSlot(addDays(calMove.monday,calMove.slot),calMove.slot).short||'Session')}</b>. Tap the day to do it on \u2014 any day, any week. Nothing else will move.`
+    : 'Drag a session to another day, or tap it and then tap where it should go. Only what you move moves; a day can hold more than one, and a day with none is a rest day.'}</div>${calMove?`<div class="row"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
   h+=`<div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
   for(let r=0;r<rows;r++){
     const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null;
-    const cur=dayOrder(mon), ord=calOrd(mon), editable=re&&wk&&mon>=thisMon;
     h+=`<div class="cal-w">${wt?`<b>${esc(wt.t)}</b><span class="chip ${wt.cls}">${esc(wt.chip)}</span>${isReordered(mon)?'<span class="chip blue">days moved</span>':''}`:'<span class="muted">Before the program starts</span>'}</div>`;
     for(let i=0;i<7;i++){
-      const d=addDays(mon,i), dp=dayPlanSlot(d,ord[i]), out=d<first||d>last, st=sessState(d,t);
-      const gone=mon===thisMon&&i<dow(t), picked=calMove&&calMove.from===d, shifted=ord[i]!==cur[i];
-      let cls='', act='open', dis='';
-      if(re){
-        if(!editable||gone){cls=' dim';dis='disabled'}
-        else if(calMove&&!calMove.ord){ const ok=bestOrder(mon,i,slotOf(calMove.from));
-          if(mondayOf(calMove.from)!==mon||(!ok&&!picked)){cls=' dim';dis='disabled'} }
-        act='calpick';
-      }
-      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!re?' sel':''}${picked?' picked':''}${shifted?' shifted':''}${cls}" data-act="${act}" data-date="${d}" ${dis} aria-label="${fmtLong(d)} ${esc(dp.short||'')}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(dp.short||'')}</span><span class="dot ${re?'':st}"></span></button>`;
+      const d=addDays(mon,i), ss=dayPlans(d), out=d<first||d>last, st=sessState(d,t);
+      const picked=!!(calMove&&calMove.from===d), moved=ss.some(x=>x.moved);
+      const lbl=ss.length?ss.map(x=>x.short||'Session').join(' + '):'';
+      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!calMove?' sel':''}${picked?' picked':''}${moved?' shifted':''}" data-act="${live?'calpick':'open'}" data-date="${d}" aria-label="${fmtLong(d)} ${esc(lbl)}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(lbl)}</span><span class="dot ${calMove?'':st}"></span></button>`;
     }
   }
   h+=`</div>`;
-  if(!re) h+=`<div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span></div>`;
+  if(!calMove) h+=`<div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span></div>`;
   return h+`</div>`;
 }
 function vPlan(){
@@ -811,9 +758,9 @@ function vGuide(){
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
-  <li><b>Nothing is refused.</b> The app arranges the week by the book’s own principle for moving things around — “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” — so it will not put the same strength session on consecutive days while any other arrangement exists. But if that is the week you can actually train, you can have it, with the rule said out loud rather than a button you cannot press. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
-  <li><b>Two sessions in one day</b> is there for the day you lose rather than the week you plan. Move a session onto another day and do both; lifting goes first. Two lifting sessions in one day is allowed too — do the heavier one first and cut the accessories on the second.</li>
-  <li><b>What is actually impossible</b> is short: a day that has already gone cannot swap with one still to come, and a rest day has no session to move. Everything else is yours, and anything the app would not have chosen comes with a warning attached.</li>
+  <li><b>The default layout follows the book’s own principle</b> for arranging a week: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” So a protocol lays its week out with the strength days apart. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
+  <li><b>Moving a session is one thing and it is never refused.</b> Pick the day, and that session happens on that day. Nothing else moves — not the day you took it from, not the day it lands on, not the rest of the week. A day can hold two sessions or none, and a day with none is a rest day. Move it into next week if that is when you will do it.</li>
+  <li><b>You get told, not stopped.</b> Two lifting sessions on one day, or on consecutive days, is the one thing the book asks you not to do, so the app says so — do the heavier one first and cut the accessories on the second. It is a remark, not a veto: the week you can actually train beats the week that reads correctly.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>

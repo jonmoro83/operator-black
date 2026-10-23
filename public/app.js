@@ -1398,7 +1398,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=6;
+const SCHEMA=7;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -1468,6 +1468,34 @@ const MIGRATIONS=[
     // actually want, and ducking gives it whenever the ring switch is on.
     if(!p.soundMode) p.soundMode=p.quietTimer?'silent':'duck';
     delete p.quietTimer;
+  }},
+  {to:7,note:'A week of slots becomes sessions with dates',run(d,p){
+    /* `order` was a permutation of seven slots over seven days and `stack` was a
+       separate map for the one case it could not express. Both collapse into `at`,
+       which says where a session happens and nothing else. A permutation is just the
+       special case where every session is somewhere in its own week.
+
+       Order first, then stack, because a stacked day was recorded against the day as
+       the order had already arranged it. */
+    const at=Object.assign({},p.at);
+    const slotOnDay={};
+    for(const [mon,ord] of Object.entries(p.order||{})){
+      if(!Array.isArray(ord)||ord.length!==7) continue;
+      slotOnDay[mon]={};
+      for(let i=0;i<7;i++){
+        const sl=ord[i]; if(!(sl>=0&&sl<7)) continue;
+        slotOnDay[mon][i]=sl;
+        if(sl!==i) at[mon+':'+sl]=addDays(mon,i);
+      }
+    }
+    for(const [from,to] of Object.entries(p.stack||{})){
+      if(typeof to!=='string') continue;
+      const mon=mondayOf(from), i=dow(from);
+      const sl=(slotOnDay[mon]&&slotOnDay[mon][i]!=null)?slotOnDay[mon][i]:i;
+      at[mon+':'+sl]=to;
+    }
+    if(Object.keys(at).length) p.at=at;
+    delete p.order; delete p.stack;
   }},
 ];
 
@@ -2487,7 +2515,7 @@ function freezePast(){
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
-    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();const ord=dayOrder(wk.monday);f.l3={};for(let j=0;j<7;j++){const sl=ord[j];if(sl===0||sl===2)f.l3[sl]=l3Auto(addDays(wk.monday,j))}}
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))}
     fz[wk.monday]=f; changed=true; planV++;
   }
   const curMon=list[cur]&&list[cur].monday;
@@ -2570,11 +2598,79 @@ function rx(wk,k,date){
     // and its down sets are a percentage of that set, not of a 1RM.
     top:!!v.top,down:v.down||null,downPct:v.downPct||null};
 }
-// A week's seven sessions can be reordered: plan.order[monday] maps weekday -> slot.
 // The slot is what the program prescribes; the weekday is just when you do it.
-function dayOrder(monday){const o=(plan.order||{})[monday];return Array.isArray(o)&&o.length===7&&o.slice().sort().join()==='0,1,2,3,4,5,6'?o:[0,1,2,3,4,5,6]}
-function slotOf(date){return dayOrder(mondayOf(date))[dow(date)]}
-function isReordered(monday){return dayOrder(monday).some((v,i)=>v!==i)}
+/* ---------------- where a session actually happens ----------------
+
+Until 3.48 a week was a permutation: `plan.order[monday]` held seven slots in seven
+days, one each. That made a straight move impossible to express. Asking for Tuesday's
+session on Thursday could only ever mean "and Thursday's on Tuesday", or "shuffle four
+days so it fits" -- which is why every move came back as something the person had not
+asked for, and why a day that was already full had to refuse.
+
+A session is now an item with a date. It is identified by the week it belongs to and
+its slot in that week's template, and `plan.at` records the ones that have been moved:
+
+    plan.at["2026-10-19:1"] = "2026-10-22"     Tuesday's session, done on Thursday
+
+Nothing else moves, ever. A day holds however many sessions point at it -- none, one,
+four. Rest is the absence of a session rather than a slot of its own, so moving the
+last session off a day leaves a rest day behind with no bookkeeping. A date anywhere is
+allowed, including another week: losing Friday and picking it up on Monday is the
+commonest thing that happens to a training week.
+
+The cost is that nothing is bijective any more, so anything that used to assume one
+session per day has to say which it means. `dayPlan` answers "the main one", which is
+what almost every caller wanted; `dayPlans` answers "all of them". */
+function atMap(){ const m=plan.at; return m&&typeof m==='object'?m:{} }
+function sessId(monday,slot){ return monday+':'+slot }
+function isDateStr(v){ return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v) }
+/* `addDays(monday,slot)` is a session's *home*: where it would be if nothing had been
+   moved, and the date everything about what the session IS is computed from. `dow(home)`
+   is the slot, which is why `slotOf` can fall back to the weekday and still be right.
+   `slotDate` is where it actually happens. Keep the two straight: a Lift 3 rotation read
+   off the date it was moved to would change the session by moving it. */
+/** The date a slot's session happens on: its own day unless it has been moved. */
+function slotDate(monday,slot){ const v=atMap()[sessId(monday,slot)]; return isDateStr(v)?v:addDays(monday,slot) }
+function sessMoved(monday,slot){ return slotDate(monday,slot)!==addDays(monday,slot) }
+/** Every session that lands on this date, as {monday,slot,home}. */
+function sessionsOn(date){
+  const out=[], seen={};
+  const add=(monday,slot)=>{ const id=sessId(monday,slot); if(seen[id]) return; seen[id]=1;
+    out.push({monday,slot,home:addDays(monday,slot)}) };
+  // Its own week's slots, minus any that have been moved away.
+  const mon=mondayOf(date);
+  if(idxOf(mon)>=0) for(let sl=0;sl<7;sl++) if(slotDate(mon,sl)===date) add(mon,sl);
+  // Anything moved here from elsewhere, from any week.
+  for(const [id,v] of Object.entries(atMap())){
+    if(v!==date) continue;
+    const i=id.lastIndexOf(':'); if(i<0) continue;
+    const m=id.slice(0,i), sl=+id.slice(i+1);
+    if(!isDateStr(m)||!(sl>=0&&sl<7)||idxOf(m)<0) continue;
+    add(m,sl);
+  }
+  // Earliest home first, so a day that collected two reads in the order they were due.
+  return out.sort((a,b)=>a.home<b.home?-1:a.home>b.home?1:a.slot-b.slot);
+}
+function moveSession(monday,slot,to){
+  if(readOnly()||!isDateStr(to)||idxOf(monday)<0) return false;
+  const id=sessId(monday,slot), home=addDays(monday,slot);
+  mutatePlan(p=>{ const m=Object.assign({},atMap()); if(to===home) delete m[id]; else m[id]=to; p.at=m });
+  return true;
+}
+function resetWeekPlacement(monday){
+  mutatePlan(p=>{ const m=Object.assign({},atMap());
+    for(let sl=0;sl<7;sl++) delete m[sessId(monday,sl)];
+    p.at=m });
+}
+// Has anything in this week been moved, or anything moved into it?
+function isReordered(monday){
+  for(let sl=0;sl<7;sl++) if(sessMoved(monday,sl)) return true;
+  for(const v of Object.values(atMap())) if(isDateStr(v)&&mondayOf(v)===monday) return true;
+  return false;
+}
+// The slot a date's main session comes from, kept because a great deal of the app asks
+// for it. Falls back to the day's own slot when the day is empty.
+function slotOf(date){ const ss=sessionsOn(date); return ss.length?ss[0].slot:dow(date) }
 // For adjacency: two strength days or two hard conditioning days must not touch.
 function sessKind(dp){
   if(!dp) return 'other';
@@ -2609,7 +2705,10 @@ function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
 // arrangement the books allow.
 const ADJACENT_SOFT=['hic','se'];
 function crowds(a,b){return !!a&&a===b&&ADJACENT_SOFT.includes(a)}
-// Conflicts a proposed order would create, including the days either side of the week.
+/* Whether a week's own layout puts two hard days of a kind together. Nothing refuses
+   on this any more -- moving a session is the person's call -- so what is left is a
+   check on the shape the templates and protocols generate, which is where it belongs:
+   a protocol that lays out a clashing week by default is a bug in the protocol. */
 function orderIssues(monday,ord){
   const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
   K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
@@ -2701,92 +2800,38 @@ function setPlyoDay(monday,d){
   });
   return true;
 }
-/* ---------------- doing two sessions on one day ----------------
-The week arranges one session per day and the Move sheet swaps them around, which cannot
-express "I missed Thursday, so I will do it after Friday's lift". Tactical Barbell II is
-explicit that you may: "You can also do your conditioning sessions on the same days as
-your strength work. If you're doing them during the same session, do your strength work
-first, and conditioning afterward."
-
-So: `plan.stack[from] = to` moves one day's session onto another in the same week. The
-day it came from reads as moved rather than missed, and the day it lands on runs the
-lifting first with the conditioning after it — the order the book asks for, and the one
-the ride-along already draws for Zulu + Black.
-
-Same week only. Crossing a Monday would mean reaching into a week that may be frozen,
-and the thing this is for is rescuing a session a day or two late. */
-function stackMap(){ const m=plan.stack; return m&&typeof m==='object'?m:{} }
-function stackTo(date){ const v=stackMap()[date]; return typeof v==='string'?v:null }
-function stackFrom(date){ for(const [f,t] of Object.entries(stackMap())) if(t===date&&f!==date) return f; return null }
-// What a day holds before any stacking, which is what gets moved.
-function bareDay(date){ return dayPlanSlot(date,slotOf(date)) }
+/* Lifting, conditioning, or neither. The only ordering rule the books give for two
+   sessions on one day is that the lifting comes first, so this is what decides it. */
 function stackKindOf(dp){
   const k=sessKind(dp);
   if(/^strength/.test(k)) return 'lift';
   if(k==='hic'||k==='easy'||dp.t==='se') return 'cond';
   return 'rest';
 }
-/* Whether these two can share a day. Returns null when they can, which is now nearly
-   always: what is left here is what cannot be done rather than what is unadvisable.
-   Two lifting sessions in one day used to be refused as "a different program". It is
-   a warning now — see `stackWarn`. Somebody catching up a session they missed on
-   Tuesday is not redesigning their programme, and telling them so was not useful. */
-function stackWhyNot(from,to){
-  if(!from||!to||from===to) return 'A day cannot be moved onto itself.';
-  if(mondayOf(from)!==mondayOf(to)) return 'Both days have to be in the same week.';
-  if(idxOf(from)<0||idxOf(to)<0) return 'That week is not part of the program.';
-  if(stackTo(to)||stackFrom(to)) return `${DAYN[dow(to)]} already has a session moved onto it.`;
-  if(stackFrom(from)) return `${DAYN[dow(from)]} already has another session on it.`;
-  if(stackKindOf(bareDay(from))==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
-  return null;
-}
-/* Allowed, and worth a word. Two lifting sessions on one day is a lot of barbell work
-   in one go, and the book's order — heavy first — is the thing worth saying. */
-function stackWarn(from,to){
-  if(stackWhyNot(from,to)) return null;
-  const a=stackKindOf(bareDay(from)), b=stackKindOf(bareDay(to));
-  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a lot of barbell work at once. Do the heavier one first and cut the accessories on the second.';
-  if(a==='lift'||b==='lift') return 'Lifting goes first, then the conditioning.';
-  return null;
-}
-function canStack(from,to){ return stackWhyNot(from,to)===null }
-function setStack(from,to){
-  if(!canStack(from,to)) return false;
-  mutatePlan(p=>{ p.stack=Object.assign({},stackMap(),{[from]:to}) });
-  return true;
-}
-function clearStack(from){
-  if(!stackMap()[from]) return false;
-  mutatePlan(p=>{ const m=Object.assign({},stackMap()); delete m[from]; p.stack=m });
-  return true;
-}
-// The two merged, strength first. Whichever of them lifts is the base and the
-// conditioning rides along on it, which is both the book's order and the shape the
-// day view already knows how to draw.
-function stackMerge(base,moved,from){
-  const bk=stackKindOf(base), mk=stackKindOf(moved);
-  const lift=bk==='lift'?base:mk==='lift'?moved:null;
-  const cond=bk==='cond'?base:mk==='cond'?moved:null;
-  const tag=` + ${DAYN[dow(from)]}’s`;
-  if(lift&&cond){
-    const o=Object.assign({},lift,{stacked:from,short:(lift.short||'Lift')+tag});
-    if(cond.t==='se'){ o.ride='se'; o.circuits=cond.circuits; o.reps=cond.reps }
-    else { o.ride='hic'; o.cardio=true; o.fmt=cond.fmt; if(cond.note) o.condNote=cond.note }
-    return o;
+/* Every session on a date, in the order they should be done: lifting first, which is
+   the only ordering the book asks for when two share a day. Each carries where it came
+   from, so a session sitting on a day that is not its own can say so and be put back.
+   A date with nothing on it returns an empty list, and that is what a rest day is. */
+function dayPlans(date){
+  const out=[];
+  for(const {monday,slot,home} of sessionsOn(date)){
+    const wk=weekAt(monday); if(!wk) continue;
+    const dp=dayPlanSlot(home,slot);
+    if(!dp||dp.t==='off'||dp.t==='pre') continue;      // a rest slot is not a session
+    // Namespaced: a travel day already has its own `slot` ('day3'), and quietly
+    // overwriting it moved the mobility block off the hinge day.
+    out.push(Object.assign({},dp,{sess:{monday,slot,home},moved:home!==date}));
   }
-  // One of them was a rest day, so the other simply happens here.
-  const only=bk==='rest'?moved:base;
-  return Object.assign({},only,{stacked:from,short:(only.short||'Session')+(bk==='rest'?'':tag)});
+  const rank=d=>stackKindOf(d)==='lift'?0:1;
+  return out.sort((a,b)=>rank(a)-rank(b));
 }
-
+function weekAt(monday){ const i=idxOf(monday); if(i<0) return null; return weeks(i+10)[i] }
 function dayPlan(date){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
-  const away=stackTo(date);
-  if(away) return {t:'off',movedTo:away,short:'Moved',
-    note:`This session is being done on ${DAYN[dow(away)]} instead.`};
-  let dp=dayPlanSlot(date,slotOf(date));
-  const came=stackFrom(date);
-  if(came) dp=stackMerge(dp,bareDay(came),came);
+  const all=dayPlans(date);
+  let dp=all.length?all[0]:{t:'off',short:'Off'};
+  if(all.length>1) dp=Object.assign({},dp,{more:all.slice(1),short:all.map(x=>x.short||'Session').join(' + ')});
+  else if(all.length===1&&dp.moved) dp=Object.assign({},dp,{short:dp.short||'Session'});
   const pn=weekHasPlyo(wk)?plyoDows(mondayOf(date)).indexOf(dow(date)):-1;
   if(pn>=0){
     // A deload halves the contacts, as the week it sits in does to everything else.
@@ -3610,98 +3655,34 @@ function vToday(){
   // the daily tick-list sits with the rest of the day's logging, below.
   if(!['off','pre','convert'].includes(dp.t)) h+=suppCard(sel,'pre');
   h+=suppCard(sel,'daily');
-  h+=sessionHtml(wk,dp);
+  h+=dayHtml(wk,sel);
   h+=addonCard(sel);
   return h;
 }
-// Kind of each of the week's seven prescribed sessions, by slot.
-function slotKinds(mon){return [0,1,2,3,4,5,6].map(sl=>sessKind(dayPlanSlot(mon,sl)))}
-function edgeKinds(mon){
-  const p=addDays(mon,-1), n=addDays(mon,7);
-  return [idxOf(p)>=0?sessKind(dayPlan(p)):'other', weekOf(n)?sessKind(dayPlan(n)):'other'];
-}
-// The valid week order that moves the fewest days, optionally forcing one day's session.
-// Days already gone in the current week stay where they are.
-/* Swapping two days: the plainest of the three, and the one people expect from a
-   drag. Only the two days touched move, which is the whole appeal -- `bestOrder` below
-   will happily rearrange four days to honour one request, and sometimes that is a
-   surprise rather than a help.
+/* ---------------- moving a session ----------------
+One thing, done one way: pick the day, the session goes there, nothing else changes.
 
-   Nothing here refuses on programming grounds any more. Two of the same strength
-   session back to back used to be the one hard no; it is a warning now, because the
-   person asking has a reason and the app does not know what it is. A week is a plan,
-   and the week you can actually train beats the week that reads correctly. What still
-   refuses is only what cannot be done: a day that is already behind you. */
-function orderWarnings(mon,ord){
-  const out=orderIssues(mon,ord).map(x=>`${x.a} and ${x.b} are both ${kindName(x.kind)}. Back-to-back strength is the one thing the book asks you not to do, so keep it light or take the second one easy.`);
-  for(const x of orderCrowding(mon,ord)) out.push(`${x.a} and ${x.b} both become ${kindName(x.kind)}. The book allows it — "two days in a row, or whatever" — but spread them out if the week lets you.`);
+What this replaces is worth remembering. There were three mechanisms -- swap two days,
+shift the week around a request, and stack one day onto another -- because the data
+model was a permutation and a straight move could not be said in it. Every one of them
+moved something the person had not asked about, and between them they refused more than
+they allowed. The model holds dates now, so there is one verb and it never refuses. */
+function moveTargets(date){
+  // A fortnight either side. Far enough for "I'll pick it up next week", short enough
+  // that the list is still a list.
+  const out=[]; for(let i=-7;i<=14;i++){ const d=addDays(date,i); if(idxOf(d)>=0) out.push(d) }
   return out;
 }
-function swapOrder(mon,a,b){
-  if(a===b) return {why:'Pick a different day.'};
-  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
-  if(a<pinTo||b<pinTo) return {why:'That day has already passed. Use “two in one day” below to catch it up instead.'};
-  const ord=dayOrder(mon).slice();
-  const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
-  const warn=orderWarnings(mon,ord);
-  return warn.length?{ord,moved:2,warn:warn[0],warns:warn}:{ord,moved:2};
-}
-/* Preferences, priced rather than enforced. Both used to prune the search, so a week
-   with no clean arrangement came back as "nothing valid this week" and a disabled
-   button. They are costs now: the arranger still avoids them while anything else is
-   available, and produces the awkward week rather than nothing when it is not.
-
-   Both are dearer than shuffling every day of the week, so they are a last resort and
-   never a shortcut. Back to back strength is dearer again than two hard conditioning
-   days, which is the order the book puts them in. */
-const CROWD=20, BTB=200;
-function bestOrder(mon,fixDay,fixSlot){
-  const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
-  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
-  const used=new Array(7).fill(false), ord=new Array(7);
-  let best=null, bestCost=Infinity, bestMoved=0;
-  const pen=(a,b)=>(crowds(a,b)?CROWD:0)+(clashes(a,b)?BTB:0);
-  (function go(i,prev,cost,moved){
-    if(cost>=bestCost) return;
-    if(i===7){ const c=cost+pen(prev,nextK); if(c>=bestCost) return; best=ord.slice(); bestCost=c; bestMoved=moved; return }
-    for(let sl=0;sl<7;sl++){
-      if(used[sl]) continue;
-      if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
-      if(fixDay!=null&&fixDay===i&&sl!==fixSlot) continue;
-      if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
-      const k=K[sl], same=cur[i]===sl;
-      used[sl]=true; ord[i]=sl;
-      go(i+1,k,cost+(same?0:1)+pen(k,prev),moved+(same?0:1));
-      used[sl]=false;
-    }
-  })(0,prevK,0,0);
-  // `moved` counts days that actually shifted. It used to be the cost, so a week that
-  // accepted one crowding penalty reported "moves 19 other days".
-  return best?{ord:best,moved:bestMoved,warns:orderWarnings(mon,best)}:null;
-}
-/* Doing this day's session on another day, on top of what is already there.
-
-   Swapping keeps one session per day, which is no use when you have lost a day and want
-   to catch it up rather than shuffle the week. Tactical Barbell II allows the stack and
-   asks only that the lifting comes first, which is how the merged day is drawn. */
-function stackPicker(date){
-  const mon=mondayOf(date), away=stackTo(date), came=stackFrom(date);
-  let h=`<div class="divider">Two in one day</div>`;
-  if(away) return h+`<div class="small muted">This session is being done on <b>${esc(DAYN[dow(away)])}</b>, after whatever that day already had.</div>
-    <div><button class="btn sm ghost" data-act="unstack" data-from="${esc(date)}">Put it back on ${esc(DAYN[dow(date)])}</button></div>`;
-  if(came) return h+`<div class="small muted"><b>${esc(DAYN[dow(came)])}</b>’s session has been moved onto this day. Lift first, then the conditioning.</div>
-    <div><button class="btn sm ghost" data-act="unstack" data-from="${esc(came)}">Put it back on ${esc(DAYN[dow(came)])}</button></div>`;
-  const opts=[];
-  for(let i=0;i<7;i++){
-    const to=addDays(mon,i); if(to===date) continue;
-    opts.push({to,i,why:stackWhyNot(date,to),warn:stackWarn(date,to)});
-  }
-  if(!opts.some(o=>!o.why)) return '';
-  h+=`<p class="note" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
-  <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||o.warn||'')}">${esc(DAYN[o.i])}${o.warn&&!o.why?' <span aria-hidden="true">\u26a0</span>':''}</button>`).join('')}</div>
-  ${opts.some(o=>!o.why&&o.warn)?`<div class="small muted">\u26a0 ${esc(opts.find(o=>!o.why&&o.warn).warn)}</div>`:''}
-  <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
-  return h;
+function moveWarn(date,ss){
+  const out=[], at=dayPlans(date).filter(x=>!(x.sess.monday===ss.monday&&x.sess.slot===ss.slot));
+  const me=dayPlanSlot(ss.home,ss.slot), mk=stackKindOf(me);
+  if(at.some(x=>stackKindOf(x)===mk&&mk==='lift')) out.push('Two lifting sessions in one day is a lot of barbell work at once. Do the heavier one first and cut the accessories on the second.');
+  else if(at.length&&mk==='lift') out.push('Lifting goes first, then the conditioning.');
+  else if(at.length) out.push(`${DAYN[dow(date)]} already has a session. Both will be listed, in that order.`);
+  const near=[addDays(date,-1),addDays(date,1)];
+  if(mk==='lift'&&near.some(d=>dayPlans(d).some(x=>stackKindOf(x)==='lift'&&!(x.sess.monday===ss.monday&&x.sess.slot===ss.slot))))
+    out.push('That puts lifting on back-to-back days. The book asks you not to, so keep one of them light.');
+  return out;
 }
 /* The card for sessions that were not prescribed. It sits at the bottom of the day,
    under whatever the program asked for, because that is the order they happen in and
@@ -3737,28 +3718,25 @@ function addonCard(date){
 }
 let moveOpen=false;
 function moveCard(){
-  const mon=mondayOf(sel), ord=dayOrder(mon), me=dow(sel), mine=ord[me];
-  const past=mondayOf(realToday())===mon&&me<dow(realToday());
-  let h=`<div class="card"><div class="lift-h"><h3>Change ${DAYN[me]}’s session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
-  if(past) h+=`<div class="banner info"><div class="small">${DAYN[me]} has already gone, so it cannot trade places with another day. To catch the session up, move it onto a day still to come — <b>Two in one day</b>, below.</div></div>`;
-  else{
-    h+=`<p class="note" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions and the app shuffles the rest as little as it can. It will avoid two strength days together, and tell you when the week you have asked for cannot.</p><div class="stack">`;
-    // Two days can share a label (Tue and Sat are both "HIC"): offer the one that
-    // needs the least shuffling, and only call it impossible if neither works.
-    const byLabel=new Map();
-    for(let sl=0;sl<7;sl++){
-      if(sl===mine) continue;
-      const lbl=dayPlanSlot(addDays(mon,sl),sl).short||'Session', r=bestOrder(mon,me,sl), was=byLabel.get(lbl);
-      if(!was||(r&&(!was.r||r.moved<was.r.moved))) byLabel.set(lbl,{sl,r});
+  const here=dayPlans(sel), mon=mondayOf(sel);
+  let h=`<div class="card"><div class="lift-h"><h3>Move a session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
+  if(!here.length) h+=`<p class="note" style="margin:0">Nothing on ${DAYN[dow(sel)]} to move. Open the day a session is on and move it here.</p>`;
+  here.forEach(dp=>{
+    const ss=dp.sess, name=dp.short||'Session';
+    h+=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="row between"><b>${esc(name)}</b>${dp.moved?`<button class="btn sm ghost" data-act="moveback" data-mon="${esc(ss.monday)}" data-sl="${ss.slot}">Back to ${esc(DAYN[dow(ss.home)])} ${esc(fmtD(ss.home,true))}</button>`:''}</div>
+      ${dp.moved?`<div class="small muted">Moved here from ${esc(fmtLong(ss.home))}.</div>`:''}
+      <div class="row wrap" style="gap:6px">`;
+    for(const d of moveTargets(sel)){
+      if(d===sel) continue;
+      const w=moveWarn(d,ss), near=Math.abs(Math.round((D(d)-D(sel))/864e5))<=7;
+      if(!near&&!dayPlans(d).length&&mondayOf(d)===mon) continue;
+      h+=`<button class="btn sm${w.length?'':' '}" data-act="moveto" data-mon="${esc(ss.monday)}" data-sl="${ss.slot}" data-to="${esc(d)}" title="${esc(w[0]||'')}">${esc(DAYN[dow(d)])} ${esc(fmtD(d,true))}${w.length?' <span aria-hidden="true">\u26a0</span>':''}</button>`;
     }
-    for(const [lbl,{sl,r}] of byLabel){
-      const warn=r&&r.warns.length?r.warns[0]:null;
-      h+=`<button class="btn" style="justify-content:space-between;gap:10px" data-act="swap" data-sl="${sl}" ${r?'':'disabled'} title="${esc(warn||'')}"><span>${esc(lbl)}${warn?' <span aria-hidden="true">\u26a0</span>':''}</span><span class="small${r?'':' muted'}">${r?(r.moved>1?`moves ${r.moved-1} other day${r.moved>2?'s':''} →`:'no other changes →'):'nothing valid this week'}</span></button>`;
-    }
-    h+=`</div>`;
-  }
-  if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
-  h+=stackPicker(sel);
+    h+=`</div></div>`;
+  });
+  h+=`<div class="note" style="margin-top:12px">Only the session you pick moves. Nothing else in the week changes, a day can hold more than one, and a day with none is a rest day. A \u26a0 means it is allowed but worth knowing about \u2014 hold the button to read it.</div>`;
+  if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Put this week back as it was</button></div>`;
   h+=plyoMovePicker(mon);
   return h+`</div>`;
 }
@@ -3822,6 +3800,26 @@ function banners(wk,dp){
   }
   return h;
 }
+/* The mobility block and the RPE/notes footer belong to the day, not to each session
+   on it, so a day holding two renders them once at the end. `solo` is false for all but
+   the last, which is the only one that gets them. */
+let sessSolo=true;
+function sessTail(dp,active){ return sessSolo?mobCard(sel,dp)+footer(active):'' }
+/* Every session on the day, in order, each rendered as it would be on its own. The
+   divider says which is which, because two sessions in a day is a thing you are doing
+   deliberately and the card needs to be readable at the point you are doing it. */
+function dayHtml(wk,date){
+  const all=dayPlans(date);
+  if(all.length<2) return sessionHtml(wk,dayPlan(date));
+  let h='';
+  all.forEach((dp,i)=>{
+    sessSolo=i===all.length-1;
+    h+=`<div class="divider">${i?'Then, ':''}${esc(dp.short||'Session')}${dp.moved?` \u00b7 moved from ${esc(fmtD(dp.sess.home,true))}`:''}</div>`;
+    h+=sessionHtml(wk,i?dp:Object.assign({},dp,{plyo:dayPlan(date).plyo,plyoN:dayPlan(date).plyoN,plyoCut:dayPlan(date).plyoCut}));
+  });
+  sessSolo=true;
+  return h;
+}
 function sessionHtml(wk,dp){
   let h='';
   const note=dp.note?`<p class="muted small" style="margin:0">${esc(dp.note)}</p>`:'';
@@ -3830,10 +3828,10 @@ function sessionHtml(wk,dp){
   // scheduled they are the session, so the rest-day copy below is skipped.
   if(dp.plyo){
     h+=plyoCard(wk,dp);
-    if(['off','pre'].includes(dp.t)) return h+mobCard(sel,dp)+footer(true);
+    if(['off','pre'].includes(dp.t)) return h+sessTail(dp,true);
     h+=`<div class="divider">${dp.t==='hic'?'Rest 10 min':'Then'}</div>`;
   }
-  if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+mobCard(sel,dp)+footer(false) }
+  if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+sessTail(dp,false) }
   if(dp.t==='lift'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     h+=warmupCard(sel);
@@ -3843,10 +3841,10 @@ function sessionHtml(wk,dp){
       const note=dp.condNote?`<p class="muted small" style="margin:0">${esc(dp.condNote)}</p>`:'';
       h+=`<div class="divider">Then, conditioning</div>`+(dp.ride==='se'?seCard(dp):hicCard(dp,note));
     }
-    return h+mobCard(sel,dp)+footer(true);
+    return h+sessTail(dp,true);
   }
-  if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);
-  if(dp.t==='hic') return h+hicCard(dp,note)+mobCard(sel,dp)+footer(true);
+  if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+sessTail(dp,true);
+  if(dp.t==='hic') return h+hicCard(dp,note)+sessTail(dp,true);
   if(dp.t==='rm5'||dp.t==='test'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     if(dp.note) h+=`<div class="banner info"><div>${esc(dp.note)}</div></div>`;
@@ -3856,11 +3854,11 @@ function sessionHtml(wk,dp){
     if(dp.pullups) h+=`<div class="card"><h3>Max unassisted pull-ups</h3><p class="muted small" style="margin:0">The number the Lift 3 substitution was aimed at. One all-out set, full hang to chin over bar.</p><label class="f">Reps${numIn('pullups',lg(sel).pullups,'0','class="num-in"')}</label>${bestPullups()}</div>`;
     if(dp.apply) h+=applyCard(wk);
     if(dp.cardio) h+=`<div class="divider">Then, easy</div>`+hicCard(dp,'');
-    return h+mobCard(sel,dp)+footer(true);
+    return h+sessTail(dp,true);
   }
-  if(dp.t==='se') return h+warmupCard(sel)+seCard(dp)+mobCard(sel,dp)+footer(true);
-  if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
-  if(dp.t==='convert') return h+convertCard(wk)+mobCard(sel,dp)+footer(false);
+  if(dp.t==='se') return h+warmupCard(sel)+seCard(dp)+sessTail(dp,true);
+  if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+sessTail(dp,true);
+  if(dp.t==='convert') return h+convertCard(wk)+sessTail(dp,false);
   return h;
 }
 function mobKind(dp){
@@ -7747,109 +7745,56 @@ function startProgram(){
   newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }
 
-// Rearranging in the calendar: tap a session, tap the day to move it to, see the
-// whole week previewed, then apply. calMove = {from, to, ord, moved}.
-let calRe=false, calMove=null;
-function calOrd(mon){return calMove&&calMove.ord&&mondayOf(calMove.from)===mon?calMove.ord:dayOrder(mon)}
-/* The three things a drop can mean, each with the reason it is unavailable rather
-   than just being greyed out. In a full week most straight swaps break the rule
-   against the same strength session running twice, and being told which rule and why
-   is more use than being refused with no explanation.
-
-   Combining is the stacking already built for the day view, so it answers to the same
-   rule: everything may share a day except two lifting sessions, which is a different
-   program rather than a rearranged week. */
-function calOptions(from,to){
-  const mon=mondayOf(from);
-  if(mondayOf(to)!==mon) return null;
-  const sw=swapOrder(mon,dow(from),dow(to));
-  const sh=bestOrder(mon,dow(to),slotOf(from));
-  const why=stackWhyNot(from,to), stw=stackWarn(from,to);
-  const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
-  return [
-    {k:'swap',  label:'Swap the two days',
-     sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.${sw.warn?' '+esc(sw.warn):''}`, ...sw},
-    {k:'shift', label:'Move it and shift the rest',
-     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.${sh.warns.length?' '+esc(sh.warns[0]):''}`:'',
-     ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
-    {k:'stack', label:'Do both on the same day',
-     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.${stw?' '+esc(stw):''}`,
-     ...(why?{why}:{stack:true})},
-  ];
-}
-/* Both a tap and a drop land here, so the keyboard path and the drag path offer the
-   same three choices and there is only one place for the rules to live. */
+/* ---------------- rearranging in the calendar ----------------
+Pick a session, pick the day, done. There is no mode to turn on first and no chooser
+afterwards, because there is only one thing a move can mean now: that session happens
+on that day. `calMove` holds the session being carried, as {monday, slot, from}. */
+let calMove=null;
+/* A tap and a drop both land here. The first tap picks a session up -- the first one
+   on the day, since a cell that holds two shows both and either is a reasonable thing
+   to mean -- and the second puts it down. */
 function calTarget(d){
-  if(!d) return false;
-  if(!calMove||calMove.mode||calMove.to){ calMove={from:d}; render(); return true }
-  if(calMove.from===d){ calMove=null; render(); return true }
-  if(mondayOf(calMove.from)!==mondayOf(d)) return false;
-  calMove={from:calMove.from,to:d};
-  render(); return true;
-}
-/* Choosing and applying live here rather than in the click handler, so both are
-   reachable from a test. A mode that is unavailable cannot be set, which is what
-   stops a stale chooser from applying something the rules refused. */
-function calSetMode(k){
-  if(!calMove||!calMove.to) return false;
-  const o=(calOptions(calMove.from,calMove.to)||[]).find(x=>x.k===k);
-  if(!o||o.why) return false;
-  calMove=Object.assign({},calMove,{mode:o.k,ord:o.ord||null,moved:o.moved||0});
-  return true;
-}
-function calApply(){
-  if(!calMove||!calMove.mode) return false;
-  const from=calMove.from, to=calMove.to, mode=calMove.mode, ord=calMove.ord, mon=mondayOf(from);
-  offerUndo('Days moved',snapPlan());
-  if(mode==='stack'){ if(!setStack(from,to)) return false }
-  else mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:ord})});
-  calMove=null; openWarm.clear(); openPx.clear();
-  return true;
-}
-function calChooser(){
-  if(!calMove||!calMove.to||calMove.mode) return '';
-  const opts=calOptions(calMove.from,calMove.to);
-  if(!opts) return '';
-  let h=`<div class="banner info"><div class="small" style="font-weight:650;margin-bottom:6px">${esc(fmtD(calMove.from,true))} onto ${esc(fmtD(calMove.to,true))}</div><div class="stack" style="gap:6px">`;
-  for(const o of opts){
-    h+=`<button class="btn sm${o.why?' ghost':''}" ${o.why?'disabled':''} data-act="calmode" data-k="${o.k}" style="justify-content:flex-start;text-align:left;height:auto;padding:8px 10px">
-      <span><b>${esc(o.label)}</b><br><span class="small">${o.why?esc(o.why):o.sub}</span></span></button>`;
+  if(!d||viewing) return false;
+  if(!calMove){
+    const ss=dayPlans(d); if(!ss.length) return false;
+    calMove={monday:ss[0].sess.monday,slot:ss[0].sess.slot,from:d}; render(); return true;
   }
-  return h+`</div><div class="row" style="margin-top:6px"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div></div>`;
+  if(calMove.from===d){ calMove=null; render(); return true }
+  if(idxOf(d)<0) return false;
+  offerUndo('Session moved',snapPlan());
+  moveSession(calMove.monday,calMove.slot,d);
+  calMove=null; openWarm.clear(); openPx.clear(); render();
+  return true;
 }
+function calCancel(){ calMove=null; render() }
 function calCard(){
-  const t=realToday(), thisMon=mondayOf(t);
+  const t=realToday();
   if(!calMonth) calMonth=(viewing?viewing.end:(sel||t)).slice(0,7);
   const y=+calMonth.slice(0,4), m=+calMonth.slice(5,7);
   const first=S(Date.UTC(y,m-1,1)), last=S(Date.UTC(y,m,0)), start=mondayOf(first);
   const rows=Math.round(((D(mondayOf(last))-D(start))/864e5)/7)+1;
-  const re=calRe&&!viewing;
-  // The class the drag CSS hangs off, so touch-action only changes while rearranging.
-  if(document.body) document.body.classList.toggle('rearranging',!!re);
-  let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">‹</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">›</button></div>`;
-  if(!viewing) h+=`<div class="row between"><button class="btn sm${re?' primary':''}" data-act="calre">${re?'✓ Rearranging':'Rearrange days'}</button>${calMonth!==t.slice(0,7)?`<button class="btn sm ghost" data-act="calm" data-v="0">This month</button>`:''}</div>`;
-  if(re) h+=calChooser();
-  if(re) h+=`<div class="banner info"><div class="small">${calMove?(calMove.ord?`<b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'Session')}</b> moves to ${fmtD(calMove.to,true)}${calMove.moved>1?`, and ${calMove.moved-1} other day${calMove.moved>2?'s':''} shift`:' with no other changes'}. The preview is below.`:`Tap the day to move <b>${esc(dayPlanSlot(calMove.from,slotOf(calMove.from)).short||'')}</b> to. Grayed days can’t take it without doubling up strength or hard conditioning.`):'Tap a session, then tap the day you want to do it on. The week keeps all seven sessions and never lands two strength days or two hard conditioning days together.'}</div>${calMove?`<div class="row">${calMove.ord?`<button class="btn sm primary" data-act="calapply">Apply</button>`:''}<button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
+  const live=!viewing;
+  // Dragging needs touch-action off the cells, and it is always available now, so the
+  // class goes on whenever the calendar is live rather than only in a mode.
+  if(document.body) document.body.classList.toggle('rearranging',!!live);
+  let h=`<div class="card"><div class="dnav"><button class="btn sm ghost" data-act="calm" data-v="-1" aria-label="Previous month">\u2039</button><h2 style="flex:1;text-align:center">${MON[m-1]} ${y}</h2><button class="btn sm ghost" data-act="calm" data-v="1" aria-label="Next month">\u203a</button></div>`;
+  if(live&&calMonth!==t.slice(0,7)) h+=`<div class="row"><button class="btn sm ghost" data-act="calm" data-v="0">This month</button></div>`;
+  if(live) h+=`<div class="banner info"><div class="small">${calMove
+    ? `Carrying <b>${esc(dayPlanSlot(addDays(calMove.monday,calMove.slot),calMove.slot).short||'Session')}</b>. Tap the day to do it on \u2014 any day, any week. Nothing else will move.`
+    : 'Drag a session to another day, or tap it and then tap where it should go. Only what you move moves; a day can hold more than one, and a day with none is a rest day.'}</div>${calMove?`<div class="row"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
   h+=`<div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
   for(let r=0;r<rows;r++){
     const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null;
-    const cur=dayOrder(mon), ord=calOrd(mon), editable=re&&wk&&mon>=thisMon;
     h+=`<div class="cal-w">${wt?`<b>${esc(wt.t)}</b><span class="chip ${wt.cls}">${esc(wt.chip)}</span>${isReordered(mon)?'<span class="chip blue">days moved</span>':''}`:'<span class="muted">Before the program starts</span>'}</div>`;
     for(let i=0;i<7;i++){
-      const d=addDays(mon,i), dp=dayPlanSlot(d,ord[i]), out=d<first||d>last, st=sessState(d,t);
-      const gone=mon===thisMon&&i<dow(t), picked=calMove&&calMove.from===d, shifted=ord[i]!==cur[i];
-      let cls='', act='open', dis='';
-      if(re){
-        if(!editable||gone){cls=' dim';dis='disabled'}
-        else if(calMove&&!calMove.ord){ const ok=bestOrder(mon,i,slotOf(calMove.from));
-          if(mondayOf(calMove.from)!==mon||(!ok&&!picked)){cls=' dim';dis='disabled'} }
-        act='calpick';
-      }
-      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!re?' sel':''}${picked?' picked':''}${shifted?' shifted':''}${cls}" data-act="${act}" data-date="${d}" ${dis} aria-label="${fmtLong(d)} ${esc(dp.short||'')}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(dp.short||'')}</span><span class="dot ${re?'':st}"></span></button>`;
+      const d=addDays(mon,i), ss=dayPlans(d), out=d<first||d>last, st=sessState(d,t);
+      const picked=!!(calMove&&calMove.from===d), moved=ss.some(x=>x.moved);
+      const lbl=ss.length?ss.map(x=>x.short||'Session').join(' + '):'';
+      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!calMove?' sel':''}${picked?' picked':''}${moved?' shifted':''}" data-act="${live?'calpick':'open'}" data-date="${d}" aria-label="${fmtLong(d)} ${esc(lbl)}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(lbl)}</span><span class="dot ${calMove?'':st}"></span></button>`;
     }
   }
   h+=`</div>`;
-  if(!re) h+=`<div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span></div>`;
+  if(!calMove) h+=`<div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span></div>`;
   return h+`</div>`;
 }
 function vPlan(){
@@ -8378,9 +8323,9 @@ function vGuide(){
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
-  <li><b>Nothing is refused.</b> The app arranges the week by the book’s own principle for moving things around — “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” — so it will not put the same strength session on consecutive days while any other arrangement exists. But if that is the week you can actually train, you can have it, with the rule said out loud rather than a button you cannot press. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
-  <li><b>Two sessions in one day</b> is there for the day you lose rather than the week you plan. Move a session onto another day and do both; lifting goes first. Two lifting sessions in one day is allowed too — do the heavier one first and cut the accessories on the second.</li>
-  <li><b>What is actually impossible</b> is short: a day that has already gone cannot swap with one still to come, and a rest day has no session to move. Everything else is yours, and anything the app would not have chosen comes with a warning attached.</li>
+  <li><b>The default layout follows the book’s own principle</b> for arranging a week: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” So a protocol lays its week out with the strength days apart. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
+  <li><b>Moving a session is one thing and it is never refused.</b> Pick the day, and that session happens on that day. Nothing else moves — not the day you took it from, not the day it lands on, not the rest of the week. A day can hold two sessions or none, and a day with none is a rest day. Move it into next week if that is when you will do it.</li>
+  <li><b>You get told, not stopped.</b> Two lifting sessions on one day, or on consecutive days, is the one thing the book asks you not to do, so the app says so — do the heavier one first and cut the accessories on the second. It is a remark, not a veto: the week you can actually train beats the week that reads correctly.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>
@@ -9284,23 +9229,24 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='varswap'){const k=b.dataset.k,v=b.dataset.v;if(v===varOf(k,sel))return;const cur=(lg(sel).var)||{};setLog(sel,'var',Object.assign({},cur,{[k]:v===varDefault(k)?null:v}));openWarm.clear();render();return}
   if(a==='l3swap'){const v=b.dataset.v;if(v===l3For(sel))return;setLog(sel,'l3',v===l3Auto(sel)?null:v);openWarm.clear();render();return}
   if(a==='planmode'){planMode=b.dataset.v;try{localStorage.setItem('ob.planmode',planMode)}catch(e){}render();window.scrollTo(0,0);return}
-  if(a==='calre'){calRe=!calRe;calMove=null;render();return}
-  if(a==='calcancel'){calMove=null;render();return}
+  if(a==='calcancel'){calCancel();return}
   if(a==='calpick'){ calTarget(b.dataset.date); return }
   // Which of the three a drop meant. Chosen after the drop rather than before, so the
   // reasons the other two are unavailable are visible at the moment of deciding.
-  if(a==='calmode'){ calSetMode(b.dataset.k); render(); return }
-  if(a==='calapply'){ calApply(); render(); return }
   if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
   if(a==='move'){moveOpen=!moveOpen;render();return}
   if(a==='movex'){moveOpen=false;render();return}
-  if(a==='swap'){
-    const mon=mondayOf(sel), r=bestOrder(mon,dow(sel),+b.dataset.sl); if(!r) return;
-    offerUndo('Days moved',snapPlan());
-    mutatePlan(p=>{p.order=Object.assign({},p.order||{},{[mon]:r.ord})});
+  if(a==='moveto'){
+    offerUndo('Session moved',snapPlan());
+    moveSession(b.dataset.mon,+b.dataset.sl,b.dataset.to);
     moveOpen=false; openWarm.clear(); openPx.clear(); render(); return;
   }
-  if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week order reset',snapPlan());mutatePlan(p=>{const o=Object.assign({},p.order||{});delete o[mon];p.order=o});moveOpen=false;render();return}
+  if(a==='moveback'){
+    offerUndo('Session put back',snapPlan());
+    moveSession(b.dataset.mon,+b.dataset.sl,addDays(b.dataset.mon,+b.dataset.sl));
+    moveOpen=false; render(); return;
+  }
+  if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week put back',snapPlan());resetWeekPlacement(mon);moveOpen=false;render();return}
   if(a==='guide'){gdStart(b.dataset.k);return}
   if(a==='theme'){LS.set('ob.theme',b.dataset.v);applyTheme();render();return}
   if(a==='gym'){LS.set('ob.gym',!gymOn());applyTheme();render();return}
@@ -9312,8 +9258,6 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pwu'){const i=+b.dataset.i,arr=[...((lg(sel).plyo||{}).warm||[])];arr[i]=!arr[i];for(let j=0;j<arr.length;j++)if(arr[j]==null)arr[j]=false;setLog(sel,'plyo.warm',arr);render();return}
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
-  if(a==='stack'){ if(setStack(b.dataset.from,b.dataset.to)){moveOpen=false;render()} return }
-  if(a==='unstack'){ clearStack(b.dataset.from); return }
   if(a==='addon'){ addonAdd(sel,b.dataset.kind); render(); return }
   if(a==='addondel'){ offerUndo('Session removed',snapLog(sel)); addonDel(sel,+b.dataset.i); render(); return }
   if(a==='addonsetadd'){ addonSetAdd(sel,+b.dataset.i); render(); return }
@@ -9433,9 +9377,10 @@ function calDragEnd(){
   return was;
 }
 document.addEventListener('pointerdown',e=>{
-  if(!calRe||viewing||e.button) return;
+  if(viewing||e.button) return;
   const c=e.target.closest&&e.target.closest('.cal-d');
   if(!c||c.disabled||!c.dataset.date) return;
+  if(!calMove&&!dayPlans(c.dataset.date).length) return;   // nothing on that day to pick up
   calDrag.id=e.pointerId; calDrag.from=c.dataset.date; calDrag.x=e.clientX; calDrag.y=e.clientY; calDrag.on=false;
 });
 document.addEventListener('pointermove',e=>{
@@ -9448,14 +9393,14 @@ document.addEventListener('pointermove',e=>{
     const d=document.createElement('div');
     d.className='cal-ghost'; d.textContent=fmtD(calDrag.from,true);
     document.body&&document.body.appendChild(d); calDrag.el=d;
-    // Picking the source up front means the drop only has to name the target.
-    if(!calMove||calMove.to||calMove.mode||calMove.from!==calDrag.from){ calMove={from:calDrag.from}; render() }
+    // Picking the session up front means the drop only has to name the target.
+    if(!calMove||calMove.from!==calDrag.from){ calMove=null; calTarget(calDrag.from) }
   }
   e.preventDefault();
   if(calDrag.el&&calDrag.el.style){ calDrag.el.style.left=e.clientX+'px'; calDrag.el.style.top=e.clientY+'px' }
   const over=calCell(e.clientX,e.clientY);
   document.querySelectorAll&&document.querySelectorAll('.cal-d.over').forEach(x=>x.classList.remove('over'));
-  if(over&&over.dataset.date!==calDrag.from&&mondayOf(over.dataset.date)===mondayOf(calDrag.from)) over.classList.add('over');
+  if(over&&over.dataset.date!==calDrag.from&&idxOf(over.dataset.date)>=0) over.classList.add('over');
 },{passive:false});
 document.addEventListener('pointerup',e=>{
   if(calDrag.id!==e.pointerId) return;

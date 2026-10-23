@@ -62,98 +62,34 @@ function vToday(){
   // the daily tick-list sits with the rest of the day's logging, below.
   if(!['off','pre','convert'].includes(dp.t)) h+=suppCard(sel,'pre');
   h+=suppCard(sel,'daily');
-  h+=sessionHtml(wk,dp);
+  h+=dayHtml(wk,sel);
   h+=addonCard(sel);
   return h;
 }
-// Kind of each of the week's seven prescribed sessions, by slot.
-function slotKinds(mon){return [0,1,2,3,4,5,6].map(sl=>sessKind(dayPlanSlot(mon,sl)))}
-function edgeKinds(mon){
-  const p=addDays(mon,-1), n=addDays(mon,7);
-  return [idxOf(p)>=0?sessKind(dayPlan(p)):'other', weekOf(n)?sessKind(dayPlan(n)):'other'];
-}
-// The valid week order that moves the fewest days, optionally forcing one day's session.
-// Days already gone in the current week stay where they are.
-/* Swapping two days: the plainest of the three, and the one people expect from a
-   drag. Only the two days touched move, which is the whole appeal -- `bestOrder` below
-   will happily rearrange four days to honour one request, and sometimes that is a
-   surprise rather than a help.
+/* ---------------- moving a session ----------------
+One thing, done one way: pick the day, the session goes there, nothing else changes.
 
-   Nothing here refuses on programming grounds any more. Two of the same strength
-   session back to back used to be the one hard no; it is a warning now, because the
-   person asking has a reason and the app does not know what it is. A week is a plan,
-   and the week you can actually train beats the week that reads correctly. What still
-   refuses is only what cannot be done: a day that is already behind you. */
-function orderWarnings(mon,ord){
-  const out=orderIssues(mon,ord).map(x=>`${x.a} and ${x.b} are both ${kindName(x.kind)}. Back-to-back strength is the one thing the book asks you not to do, so keep it light or take the second one easy.`);
-  for(const x of orderCrowding(mon,ord)) out.push(`${x.a} and ${x.b} both become ${kindName(x.kind)}. The book allows it — "two days in a row, or whatever" — but spread them out if the week lets you.`);
+What this replaces is worth remembering. There were three mechanisms -- swap two days,
+shift the week around a request, and stack one day onto another -- because the data
+model was a permutation and a straight move could not be said in it. Every one of them
+moved something the person had not asked about, and between them they refused more than
+they allowed. The model holds dates now, so there is one verb and it never refuses. */
+function moveTargets(date){
+  // A fortnight either side. Far enough for "I'll pick it up next week", short enough
+  // that the list is still a list.
+  const out=[]; for(let i=-7;i<=14;i++){ const d=addDays(date,i); if(idxOf(d)>=0) out.push(d) }
   return out;
 }
-function swapOrder(mon,a,b){
-  if(a===b) return {why:'Pick a different day.'};
-  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
-  if(a<pinTo||b<pinTo) return {why:'That day has already passed. Use “two in one day” below to catch it up instead.'};
-  const ord=dayOrder(mon).slice();
-  const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
-  const warn=orderWarnings(mon,ord);
-  return warn.length?{ord,moved:2,warn:warn[0],warns:warn}:{ord,moved:2};
-}
-/* Preferences, priced rather than enforced. Both used to prune the search, so a week
-   with no clean arrangement came back as "nothing valid this week" and a disabled
-   button. They are costs now: the arranger still avoids them while anything else is
-   available, and produces the awkward week rather than nothing when it is not.
-
-   Both are dearer than shuffling every day of the week, so they are a last resort and
-   never a shortcut. Back to back strength is dearer again than two hard conditioning
-   days, which is the order the book puts them in. */
-const CROWD=20, BTB=200;
-function bestOrder(mon,fixDay,fixSlot){
-  const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
-  const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
-  const used=new Array(7).fill(false), ord=new Array(7);
-  let best=null, bestCost=Infinity, bestMoved=0;
-  const pen=(a,b)=>(crowds(a,b)?CROWD:0)+(clashes(a,b)?BTB:0);
-  (function go(i,prev,cost,moved){
-    if(cost>=bestCost) return;
-    if(i===7){ const c=cost+pen(prev,nextK); if(c>=bestCost) return; best=ord.slice(); bestCost=c; bestMoved=moved; return }
-    for(let sl=0;sl<7;sl++){
-      if(used[sl]) continue;
-      if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
-      if(fixDay!=null&&fixDay===i&&sl!==fixSlot) continue;
-      if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
-      const k=K[sl], same=cur[i]===sl;
-      used[sl]=true; ord[i]=sl;
-      go(i+1,k,cost+(same?0:1)+pen(k,prev),moved+(same?0:1));
-      used[sl]=false;
-    }
-  })(0,prevK,0,0);
-  // `moved` counts days that actually shifted. It used to be the cost, so a week that
-  // accepted one crowding penalty reported "moves 19 other days".
-  return best?{ord:best,moved:bestMoved,warns:orderWarnings(mon,best)}:null;
-}
-/* Doing this day's session on another day, on top of what is already there.
-
-   Swapping keeps one session per day, which is no use when you have lost a day and want
-   to catch it up rather than shuffle the week. Tactical Barbell II allows the stack and
-   asks only that the lifting comes first, which is how the merged day is drawn. */
-function stackPicker(date){
-  const mon=mondayOf(date), away=stackTo(date), came=stackFrom(date);
-  let h=`<div class="divider">Two in one day</div>`;
-  if(away) return h+`<div class="small muted">This session is being done on <b>${esc(DAYN[dow(away)])}</b>, after whatever that day already had.</div>
-    <div><button class="btn sm ghost" data-act="unstack" data-from="${esc(date)}">Put it back on ${esc(DAYN[dow(date)])}</button></div>`;
-  if(came) return h+`<div class="small muted"><b>${esc(DAYN[dow(came)])}</b>’s session has been moved onto this day. Lift first, then the conditioning.</div>
-    <div><button class="btn sm ghost" data-act="unstack" data-from="${esc(came)}">Put it back on ${esc(DAYN[dow(came)])}</button></div>`;
-  const opts=[];
-  for(let i=0;i<7;i++){
-    const to=addDays(mon,i); if(to===date) continue;
-    opts.push({to,i,why:stackWhyNot(date,to),warn:stackWarn(date,to)});
-  }
-  if(!opts.some(o=>!o.why)) return '';
-  h+=`<p class="note" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
-  <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||o.warn||'')}">${esc(DAYN[o.i])}${o.warn&&!o.why?' <span aria-hidden="true">\u26a0</span>':''}</button>`).join('')}</div>
-  ${opts.some(o=>!o.why&&o.warn)?`<div class="small muted">\u26a0 ${esc(opts.find(o=>!o.why&&o.warn).warn)}</div>`:''}
-  <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
-  return h;
+function moveWarn(date,ss){
+  const out=[], at=dayPlans(date).filter(x=>!(x.sess.monday===ss.monday&&x.sess.slot===ss.slot));
+  const me=dayPlanSlot(ss.home,ss.slot), mk=stackKindOf(me);
+  if(at.some(x=>stackKindOf(x)===mk&&mk==='lift')) out.push('Two lifting sessions in one day is a lot of barbell work at once. Do the heavier one first and cut the accessories on the second.');
+  else if(at.length&&mk==='lift') out.push('Lifting goes first, then the conditioning.');
+  else if(at.length) out.push(`${DAYN[dow(date)]} already has a session. Both will be listed, in that order.`);
+  const near=[addDays(date,-1),addDays(date,1)];
+  if(mk==='lift'&&near.some(d=>dayPlans(d).some(x=>stackKindOf(x)==='lift'&&!(x.sess.monday===ss.monday&&x.sess.slot===ss.slot))))
+    out.push('That puts lifting on back-to-back days. The book asks you not to, so keep one of them light.');
+  return out;
 }
 /* The card for sessions that were not prescribed. It sits at the bottom of the day,
    under whatever the program asked for, because that is the order they happen in and
@@ -189,28 +125,25 @@ function addonCard(date){
 }
 let moveOpen=false;
 function moveCard(){
-  const mon=mondayOf(sel), ord=dayOrder(mon), me=dow(sel), mine=ord[me];
-  const past=mondayOf(realToday())===mon&&me<dow(realToday());
-  let h=`<div class="card"><div class="lift-h"><h3>Change ${DAYN[me]}’s session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
-  if(past) h+=`<div class="banner info"><div class="small">${DAYN[me]} has already gone, so it cannot trade places with another day. To catch the session up, move it onto a day still to come — <b>Two in one day</b>, below.</div></div>`;
-  else{
-    h+=`<p class="note" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions and the app shuffles the rest as little as it can. It will avoid two strength days together, and tell you when the week you have asked for cannot.</p><div class="stack">`;
-    // Two days can share a label (Tue and Sat are both "HIC"): offer the one that
-    // needs the least shuffling, and only call it impossible if neither works.
-    const byLabel=new Map();
-    for(let sl=0;sl<7;sl++){
-      if(sl===mine) continue;
-      const lbl=dayPlanSlot(addDays(mon,sl),sl).short||'Session', r=bestOrder(mon,me,sl), was=byLabel.get(lbl);
-      if(!was||(r&&(!was.r||r.moved<was.r.moved))) byLabel.set(lbl,{sl,r});
+  const here=dayPlans(sel), mon=mondayOf(sel);
+  let h=`<div class="card"><div class="lift-h"><h3>Move a session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
+  if(!here.length) h+=`<p class="note" style="margin:0">Nothing on ${DAYN[dow(sel)]} to move. Open the day a session is on and move it here.</p>`;
+  here.forEach(dp=>{
+    const ss=dp.sess, name=dp.short||'Session';
+    h+=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="row between"><b>${esc(name)}</b>${dp.moved?`<button class="btn sm ghost" data-act="moveback" data-mon="${esc(ss.monday)}" data-sl="${ss.slot}">Back to ${esc(DAYN[dow(ss.home)])} ${esc(fmtD(ss.home,true))}</button>`:''}</div>
+      ${dp.moved?`<div class="small muted">Moved here from ${esc(fmtLong(ss.home))}.</div>`:''}
+      <div class="row wrap" style="gap:6px">`;
+    for(const d of moveTargets(sel)){
+      if(d===sel) continue;
+      const w=moveWarn(d,ss), near=Math.abs(Math.round((D(d)-D(sel))/864e5))<=7;
+      if(!near&&!dayPlans(d).length&&mondayOf(d)===mon) continue;
+      h+=`<button class="btn sm${w.length?'':' '}" data-act="moveto" data-mon="${esc(ss.monday)}" data-sl="${ss.slot}" data-to="${esc(d)}" title="${esc(w[0]||'')}">${esc(DAYN[dow(d)])} ${esc(fmtD(d,true))}${w.length?' <span aria-hidden="true">\u26a0</span>':''}</button>`;
     }
-    for(const [lbl,{sl,r}] of byLabel){
-      const warn=r&&r.warns.length?r.warns[0]:null;
-      h+=`<button class="btn" style="justify-content:space-between;gap:10px" data-act="swap" data-sl="${sl}" ${r?'':'disabled'} title="${esc(warn||'')}"><span>${esc(lbl)}${warn?' <span aria-hidden="true">\u26a0</span>':''}</span><span class="small${r?'':' muted'}">${r?(r.moved>1?`moves ${r.moved-1} other day${r.moved>2?'s':''} →`:'no other changes →'):'nothing valid this week'}</span></button>`;
-    }
-    h+=`</div>`;
-  }
-  if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Reset this week to the standard order</button></div>`;
-  h+=stackPicker(sel);
+    h+=`</div></div>`;
+  });
+  h+=`<div class="note" style="margin-top:12px">Only the session you pick moves. Nothing else in the week changes, a day can hold more than one, and a day with none is a rest day. A \u26a0 means it is allowed but worth knowing about \u2014 hold the button to read it.</div>`;
+  if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Put this week back as it was</button></div>`;
   h+=plyoMovePicker(mon);
   return h+`</div>`;
 }
@@ -274,6 +207,26 @@ function banners(wk,dp){
   }
   return h;
 }
+/* The mobility block and the RPE/notes footer belong to the day, not to each session
+   on it, so a day holding two renders them once at the end. `solo` is false for all but
+   the last, which is the only one that gets them. */
+let sessSolo=true;
+function sessTail(dp,active){ return sessSolo?mobCard(sel,dp)+footer(active):'' }
+/* Every session on the day, in order, each rendered as it would be on its own. The
+   divider says which is which, because two sessions in a day is a thing you are doing
+   deliberately and the card needs to be readable at the point you are doing it. */
+function dayHtml(wk,date){
+  const all=dayPlans(date);
+  if(all.length<2) return sessionHtml(wk,dayPlan(date));
+  let h='';
+  all.forEach((dp,i)=>{
+    sessSolo=i===all.length-1;
+    h+=`<div class="divider">${i?'Then, ':''}${esc(dp.short||'Session')}${dp.moved?` \u00b7 moved from ${esc(fmtD(dp.sess.home,true))}`:''}</div>`;
+    h+=sessionHtml(wk,i?dp:Object.assign({},dp,{plyo:dayPlan(date).plyo,plyoN:dayPlan(date).plyoN,plyoCut:dayPlan(date).plyoCut}));
+  });
+  sessSolo=true;
+  return h;
+}
 function sessionHtml(wk,dp){
   let h='';
   const note=dp.note?`<p class="muted small" style="margin:0">${esc(dp.note)}</p>`:'';
@@ -282,10 +235,10 @@ function sessionHtml(wk,dp){
   // scheduled they are the session, so the rest-day copy below is skipped.
   if(dp.plyo){
     h+=plyoCard(wk,dp);
-    if(['off','pre'].includes(dp.t)) return h+mobCard(sel,dp)+footer(true);
+    if(['off','pre'].includes(dp.t)) return h+sessTail(dp,true);
     h+=`<div class="divider">${dp.t==='hic'?'Rest 10 min':'Then'}</div>`;
   }
-  if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+mobCard(sel,dp)+footer(false) }
+  if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+sessTail(dp,false) }
   if(dp.t==='lift'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     h+=warmupCard(sel);
@@ -295,10 +248,10 @@ function sessionHtml(wk,dp){
       const note=dp.condNote?`<p class="muted small" style="margin:0">${esc(dp.condNote)}</p>`:'';
       h+=`<div class="divider">Then, conditioning</div>`+(dp.ride==='se'?seCard(dp):hicCard(dp,note));
     }
-    return h+mobCard(sel,dp)+footer(true);
+    return h+sessTail(dp,true);
   }
-  if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+mobCard(sel,dp)+footer(true);
-  if(dp.t==='hic') return h+hicCard(dp,note)+mobCard(sel,dp)+footer(true);
+  if(dp.t==='travel') return h+warmupCard(sel)+travelCard(dp)+sessTail(dp,true);
+  if(dp.t==='hic') return h+hicCard(dp,note)+sessTail(dp,true);
   if(dp.t==='rm5'||dp.t==='test'){
     if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
     if(dp.note) h+=`<div class="banner info"><div>${esc(dp.note)}</div></div>`;
@@ -308,11 +261,11 @@ function sessionHtml(wk,dp){
     if(dp.pullups) h+=`<div class="card"><h3>Max unassisted pull-ups</h3><p class="muted small" style="margin:0">The number the Lift 3 substitution was aimed at. One all-out set, full hang to chin over bar.</p><label class="f">Reps${numIn('pullups',lg(sel).pullups,'0','class="num-in"')}</label>${bestPullups()}</div>`;
     if(dp.apply) h+=applyCard(wk);
     if(dp.cardio) h+=`<div class="divider">Then, easy</div>`+hicCard(dp,'');
-    return h+mobCard(sel,dp)+footer(true);
+    return h+sessTail(dp,true);
   }
-  if(dp.t==='se') return h+warmupCard(sel)+seCard(dp)+mobCard(sel,dp)+footer(true);
-  if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+mobCard(sel,dp)+footer(true);
-  if(dp.t==='convert') return h+convertCard(wk)+mobCard(sel,dp)+footer(false);
+  if(dp.t==='se') return h+warmupCard(sel)+seCard(dp)+sessTail(dp,true);
+  if(dp.t==='plyobase') return h+warmupCard(sel)+plyoWarmBlock(lg(sel).plyo||{},' card')+jumpCard('Baselines. Three good attempts each, keep the best.')+sessTail(dp,true);
+  if(dp.t==='convert') return h+convertCard(wk)+sessTail(dp,false);
   return h;
 }
 function mobKind(dp){

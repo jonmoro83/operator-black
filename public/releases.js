@@ -6,6 +6,14 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.48',date:'2026-10-23',title:"Rescheduling, rebuilt",items:[
+    "Moving a session is one thing now and it does exactly what it says. Pick the day, the session happens on that day, and nothing else moves. Not the day you took it from, not the day it lands on, not the rest of the week.",
+    "There were three ways to move something before \u2014 swap two days, shift the week around it, do both on one day \u2014 and all three existed because the week was stored as seven slots in seven days, one each. A straight move was impossible to say in that. Sessions have dates now, so there's one verb.",
+    "A day can hold two sessions, or none. A day with none is a rest day, with no bookkeeping. Both sessions render in full on the day, lifting first, with one set of notes and one mobility block at the end.",
+    "Move a session into next week if that's when you'll do it. Losing Friday and picking it up on Monday is the commonest thing that happens to a training week and the app refused to let you say it.",
+    "The calendar has no Rearrange mode to turn on first. Drag any session to any day, or tap it and tap where it goes. Every cell is live and nothing is dimmed.",
+    "Nothing is refused on programming grounds. Two lifting sessions on one day, or on consecutive days, gets a \u26a0 and a line about doing the heavier one first \u2014 it doesn't get a button you can't press.",
+    "Your existing week arrangements carry over, including anything you'd set to double up."]},
   {v:'3.47',date:'2026-10-23',title:"Log a session that wasn't on the plan",items:[
     "At the bottom of every day, including rest days, there's now \u201cAnything else today\u201d. Add cardio or a lifting session that the program never asked for: a ride you felt like, a second session, a class.",
     "Cardio takes the activity, the kind, minutes, whatever that activity measures, and elevation where it applies. A lifting session takes an exercise name and as many weight-by-reps sets as you did \u2014 free-form, because there's no max behind an exercise the app didn't prescribe.",
