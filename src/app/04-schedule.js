@@ -602,9 +602,59 @@ function hicValue(x){const fe=flatEquiv(x);return fe!=null?fe:(x?+x.v:null)}
 function hicSessions(all){
   const out=[];
   for(const [d,L] of Object.entries(logs)){
-    if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
-    const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev});
+    if(!all&&!inProgram(d)) continue;
+    if(L.hic){ const f=effFmt(d);
+      if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
+        if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev}); } }
+    // Sessions you did on top of the program count as training. They are the same
+    // shape, carry `extra` so adherence can leave them alone, and otherwise feed the
+    // minutes, the records and the benchmark like any other session.
+    for(const a of addonsOf(d)){
+      if(a.kind!=='cond'||!HIC[a.fmt]||!MOD[a.mod]) continue;
+      const met=metricFor(a.mod,a.fmt), v=met?a.val:null;
+      if((v!=null&&v!=='')||a.min) out.push({d,f:a.fmt,mod:a.mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:a.min,what:a.what,load:a.load,elev:a.elev,extra:true});
+    }
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
+}
+/* ---------- sessions you added yourself ----------
+A program is a plan, not a record of what happened. A ride on a rest day, a second
+lifting session, a class somebody dragged you to: it was training and it belongs in the
+log. Kept apart from the prescribed session rather than merged into it, because the two
+answer different questions -- what was I told to do, and what did I do.
+
+They count toward conditioning minutes, records, the climbing total and the benchmark.
+They are deliberately invisible to adherence, the cycle review and your maxes: none of
+those is asking what you did, they are asking how the program went. */
+function addonsOf(date){ const a=(logs[date]||{}).addons; return Array.isArray(a)?a.filter(x=>x&&x.kind):[] }
+function addonAdd(date,kind){
+  if(readOnly()) return null;
+  const list=addonsOf(date).slice();
+  const a=kind==='lift'?{kind:'lift',what:'',sets:[]}
+                       :{kind:'cond',mod:defMod(),fmt:'liss',what:'',min:'',val:''};
+  list.push(a); setLog(date,'addons',list);
+  return list.length-1;
+}
+function addonDel(date,i){
+  const list=addonsOf(date).slice();
+  if(i<0||i>=list.length) return false;
+  list.splice(i,1); setLog(date,'addons',list); return true;
+}
+// Sets on an added lifting session are free-form: a weight and a rep count, as many as
+// you did. No percentages, because there is no max behind an exercise the app invented.
+function addonSets(a){ return Array.isArray(a&&a.sets)?a.sets:[] }
+function addonSetAdd(date,i){
+  const list=addonsOf(date).slice(), a=list[i]; if(!a||a.kind!=='lift') return false;
+  list[i]=Object.assign({},a,{sets:addonSets(a).concat([{w:'',r:''}])});
+  setLog(date,'addons',list); return true;
+}
+function addonSetDel(date,i,j){
+  const list=addonsOf(date).slice(), a=list[i]; if(!a||a.kind!=='lift') return false;
+  const sets=addonSets(a).slice(); if(j<0||j>=sets.length) return false;
+  sets.splice(j,1); list[i]=Object.assign({},a,{sets}); setLog(date,'addons',list); return true;
+}
+function addonLabel(a){
+  if(a.kind==='lift') return a.what||'Extra lifting';
+  const m=MOD[a.mod], f=HIC[a.fmt];
+  return (a.what||(m?m.name:'Cardio'))+(f?' · '+f.name:'');
 }

@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.47',date:'2026-10-23',title:"Log a session that wasn't on the plan",items:[
+    "At the bottom of every day, including rest days, there's now \u201cAnything else today\u201d. Add cardio or a lifting session that the program never asked for: a ride you felt like, a second session, a class.",
+    "Cardio takes the activity, the kind, minutes, whatever that activity measures, and elevation where it applies. A lifting session takes an exercise name and as many weight-by-reps sets as you did \u2014 free-form, because there's no max behind an exercise the app didn't prescribe.",
+    "It counts as training: conditioning minutes, records, the climbing total and your benchmark all see it.",
+    "It is not counted as the program. Your maxes, the end-of-cycle review and whether you followed the plan are all untouched, because those are asking a different question."]},
   {v:'3.46',date:'2026-10-23',title:"Move days however you need to",items:[
     "Rescheduling no longer refuses anything on programming grounds. Two strength days back to back used to be a hard no; it's a warning now. You have a reason and the app doesn't know what it is.",
     "Two lifting sessions in one day is allowed too. It used to say that was \u201ca different program, not a rearranged week\u201d, which isn't much help when you've lost a day and want it back. It now says to do the heavier one first and cut the accessories on the second.",

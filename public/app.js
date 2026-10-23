@@ -3003,11 +3003,61 @@ function hicValue(x){const fe=flatEquiv(x);return fe!=null?fe:(x?+x.v:null)}
 function hicSessions(all){
   const out=[];
   for(const [d,L] of Object.entries(logs)){
-    if(!L.hic||(!all&&!inProgram(d))) continue; const f=effFmt(d); if(!f) continue;
-    const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-    if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev});
+    if(!all&&!inProgram(d)) continue;
+    if(L.hic){ const f=effFmt(d);
+      if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
+        if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev}); } }
+    // Sessions you did on top of the program count as training. They are the same
+    // shape, carry `extra` so adherence can leave them alone, and otherwise feed the
+    // minutes, the records and the benchmark like any other session.
+    for(const a of addonsOf(d)){
+      if(a.kind!=='cond'||!HIC[a.fmt]||!MOD[a.mod]) continue;
+      const met=metricFor(a.mod,a.fmt), v=met?a.val:null;
+      if((v!=null&&v!=='')||a.min) out.push({d,f:a.fmt,mod:a.mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:a.min,what:a.what,load:a.load,elev:a.elev,extra:true});
+    }
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
+}
+/* ---------- sessions you added yourself ----------
+A program is a plan, not a record of what happened. A ride on a rest day, a second
+lifting session, a class somebody dragged you to: it was training and it belongs in the
+log. Kept apart from the prescribed session rather than merged into it, because the two
+answer different questions -- what was I told to do, and what did I do.
+
+They count toward conditioning minutes, records, the climbing total and the benchmark.
+They are deliberately invisible to adherence, the cycle review and your maxes: none of
+those is asking what you did, they are asking how the program went. */
+function addonsOf(date){ const a=(logs[date]||{}).addons; return Array.isArray(a)?a.filter(x=>x&&x.kind):[] }
+function addonAdd(date,kind){
+  if(readOnly()) return null;
+  const list=addonsOf(date).slice();
+  const a=kind==='lift'?{kind:'lift',what:'',sets:[]}
+                       :{kind:'cond',mod:defMod(),fmt:'liss',what:'',min:'',val:''};
+  list.push(a); setLog(date,'addons',list);
+  return list.length-1;
+}
+function addonDel(date,i){
+  const list=addonsOf(date).slice();
+  if(i<0||i>=list.length) return false;
+  list.splice(i,1); setLog(date,'addons',list); return true;
+}
+// Sets on an added lifting session are free-form: a weight and a rep count, as many as
+// you did. No percentages, because there is no max behind an exercise the app invented.
+function addonSets(a){ return Array.isArray(a&&a.sets)?a.sets:[] }
+function addonSetAdd(date,i){
+  const list=addonsOf(date).slice(), a=list[i]; if(!a||a.kind!=='lift') return false;
+  list[i]=Object.assign({},a,{sets:addonSets(a).concat([{w:'',r:''}])});
+  setLog(date,'addons',list); return true;
+}
+function addonSetDel(date,i,j){
+  const list=addonsOf(date).slice(), a=list[i]; if(!a||a.kind!=='lift') return false;
+  const sets=addonSets(a).slice(); if(j<0||j>=sets.length) return false;
+  sets.splice(j,1); list[i]=Object.assign({},a,{sets}); setLog(date,'addons',list); return true;
+}
+function addonLabel(a){
+  if(a.kind==='lift') return a.what||'Extra lifting';
+  const m=MOD[a.mod], f=HIC[a.fmt];
+  return (a.what||(m?m.name:'Cardio'))+(f?' · '+f.name:'');
 }
 
 /* ---------------- persistence ---------------- */
@@ -3561,6 +3611,7 @@ function vToday(){
   if(!['off','pre','convert'].includes(dp.t)) h+=suppCard(sel,'pre');
   h+=suppCard(sel,'daily');
   h+=sessionHtml(wk,dp);
+  h+=addonCard(sel);
   return h;
 }
 // Kind of each of the week's seven prescribed sessions, by slot.
@@ -3651,6 +3702,38 @@ function stackPicker(date){
   ${opts.some(o=>!o.why&&o.warn)?`<div class="small muted">\u26a0 ${esc(opts.find(o=>!o.why&&o.warn).warn)}</div>`:''}
   <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
   return h;
+}
+/* The card for sessions that were not prescribed. It sits at the bottom of the day,
+   under whatever the program asked for, because that is the order they happen in and
+   because it must never be mistaken for the session. */
+function addonCard(date){
+  if(viewing) return '';
+  const list=addonsOf(date);
+  let h=`<div class="card"><div class="lift-h"><h3>Anything else today</h3>${list.length?`<span class="chip">${list.length}</span>`:''}</div>`;
+  if(!list.length) h+=`<p class="note" style="margin:0">A ride that was not on the plan, a second lifting session, a class. It counts toward your conditioning minutes and your records, and it is left out of how the program itself is going.</p>`;
+  list.forEach((a,i)=>{
+    h+=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="row between"><b>${esc(addonLabel(a))}</b><button class="btn sm ghost" data-act="addondel" data-i="${i}" aria-label="Remove this session">Remove</button></div>`;
+    if(a.kind==='cond'){
+      const M=MOD[a.mod]||MOD[defMod()], met=metricFor(a.mod,a.fmt);
+      h+=`<div class="grid2">
+        <label class="f">Activity<select id="in-addon-mod-${i}" data-bind="addons.${i}.mod">${Object.entries(MOD).map(([k,x])=>`<option value="${k}"${k===a.mod?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="f">Kind<select id="in-addon-fmt-${i}" data-bind="addons.${i}.fmt">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===a.fmt?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+      <div class="grid2"><label class="f">Minutes${numIn('addons.'+i+'.min',a.min)}</label>
+        ${met?`<label class="f">${esc(metricLabel(met))}${numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
+      ${M&&M.elev?`<label class="f">Elevation gain (${esc(elevUnit())})${numIn('addons.'+i+'.elev',a.elev)}</label>`:''}
+      ${met&&a.mod==='other'?`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`:''}`;
+    } else {
+      const sets=addonSets(a);
+      h+=`<label class="f">Exercise<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. Incline bench, or Upper body"></label>
+      ${sets.map((st,j)=>`<div class="row" style="gap:6px;align-items:flex-end"><label class="f" style="flex:1">Weight${numIn('addons.'+i+'.sets.'+j+'.w',st.w)}</label><label class="f" style="flex:1">Reps${numIn('addons.'+i+'.sets.'+j+'.r',st.r)}</label><button class="btn sm ghost" data-act="addonsetdel" data-i="${i}" data-j="${j}" aria-label="Remove set ${j+1}">\u2715</button></div>`).join('')}
+      <div><button class="btn sm" data-act="addonsetadd" data-i="${i}">Add a set</button></div>`;
+    }
+    h+=`<label class="f">Notes<input type="text" id="in-addon-note-${i}" data-bind="addons.${i}.note" value="${esc(a.note||'')}" placeholder="How it went"></label></div>`;
+  });
+  h+=`<div class="row" style="gap:6px;margin-top:12px"><button class="btn" data-act="addon" data-kind="cond">Add cardio</button><button class="btn" data-act="addon" data-kind="lift">Add a lifting session</button></div>`;
+  if(list.length) h+=`<div class="note">These sit outside the program. They feed your conditioning minutes, your records and the climbing total; they do not change your maxes, the end-of-cycle review, or whether the program counts as followed.</div>`;
+  return h+`</div>`;
 }
 let moveOpen=false;
 function moveCard(){
@@ -9231,6 +9314,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
   if(a==='stack'){ if(setStack(b.dataset.from,b.dataset.to)){moveOpen=false;render()} return }
   if(a==='unstack'){ clearStack(b.dataset.from); return }
+  if(a==='addon'){ addonAdd(sel,b.dataset.kind); render(); return }
+  if(a==='addondel'){ offerUndo('Session removed',snapLog(sel)); addonDel(sel,+b.dataset.i); render(); return }
+  if(a==='addonsetadd'){ addonSetAdd(sel,+b.dataset.i); render(); return }
+  if(a==='addonsetdel'){ addonSetDel(sel,+b.dataset.i,+b.dataset.j); render(); return }
   if(a==='plyodow'){
     const v=+b.dataset.v; if(!(v>=0&&v<=6)) return;
     const per=plyoPerWeek(), next=plyoPick(per===2?[plyoDowDefault(),plyoDow2()]:[plyoDowDefault()],per,v);

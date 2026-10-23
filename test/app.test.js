@@ -1241,6 +1241,47 @@ test("a day's note matches how many lifts that day actually has", () => {
   a.deepEqual(seen, [1, 2], "two Lift 3 variants leaves one for Saturday, three leaves two");
 });
 
+test("a session you added yourself counts as training, not as the program", () => {
+  const x = app({ now: "2026-10-21" });
+  const d = "2026-10-21";
+  x.sel = d; x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+
+  a.deepEqual(x.addonsOf(d), [], "nothing by default");
+  const i = x.addonAdd(d, "cond");
+  a.equal(i, 0);
+  x.setLog(d, "addons.0.mod", "run");
+  x.setLog(d, "addons.0.fmt", "liss");
+  x.setLog(d, "addons.0.min", 40);
+  x.setLog(d, "addons.0.val", 5);
+
+  // It reaches everything that asks what training you did.
+  const ses = x.hicSessions().filter((s) => s.extra);
+  a.equal(ses.length, 1, "it is a conditioning session");
+  a.equal(ses[0].mod, "run"); a.equal(ses[0].v, 5); a.equal(ses[0].min, 40);
+  a.equal(x.hicMinutes(ses[0]).m, 40, "and its minutes are the ones you logged");
+
+  // A lifting add-on is free-form: there is no max behind an exercise the app invented.
+  const j = x.addonAdd(d, "lift");
+  x.setLog(d, "addons." + j + ".what", "Incline bench");
+  a.equal(x.addonSetAdd(d, j), true);
+  x.setLog(d, "addons." + j + ".sets.0.w", 135);
+  x.setLog(d, "addons." + j + ".sets.0.r", 10);
+  a.equal(x.addonsOf(d).length, 2);
+  a.equal(x.addonLabel(x.addonsOf(d)[j]), "Incline bench");
+  a.deepEqual(x.hicSessions().filter((s) => s.extra).length, 1, "a lifting add-on is not conditioning");
+
+  // Both show on the day, and neither is mistaken for the prescribed session.
+  const h = x.addonCard(d);
+  a.match(h, /Anything else today/);
+  a.match(h, /Incline bench/);
+  a.match(h, /do not change your maxes/, "and it says what it does not touch");
+
+  // Removing one leaves the other alone.
+  a.equal(x.addonDel(d, 0), true);
+  a.equal(x.addonsOf(d).length, 1);
+  a.equal(x.addonsOf(d)[0].what, "Incline bench");
+});
+
 test("a variant list is barbells only, and every entry has an honest ratio", () => {
   const x = app({ now: "2026-10-21" });
   x.plan.l3 = { on: { pull: true, ohp: true, wpu: true } }; x.bump();

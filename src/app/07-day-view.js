@@ -63,6 +63,7 @@ function vToday(){
   if(!['off','pre','convert'].includes(dp.t)) h+=suppCard(sel,'pre');
   h+=suppCard(sel,'daily');
   h+=sessionHtml(wk,dp);
+  h+=addonCard(sel);
   return h;
 }
 // Kind of each of the week's seven prescribed sessions, by slot.
@@ -153,6 +154,38 @@ function stackPicker(date){
   ${opts.some(o=>!o.why&&o.warn)?`<div class="small muted">\u26a0 ${esc(opts.find(o=>!o.why&&o.warn).warn)}</div>`:''}
   <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
   return h;
+}
+/* The card for sessions that were not prescribed. It sits at the bottom of the day,
+   under whatever the program asked for, because that is the order they happen in and
+   because it must never be mistaken for the session. */
+function addonCard(date){
+  if(viewing) return '';
+  const list=addonsOf(date);
+  let h=`<div class="card"><div class="lift-h"><h3>Anything else today</h3>${list.length?`<span class="chip">${list.length}</span>`:''}</div>`;
+  if(!list.length) h+=`<p class="note" style="margin:0">A ride that was not on the plan, a second lifting session, a class. It counts toward your conditioning minutes and your records, and it is left out of how the program itself is going.</p>`;
+  list.forEach((a,i)=>{
+    h+=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="row between"><b>${esc(addonLabel(a))}</b><button class="btn sm ghost" data-act="addondel" data-i="${i}" aria-label="Remove this session">Remove</button></div>`;
+    if(a.kind==='cond'){
+      const M=MOD[a.mod]||MOD[defMod()], met=metricFor(a.mod,a.fmt);
+      h+=`<div class="grid2">
+        <label class="f">Activity<select id="in-addon-mod-${i}" data-bind="addons.${i}.mod">${Object.entries(MOD).map(([k,x])=>`<option value="${k}"${k===a.mod?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="f">Kind<select id="in-addon-fmt-${i}" data-bind="addons.${i}.fmt">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===a.fmt?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+      <div class="grid2"><label class="f">Minutes${numIn('addons.'+i+'.min',a.min)}</label>
+        ${met?`<label class="f">${esc(metricLabel(met))}${numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
+      ${M&&M.elev?`<label class="f">Elevation gain (${esc(elevUnit())})${numIn('addons.'+i+'.elev',a.elev)}</label>`:''}
+      ${met&&a.mod==='other'?`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`:''}`;
+    } else {
+      const sets=addonSets(a);
+      h+=`<label class="f">Exercise<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. Incline bench, or Upper body"></label>
+      ${sets.map((st,j)=>`<div class="row" style="gap:6px;align-items:flex-end"><label class="f" style="flex:1">Weight${numIn('addons.'+i+'.sets.'+j+'.w',st.w)}</label><label class="f" style="flex:1">Reps${numIn('addons.'+i+'.sets.'+j+'.r',st.r)}</label><button class="btn sm ghost" data-act="addonsetdel" data-i="${i}" data-j="${j}" aria-label="Remove set ${j+1}">\u2715</button></div>`).join('')}
+      <div><button class="btn sm" data-act="addonsetadd" data-i="${i}">Add a set</button></div>`;
+    }
+    h+=`<label class="f">Notes<input type="text" id="in-addon-note-${i}" data-bind="addons.${i}.note" value="${esc(a.note||'')}" placeholder="How it went"></label></div>`;
+  });
+  h+=`<div class="row" style="gap:6px;margin-top:12px"><button class="btn" data-act="addon" data-kind="cond">Add cardio</button><button class="btn" data-act="addon" data-kind="lift">Add a lifting session</button></div>`;
+  if(list.length) h+=`<div class="note">These sit outside the program. They feed your conditioning minutes, your records and the climbing total; they do not change your maxes, the end-of-cycle review, or whether the program counts as followed.</div>`;
+  return h+`</div>`;
 }
 let moveOpen=false;
 function moveCard(){

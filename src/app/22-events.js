@@ -332,6 +332,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
   if(a==='stack'){ if(setStack(b.dataset.from,b.dataset.to)){moveOpen=false;render()} return }
   if(a==='unstack'){ clearStack(b.dataset.from); return }
+  if(a==='addon'){ addonAdd(sel,b.dataset.kind); render(); return }
+  if(a==='addondel'){ offerUndo('Session removed',snapLog(sel)); addonDel(sel,+b.dataset.i); render(); return }
+  if(a==='addonsetadd'){ addonSetAdd(sel,+b.dataset.i); render(); return }
+  if(a==='addonsetdel'){ addonSetDel(sel,+b.dataset.i,+b.dataset.j); render(); return }
   if(a==='plyodow'){
     const v=+b.dataset.v; if(!(v>=0&&v<=6)) return;
     const per=plyoPerWeek(), next=plyoPick(per===2?[plyoDowDefault(),plyoDow2()]:[plyoDowDefault()],per,v);
