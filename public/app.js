@@ -2726,19 +2726,27 @@ function stackKindOf(dp){
   if(k==='hic'||k==='easy'||dp.t==='se') return 'cond';
   return 'rest';
 }
-/* Whether these two can share a day, and why not when they cannot. Returns null when
-   they can. A lift and a conditioning session is the pairing the book describes; moving
-   anything onto an empty day is just rescheduling; two lifting days in one is the one
-   combination that is a different programme rather than a rearranged week. */
+/* Whether these two can share a day. Returns null when they can, which is now nearly
+   always: what is left here is what cannot be done rather than what is unadvisable.
+   Two lifting sessions in one day used to be refused as "a different program". It is
+   a warning now — see `stackWarn`. Somebody catching up a session they missed on
+   Tuesday is not redesigning their programme, and telling them so was not useful. */
 function stackWhyNot(from,to){
   if(!from||!to||from===to) return 'A day cannot be moved onto itself.';
   if(mondayOf(from)!==mondayOf(to)) return 'Both days have to be in the same week.';
   if(idxOf(from)<0||idxOf(to)<0) return 'That week is not part of the program.';
   if(stackTo(to)||stackFrom(to)) return `${DAYN[dow(to)]} already has a session moved onto it.`;
   if(stackFrom(from)) return `${DAYN[dow(from)]} already has another session on it.`;
+  if(stackKindOf(bareDay(from))==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
+  return null;
+}
+/* Allowed, and worth a word. Two lifting sessions on one day is a lot of barbell work
+   in one go, and the book's order — heavy first — is the thing worth saying. */
+function stackWarn(from,to){
+  if(stackWhyNot(from,to)) return null;
   const a=stackKindOf(bareDay(from)), b=stackKindOf(bareDay(to));
-  if(a==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
-  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a different program, not a rearranged week. Swap the days instead.';
+  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a lot of barbell work at once. Do the heavier one first and cut the accessories on the second.';
+  if(a==='lift'||b==='lift') return 'Lifting goes first, then the conditioning.';
   return null;
 }
 function canStack(from,to){ return stackWhyNot(from,to)===null }
@@ -3568,46 +3576,57 @@ function edgeKinds(mon){
    will happily rearrange four days to honour one request, and sometimes that is a
    surprise rather than a help.
 
-   A day already past this week cannot be either end of it. Returns null if the swap
-   is not allowed or would put two hard days together, so the caller can grey it out
-   rather than offer something that will be refused. */
+   Nothing here refuses on programming grounds any more. Two of the same strength
+   session back to back used to be the one hard no; it is a warning now, because the
+   person asking has a reason and the app does not know what it is. A week is a plan,
+   and the week you can actually train beats the week that reads correctly. What still
+   refuses is only what cannot be done: a day that is already behind you. */
+function orderWarnings(mon,ord){
+  const out=orderIssues(mon,ord).map(x=>`${x.a} and ${x.b} are both ${kindName(x.kind)}. Back-to-back strength is the one thing the book asks you not to do, so keep it light or take the second one easy.`);
+  for(const x of orderCrowding(mon,ord)) out.push(`${x.a} and ${x.b} both become ${kindName(x.kind)}. The book allows it — "two days in a row, or whatever" — but spread them out if the week lets you.`);
+  return out;
+}
 function swapOrder(mon,a,b){
   if(a===b) return {why:'Pick a different day.'};
   const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
-  if(a<pinTo||b<pinTo) return {why:'That day has already passed this week.'};
+  if(a<pinTo||b<pinTo) return {why:'That day has already passed. Use “two in one day” below to catch it up instead.'};
   const ord=dayOrder(mon).slice();
   const tmp=ord[a]; ord[a]=ord[b]; ord[b]=tmp;
-  const bad=orderIssues(mon,ord);
-  // The one rule the books state is no two of the same strength session running, so
-  // that is the only refusal. Everything else is the app's preference, and a
-  // preference belongs in a warning.
-  if(bad.length) return {why:`That would put ${kindName(bad[0].kind)} on ${bad[0].a} and ${bad[0].b}, which is the one arrangement the book rules out. Shifting the week around it would work.`};
-  const near=orderCrowding(mon,ord);
-  return near.length?{ord,moved:2,warn:`${near[0].a} and ${near[0].b} both become ${kindName(near[0].kind)}. The book allows it — "two days in a row, or whatever" — but spread them out if the week lets you.`}:{ord,moved:2};
+  const warn=orderWarnings(mon,ord);
+  return warn.length?{ord,moved:2,warn:warn[0],warns:warn}:{ord,moved:2};
 }
-const CROWD=20;        // dearer than rearranging the whole week, cheaper than failing
+/* Preferences, priced rather than enforced. Both used to prune the search, so a week
+   with no clean arrangement came back as "nothing valid this week" and a disabled
+   button. They are costs now: the arranger still avoids them while anything else is
+   available, and produces the awkward week rather than nothing when it is not.
+
+   Both are dearer than shuffling every day of the week, so they are a last resort and
+   never a shortcut. Back to back strength is dearer again than two hard conditioning
+   days, which is the order the book puts them in. */
+const CROWD=20, BTB=200;
 function bestOrder(mon,fixDay,fixSlot){
   const K=slotKinds(mon), cur=dayOrder(mon), ek=edgeKinds(mon), prevK=ek[0], nextK=ek[1];
   const t=realToday(), pinTo=mondayOf(t)===mon?dow(t):-1;
   const used=new Array(7).fill(false), ord=new Array(7);
-  let best=null, bestCost=99;
-  (function go(i,prev,cost){
+  let best=null, bestCost=Infinity, bestMoved=0;
+  const pen=(a,b)=>(crowds(a,b)?CROWD:0)+(clashes(a,b)?BTB:0);
+  (function go(i,prev,cost,moved){
     if(cost>=bestCost) return;
-    if(i===7){ if(clashes(prev,nextK)) return; const c=cost+(crowds(prev,nextK)?CROWD:0); if(c>=bestCost) return; best=ord.slice(); bestCost=c; return }
+    if(i===7){ const c=cost+pen(prev,nextK); if(c>=bestCost) return; best=ord.slice(); bestCost=c; bestMoved=moved; return }
     for(let sl=0;sl<7;sl++){
       if(used[sl]) continue;
       if(i<pinTo&&sl!==cur[i]) continue;           // days already past this week don't move
       if(fixDay!=null&&fixDay===i&&sl!==fixSlot) continue;
       if(fixDay!=null&&fixDay!==i&&sl===fixSlot) continue;
-      const k=K[sl]; if(clashes(k,prev)) continue;
+      const k=K[sl], same=cur[i]===sl;
       used[sl]=true; ord[i]=sl;
-      // Two conditioning days touching is allowed but not preferred, so it costs more
-      // than any amount of shuffling and is only chosen when nothing else fits.
-      go(i+1,k,cost+(cur[i]===sl?0:1)+(crowds(k,prev)?CROWD:0));
+      go(i+1,k,cost+(same?0:1)+pen(k,prev),moved+(same?0:1));
       used[sl]=false;
     }
-  })(0,prevK,0);
-  return best?{ord:best,moved:bestCost}:null;
+  })(0,prevK,0,0);
+  // `moved` counts days that actually shifted. It used to be the cost, so a week that
+  // accepted one crowding penalty reported "moves 19 other days".
+  return best?{ord:best,moved:bestMoved,warns:orderWarnings(mon,best)}:null;
 }
 /* Doing this day's session on another day, on top of what is already there.
 
@@ -3624,12 +3643,12 @@ function stackPicker(date){
   const opts=[];
   for(let i=0;i<7;i++){
     const to=addDays(mon,i); if(to===date) continue;
-    const why=stackWhyNot(date,to);
-    opts.push({to,i,why});
+    opts.push({to,i,why:stackWhyNot(date,to),warn:stackWarn(date,to)});
   }
   if(!opts.some(o=>!o.why)) return '';
   h+=`<p class="note" style="margin:0">Lost today and want to make it up rather than shuffle the week? Move this session onto another day and do both.</p>
-  <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||'')}">${esc(DAYN[o.i])}</button>`).join('')}</div>
+  <div class="row wrap" style="gap:6px">${opts.map(o=>`<button class="btn sm" data-act="stack" data-from="${esc(date)}" data-to="${esc(o.to)}" ${o.why?'disabled':''} title="${esc(o.why||o.warn||'')}">${esc(DAYN[o.i])}${o.warn&&!o.why?' <span aria-hidden="true">\u26a0</span>':''}</button>`).join('')}</div>
+  ${opts.some(o=>!o.why&&o.warn)?`<div class="small muted">\u26a0 ${esc(opts.find(o=>!o.why&&o.warn).warn)}</div>`:''}
   <div class="note">The book allows this and asks only that the lifting comes first, which is how the day will read. It is worth doing to rescue a session; it is not worth planning every week, because hard conditioning on tired legs is a worse session than one on fresh ones — and the thing that catches people out is the total work in the week, not which day it lands on.</div>`;
   return h;
 }
@@ -3638,9 +3657,9 @@ function moveCard(){
   const mon=mondayOf(sel), ord=dayOrder(mon), me=dow(sel), mine=ord[me];
   const past=mondayOf(realToday())===mon&&me<dow(realToday());
   let h=`<div class="card"><div class="lift-h"><h3>Change ${DAYN[me]}’s session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
-  if(past) h+=`<div class="banner warn"><div class="small">${DAYN[me]} has already passed this week, so it stays put. Open today to rearrange what’s left.</div></div>`;
+  if(past) h+=`<div class="banner info"><div class="small">${DAYN[me]} has already gone, so it cannot trade places with another day. To catch the session up, move it onto a day still to come — <b>Two in one day</b>, below.</div></div>`;
   else{
-    h+=`<p class="note" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions; the app shuffles the rest as little as it can and never puts two strength days or two hard conditioning days together.</p><div class="stack">`;
+    h+=`<p class="note" style="margin:0">Pick what you’ll do on ${DAYN[me]}. The week keeps all seven sessions and the app shuffles the rest as little as it can. It will avoid two strength days together, and tell you when the week you have asked for cannot.</p><div class="stack">`;
     // Two days can share a label (Tue and Sat are both "HIC"): offer the one that
     // needs the least shuffling, and only call it impossible if neither works.
     const byLabel=new Map();
@@ -3650,7 +3669,8 @@ function moveCard(){
       if(!was||(r&&(!was.r||r.moved<was.r.moved))) byLabel.set(lbl,{sl,r});
     }
     for(const [lbl,{sl,r}] of byLabel){
-      h+=`<button class="btn" style="justify-content:space-between;gap:10px" data-act="swap" data-sl="${sl}" ${r?'':'disabled'}><span>${esc(lbl)}</span><span class="small${r?'':' muted'}">${r?(r.moved>1?`moves ${r.moved-1} other day${r.moved>2?'s':''} →`:'no other changes →'):'nothing valid this week'}</span></button>`;
+      const warn=r&&r.warns.length?r.warns[0]:null;
+      h+=`<button class="btn" style="justify-content:space-between;gap:10px" data-act="swap" data-sl="${sl}" ${r?'':'disabled'} title="${esc(warn||'')}"><span>${esc(lbl)}${warn?' <span aria-hidden="true">\u26a0</span>':''}</span><span class="small${r?'':' muted'}">${r?(r.moved>1?`moves ${r.moved-1} other day${r.moved>2?'s':''} →`:'no other changes →'):'nothing valid this week'}</span></button>`;
     }
     h+=`</div>`;
   }
@@ -7661,16 +7681,16 @@ function calOptions(from,to){
   if(mondayOf(to)!==mon) return null;
   const sw=swapOrder(mon,dow(from),dow(to));
   const sh=bestOrder(mon,dow(to),slotOf(from));
-  const why=stackWhyNot(from,to);
+  const why=stackWhyNot(from,to), stw=stackWarn(from,to);
   const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
   return [
     {k:'swap',  label:'Swap the two days',
      sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.${sw.warn?' '+esc(sw.warn):''}`, ...sw},
     {k:'shift', label:'Move it and shift the rest',
-     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.`:'',
+     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.${sh.warns.length?' '+esc(sh.warns[0]):''}`:'',
      ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
     {k:'stack', label:'Do both on the same day',
-     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.`,
+     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.${stw?' '+esc(stw):''}`,
      ...(why?{why}:{stack:true})},
   ];
 }
@@ -8275,7 +8295,9 @@ function vGuide(){
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
-  <li><b>The one arrangement it will not make</b> is the same strength session on consecutive days, which is the book’s own principle for moving things around: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” Zulu’s A and B are different sessions, so they are allowed to touch — and are meant to.</li>
+  <li><b>Nothing is refused.</b> The app arranges the week by the book’s own principle for moving things around — “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” — so it will not put the same strength session on consecutive days while any other arrangement exists. But if that is the week you can actually train, you can have it, with the rule said out loud rather than a button you cannot press. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
+  <li><b>Two sessions in one day</b> is there for the day you lose rather than the week you plan. Move a session onto another day and do both; lifting goes first. Two lifting sessions in one day is allowed too — do the heavier one first and cut the accessories on the second.</li>
+  <li><b>What is actually impossible</b> is short: a day that has already gone cannot swap with one still to come, and a rest day has no session to move. Everything else is yours, and anything the app would not have chosen comes with a warning attached.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>

@@ -28,9 +28,19 @@ test("rearranging never leaves two strength or two hard conditioning days togeth
   a.ok(checked > 20, "a good number of arrangements were reachable");
 });
 
-test("moving a session onto Sunday is refused when next Monday lifts", () => {
+test("an awkward week is offered with a warning, never refused", () => {
   const x = app();
-  a.equal(x.bestOrder("2026-10-19", 6, 0), null);
+  // This used to come back null -- "nothing valid this week" and a dead button --
+  // because putting a lifting session on Sunday butts it against Monday's. The
+  // arranger prices that now instead of refusing it: life does not care about the
+  // book's one rule, and the person asking has a reason the app cannot see.
+  const r = x.bestOrder("2026-10-19", 6, 0);
+  a.ok(r, "there is always an arrangement");
+  a.ok(r.warns.length, "and it says what is wrong with it");
+  a.match(r.warns[0], /Back-to-back strength/);
+  // It is still a last resort: a week that can be arranged cleanly is.
+  const clean = x.bestOrder("2026-10-19", 3, 5);
+  a.deepEqual(clean.warns, [], "no warning when none is needed");
 });
 
 test("days already done this week stay put", () => {
@@ -6054,14 +6064,16 @@ test("a session can be moved onto another day and done after it", () => {
   a.equal(x.clearStack(thu), false, "and undoing twice does nothing");
 });
 
-test("stacking refuses the combinations that are a different program, and says why", () => {
+test("stacking refuses only what cannot be done, and warns about the rest", () => {
   const x = app({ now: "2026-10-22" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.plyoOn = false; x.bump();
   const mon = "2026-10-19", wed = "2026-10-21", thu = "2026-10-22", fri = "2026-10-23", sun = "2026-10-25";
 
   a.equal(x.stackWhyNot(thu, fri), null, "conditioning onto a lifting day is the whole point");
   a.equal(x.stackWhyNot(thu, sun), null, "and onto an empty day is just rescheduling");
-  a.match(x.stackWhyNot(mon, wed), /different program/, "two lifting days in one is not");
+  a.equal(x.stackWhyNot(mon, wed), null, "and two lifting days in one is allowed, because life");
+  a.match(x.stackWarn(mon, wed), /a lot of barbell work at once/, "with a word about it");
+  a.match(x.stackWarn(thu, fri), /Lifting goes first/, "and the book's order where that is the point");
   a.match(x.stackWhyNot(thu, thu), /onto itself/);
   a.match(x.stackWhyNot(sun, fri), /nothing on it to move/, "a rest day has nothing to give");
   a.match(x.stackWhyNot(thu, "2026-10-30"), /same week/, "and it does not reach across weeks");
@@ -6085,11 +6097,12 @@ test("the move sheet offers the stack, with the warning the book's caution is ab
   // From a conditioning day every other day is a legal target, so nothing is refused.
   a.doesNotMatch(sheet, /data-act="stack"[^>]*disabled/);
 
-  // From a lifting day, the other lifting days are offered but refused rather than
-  // silently missing — you can see that the app considered them.
+  // From a lifting day, another lifting day is offered too — with the warning, not
+  // a disabled button. Two sessions in a day is a hard day, not an impossible one.
   x.sel = "2026-10-19";
   const liftSheet = x.moveCard();
-  a.match(liftSheet, /data-act="stack"[^>]*data-to="2026-10-21"[^>]*disabled/, "Wednesday lifts too");
+  a.match(liftSheet, /data-act="stack"[^>]*data-to="2026-10-21"(?![^>]*disabled)/, "Wednesday lifts too, and is offered");
+  a.match(liftSheet, /a lot of barbell work at once/, "with what to do about it");
   a.match(liftSheet, /data-act="stack"[^>]*data-to="2026-10-20"(?![^>]*disabled)/, "Tuesday conditions");
   x.sel = "2026-10-22";
   a.match(sheet, /lifting comes first/, "it says what order to do them in");
@@ -6293,19 +6306,18 @@ test("a day dropped on another offers three things, and says why not", () => {
   a.ok(o.shift.ord, "so does shifting");
   a.equal(o.stack.stack, true, "and they can share a day");
 
-  // Two lifting days: the first two work, combining does not, and it says why.
+  // Two lifting days: all three are on the table, and the hard one says what it costs.
   o = opt(0, 2);
   a.ok(o.swap.ord); a.ok(o.shift.ord);
-  a.ok(!o.stack.stack, "two lifting sessions cannot be combined");
-  a.match(o.stack.why, /Two lifting sessions in one day/);
+  a.equal(o.stack.stack, true, "two lifting sessions can be combined, with a warning");
+  a.match(o.stack.sub, /a lot of barbell work at once/);
 
-  // A swap that would put two hard days together is refused with the rule it breaks,
-  // not silently greyed out -- in a full week that is most straight swaps.
+  // A swap that puts two strength days together is offered with the warning, not
+  // refused. It is the week somebody actually has to train.
   o = opt(0, 1);
-  a.ok(!o.swap.ord, "lift onto the next day would clash");
-  a.match(o.swap.why, /would put strength on/);
-  a.match(o.swap.why, /Shifting the week around it would work/, "and points at the option that does");
-  a.ok(o.shift.ord, "which it does");
+  a.ok(o.swap.ord, "lift onto the next day is allowed");
+  a.match(o.swap.sub, /Back-to-back strength/, "with the book's rule said out loud");
+  a.ok(o.shift.ord, "and shifting is still there as the tidier option");
 
   // Across weeks there is nothing to offer.
   a.equal(x.calOptions(day(0), x.addDays(mon, 7)), null);
@@ -6358,9 +6370,10 @@ test("the chooser shows all three and disables what cannot be done", () => {
   x.calMove = { from: mon, to: x.addDays(mon, 2) };        // lift onto lift
   const h = x.calChooser();
   for (const k of ["swap", "shift", "stack"]) a.match(h, new RegExp(`data-act="calmode" data-k="${k}"`), k + " is offered");
-  // The one that cannot happen is disabled and carries the reason, not just dimmed.
-  a.match(h, /data-k="stack"[^>]*disabled|disabled[^>]*data-k="stack"/, "combining is disabled");
-  a.match(h, /Two lifting sessions in one day/);
+  // Nothing here is impossible any more, so nothing is disabled: the hard one carries
+  // its warning instead.
+  a.doesNotMatch(h, /data-k="stack"[^>]*disabled|disabled[^>]*data-k="stack"/, "combining is available");
+  a.match(h, /a lot of barbell work at once/);
   // And it closes without doing anything.
   a.match(h, /data-act="calcancel"/);
   // Once a mode is chosen the chooser gets out of the way for the preview.
@@ -6397,9 +6410,10 @@ test("applying a choice does what the choice said, and nothing else", () => {
   a.equal(x.stackTo(x.addDays(mon, 1)), x.addDays(mon, 3), "the session rides along");
   a.equal(x.dayPlan(x.addDays(mon, 1)).t, "off", "and its own day is clear");
 
-  // A mode that is unavailable cannot be applied by asking for it directly.
+  // A mode that is unavailable cannot be applied by asking for it directly. What is
+  // left unavailable is only the impossible: a rest day has no session to move.
   x = fresh();
-  x.calMove = { from: mon, to: x.addDays(mon, 2) };          // two lifting days
+  x.calMove = { from: x.addDays(mon, 6), to: mon };           // Sunday is off
   a.equal(x.calSetMode("stack"), false, "refused");
   a.ok(!x.calMove.mode);
   a.equal(x.calApply(), false);
@@ -6421,9 +6435,11 @@ test("conditioning may run on consecutive days, which is what the book says", ()
   a.equal(x.clashes("strength", "strength"), true, "the book's one rule still holds");
   a.equal(x.clashes("strengthA", "strengthB"), false, "Zulu's halves are different sessions");
 
-  // Swapping two lifting days apart is still refused, and says it is the book's rule.
-  const refused = x.swapOrder(mon, 1, 2);
-  a.ok(refused.why); a.match(refused.why, /the one arrangement the book rules out/);
+  // Swapping two lifting days together is allowed now, with the rule as a warning.
+  const btb = x.swapOrder(mon, 1, 2);
+  a.ok(btb.ord, "allowed: a warning, not a veto");
+  a.match(btb.warn, /Back-to-back strength/);
+  a.ok(x.orderIssues(mon, btb.ord).length, "it really is the arrangement the book warns about");
 
   // A swap that doubles up conditioning goes through, with a remark rather than a veto.
   const ok = x.swapOrder(mon, 4, 5);

@@ -197,16 +197,16 @@ function calOptions(from,to){
   if(mondayOf(to)!==mon) return null;
   const sw=swapOrder(mon,dow(from),dow(to));
   const sh=bestOrder(mon,dow(to),slotOf(from));
-  const why=stackWhyNot(from,to);
+  const why=stackWhyNot(from,to), stw=stackWarn(from,to);
   const name=d=>dayPlanSlot(d,slotOf(d)).short||'Session';
   return [
     {k:'swap',  label:'Swap the two days',
      sub:`${esc(name(from))} and ${esc(name(to))} trade places. Nothing else moves.${sw.warn?' '+esc(sw.warn):''}`, ...sw},
     {k:'shift', label:'Move it and shift the rest',
-     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.`:'',
+     sub:sh?`${sh.moved} day${sh.moved===1?'':'s'} move so the week still works.${sh.warns.length?' '+esc(sh.warns[0]):''}`:'',
      ...(sh?{ord:sh.ord,moved:sh.moved}:{why:'No arrangement of this week puts it there.'})},
     {k:'stack', label:'Do both on the same day',
-     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.`,
+     sub:`${esc(name(from))} goes onto ${DAYN[dow(to)]} after ${esc(name(to))}.${stw?' '+esc(stw):''}`,
      ...(why?{why}:{stack:true})},
   ];
 }
@@ -811,7 +811,9 @@ function vGuide(){
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
-  <li><b>The one arrangement it will not make</b> is the same strength session on consecutive days, which is the book’s own principle for moving things around: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” Zulu’s A and B are different sessions, so they are allowed to touch — and are meant to.</li>
+  <li><b>Nothing is refused.</b> The app arranges the week by the book’s own principle for moving things around — “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” — so it will not put the same strength session on consecutive days while any other arrangement exists. But if that is the week you can actually train, you can have it, with the rule said out loud rather than a button you cannot press. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
+  <li><b>Two sessions in one day</b> is there for the day you lose rather than the week you plan. Move a session onto another day and do both; lifting goes first. Two lifting sessions in one day is allowed too — do the heavier one first and cut the accessories on the second.</li>
+  <li><b>What is actually impossible</b> is short: a day that has already gone cannot swap with one still to come, and a rest day has no session to move. Everything else is yours, and anything the app would not have chosen comes with a warning attached.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
   <li><b>Specificity is a block, not a program.</b> Alpha and Bravo come from Tactical Barbell III and run three weeks at a time, four days a week on days 1, 2, 4 and 5. The book wants them after a stretch of General Mass, and says to bridge between blocks. Alpha keeps two maximal-strength days (bench, squat and deadlift — the deadlift at one work set per session) against two hypertrophy days; Bravo drops the barbell work entirely and trains nothing but the cluster, which is the point of it rather than an oversight. Bravo also runs the back half of its week five percent heavier than the front.</li>
   <li><b>A hypertrophy day has no barbell prescription.</b> The whole session is your H cluster, so it shows up under Supplementary rather than as a list of lifts: six to twelve exercises for Alpha, eight to sixteen for Bravo, split in half with each half on its own day. What goes in them is yours — the book gives sample clusters and leaves the choice open. The percentage is of your own best for that movement.</li>

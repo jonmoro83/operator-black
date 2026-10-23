@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.46',date:'2026-10-23',title:"Move days however you need to",items:[
+    "Rescheduling no longer refuses anything on programming grounds. Two strength days back to back used to be a hard no; it's a warning now. You have a reason and the app doesn't know what it is.",
+    "Two lifting sessions in one day is allowed too. It used to say that was \u201ca different program, not a rearranged week\u201d, which isn't much help when you've lost a day and want it back. It now says to do the heavier one first and cut the accessories on the second.",
+    "\u201cNothing valid this week\u201d and the dead buttons are gone. The app still arranges the week the way the book would while any clean arrangement exists, and hands you the awkward one with a warning when none does.",
+    "What's actually impossible is short: a day that's already gone can't trade places with one still to come, and a rest day has no session to move. For a day you missed, use Two in one day and move it onto a day still ahead.",
+    "Also fixed: a week that accepted a doubled-up conditioning day reported \u201cmoves 19 other days\u201d, because the count was the scoring number rather than the number of days that moved."]},
   {v:'3.45',date:'2026-10-21',title:"Spoto press",items:[
     "Added to the bench variants at 90%, alongside the paused bench rather than instead of it. They're the same family but not the same lift: a paused bench stops on the chest, which gives you something to settle against and start from, and a Spoto stops an inch or two above it with no contact at all.",
     "That makes the Spoto harder at the same weight, which is why it sits lower, and it's the one that catches a bar quietly sinking into the chest.",

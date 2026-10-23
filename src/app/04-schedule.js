@@ -325,19 +325,27 @@ function stackKindOf(dp){
   if(k==='hic'||k==='easy'||dp.t==='se') return 'cond';
   return 'rest';
 }
-/* Whether these two can share a day, and why not when they cannot. Returns null when
-   they can. A lift and a conditioning session is the pairing the book describes; moving
-   anything onto an empty day is just rescheduling; two lifting days in one is the one
-   combination that is a different programme rather than a rearranged week. */
+/* Whether these two can share a day. Returns null when they can, which is now nearly
+   always: what is left here is what cannot be done rather than what is unadvisable.
+   Two lifting sessions in one day used to be refused as "a different program". It is
+   a warning now — see `stackWarn`. Somebody catching up a session they missed on
+   Tuesday is not redesigning their programme, and telling them so was not useful. */
 function stackWhyNot(from,to){
   if(!from||!to||from===to) return 'A day cannot be moved onto itself.';
   if(mondayOf(from)!==mondayOf(to)) return 'Both days have to be in the same week.';
   if(idxOf(from)<0||idxOf(to)<0) return 'That week is not part of the program.';
   if(stackTo(to)||stackFrom(to)) return `${DAYN[dow(to)]} already has a session moved onto it.`;
   if(stackFrom(from)) return `${DAYN[dow(from)]} already has another session on it.`;
+  if(stackKindOf(bareDay(from))==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
+  return null;
+}
+/* Allowed, and worth a word. Two lifting sessions on one day is a lot of barbell work
+   in one go, and the book's order — heavy first — is the thing worth saying. */
+function stackWarn(from,to){
+  if(stackWhyNot(from,to)) return null;
   const a=stackKindOf(bareDay(from)), b=stackKindOf(bareDay(to));
-  if(a==='rest') return `${DAYN[dow(from)]} has nothing on it to move.`;
-  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a different program, not a rearranged week. Swap the days instead.';
+  if(a==='lift'&&b==='lift') return 'Two lifting sessions in one day is a lot of barbell work at once. Do the heavier one first and cut the accessories on the second.';
+  if(a==='lift'||b==='lift') return 'Lifting goes first, then the conditioning.';
   return null;
 }
 function canStack(from,to){ return stackWhyNot(from,to)===null }
