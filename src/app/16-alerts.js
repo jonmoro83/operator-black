@@ -273,6 +273,9 @@ function tickRest(){
   // started the rest and the beep that ends it -- so the end beep landed on a channel
   // speech had just parked, with no tap to wake it. Only on a rest at least twice the
   // warning, or a short one would announce itself the moment it began.
+  // Three seconds' notice for the audio channel, so the end beep is not waiting on a
+  // resume() when it should be sounding.
+  if(left<=3&&left>0) sfxArm();
   if(restWarnDue(rest,left)){
     rest.warned=true; LS.set('ob.rest',rest); beepWarn(); tlog('rest','warning',left+' s left');
   }

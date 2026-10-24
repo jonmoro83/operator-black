@@ -176,6 +176,7 @@ function ivRender(){
       else tlog('iv','came back '+Math.round(p.into)+' s into '+seg.l+', no cue');
       ivLast.idx=p.i;
     }
+    if(left<=4&&left>0) sfxArm();
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
     // iOS lets the screen lock go mid-session; this is what notices. Free while it holds.

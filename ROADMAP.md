@@ -125,6 +125,22 @@ Genuinely open: things that still need doing or confirming.
 
 ## Settled, for the record
 
+- **The rest alert chain, end to end, 2026-10-24.** Six reports off the device settled
+  what six rounds of reasoning from a laptop had not. In order of discovery:
+  1. `gestureWake` primed `speechSynthesis` on the capture phase of every pointerdown,
+     parking the AudioContext the instant it opened (3.53).
+  2. `syncPush` debounced the schedule by 300 ms, and iOS freezes a hidden page well
+     inside that — so pocketing the phone meant the request was never made (3.55).
+     This was the reported "notifications do not work at all".
+  3. The channel is taken away the moment it opens on a ducking session, which is what
+     the ring switch looks like from inside a page. Named as a suspicion (3.56).
+  4. The beep then ran ~1 s late because every sound had to `resume()` first. Woken
+     three seconds ahead now (3.57).
+  - **The method, which is the part worth keeping:** nothing moved until the app could
+    send a diagnostic to the server by itself. Two copy buttons produced nothing the
+    user could send, and the clipboard is a bad channel on a phone. `/api/report` plus
+    one visible button is what turned this from guessing into reading.
+
 - **Two functions named `hhmm`, 2026-10-24.** Mine in `16-alerts.js` formats a
   timestamp; `21a-calendar.js` already had one that *parses* `"09:30"` and returns
   `null` for anything else. The build joins every file into one scope in filename

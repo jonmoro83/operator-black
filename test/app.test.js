@@ -8943,3 +8943,30 @@ test("the alerts card says when only the test button has ever run", () => {
   x.pushLast = { t: Date.now(), what: "rest alert", ok: true, d: "" };
   a.ok(!x.pushAdvice().some((t) => /No rest has scheduled an alert/.test(t)));
 });
+
+test("the channel is woken before the beep is due, not when it sounds", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.soundMode = "duck"; x.plan.restWarn = 0; x.bump();
+  x.unlockAudio(); await settle();
+  // "It beeped but about a second late" is the resume() in front of the tone, not the
+  // tone. A parked clock cannot be scheduled against, so the only way to be on time
+  // is to already be awake.
+  x.startRest("squat", "Squat · set 2", 120);
+  x.audio.ctx.state = "interrupted";
+  const before = x.audio.resumes;
+  x.rest.end = Date.now() + 2500;                   // inside the three-second window
+  x.tickRest();
+  a.ok(x.audio.resumes > before, "the wake starts early");
+  a.match(x.tlogText(), /woken ahead of a sound/);
+  // Four ticks a second must not be four wakes.
+  x.audio.ctx.state = "interrupted";
+  const after = x.audio.resumes;
+  x.tickRest(); x.tickRest(); x.tickRest();
+  a.equal(x.audio.resumes, after, "throttled");
+  // And it costs nothing while the channel is already running, which is the usual case.
+  x.audio.ctx.state = "running";
+  const running = x.audio.resumes;
+  x.sfxArm();
+  a.equal(x.audio.resumes, running);
+  x.stopRest();
+});

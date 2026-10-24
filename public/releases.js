@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.57',date:'2026-10-24',title:"The beep stops arriving late",items:[
+    "A real rest beeped about a second late. The tone was never the slow part: your audio channel sits interrupted, so the beep had to wake it first and then play, and the wake is what cost the second. Nothing can be scheduled against a sleeping channel, so the only way to be on time is to already be awake.",
+    "The rest timer now wakes the channel three seconds before the end, and the interval timer four seconds before each change. By the time the sound is due the channel is ready and the tone goes straight out.",
+    "It costs nothing when the channel is already awake, which is the normal case, and it won't turn a timer ticking four times a second into four wake-up calls."]},
   {v:'3.56',date:'2026-10-24',title:"When it's the ring switch, the app says so",items:[
     "A ducking session \u2014 the mode that shares the speaker with your music \u2014 is an ambient one on iPhone, and the ring switch silences it. The app can't read that switch, but it can see the signature: the audio channel being taken away in the same second it was opened. Your logs show exactly that, on every page load.",
     "Both diagnostics now say so, and say what it means: the switch silences the beep and notification sounds alike, and nothing in an app can override it. \u201cAlways be audible\u201d gets the in-app beep through, at the cost of pausing your music. Notification sounds stay with the switch.",

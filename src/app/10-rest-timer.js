@@ -190,6 +190,24 @@ function sfxNote(ctx,t,n){
   g.gain.linearRampToValueAtTime(0,t+n.d);
   o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+n.d+.02);
 }
+/* Wake the channel before the sound is due, not when it is.
+
+   A beep on an interrupted context has to `resume()` first, and that round trip is
+   what "it beeped about a second late" is: the tone is correct, it is the wake in
+   front of it that costs the second. Nothing can be scheduled against a parked clock,
+   so the only way to be on time is to be awake already.
+
+   Called a few seconds ahead by whichever timer knows a sound is coming. Cheap when
+   the channel is running, which is the usual case, and throttled so a tick running
+   four times a second does not turn into four resume() calls. */
+let sfxArmedAt=0;
+function sfxArm(){
+  if(quiet()||!audioCtx||audioCtx.state==='running') return;
+  const now=Date.now(); if(now-sfxArmedAt<1500) return;
+  sfxArmedAt=now;
+  try{ const p=audioCtx.resume(); if(p&&p.catch) p.catch(()=>{}) }catch(e){}
+  tlog('audio','woken ahead of a sound',audioCtx.state);
+}
 // What the last sound actually did, as against what was known when it was asked for.
 let lastSfx=null;
 function sfx(name){
