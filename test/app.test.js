@@ -8736,3 +8736,48 @@ test("the alerts card leads with the failure rather than hiding it in a disclosu
     a.doesNotMatch(x.vSetup(), /The last alert was not scheduled/);
   } finally { window.Notification = keepN; global.Notification = keepN; localStorage.removeItem("ob.push") }
 });
+
+test("a subscription the push service has rejected is replaced, not handed back", async () => {
+  const x = app({ now: "2026-10-24" });
+  const keepN = window.Notification, keepF = global.fetch;
+  const dead = "https://web.push.apple.com/DEAD";
+  try {
+    window.Notification = { permission: "granted" }; global.Notification = window.Notification;
+    localStorage.setItem("ob.push", JSON.stringify(dead));
+    let subscribed = null, unsubscribed = false;
+    navigator.serviceWorker = { ready: Promise.resolve({ pushManager: {
+      getSubscription: () => Promise.resolve({ endpoint: dead, unsubscribe: () => (unsubscribed = true, Promise.resolve()) }),
+      subscribe: () => Promise.resolve({ endpoint: "https://web.push.apple.com/FRESH",
+        toJSON: () => ({ endpoint: "https://web.push.apple.com/FRESH", keys: { p256dh: "p", auth: "a" } }) }),
+    } }) };
+    const seen = [];
+    global.fetch = (u, o) => {
+      seen.push(String(u));
+      const body = String(u).includes("push/status")
+        // The server dropped it on a 410 and remembers why. Before, `devices` alone
+        // decided, so a live count of 1 meant "fine" even when that 1 was dead.
+        ? { devices: 1, queued: 0, pendingAt: null, dead: [dead] }
+        : String(u).includes("push/key") ? { key: "BBBB" } : { devices: 1 };
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: () => Promise.resolve(body) });
+    };
+    await x.healAlerts();
+    a.equal(unsubscribed, true, "the dead one is thrown away");
+    a.ok(seen.some((u) => u.includes("push/subscribe")), "and a fresh one is registered");
+    a.equal(JSON.parse(localStorage.getItem("ob.push")), "https://web.push.apple.com/FRESH");
+    a.match(x.pushStatusText(), /re-subscribed/, "and it is on the record");
+  } finally {
+    global.fetch = keepF; window.Notification = keepN; global.Notification = keepN;
+    delete navigator.serviceWorker; localStorage.removeItem("ob.push");
+  }
+});
+
+test("the card reports what the push service said, which nothing used to keep", () => {
+  const x = app({ now: "2026-10-24" });
+  x.pushStat = { at: Date.now(), devices: 1, queued: 0, pendingAt: null,
+    lastSend: { at: Date.now(), title: "Rest done", results: [{ host: "web.push.apple.com", status: 410 }] }, dead: ["x"] };
+  a.match(x.pushStatusText(), /Last send: .*web\.push\.apple\.com 410/);
+  a.ok(x.pushAdvice().some((t) => /rejected this phone/.test(t)), "and says what 410 means");
+  x.pushStat.lastSend.results = [{ host: "web.push.apple.com", status: 201 }];
+  a.ok(x.pushAdvice().some((t) => /accepted by Apple/.test(t)),
+    "an accepted push points at iOS rather than at the app");
+});

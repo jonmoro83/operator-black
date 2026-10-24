@@ -132,7 +132,10 @@ function loadApp({ now = "2026-10-19" } = {}) {
   (0, eval)(fs.readFileSync(path.join(__dirname, "..", "public", "releases.js"), "utf8") +
     ";globalThis.RELEASES=RELEASES;");
 
-  const fns = [...src.matchAll(/^function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]);
+  // `async function` was not matched, so every async top-level function in the app --
+  // enableAlerts, healAlerts, testAlert, holdScreen and the rest -- was invisible to
+  // every test. That is most of the alert path, which is the part that broke.
+  const fns = [...new Set([...src.matchAll(/^(?:async\s+)?function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]))];
   const accessors = STATE.map((v) => `get ${v}(){return ${v}},set ${v}(x){${v}=x}`).join(",")
     + "," + CONSTS.map((c) => `get ${c}(){return ${c}}`).join(",");
   const tail = `globalThis.__app={${fns.join(",")},${accessors},

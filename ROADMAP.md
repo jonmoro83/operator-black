@@ -34,6 +34,21 @@ Genuinely open: things that still need doing or confirming.
 - **The likeliest silent cause, named but unconfirmed:** the DO refuses any alert
   outside `now - 5s .. now + 2h` with a 400, and the rejection was swallowed. A phone
   clock a few minutes slow fails every rest it ever schedules, silently and forever.
+- **A second, better candidate found 2026-10-24, and fixed in 3.51.** `sendAll`
+  collects the push service's HTTP status per device and `alarm()` — the path every
+  real alert takes — discarded it. A 404 or 410 deletes the subscription server-side
+  while the phone keeps its endpoint in localStorage and the card keeps saying On:
+  alerts stop dead with no error on either side. And `healAlerts` re-registered the
+  *same* endpoint whenever `devices` hit 0, so a rejected subscription was handed back
+  to be rejected again, forever. The DO now keeps `lastSend` and a `dead` list,
+  `/push/status` returns both, and the client unsubscribes and makes a fresh
+  subscription when its own endpoint is on that list.
+  - Unprovable after the fact, because nothing recorded it. It is the only failure in
+    the chain that produces exactly the reported symptom.
+- **The harness never exposed `async function`**, so `enableAlerts`, `healAlerts`,
+  `testAlert`, `holdScreen` and every other async top-level function had no tests and
+  could not have had any. That is most of the alert path. Fixed; worth checking what
+  else this uncovers.
 
 - **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
   stays awake for a whole session, and the interval timer on the bike. Confirmed:

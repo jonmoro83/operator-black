@@ -44,13 +44,32 @@ function coverTap(){
 function b64uBytes(str){const b=str.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(str.length/4)*4,'=');return Uint8Array.from(atob(b),c=>c.charCodeAt(0))}
 // If this device thinks alerts are on but the server has no subscription for this
 // person (e.g. after the move to per-user alert stores), quietly register it again.
+/* Re-register this device if the server has lost it -- and, the case that used to
+   loop forever in silence, make a *new* subscription when the push service has
+   declared the old one dead. A 404 or 410 means that endpoint will never work again,
+   so handing the same one back to the server just earns another 410 on the next rest.
+   The phone kept saying On throughout. */
 async function healAlerts(){
   if(!alertsOn()) return;
   try{
-    const st=await api('GET','/push/status'); if(st.devices) return;
-    const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription();
-    if(sub) await api('POST','/push/subscribe',{subscription:sub.toJSON()}); else LS.set('ob.push',null);
-  }catch(e){}
+    const st=await api('GET','/push/status');
+    const mine=LS.get('ob.push');
+    const isDead=Array.isArray(st.dead)&&mine&&st.dead.includes(mine);
+    if(st.devices&&!isDead) return;
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(sub&&(isDead||sub.endpoint===mine&&isDead)){
+      try{ await sub.unsubscribe() }catch(e){}
+      sub=null;
+    }
+    if(!sub){
+      const {key}=await api('GET','/push/key');
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)});
+      pushNote('re-subscribed',true,'the old endpoint was rejected');
+    }
+    await api('POST','/push/subscribe',{subscription:sub.toJSON()});
+    LS.set('ob.push',sub.endpoint);
+  }catch(e){ pushNote('heal',false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'failed') }
 }
 async function enableAlerts(){
   alerts.busy=true; alerts.msg=null; render();
@@ -92,6 +111,9 @@ function pushStatusText(){
   else out.push('Last asked: nothing yet on this phone');
   if(S&&!S.busy) out.push(S.err?'Server: could not ask ('+S.err+')'
     :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+hhmm(S.pendingAt):'no alarm set'));
+  if(S&&S.lastSend) out.push('Last send: '+hhmm(S.lastSend.at)+' \u201c'+(S.lastSend.title||'')+'\u201d \u2014 '+
+    ((S.lastSend.results||[]).map(r=>r.host+' '+r.status).join(', ')||'no devices to send to'));
+  if(S&&Array.isArray(S.dead)&&S.dead.length) out.push('Rejected endpoints on file: '+S.dead.length);
   return out.join('\n');
 }
 function pushAdvice(){
@@ -101,6 +123,12 @@ function pushAdvice(){
   if(L&&!L.ok&&/401|403/.test(L.d)) out.push('You were signed out when the alert was scheduled. Open the app, sign in, and start the rest again.');
   if(L&&!L.ok&&/no answer|Failed|network/i.test(L.d)) out.push('The request never reached the server. If you train somewhere with no signal, the alert cannot be scheduled \u2014 the in-app beep is what you get.');
   if(S&&!S.busy&&!S.err&&S.devices===0) out.push('The server has no device registered for you, so there is nothing to push to. Turn alerts off and on again above.');
+  if(S&&S.lastSend&&(S.lastSend.results||[]).some(r=>r.status===410||r.status===404))
+    out.push('The push service rejected this phone\u2019s subscription as gone (410). That kills alerts dead while the app still says they are on. Reopening the app should now make a fresh one by itself; if it does not, turn alerts off and on again.');
+  if(S&&S.lastSend&&(S.lastSend.results||[]).some(r=>String(r.status).startsWith('error')))
+    out.push('The server could not reach the push service at all for the last alert. That is usually temporary.');
+  if(S&&S.lastSend&&(S.lastSend.results||[]).some(r=>r.status===201||r.status===200))
+    out.push('The last alert was accepted by Apple. If it did not appear, it is iOS deciding not to show it: Settings \u2192 Notifications \u2192 Operator, and check Focus modes.');
   if(S&&!S.busy&&!S.err&&S.devices>0&&S.queued===0&&rest&&!rest.done) out.push('A rest is running but the server has nothing queued for it. That is the bug \u2014 copy this and send it.');
   if(/FAILING/.test(storageNote())) out.push('This phone can no longer write to its own storage, which is enough on its own to stop alerts: the subscription lives there. Setup \u2192 About this app \u2192 clear the cache, or reinstall the home-screen app.');
   if(!out.length) out.push('Nothing here looks wrong. If an alert still did not arrive, it is iOS deciding not to show it: check Settings \u2192 Notifications \u2192 Operator, and that a Focus mode is not filtering it.');

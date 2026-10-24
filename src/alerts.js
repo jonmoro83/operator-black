@@ -18,7 +18,12 @@ export class RestAlerts extends DurableObject {
     if (op === "status") {
       const at = await this.ctx.storage.getAlarm();
       const queue = (await this.ctx.storage.get("queue")) || [];
-      return json({ devices: Object.keys(subs).length, pendingAt: at, queued: queue.length });
+      // `lastSend` is the only record of what the push service actually said. Without
+      // it, a subscription Apple has rejected looks identical to one that works: the
+      // phone still has its endpoint, the card still says On, and nothing arrives.
+      const lastSend = (await this.ctx.storage.get("lastSend")) || null;
+      const dead = (await this.ctx.storage.get("dead")) || [];
+      return json({ devices: Object.keys(subs).length, pendingAt: at, queued: queue.length, lastSend, dead });
     }
 
     if (op === "subscribe") {
@@ -28,6 +33,8 @@ export class RestAlerts extends DurableObject {
       if (!okEndpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) return json({ error: "Invalid subscription." }, 400);
       subs[s.endpoint] = { endpoint: s.endpoint, keys: { p256dh: s.keys.p256dh, auth: s.keys.auth }, added: Date.now() };
       await this.ctx.storage.put("subs", subs);
+      const dead = ((await this.ctx.storage.get("dead")) || []).filter((e) => e !== s.endpoint);
+      await this.ctx.storage.put("dead", dead);
       return json({ devices: Object.keys(subs).length });
     }
 
@@ -89,21 +96,35 @@ export class RestAlerts extends DurableObject {
     } else await this.ctx.storage.delete("queue");
   }
 
+  /* The results of this were returned to the caller and, from `alarm()`, dropped on
+     the floor -- which is the one place it matters, because that is every real alert.
+     A 404 or 410 means the subscription is gone for good, and deleting it here while
+     the phone keeps its endpoint in localStorage is how you get "alerts are on" and
+     silence with no error anywhere. Both the results and the dead endpoints are kept
+     now, so `/push/status` can say so and the app can re-subscribe properly. */
   async sendAll(payload) {
     const subs = (await this.ctx.storage.get("subs")) || {};
     const results = [];
     let changed = false;
+    const dead = new Set((await this.ctx.storage.get("dead")) || []);
     for (const s of Object.values(subs)) {
       let status;
       try {
         status = await sendPush(s, JSON.stringify(payload), this.env);
       } catch (e) {
-        status = "error";
+        status = "error:" + ((e && e.name) || "?");
       }
       results.push({ host: new URL(s.endpoint).host, status });
-      if (status === 404 || status === 410) (delete subs[s.endpoint], (changed = true));
+      if (status === 404 || status === 410) {
+        delete subs[s.endpoint];
+        dead.add(s.endpoint);
+        changed = true;
+      }
     }
     if (changed) await this.ctx.storage.put("subs", subs);
+    await this.ctx.storage.put("lastSend", { at: Date.now(), title: payload.title, results });
+    // Keep only the handful that matter; this is a diagnosis aid, not a ledger.
+    if (changed) await this.ctx.storage.put("dead", [...dead].slice(-5));
     return { devices: Object.keys(subs).length, results };
   }
 }
