@@ -8,7 +8,7 @@
 
 // Stamped by build.js from the contents of SHELL below. Do not edit by hand: it moves
 // when one of those files does, which is what drops the old cache after a deploy.
-const VERSION = "ob-9088eb747f";
+const VERSION = "ob-927af92be4";
 const SHELL = ["/", "/app.css", "/app.js", "/releases.js", "/icon-32.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
@@ -114,6 +114,10 @@ self.addEventListener("push", (event) => {
       // A fresh tag per alert: a replaced notification is not re-announced by Siri.
       tag: data.tag || "ob-" + Date.now(),
       renotify: true,
+      // Explicit, so there is one less thing to wonder about: a notification without
+      // this is not silent by default, but saying so removes it from the list of
+      // suspects when one arrives without a sound. The ringer switch is above us.
+      silent: false,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       vibrate: [200, 100, 200],

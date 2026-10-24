@@ -76,7 +76,7 @@ function unlockAudio(opt){
   try{ if(wantVoice&&plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
     if(navigator.audioSession) navigator.audioSession.type=soundMode()==='takeover'?'playback':'transient';
-    if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); ctxWatch(audioCtx); tlog('audio','channel opened') }
+    if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); ctxWatch(audioCtx); ctxOpenedAt=Date.now(); tlog('audio','channel opened') }
     if(audioCtx.state!=='running') audioCtx.resume();
     const b=audioCtx.createBuffer(1,1,22050), s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0);
   }catch(e){}
@@ -236,10 +236,21 @@ function sfx(name){
    ready rather than finding out at the end of a rest. And every tap anywhere wakes it,
    because a tap is the one moment iOS is sure to honour a wake: in a session, that is
    every Done. */
+/* How soon after opening the channel was taken away. On iPhone a ducking session is
+   an *ambient* one, which the ringer switch silences and the system may interrupt
+   outright -- so a context that is interrupted within a second or two of being opened,
+   with nothing else going on, is what a phone set to silent looks like from in here.
+   It is an inference, not a reading: there is no API that will tell a web page where
+   that switch is. It is reported as a suspicion and worded as one. */
+let ctxOpenedAt=0, ctxQuickKill=false;
+function ringerSuspect(){ return ctxQuickKill&&soundMode()==='duck' }
 let ctxWakes=[];
 function ctxWatch(ctx){
   ctx.onstatechange=()=>{
     tlog('audio',ctx.state);
+    if(ctx.state==='interrupted'&&ctxOpenedAt&&Date.now()-ctxOpenedAt<2000&&!ctxQuickKill){
+      ctxQuickKill=true; tlog('audio','taken away as soon as it opened','ringer switch?');
+    }
     if(ctx.state==='running'||ctx.state==='closed'||quiet()) return;
     if(typeof document!=='undefined'&&document.visibilityState&&document.visibilityState!=='visible') return;
     const now=Date.now(); ctxWakes=ctxWakes.filter(t=>now-t<10000);
@@ -406,6 +417,7 @@ function beepAdvice(d){
   const out=[];
   if(d.silent) out.push('Sound is set to off below, on purpose. The buzz and the notification still fire.');
   if(d.mode==='duck'&&/iPhone|iPad/i.test(d.ua)) out.push('Sound is set to share the speaker with your music, which is what you want \u2014 but iOS silences shared audio when the ring switch on the side of the phone is off. Check that switch first. If you need to be heard with it off, the price is your music pausing: choose \u201calways be audible\u201d below.');
+  if(ringerSuspect()) out.push('The audio channel was taken away the moment it opened, which on this phone is what the ring switch being off looks like from inside a web page. Check the switch on the left-hand side. It silences the beep and notification sounds alike, and no app setting overrides it \u2014 but \u201calways be audible\u201d below gets the in-app beep through, at the cost of pausing your music.');
   if(/iPhone|iPad/i.test(d.ua)){
     if(!d.canVibrate) out.push('This is an iPhone or iPad, and Safari gives a web app no way to vibrate at all. There will never be a buzz here \u2014 sound, screen and notifications are what you get.');
     out.push('If you heard nothing: check the ring switch on the side of the phone, and that the volume is up.');

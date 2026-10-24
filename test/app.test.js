@@ -8916,3 +8916,30 @@ test("a rest schedules its alert before the page can be frozen", async () => {
     localStorage.removeItem("ob.push"); x.stopRest();
   }
 });
+
+test("a channel taken away the instant it opens is reported as the ring switch", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.soundMode = "duck"; x.bump();
+  x.unlockAudio(); await settle();
+  // On iPhone a ducking session is an ambient one, and the device log showed the
+  // context going interrupted in the same second it was opened, every page load.
+  x.audio.interrupt();
+  a.match(x.tlogText(), /taken away as soon as it opened \(ringer switch\?\)/);
+  a.ok(x.beepAdvice(x.audioState()).some((t) => /ring switch/.test(t)),
+    "the beep card says what that looks like");
+  a.ok(x.pushAdvice().some((t) => /silences notification sounds too/.test(t)),
+    "and so does the alerts card, because the switch silences both");
+  // Taking over the speaker is the one thing that beats the switch, so the inference
+  // is not drawn in that mode.
+  x.plan.soundMode = "takeover"; x.bump();
+  a.equal(x.ringerSuspect(), false);
+});
+
+test("the alerts card says when only the test button has ever run", () => {
+  const x = app({ now: "2026-10-24" });
+  x.pushLast = null;
+  a.ok(x.pushAdvice().some((t) => /No rest has scheduled an alert/.test(t)),
+    "a clean report from a test alone proves less than it looks");
+  x.pushLast = { t: Date.now(), what: "rest alert", ok: true, d: "" };
+  a.ok(!x.pushAdvice().some((t) => /No rest has scheduled an alert/.test(t)));
+});

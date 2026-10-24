@@ -129,6 +129,9 @@ function pushAdvice(){
     out.push('The server could not reach the push service at all for the last alert. That is usually temporary.');
   if(S&&S.lastSend&&(S.lastSend.results||[]).some(r=>r.status===201||r.status===200))
     out.push('The last alert was accepted by Apple. If it did not appear, it is iOS deciding not to show it: Settings \u2192 Notifications \u2192 Operator, and check Focus modes.');
+  if(ringerSuspect())
+    out.push('If it arrived without a sound: the ring switch on the side of the phone silences notification sounds too, and nothing in the app can override that. The audio channel here was taken away the moment it opened, which is what that switch being off looks like from inside a web page.');
+  if(!pushLast) out.push('No rest has scheduled an alert on this build yet \u2014 only the test button has run. Start a rest, let it finish, then send this again.');
   if(S&&!S.busy&&!S.err&&S.devices>0&&S.queued===0&&rest&&!rest.done) out.push('A rest is running but the server has nothing queued for it. That is the bug \u2014 copy this and send it.');
   if(/FAILING/.test(storageNote())) out.push('This phone can no longer write to its own storage, which is enough on its own to stop alerts: the subscription lives there. Setup \u2192 About this app \u2192 clear the cache, or reinstall the home-screen app.');
   if(!out.length) out.push('Nothing here looks wrong. If an alert still did not arrive, it is iOS deciding not to show it: check Settings \u2192 Notifications \u2192 Operator, and that a Focus mode is not filtering it.');

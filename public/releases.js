@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.56',date:'2026-10-24',title:"When it's the ring switch, the app says so",items:[
+    "A ducking session \u2014 the mode that shares the speaker with your music \u2014 is an ambient one on iPhone, and the ring switch silences it. The app can't read that switch, but it can see the signature: the audio channel being taken away in the same second it was opened. Your logs show exactly that, on every page load.",
+    "Both diagnostics now say so, and say what it means: the switch silences the beep and notification sounds alike, and nothing in an app can override it. \u201cAlways be audible\u201d gets the in-app beep through, at the cost of pausing your music. Notification sounds stay with the switch.",
+    "The alerts card also now points out when only the test button has run. A clean report from a test alone proves less than it looks \u2014 it was proving the pipe, not the rest timer.",
+    "Notifications are sent with silent explicitly off, so that's one less thing to wonder about."]},
   {v:'3.55',date:'2026-10-24',title:"Rest alerts are sent the moment the rest starts",items:[
     "Your test notification arriving is what pointed at this. The test and a rest alert go down the same pipe, so the difference had to be in when the request is made \u2014 and it was.",
     "A rest waited 300 milliseconds before asking the server to schedule its alert. That delay was there to spare the network when you tap \u00b130s a few times. But you start a rest by ticking the last set and putting the phone in your pocket, and iOS freezes the page the instant it is hidden \u2014 well inside 300 ms. The request was never made, and nothing recorded that anything was missing.",
