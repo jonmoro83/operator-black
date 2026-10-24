@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.53',date:'2026-10-24',title:"The app was silencing its own beep",items:[
+    "Your phone's log settled it. Every single time the app opened its audio channel, the channel was interrupted in the same instant \u2014 then every beep afterwards had to fight its way back.",
+    "The app was doing it to itself. Tapping anything wakes the audio, and waking it also primed the speech voice with a silent phrase. On iOS, speaking takes the audio channel \u2014 so the app opened its channel and immediately parked it, on every page load. Waking the audio makes no sound of its own now.",
+    "That also explains why 3.52's fix to the beep test didn't take: the damage was done by the tap itself, before the button's own code ran.",
+    "The beep test now tells you what happened to the sound rather than what was in flight when it looked. \u201cResuming\u201d was a stage, not an answer.",
+    "Separately: the app kept asking to hold the screen awake while the phone was in your pocket, which iOS always refuses \u2014 and the app read that refusal as Low Power Mode and warned that the screen might sleep. It only asks while you are looking at it now.",
+    "Still to find: whether this is also what was happening to the rest alerts. Send the alerts report when you can."]},
   {v:'3.52',date:'2026-10-24',title:"Send a report without copying anything",items:[
     "Twice now a bug report has come down to \u201cthe copy button gave me nothing to send\u201d. The clipboard is a poor channel on a phone: it can be missing, it can refuse, and on iOS it can report success and still leave you with nothing to paste.",
     "So there's a <b>Send this to the developer</b> button on the beep test and on the alerts card. It posts the diagnostic and the timer log straight to the server, where they can be read directly. It says plainly whether it worked.",

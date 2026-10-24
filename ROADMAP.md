@@ -113,6 +113,31 @@ Genuinely open: things that still need doing or confirming.
 
 ## Settled, for the record
 
+- **The app was interrupting its own audio channel, every page load. Found from a
+  device log 2026-10-24, fixed in 3.53.** Six rounds of work on "the beep does not
+  sound" had all been reasoning from a laptop; the first real log off the phone showed
+  it in four lines:
+
+      audio · channel opened    [audio suspended]
+      audio · woken by a tap    [audio suspended]
+      audio · interrupted       [audio interrupted]
+      audio · woken by a tap x5 [audio interrupted]
+
+  `gestureWake` is bound to pointerdown on the capture phase, so it runs before any
+  button's own handler. It called `unlockAudio()`, which primes `speechSynthesis` with
+  a silent utterance — and on iOS speaking takes the audio session. So the app opened
+  its channel and parked it in the same gesture, every time, and every sound after
+  that had to win a `resume()` race first. 3.52's `{voice:false}` on the beep test was
+  useless: the priming had already happened on the way in.
+  - The rule, now stated in the code: **waking the audio must never make a sound.**
+  - Worth remembering about capture-phase global handlers: they are invisible when you
+    read the button's own code, which is where I kept looking.
+- **Asking for the screen lock on a hidden page** earns `NotAllowedError`, which
+  `holdScreen` recorded as `wakeState='refused'` — the same state Low Power Mode
+  produces. So putting the phone in a pocket made the timer warn that the screen might
+  sleep. 3.38 made it worse by calling `syncScreen()` on every tick. It only asks while
+  the page is visible now; `visibilitychange` already handles the way back.
+
 Closed. Here because the reasoning is worth keeping, not because anything is pending.
 
 - **"Can the timer run in the background, unaffected by locks or app switching?"

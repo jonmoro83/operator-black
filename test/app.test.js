@@ -8819,3 +8819,47 @@ test("a report goes to the server, so getting it off the phone is not the user's
     a.match(x.sendNote(), /Could not send it \(HTTP 500\)/);
   } finally { global.fetch = keepF }
 });
+
+test("waking the audio on a tap never makes a sound of its own", () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.voice = true; x.plan.soundMode = "duck"; x.bump();
+  x.audio.said.length = 0;
+  // The device log showed this every page load: channel opened, then interrupted the
+  // same instant, because the capture-phase pointerdown handler primed speech before
+  // the button's own handler ever ran. Priming is a sound; waking must not be.
+  x.audio.fire("pointerdown");
+  a.equal(x.audio.said.length, 0, "the tap woke the channel and said nothing");
+  a.ok(x.audio.ctx, "but the channel is open");
+});
+
+test("the screen lock is not asked for while the page is hidden", async () => {
+  const x = app({ now: "2026-10-24" });
+  const keep = navigator.wakeLock;
+  let asked = 0;
+  navigator.wakeLock = { request: () => (asked++, Promise.reject(Object.assign(new Error("no"), { name: "NotAllowedError" }))) };
+  try {
+    document.visibilityState = "hidden";
+    x.startRest("squat", "Squat · set 2", 120);
+    await settle(); await settle();
+    a.equal(asked, 0, "a hidden page cannot hold it, so it is not asked");
+    a.notEqual(x.wakeState, "refused", "and it is not recorded as a refusal");
+    // Coming back is the right moment to ask.
+    document.visibilityState = "visible";
+    x.syncScreen(); await settle(); await settle();
+    a.equal(asked, 1);
+  } finally { navigator.wakeLock = keep; document.visibilityState = "visible"; x.stopRest() }
+});
+
+test("the beep test reports what happened to the sound, not what was in flight", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.soundMode = "duck"; x.bump();
+  x.unlockAudio(); await settle();
+  x.audio.ctx.state = "interrupted";
+  x.beepTest();
+  // The first read catches it mid-wake, which is what "web audio: resuming" meant.
+  a.equal(x.beepSeen.tones, "resuming");
+  await new Promise((r) => setTimeout(r, 1700));
+  a.equal(x.beepSeen.after, "running", "and the follow-up says where it ended up");
+  a.equal(x.beepSeen.tonesAfter, "played after waking");
+  a.match(x.beepReport(), /sound outcome: played after waking/);
+});

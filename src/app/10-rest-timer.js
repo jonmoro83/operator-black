@@ -190,6 +190,8 @@ function sfxNote(ctx,t,n){
   g.gain.linearRampToValueAtTime(0,t+n.d);
   o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+n.d+.02);
 }
+// What the last sound actually did, as against what was known when it was asked for.
+let lastSfx=null;
 function sfx(name){
   const notes=SFX[name]; if(!notes) return 'unknown';
   if(quiet()){ tlog('sound',name+' \u00b7 silent'); return 'silent' }
@@ -200,7 +202,7 @@ function sfx(name){
   sfxUntil=Date.now()+sfxLen(name)*1000+120;
   const play=()=>{ try{ const t0=audioCtx.currentTime+.005; for(const n of notes) sfxNote(audioCtx,t0+(n.at||0),n) }catch(e){} };
   const was=audioCtx.state;
-  if(was==='running'){ play(); tlog('sound',name+' \u00b7 played'); return 'running' }
+  if(was==='running'){ play(); lastSfx='played'; tlog('sound',name+' \u00b7 played'); return 'running' }
   // The line goes in now, pending, and the outcome amends it. Before, a wake that never
   // answered wrote nothing at all, so a beep lost that way and a beep never asked for
   // looked identical in the log -- which is the one distinction a report needs.
@@ -216,8 +218,8 @@ function sfx(name){
     if(p&&p.then){
       p.then(()=>{
         settled=true;
-        if(audioCtx.state==='running'){ sfxUntil=Date.now()+sfxLen(name)*1000+120; play(); tlogAmend(id,name+' \u00b7 played after waking',was) }
-        else tlogAmend(id,name+' \u00b7 wake did not take',was+' → '+audioCtx.state);
+        if(audioCtx.state==='running'){ sfxUntil=Date.now()+sfxLen(name)*1000+120; play(); lastSfx='played after waking'; tlogAmend(id,name+' \u00b7 played after waking',was) }
+        else { lastSfx='wake did not take'; tlogAmend(id,name+' \u00b7 wake did not take',was+' → '+audioCtx.state) }
       },e=>{ settled=true; tlogAmend(id,name+' \u00b7 wake refused',was+' '+((e&&e.name)||'')) });
       // WebKit leaves resume() pending for as long as an interruption lasts, so a promise
       // that has not settled in two seconds is a sound going missing, not one running late.
@@ -246,10 +248,22 @@ function ctxWatch(ctx){
     try{ const p=ctx.resume(); if(p&&p.catch) p.catch(e=>tlog('audio','wake refused',(e&&e.name)||'')) }catch(e){}
   };
 }
+/* The device log settled this one. Every page load read:
+
+     audio · channel opened    [audio suspended]
+     audio · woken by a tap    [audio suspended]
+     audio · interrupted       [audio interrupted]   <- the same instant
+     audio · woken by a tap x5 [audio interrupted]
+
+   This handler runs on the capture phase of every pointerdown, so it arrives before
+   the button's own handler, called `unlockAudio()` with priming on, and the silent
+   priming utterance parked the context the instant it was opened. 3.52's
+   `{voice:false}` on the beep test could not help, because the priming had already
+   happened on the way in. Waking the audio must never make a sound of its own. */
 function gestureWake(){
   if(quiet()) return;
   if(audioCtx&&audioCtx.state==='running') return;
-  unlockAudio(); tlog('audio','woken by a tap');
+  unlockAudio({voice:false}); tlog('audio','woken by a tap');
 }
 if(typeof document!=='undefined'&&document.addEventListener)
   ['pointerdown','touchend','keydown'].forEach(ev=>document.addEventListener(ev,gestureWake,{capture:true,passive:true}));
@@ -402,13 +416,20 @@ function beepAdvice(d){
   if(!out.length) out.push('Everything the app can check came back fine. If you still heard nothing, it is the device volume or a Focus mode rather than the app.');
   return out;
 }
-function beepTest(){ beepSeen=beepDiag(); render(); }
+/* `resuming` is a stage, not an outcome: the device report was taken before the tone
+   it was testing had played. Look again once the wake has had time to settle, so the
+   card says what actually happened to the sound. */
+function beepTest(){
+  lastSfx=null; beepSeen=beepDiag(); render();
+  setTimeout(()=>{ if(beepSeen){ beepSeen.after=audioCtx?audioCtx.state:'none'; beepSeen.tonesAfter=lastSfx; render() } },1500);
+}
 // Paste-able, same shape as the crash report, so a "still broken" comes with the facts.
 function beepReport(){
   const d=beepSeen; if(!d) return 'No beep test run yet.';
   const head='Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 beep test';
   const rows=[['mode',d.mode],['silent',d.silent],['can vibrate',d.canVibrate],['vibrated',d.vibrated],
     ['media clip',d.media],['web audio',d.tones],['audio channel',d.ctx],['audio session',d.session]];
+  if(d.after) rows.push(['channel after',d.after],['sound outcome',d.tonesAfter||'never played']);
   return head+'\n'+rows.map(r=>r[0]+': '+r[1]).join('\n')+'\n'+d.ua+'\n\n'+beepAdvice(d).join('\n');
 }
 /* iOS drops the lock whenever the page is hidden, and a dropped lock still reads as an
@@ -431,6 +452,13 @@ let screenAsked=0, screenBusy=false;
 async function holdScreen(on){
   if(on){
     if(wakeLock&&!wakeLock.released) return;
+    /* A hidden page cannot hold the screen lock, and asking anyway earns a
+       NotAllowedError that was recorded as "refused" -- the same state Low Power Mode
+       produces, so the timer warned "Screen may sleep" for the ordinary act of putting
+       the phone down. The device log was full of
+       `screen · refused x2 (NotAllowedError) [page hidden]`. The visibilitychange
+       handler asks again on the way back, which is the right moment. */
+    if(typeof document!=='undefined'&&document.visibilityState&&document.visibilityState!=='visible') return;
     const now=Date.now();
     if(screenBusy||now-screenAsked<SCREEN_RETRY) return;
     screenAsked=now; screenBusy=true;
