@@ -25,7 +25,12 @@ Genuinely open: things that still need doing or confirming.
   (the long-standing "no tests for the Worker" gap, and this is what it costs): every
   push call recorded its outcome rather than ending in `.catch(()=>{})`, and Setup
   shows it against `/push/status` — devices registered, alerts queued, next alarm.
-  **Next report should come with that card copied.**
+  **Next report should come with that card copied.** First attempt produced nothing,
+  because all five copy buttons in the app shared one shape —
+  `if(navigator.clipboard) ...writeText(t).then(done,()=>{})` — which does nothing at
+  all, silently, when the clipboard is missing or refuses. 3.50 gives them execCommand
+  as a second try and an on-screen selectable box as a third, and puts the alert
+  failure on the card itself rather than inside a closed disclosure.
 - **The likeliest silent cause, named but unconfirmed:** the DO refuses any alert
   outside `now - 5s .. now + 2h` with a 400, and the rejection was swallowed. A phone
   clock a few minutes slow fails every rest it ever schedules, silently and forever.

@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.50',date:'2026-10-24',title:"The copy buttons actually copy",items:[
+    "\u201cI did it but I didn't get anything to send you.\u201d Every copy button in the app \u2014 the alert details, the timer log, the beep test, the crash report, the calendar address \u2014 did nothing whatsoever when the phone wouldn't hand over the clipboard. No copy, no message, no fallback.",
+    "They try the clipboard, then the older way, and if both refuse they put the text on the screen in a box you can select or photograph. There is always something to send now.",
+    "The alerts card no longer hides the answer behind a disclosure either. If the last alert was refused, or the server has no device registered for you, it says so on the card with the reason, and opens the detail for you.",
+    "If you haven't run a rest since updating, the card says that too, rather than looking like it found nothing wrong."]},
   {v:'3.49',date:'2026-10-24',title:"Find out why an alert didn't arrive",items:[
     "Reported: rest alerts stopped working. I can't find a break \u2014 the server, the service worker and the scheduling all check out from here, and nothing I changed touches them \u2014 so this release is about making the next one answerable instead of guessing again.",
     "Every request to schedule an alert used to throw its answer away. A push that was never scheduled looked exactly like one that was. The result is recorded now, and Setup \u2192 Rest alerts \u2192 \u201cIs it actually working?\u201d shows what this phone last asked for and what it got back.",

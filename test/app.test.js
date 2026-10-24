@@ -8693,3 +8693,46 @@ test("the alerts card asks the server what it is holding", async () => {
     a.match(x.pushReport(), /^Operator \+ Black .* alerts/);
   } finally { global.fetch = keepF }
 });
+
+test("a copy that cannot reach the clipboard puts the text on screen instead", () => {
+  const x = app({ now: "2026-10-24" });
+  const nav = globalThis.navigator;
+  const btn = { textContent: "Copy for a bug report" };
+  try {
+    // Five buttons used to do nothing at all here: no copy, no message, no fallback.
+    // "I did it but I didn't get anything to send you" is what that looks like.
+    Object.defineProperty(globalThis, "navigator", {
+      value: Object.assign({}, nav, { clipboard: undefined }), configurable: true, writable: true });
+    document.execCommand = () => false;                 // and the old way refuses too
+    x.copyOut(btn, "the report text", "Copy for a bug report");
+    a.match(btn.textContent, /shown below/, "the button says what happened");
+    const h = x.copyBox();
+    a.match(h, /Here it is/);
+    a.match(h, /the report text/, "and the text is on the page to select or photograph");
+    // It shows above whatever view you are on, so it cannot be missed.
+    x.view = "today";
+    a.match(x.vSetup ? x.copyBox() : "", /Here it is/);
+    x.copyFallback = null;
+    a.equal(x.copyBox(), "", "and it closes");
+  } finally {
+    Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true, writable: true });
+    delete document.execCommand;
+  }
+});
+
+test("the alerts card leads with the failure rather than hiding it in a disclosure", () => {
+  const x = app({ now: "2026-10-24" });
+  const keepN = window.Notification;
+  try {
+    window.PushManager = function () {}; window.Notification = { permission: "granted" };
+    global.Notification = window.Notification;
+    localStorage.setItem("ob.push", JSON.stringify("https://push.example/abc"));
+    x.pushLast = { t: Date.now(), what: "rest alert", ok: false, d: "HTTP 400" };
+    const h = x.vSetup();
+    a.match(h, /The last alert was not scheduled/, "it is said on the card, unprompted");
+    a.match(h, /<details[^>]*open/, "and the detail is already open");
+    // Nothing wrong, nothing shouted about.
+    x.pushLast = { t: Date.now(), what: "rest alert", ok: true, d: "fires 10:42:00" };
+    a.doesNotMatch(x.vSetup(), /The last alert was not scheduled/);
+  } finally { window.Notification = keepN; global.Notification = keepN; localStorage.removeItem("ob.push") }
+});

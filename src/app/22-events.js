@@ -1,3 +1,45 @@
+/* ---------------- copying something out of the app ----------------
+Five buttons all did `if(navigator.clipboard) ... .then(done,()=>{})`, which means that
+where the clipboard is missing or refuses, the button does nothing at all: no copy, no
+message, no fallback. Reported as "I did it but I didn't get anything to send you",
+which is exactly what that looks like from the outside.
+
+Three ways out, in order, and the last one cannot fail: the async clipboard, the old
+execCommand on a temporary textarea, and failing both, put the text on the screen in a
+selected box so it can be copied by hand or photographed. */
+let copyFallback=null;
+/* The last resort, shown at the top of whatever view you are on: the text, selected,
+   in a box. Copy it by hand or photograph it -- either way there is something to send,
+   which was the whole point of the button. */
+function copyBox(){
+  if(!copyFallback) return '';
+  return `<div class="card"><div class="lift-h"><h3>Here it is</h3><button class="btn sm ghost" data-act="copydismiss">Close</button></div>
+  <p class="note" style="margin:0">This phone would not let the app put it on the clipboard. Select it and copy it, or take a screenshot \u2014 either works.</p>
+  <textarea id="copy-out" class="mono small" rows="10" readonly style="width:100%">${esc(copyFallback.text)}</textarea></div>`;
+}
+function copyOut(btn,text,label){
+  const say=(t)=>{ if(btn){ btn.textContent=t; setTimeout(()=>{ if(btn) btn.textContent=label },2500) } };
+  const ok=()=>{ copyFallback=null; say('Copied'); render() };
+  const fail=()=>{ copyFallback={text,label}; say('Can\u2019t copy \u2014 shown below'); render() };
+  const legacy=()=>{
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=text; ta.setAttribute('readonly','');
+      ta.style.position='fixed'; ta.style.top='-1000px';
+      document.body.appendChild(ta); ta.select();
+      const done=document.execCommand&&document.execCommand('copy');
+      ta.remove();
+      return !!done;
+    }catch(e){ return false }
+  };
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(ok,()=>{ legacy()?ok():fail() });
+      return;
+    }
+  }catch(e){}
+  legacy()?ok():fail();
+}
 /* ---------------- events ---------------- */
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
@@ -198,18 +240,11 @@ document.getElementById('main').addEventListener('click',e=>{
     const sl=b.dataset.slot;
     setLog(sel,'acc.done.'+sl,accDone(sel,sl)?null:true);
     render();return}
-  if(a==='errcopy'){
-    const text=crashReport();
-    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy all details'},1500) };
-    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{});
-    return}
+  if(a==='errcopy'){ copyOut(b,crashReport(),'Copy all details'); return }
   if(a==='calon'||a==='caloff'||a==='calrotate'){ calSet(a==='calon'?'on':a==='caloff'?'off':'rotate'); return }
   if(a==='calcopy'){
     const el=document.getElementById('cal-url'); if(!el) return;
-    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy address'},1500) };
-    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done,()=>{el.select()});
-    else { el.select(); try{document.execCommand('copy');done()}catch(e){} }
-    return}
+    el.select(); copyOut(b,el.value,'Copy address'); return}
   if(a==='rvsel'){reviewSel[b.dataset.lift]=b.dataset.v;render();return}
   if(a==='rvapply'||a==='rvdismiss'){
     const c=+b.dataset.c;
@@ -226,25 +261,16 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='pushcheck'){checkAlerts();return}
-  if(a==='pushcopy'){
-    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
-    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(pushReport()).then(done,()=>{});
-    return}
+  if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }
+  if(a==='copydismiss'){ copyFallback=null; render(); return }
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
   if(a==='bandseed'){ bandSeed(b.dataset.v); return }
   if(a==='beeptest'){unlockAudio();beepTest();return}
-  if(a==='tlogcopy'){
-    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy the timer log'},1500) };
-    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(tlogReport()).then(done,()=>{});
-    return}
-  if(a==='beepcopy'){
-    const text=beepReport();
-    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
-    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{});
-    return}
+  if(a==='tlogcopy'){ copyOut(b,tlogReport(),'Copy the timer log'); return }
+  if(a==='beepcopy'){ copyOut(b,beepReport(),'Copy for a bug report'); return }
   if(a==='restore'){const nm=b.dataset.name;if(restoreState.arm!==nm){restoreState.arm=nm;restoreState.msg=null;render();setTimeout(()=>{if(restoreState.arm===nm){restoreState.arm=null;render()}},4000);return}doRestore('/backups/'+encodeURIComponent(nm)+'/restore');return}
   if(a==='restorefile'){if(restoreState.file) doRestore('/restore',restoreState.file.data);return}
   if(a==='restorecancel'){restoreState.file=null;render();return}

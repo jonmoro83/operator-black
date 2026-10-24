@@ -31,7 +31,7 @@ function renderMain(){
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
   if(wz&&!viewing){ if(!morph(m,vWelcome())&&aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})} return }
-  const html=archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,coach:vCoach,guide:vGuide,admin:vAdmin}[view]||vToday)();
+  const html=copyBox()+archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,coach:vCoach,guide:vGuide,admin:vAdmin}[view]||vToday)();
   // Only the fallback path needs focus putting back; morph never took it away.
   if(!morph(m,html)&&aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
   showToast();
