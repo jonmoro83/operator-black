@@ -8881,3 +8881,38 @@ test("no two top-level functions in the bundle share a name", () => {
   }
   a.deepEqual(clashes, [], "the later declaration wins and the earlier one's callers break");
 });
+
+test("a rest schedules its alert before the page can be frozen", async () => {
+  const x = app({ now: "2026-10-24" });
+  const keepN = window.Notification, keepF = global.fetch;
+  try {
+    window.Notification = { permission: "granted" }; global.Notification = window.Notification;
+    localStorage.setItem("ob.push", JSON.stringify("https://x"));
+    const posts = [];
+    global.fetch = (u, o) => {
+      posts.push({ url: String(u), body: o && o.body && JSON.parse(o.body) });
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: () => Promise.resolve({ scheduled: 1 }) });
+    };
+    // The request has to be in flight by the time the handler returns. It used to sit
+    // behind a 300 ms debounce, and a phone going into a pocket freezes the page well
+    // inside that -- which is exactly the difference between the manual test, which
+    // always worked, and a rest alert, which is what got reported as broken.
+    x.startRest("squat", "Squat · set 2", 90);
+    a.equal(posts.length, 1, "sent synchronously, not on a timer");
+    a.match(posts[0].url, /push\/schedule$/);
+    a.ok(posts[0].body.at > Date.now() + 80000);
+
+    // The identical call again is not worth a second request.
+    x.syncPush();
+    a.equal(posts.length, 1, "the same schedule is not re-sent");
+    // A different end time is.
+    x.rest.end += 30000; x.syncPush();
+    a.equal(posts.length, 2, "but a changed one is");
+    // And another scheduler writing the queue clears that assumption.
+    x.pushForget(); x.syncPush();
+    a.equal(posts.length, 3);
+  } finally {
+    global.fetch = keepF; window.Notification = keepN; global.Notification = keepN;
+    localStorage.removeItem("ob.push"); x.stopRest();
+  }
+});

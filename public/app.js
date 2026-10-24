@@ -5532,11 +5532,11 @@ function gtRender(){
 function gtPush(){
   if(!alertsOn()) return;
   if((rest && !rest.done) || (iv && !iv.done)) return;
-  clearTimeout(gtPushT);
-  gtPushT = setTimeout(() => {
-    if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
-    else pushCall('/push/cancel', null, 'cancel');
-  }, 300);
+  // Immediately, for the reason in syncPush: a hidden page is frozen before a 300 ms
+  // timer gets to run, and this one exists to fire while you are not looking.
+  pushForget();
+  if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
+  else pushCall('/push/cancel', null, 'cancel');
 }
 
 /* the header panel */
@@ -6246,7 +6246,9 @@ function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function ivStart(fmt){
   const o=ivOpts(sel,fmt), segs=ivSegments(fmt,o);
-  unlockAudio(); stopRest(); clearTimeout(pushTimer); // a pending rest-alert cancel must not wipe the interval queue
+  // stopRest() sends a cancel; the interval's own schedule follows it below and
+  // replaces the queue, which is what the pending-timer clear used to be guarding.
+  unlockAudio(); stopRest();
   iv={date:sel,fmt,mod:modOf(sel),segs,start:Date.now()+1500,paused:null,pausedMs:0,mini:false,rounds:o.rounds||0,done:false};
   if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
   ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); ivPush();
@@ -6261,7 +6263,7 @@ function ivPush(){
     if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
-  if(list.length) pushCall('/push/schedule',{alerts:list.slice(0,80)},'interval alerts');
+  if(list.length){ pushForget(); pushCall('/push/schedule',{alerts:list.slice(0,80)},'interval alerts') }
 }
 function ivShow(){
   const el=document.getElementById('iv');
@@ -6699,21 +6701,41 @@ function pushNote(what,ok,detail){
 // wins the concatenation -- so every time in this report printed as "null".
 function clockTime(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
 /** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
+/** Any other scheduler writing the queue invalidates what the rest path thinks it sent. */
+function pushForget(){ pushSent=null }
 function pushCall(path,body,what){
   return api('POST',path,body).then(
     r=>{ pushNote(what,true,r&&r.next?'fires '+clockTime(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
     e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
 }
-let pushTimer=null;
+/* Sent at once, not after a 300 ms debounce.
+
+   That delay is the only difference between the manual test, which works, and a rest
+   alert, which is what gets reported as broken: the test is tapped while you watch the
+   screen, and a rest is started by ticking the last set and putting the phone straight
+   in your pocket. iOS freezes a hidden page, and it does not wait 300 ms to do it --
+   so the timer that was going to schedule the alert never ran, no request was made,
+   and nothing anywhere recorded that anything was missing.
+
+   Debouncing was protecting the network from the +30s buttons. The Durable Object
+   replaces its whole queue on every schedule, so sending more often is idempotent and
+   cheap, and `same` skips the genuinely identical repeat. Correctness beats a saved
+   request on a timer whose whole job is to fire while you are not looking. */
+let pushSent=null;
 function syncPush(){
   if(!alertsOn()) return;
-  clearTimeout(pushTimer);
-  pushTimer=setTimeout(()=>{
-    if(rest&&!rest.done){
-      const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
-      pushCall('/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body},'rest alert');
-    } else pushCall('/push/cancel',null,'cancel');
-  },300);
+  if(rest&&!rest.done){
+    const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
+    const at=rest.end, title=rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done';
+    const key='s:'+at+':'+title;
+    if(key===pushSent) return;
+    pushSent=key;
+    pushCall('/push/schedule',{at,title,body},'rest alert');
+  } else {
+    if(pushSent==='c') return;
+    pushSent='c';
+    pushCall('/push/cancel',null,'cancel');
+  }
 }
 function startHold(name,secs,sides,side){
   unlockAudio();

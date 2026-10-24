@@ -11,7 +11,19 @@ Setup → About this app → What's new.
 
 Genuinely open: things that still need doing or confirming.
 
-- **Rest alerts reported dead, 2026-10-24. Cause not found.** Attributed to the
+- **Rest alerts: cause found 2026-10-24, fixed in 3.55, not yet confirmed on the
+  phone.** The device report settled the half I had wrong: Apple accepted the test
+  push on all three registered devices (201 each) and the notification appeared, so
+  the subscription, the Durable Object, the VAPID signing and iOS display all work.
+  The difference between the test, which always worked, and a rest alert, which never
+  did, was **when the request is made**. `syncPush` waited 300 ms before posting the
+  schedule. The test is tapped while you watch the screen; a rest is started by
+  ticking the last set and pocketing the phone, and iOS freezes a hidden page well
+  inside 300 ms, so the timer never ran and no request was ever made. Nothing recorded
+  a failure because nothing was attempted. Now sent synchronously; the DO replaces its
+  queue on every schedule, so frequency is harmless, and an identical repeat is
+  skipped by a key. `gtPush` had the same debounce and the same fix.
+- **Superseded: the earlier "rest alerts reported dead, cause not found" entry.** Attributed to the
   3.37-3.48 run of changes, and I could not find anything in them that would do it:
   - `src/alerts.js` (the Durable Object), `src/api.js`, `src/webpush.js` and
     `wrangler.toml` are untouched by every commit in that run. `public/sw.js` changed

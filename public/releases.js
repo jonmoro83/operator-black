@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.55',date:'2026-10-24',title:"Rest alerts are sent the moment the rest starts",items:[
+    "Your test notification arriving is what pointed at this. The test and a rest alert go down the same pipe, so the difference had to be in when the request is made \u2014 and it was.",
+    "A rest waited 300 milliseconds before asking the server to schedule its alert. That delay was there to spare the network when you tap \u00b130s a few times. But you start a rest by ticking the last set and putting the phone in your pocket, and iOS freezes the page the instant it is hidden \u2014 well inside 300 ms. The request was never made, and nothing recorded that anything was missing.",
+    "The test button never hit it, because you are looking at the screen when you tap it. That is why it always worked.",
+    "The request now goes the instant the rest starts. The same applies to the standalone timer. Scheduling replaces the whole queue on the server, so sending more often is harmless, and an identical repeat is skipped anyway."]},
   {v:'3.54',date:'2026-10-24',title:"What the alerts report showed",items:[
     "Good news from your phone: the push pipeline works. Apple accepted the test alert on all three of your registered devices, 201 each. Nothing is being rejected and nothing is being dropped.",
     "Every clock time in that report was wrong, printed as \u201cnull\u201d. There were two functions called hhmm \u2014 mine formats a time, the calendar's parses one and returns null when it isn't \u201c09:30\u201d \u2014 and because the whole app is joined into one file, the calendar's won. Renamed, and a test now fails if any two functions in the app ever share a name again.",

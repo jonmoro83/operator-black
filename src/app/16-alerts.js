@@ -188,21 +188,41 @@ function pushNote(what,ok,detail){
 // wins the concatenation -- so every time in this report printed as "null".
 function clockTime(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
 /** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
+/** Any other scheduler writing the queue invalidates what the rest path thinks it sent. */
+function pushForget(){ pushSent=null }
 function pushCall(path,body,what){
   return api('POST',path,body).then(
     r=>{ pushNote(what,true,r&&r.next?'fires '+clockTime(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
     e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
 }
-let pushTimer=null;
+/* Sent at once, not after a 300 ms debounce.
+
+   That delay is the only difference between the manual test, which works, and a rest
+   alert, which is what gets reported as broken: the test is tapped while you watch the
+   screen, and a rest is started by ticking the last set and putting the phone straight
+   in your pocket. iOS freezes a hidden page, and it does not wait 300 ms to do it --
+   so the timer that was going to schedule the alert never ran, no request was made,
+   and nothing anywhere recorded that anything was missing.
+
+   Debouncing was protecting the network from the +30s buttons. The Durable Object
+   replaces its whole queue on every schedule, so sending more often is idempotent and
+   cheap, and `same` skips the genuinely identical repeat. Correctness beats a saved
+   request on a timer whose whole job is to fire while you are not looking. */
+let pushSent=null;
 function syncPush(){
   if(!alertsOn()) return;
-  clearTimeout(pushTimer);
-  pushTimer=setTimeout(()=>{
-    if(rest&&!rest.done){
-      const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
-      pushCall('/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body},'rest alert');
-    } else pushCall('/push/cancel',null,'cancel');
-  },300);
+  if(rest&&!rest.done){
+    const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
+    const at=rest.end, title=rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done';
+    const key='s:'+at+':'+title;
+    if(key===pushSent) return;
+    pushSent=key;
+    pushCall('/push/schedule',{at,title,body},'rest alert');
+  } else {
+    if(pushSent==='c') return;
+    pushSent='c';
+    pushCall('/push/cancel',null,'cancel');
+  }
 }
 function startHold(name,secs,sides,side){
   unlockAudio();

@@ -73,11 +73,11 @@ function gtRender(){
 function gtPush(){
   if(!alertsOn()) return;
   if((rest && !rest.done) || (iv && !iv.done)) return;
-  clearTimeout(gtPushT);
-  gtPushT = setTimeout(() => {
-    if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
-    else pushCall('/push/cancel', null, 'cancel');
-  }, 300);
+  // Immediately, for the reason in syncPush: a hidden page is frozen before a 300 ms
+  // timer gets to run, and this one exists to fire while you are not looking.
+  pushForget();
+  if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
+  else pushCall('/push/cancel', null, 'cancel');
 }
 
 /* the header panel */
