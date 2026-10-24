@@ -8863,3 +8863,21 @@ test("the beep test reports what happened to the sound, not what was in flight",
   a.equal(x.beepSeen.tonesAfter, "played after waking");
   a.match(x.beepReport(), /sound outcome: played after waking/);
 });
+
+test("no two top-level functions in the bundle share a name", () => {
+  // Everything concatenates into one scope, so a second declaration silently wins and
+  // the first one's callers get the wrong function. `hhmm` was defined twice -- a
+  // formatter in 16-alerts.js and a parser in 21a-calendar.js -- and the parser won,
+  // so every timestamp in the alerts diagnostic printed as "null".
+  const dir = path.join(__dirname, "..", "src", "app");
+  const seen = {}, clashes = [];
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".js"))) {
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
+    for (const m of src.matchAll(/^(?:async\s+)?function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)) {
+      const name = m[1];
+      if (seen[name] && seen[name] !== f) clashes.push(`${name}: ${seen[name]} and ${f}`);
+      seen[name] = f;
+    }
+  }
+  a.deepEqual(clashes, [], "the later declaration wins and the earlier one's callers break");
+});

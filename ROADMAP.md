@@ -113,6 +113,14 @@ Genuinely open: things that still need doing or confirming.
 
 ## Settled, for the record
 
+- **Two functions named `hhmm`, 2026-10-24.** Mine in `16-alerts.js` formats a
+  timestamp; `21a-calendar.js` already had one that *parses* `"09:30"` and returns
+  `null` for anything else. The build joins every file into one scope in filename
+  order, so the calendar's declaration won and every time in the alerts diagnostic
+  printed as `null` — including on the report the user sent, which is how it was
+  found. A test now walks `src/app/*.js` and fails on any top-level function name
+  declared in two files. With 251 functions sharing one scope this was overdue.
+
 - **The app was interrupting its own audio channel, every page load. Found from a
   device log 2026-10-24, fixed in 3.53.** Six rounds of work on "the beep does not
   sound" had all been reasoning from a laptop; the first real log off the phone showed

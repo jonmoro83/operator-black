@@ -6618,11 +6618,11 @@ function pushStatusText(){
   const L=pushLast, S=pushStat, out=[];
   out.push('This phone: alerts '+(alertsOn()?'on':'off')+' \u00b7 '+alertsSupport()+' \u00b7 clock '+new Date().toISOString());
   out.push('Storage: '+storageNote());
-  if(L) out.push('Last asked: '+L.what+' at '+hhmm(L.t)+' \u2014 '+(L.ok?'accepted':'REFUSED')+(L.d?' ('+L.d+')':''));
+  if(L) out.push('Last asked: '+L.what+' at '+clockTime(L.t)+' \u2014 '+(L.ok?'accepted':'REFUSED')+(L.d?' ('+L.d+')':''));
   else out.push('Last asked: nothing yet on this phone');
   if(S&&!S.busy) out.push(S.err?'Server: could not ask ('+S.err+')'
-    :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+hhmm(S.pendingAt):'no alarm set'));
-  if(S&&S.lastSend) out.push('Last send: '+hhmm(S.lastSend.at)+' \u201c'+(S.lastSend.title||'')+'\u201d \u2014 '+
+    :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+clockTime(S.pendingAt):'no alarm set'));
+  if(S&&S.lastSend) out.push('Last send: '+clockTime(S.lastSend.at)+' \u201c'+(S.lastSend.title||'')+'\u201d \u2014 '+
     ((S.lastSend.results||[]).map(r=>r.host+' '+r.status).join(', ')||'no devices to send to'));
   if(S&&Array.isArray(S.dead)&&S.dead.length) out.push('Rejected endpoints on file: '+S.dead.length);
   return out.join('\n');
@@ -6658,6 +6658,12 @@ function sendReport(kind,text){
     ()=>{ sendState={ok:true,at:Date.now()}; render() },
     e=>{ sendState={ok:false,err:e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'}; render() });
 }
+/* One tap for the whole thing: ask the server what it is holding, then post that and
+   the timer log. The two were separate buttons behind a closed disclosure, which is
+   three taps and a discovery problem for the one action that unblocks a diagnosis. */
+function pushDiag(){
+  return checkAlerts().then(()=>sendReport('alerts',pushReport()+'\n\n--- timer log ---\n'+tlogText()));
+}
 function sendNote(){
   if(!sendState) return '';
   if(sendState.busy) return '<div class="small muted">Sending\u2026</div>';
@@ -6689,11 +6695,13 @@ function pushNote(what,ok,detail){
   LS.set('ob.pushlast',pushLast);
   tlog('push',what+' · '+(ok?'accepted':'refused'),detail);
 }
-function hhmm(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
+// Not `hhmm`: 21a-calendar.js already has one, it parses rather than formats, and it
+// wins the concatenation -- so every time in this report printed as "null".
+function clockTime(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
 /** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
 function pushCall(path,body,what){
   return api('POST',path,body).then(
-    r=>{ pushNote(what,true,r&&r.next?'fires '+hhmm(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
+    r=>{ pushNote(what,true,r&&r.next?'fires '+clockTime(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
     e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
 }
 let pushTimer=null;
@@ -8240,11 +8248,16 @@ function vSetup(){
     const bad=(pushLast&&!pushLast.ok)||(pushStat&&!pushStat.busy&&!pushStat.err&&pushStat.devices===0);
     if(bad&&pushLast&&!pushLast.ok) h+=`<div class="banner alert"><div class="small"><b>The last alert was not scheduled.</b> ${esc(pushLast.what)} was ${esc(pushLast.d||'refused')}. That is why nothing arrived — the detail is below.</div></div>`;
     if(bad&&pushStat&&pushStat.devices===0) h+=`<div class="banner alert"><div class="small"><b>The server has no device registered for you.</b> There is nothing for it to push to. Turn alerts off and on again above.</div></div>`;
-    h+=`<details class="plain" style="margin-top:10px"${bad?' open':''}><summary>Is it actually working?</summary>
-      <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding. Until 3.49 every one of those requests threw its answer away, so an alert that was never scheduled looked exactly like one that was.${pushLast?'':' <b>Nothing has been asked for yet on this build</b> — start a rest, then come back here.'}</p>
+    // Not behind a disclosure. This is the button somebody is told to press when
+    // nothing is working, and it spent two rounds of a bug report hidden inside a
+    // <summary> that had to be found first.
+    h+=`<div class="row" style="margin-top:10px"><button class="btn sm primary" data-act="pushdiag" ${(pushStat&&pushStat.busy)||(sendState&&sendState.busy)?'disabled':''}>${(pushStat&&pushStat.busy)||(sendState&&sendState.busy)?'Checking\u2026':'Check alerts and send a report'}</button></div>${sendNote()}
+    <div class="note" style="margin-top:6px">Asks the server what it is holding for you, then sends that and the timer log where they can be read. Nothing to copy.</div>
+    ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
+    <details class="plain" style="margin-top:8px"${bad?' open':''}><summary>The detail</summary>
+      <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding.${pushLast?'':' <b>Nothing has been asked for yet on this build</b> \u2014 start a rest, then come back here.'}</p>
       <div class="mono small tlog">${esc(pushStatusText())}</div>
-      ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
-      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="pushcheck" ${pushStat&&pushStat.busy?'disabled':''}>${pushStat&&pushStat.busy?'Asking\u2026':'Ask the server'}</button><button class="btn sm primary" data-act="pushsend" ${sendState&&sendState.busy?'disabled':''}>Send this to the developer</button><button class="btn sm ghost" data-act="pushcopy">Copy</button></div>${sendNote()}
+      <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pushcopy">Copy</button></div>
     </details>`;
     h+=`<div class="note">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
@@ -9359,6 +9372,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pushcheck'){checkAlerts();return}
   if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }
   if(a==='pushsend'){ sendReport('alerts',pushReport()+'\n\n--- timer log ---\n'+tlogText()); return }
+  if(a==='pushdiag'){ pushDiag(); return }
   if(a==='beepsend'){ sendReport('beep',beepReport()+'\n\n--- timer log ---\n'+tlogText()); return }
   if(a==='copydismiss'){ copyFallback=null; render(); return }
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}

@@ -263,6 +263,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='pushcheck'){checkAlerts();return}
   if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }
   if(a==='pushsend'){ sendReport('alerts',pushReport()+'\n\n--- timer log ---\n'+tlogText()); return }
+  if(a==='pushdiag'){ pushDiag(); return }
   if(a==='beepsend'){ sendReport('beep',beepReport()+'\n\n--- timer log ---\n'+tlogText()); return }
   if(a==='copydismiss'){ copyFallback=null; render(); return }
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}

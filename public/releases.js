@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.54',date:'2026-10-24',title:"What the alerts report showed",items:[
+    "Good news from your phone: the push pipeline works. Apple accepted the test alert on all three of your registered devices, 201 each. Nothing is being rejected and nothing is being dropped.",
+    "Every clock time in that report was wrong, printed as \u201cnull\u201d. There were two functions called hhmm \u2014 mine formats a time, the calendar's parses one and returns null when it isn't \u201c09:30\u201d \u2014 and because the whole app is joined into one file, the calendar's won. Renamed, and a test now fails if any two functions in the app ever share a name again.",
+    "The one button you keep being asked to press is no longer hidden inside a disclosure. <b>Check alerts and send a report</b> sits on the Rest alerts card and does the whole thing in one tap.",
+    "What the report could not say: no rest timer had been run on this build, so no rest alert had ever been scheduled. That is the next thing to catch."]},
   {v:'3.53',date:'2026-10-24',title:"The app was silencing its own beep",items:[
     "Your phone's log settled it. Every single time the app opened its audio channel, the channel was interrupted in the same instant \u2014 then every beep afterwards had to fight its way back.",
     "The app was doing it to itself. Tapping anything wakes the audio, and waking it also primed the speech voice with a silent phrase. On iOS, speaking takes the audio channel \u2014 so the app opened its channel and immediately parked it, on every page load. Waking the audio makes no sound of its own now.",

@@ -107,11 +107,11 @@ function pushStatusText(){
   const L=pushLast, S=pushStat, out=[];
   out.push('This phone: alerts '+(alertsOn()?'on':'off')+' \u00b7 '+alertsSupport()+' \u00b7 clock '+new Date().toISOString());
   out.push('Storage: '+storageNote());
-  if(L) out.push('Last asked: '+L.what+' at '+hhmm(L.t)+' \u2014 '+(L.ok?'accepted':'REFUSED')+(L.d?' ('+L.d+')':''));
+  if(L) out.push('Last asked: '+L.what+' at '+clockTime(L.t)+' \u2014 '+(L.ok?'accepted':'REFUSED')+(L.d?' ('+L.d+')':''));
   else out.push('Last asked: nothing yet on this phone');
   if(S&&!S.busy) out.push(S.err?'Server: could not ask ('+S.err+')'
-    :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+hhmm(S.pendingAt):'no alarm set'));
-  if(S&&S.lastSend) out.push('Last send: '+hhmm(S.lastSend.at)+' \u201c'+(S.lastSend.title||'')+'\u201d \u2014 '+
+    :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+clockTime(S.pendingAt):'no alarm set'));
+  if(S&&S.lastSend) out.push('Last send: '+clockTime(S.lastSend.at)+' \u201c'+(S.lastSend.title||'')+'\u201d \u2014 '+
     ((S.lastSend.results||[]).map(r=>r.host+' '+r.status).join(', ')||'no devices to send to'));
   if(S&&Array.isArray(S.dead)&&S.dead.length) out.push('Rejected endpoints on file: '+S.dead.length);
   return out.join('\n');
@@ -147,6 +147,12 @@ function sendReport(kind,text){
     ()=>{ sendState={ok:true,at:Date.now()}; render() },
     e=>{ sendState={ok:false,err:e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'}; render() });
 }
+/* One tap for the whole thing: ask the server what it is holding, then post that and
+   the timer log. The two were separate buttons behind a closed disclosure, which is
+   three taps and a discovery problem for the one action that unblocks a diagnosis. */
+function pushDiag(){
+  return checkAlerts().then(()=>sendReport('alerts',pushReport()+'\n\n--- timer log ---\n'+tlogText()));
+}
 function sendNote(){
   if(!sendState) return '';
   if(sendState.busy) return '<div class="small muted">Sending\u2026</div>';
@@ -178,11 +184,13 @@ function pushNote(what,ok,detail){
   LS.set('ob.pushlast',pushLast);
   tlog('push',what+' · '+(ok?'accepted':'refused'),detail);
 }
-function hhmm(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
+// Not `hhmm`: 21a-calendar.js already has one, it parses rather than formats, and it
+// wins the concatenation -- so every time in this report printed as "null".
+function clockTime(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
 /** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
 function pushCall(path,body,what){
   return api('POST',path,body).then(
-    r=>{ pushNote(what,true,r&&r.next?'fires '+hhmm(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
+    r=>{ pushNote(what,true,r&&r.next?'fires '+clockTime(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
     e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
 }
 let pushTimer=null;

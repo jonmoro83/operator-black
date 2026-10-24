@@ -517,11 +517,16 @@ function vSetup(){
     const bad=(pushLast&&!pushLast.ok)||(pushStat&&!pushStat.busy&&!pushStat.err&&pushStat.devices===0);
     if(bad&&pushLast&&!pushLast.ok) h+=`<div class="banner alert"><div class="small"><b>The last alert was not scheduled.</b> ${esc(pushLast.what)} was ${esc(pushLast.d||'refused')}. That is why nothing arrived — the detail is below.</div></div>`;
     if(bad&&pushStat&&pushStat.devices===0) h+=`<div class="banner alert"><div class="small"><b>The server has no device registered for you.</b> There is nothing for it to push to. Turn alerts off and on again above.</div></div>`;
-    h+=`<details class="plain" style="margin-top:10px"${bad?' open':''}><summary>Is it actually working?</summary>
-      <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding. Until 3.49 every one of those requests threw its answer away, so an alert that was never scheduled looked exactly like one that was.${pushLast?'':' <b>Nothing has been asked for yet on this build</b> — start a rest, then come back here.'}</p>
+    // Not behind a disclosure. This is the button somebody is told to press when
+    // nothing is working, and it spent two rounds of a bug report hidden inside a
+    // <summary> that had to be found first.
+    h+=`<div class="row" style="margin-top:10px"><button class="btn sm primary" data-act="pushdiag" ${(pushStat&&pushStat.busy)||(sendState&&sendState.busy)?'disabled':''}>${(pushStat&&pushStat.busy)||(sendState&&sendState.busy)?'Checking\u2026':'Check alerts and send a report'}</button></div>${sendNote()}
+    <div class="note" style="margin-top:6px">Asks the server what it is holding for you, then sends that and the timer log where they can be read. Nothing to copy.</div>
+    ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
+    <details class="plain" style="margin-top:8px"${bad?' open':''}><summary>The detail</summary>
+      <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding.${pushLast?'':' <b>Nothing has been asked for yet on this build</b> \u2014 start a rest, then come back here.'}</p>
       <div class="mono small tlog">${esc(pushStatusText())}</div>
-      ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
-      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="pushcheck" ${pushStat&&pushStat.busy?'disabled':''}>${pushStat&&pushStat.busy?'Asking\u2026':'Ask the server'}</button><button class="btn sm primary" data-act="pushsend" ${sendState&&sendState.busy?'disabled':''}>Send this to the developer</button><button class="btn sm ghost" data-act="pushcopy">Copy</button></div>${sendNote()}
+      <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pushcopy">Copy</button></div>
     </details>`;
     h+=`<div class="note">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
