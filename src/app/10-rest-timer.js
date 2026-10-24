@@ -279,9 +279,24 @@ function tlog(ev,what,detail,pend){
     if(!pend&&last&&!last.p&&tlogSame(last,e)){ last.n=(last.n||1)+1; last.t=e.t }
     else a.push(e);
     while(a.length>TLOG_MAX) a.shift();
-    LS.set('ob.tlog',a);
+    // The log must never be the reason something else cannot be written. 3.37 took the
+    // cap from 80 to 200, and localStorage fails by returning false rather than by
+    // throwing, so a full store would have eaten the rest timer's own state in silence.
+    if(!LS.set('ob.tlog',a)){
+      try{ LS.set('ob.tlog',a.slice(-20)) }catch(e2){ try{ localStorage.removeItem('ob.tlog') }catch(e3){} }
+    }
     return e.id;
   }catch(e){ return 0 }
+}
+/* Whether this phone can still write anything at all. A full store is invisible --
+   `setItem` throws, `LS.set` turns that into `false`, and every caller ignores it --
+   and it would stop alerts dead by losing the subscription. */
+function storageNote(){
+  try{
+    let n=0; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); n+=(k||'').length+((localStorage.getItem(k)||'').length) }
+    const probe='ob.probe', ok=LS.set(probe,'x'); try{ localStorage.removeItem(probe) }catch(e){}
+    return Math.round(n/1024)+' KB stored, writes '+(ok?'working':'FAILING');
+  }catch(e){ return 'unreadable ('+((e&&e.name)||'?')+')' }
 }
 /** Replace a pending line's outcome, leaving it where it happened in the sequence. */
 function tlogAmend(id,what,detail){

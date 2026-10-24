@@ -71,10 +71,71 @@ async function disableAlerts(){
   try{ const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription(); if(sub){ await api('POST','/push/unsubscribe',{endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe() } }catch(e){}
   LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; showCover(); render();
 }
+/* What the server thinks, as against what this phone thinks. The two disagreeing is
+   the whole of "alerts are on and nothing arrives": a device that unsubscribed itself,
+   a queue that is empty because every schedule was refused, an alarm set for a time
+   that has already gone by. `/push/status` has always returned it; nothing showed it. */
+let pushStat=null;
+// Deliberately not `async function`: the test harness exposes top-level declarations by
+// scanning for `function name(`, so an async one is invisible to every test.
+function checkAlerts(){
+  pushStat={busy:true}; render();
+  return api('GET','/push/status').then(
+    r=>{ pushStat=Object.assign({at:Date.now()},r); render() },
+    e=>{ pushStat={at:Date.now(),err:e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'}; render() });
+}
+function pushStatusText(){
+  const L=pushLast, S=pushStat, out=[];
+  out.push('This phone: alerts '+(alertsOn()?'on':'off')+' \u00b7 '+alertsSupport()+' \u00b7 clock '+new Date().toISOString());
+  out.push('Storage: '+storageNote());
+  if(L) out.push('Last asked: '+L.what+' at '+hhmm(L.t)+' \u2014 '+(L.ok?'accepted':'REFUSED')+(L.d?' ('+L.d+')':''));
+  else out.push('Last asked: nothing yet on this phone');
+  if(S&&!S.busy) out.push(S.err?'Server: could not ask ('+S.err+')'
+    :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+hhmm(S.pendingAt):'no alarm set'));
+  return out.join('\n');
+}
+function pushAdvice(){
+  const L=pushLast, S=pushStat, out=[];
+  if(!alertsOn()) out.push('Alerts are off on this phone. Turn them on above.');
+  if(L&&!L.ok&&/400/.test(L.d)) out.push('The server refused the time. It only accepts alerts between now and two hours ahead, so this is almost always a phone clock that has drifted \u2014 check Settings \u2192 General \u2192 Date & Time \u2192 Set Automatically.');
+  if(L&&!L.ok&&/401|403/.test(L.d)) out.push('You were signed out when the alert was scheduled. Open the app, sign in, and start the rest again.');
+  if(L&&!L.ok&&/no answer|Failed|network/i.test(L.d)) out.push('The request never reached the server. If you train somewhere with no signal, the alert cannot be scheduled \u2014 the in-app beep is what you get.');
+  if(S&&!S.busy&&!S.err&&S.devices===0) out.push('The server has no device registered for you, so there is nothing to push to. Turn alerts off and on again above.');
+  if(S&&!S.busy&&!S.err&&S.devices>0&&S.queued===0&&rest&&!rest.done) out.push('A rest is running but the server has nothing queued for it. That is the bug \u2014 copy this and send it.');
+  if(/FAILING/.test(storageNote())) out.push('This phone can no longer write to its own storage, which is enough on its own to stop alerts: the subscription lives there. Setup \u2192 About this app \u2192 clear the cache, or reinstall the home-screen app.');
+  if(!out.length) out.push('Nothing here looks wrong. If an alert still did not arrive, it is iOS deciding not to show it: check Settings \u2192 Notifications \u2192 Operator, and that a Focus mode is not filtering it.');
+  return out;
+}
+function pushReport(){
+  return 'Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 alerts\n'+
+    (typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'')+'\n\n'+pushStatusText()+'\n\n'+pushAdvice().join('\n');
+}
 async function testAlert(){
   try{ await api('POST','/push/schedule',{at:Date.now()+8000,title:'Test alert',body:'Rest alerts work. This is what the end of a rest looks like.'}); alerts.msg='Test alert coming in 8 seconds. Lock your phone now to see it on the lock screen.' }
   catch(e){ alerts.msg='Couldn’t send the test. Check your connection.' }
   render();
+}
+/* ---------- what the server was last asked for, and what it said ----------
+Every one of these calls ended in `.catch(()=>{})`. The intent was right -- a rest must
+not fail because the network did -- but it meant a push that was never scheduled looked
+exactly like one that was, and "the alerts don't work" had nothing behind it. The
+outcome is recorded now and shown on the Rest alerts card.
+
+The failure that bites in silence: the server refuses an alert whose time is already
+past or more than two hours out, so a phone clock a few minutes slow earns a 400 on
+every rest it ever schedules and never makes a sound. */
+let pushLast=LS.get('ob.pushlast')||null;
+function pushNote(what,ok,detail){
+  pushLast={t:Date.now(),what,ok:!!ok,d:detail==null?'':String(detail)};
+  LS.set('ob.pushlast',pushLast);
+  tlog('push',what+' · '+(ok?'accepted':'refused'),detail);
+}
+function hhmm(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
+/** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
+function pushCall(path,body,what){
+  return api('POST',path,body).then(
+    r=>{ pushNote(what,true,r&&r.next?'fires '+hhmm(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
+    e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
 }
 let pushTimer=null;
 function syncPush(){
@@ -83,8 +144,8 @@ function syncPush(){
   pushTimer=setTimeout(()=>{
     if(rest&&!rest.done){
       const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
-      api('POST','/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body}).catch(()=>{});
-    } else api('POST','/push/cancel').catch(()=>{});
+      pushCall('/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body},'rest alert');
+    } else pushCall('/push/cancel',null,'cancel');
   },300);
 }
 function startHold(name,secs,sides,side){

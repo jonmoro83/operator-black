@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.49',date:'2026-10-24',title:"Find out why an alert didn't arrive",items:[
+    "Reported: rest alerts stopped working. I can't find a break \u2014 the server, the service worker and the scheduling all check out from here, and nothing I changed touches them \u2014 so this release is about making the next one answerable instead of guessing again.",
+    "Every request to schedule an alert used to throw its answer away. A push that was never scheduled looked exactly like one that was. The result is recorded now, and Setup \u2192 Rest alerts \u2192 \u201cIs it actually working?\u201d shows what this phone last asked for and what it got back.",
+    "\u201cAsk the server\u201d shows the other side: how many devices it has registered for you, how many alerts it's holding, and when the next one fires. Those two disagreeing is the whole of \u201cit says alerts are on and nothing arrives\u201d.",
+    "The most likely silent cause, now named: the server only accepts alert times between now and two hours ahead. A phone clock a few minutes slow earns a refusal on every rest and never makes a sound.",
+    "Also hardened: the timer log got bigger in 3.37, and a full phone store fails by doing nothing rather than by complaining \u2014 which would take the alert subscription down with it. The log now shrinks itself rather than crowding anything out, and the card says whether writes are working."]},
   {v:'3.48',date:'2026-10-23',title:"Rescheduling, rebuilt",items:[
     "Moving a session is one thing now and it does exactly what it says. Pick the day, the session happens on that day, and nothing else moves. Not the day you took it from, not the day it lands on, not the rest of the week.",
     "There were three ways to move something before \u2014 swap two days, shift the week around it, do both on one day \u2014 and all three existed because the week was stored as seven slots in seven days, one each. A straight move was impossible to say in that. Sessions have dates now, so there's one verb.",

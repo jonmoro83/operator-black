@@ -11,6 +11,25 @@ Setup → About this app → What's new.
 
 Genuinely open: things that still need doing or confirming.
 
+- **Rest alerts reported dead, 2026-10-24. Cause not found.** Attributed to the
+  3.37-3.48 run of changes, and I could not find anything in them that would do it:
+  - `src/alerts.js` (the Durable Object), `src/api.js`, `src/webpush.js` and
+    `wrangler.toml` are untouched by every commit in that run. `public/sw.js` changed
+    only in its build-stamped `VERSION`, which moves on every deploy and always has.
+  - The live Worker has the `ALERTS` Durable Object bound (`wrangler deploy --dry-run`).
+  - Driven in the harness with alerts on, `startRest` still POSTs `/api/push/schedule`.
+  - So: client schedules, server is unchanged and bound, service worker is unchanged.
+    Either it is something the device is doing, or it predates this run and was noticed
+    now. Saying "I broke it" without finding it would be a guess either way.
+- **What 3.49 added instead of a fix**, because there were no tests on this path at all
+  (the long-standing "no tests for the Worker" gap, and this is what it costs): every
+  push call recorded its outcome rather than ending in `.catch(()=>{})`, and Setup
+  shows it against `/push/status` — devices registered, alerts queued, next alarm.
+  **Next report should come with that card copied.**
+- **The likeliest silent cause, named but unconfirmed:** the DO refuses any alert
+  outside `now - 5s .. now + 2h` with a 400, and the rejection was swallowed. A phone
+  clock a few minutes slow fails every rest it ever schedules, silently and forever.
+
 - **iPhone testing, still to confirm at the gym:** offline launch, whether the screen
   stays awake for a whole session, and the interval timer on the bike. Confirmed:
   home-screen install, Access login in the installed app, the update banner, rest

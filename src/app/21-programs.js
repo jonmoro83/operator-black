@@ -512,6 +512,12 @@ function vSetup(){
     else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
     else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
+    h+=`<details class="plain" style="margin-top:10px"><summary>Is it actually working?</summary>
+      <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding. Until 3.49 every one of those requests threw its answer away, so an alert that was never scheduled looked exactly like one that was.</p>
+      <div class="mono small tlog">${esc(pushStatusText())}</div>
+      ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="pushcheck" ${pushStat&&pushStat.busy?'disabled':''}>${pushStat&&pushStat.busy?'Asking\u2026':'Ask the server'}</button><button class="btn sm ghost" data-act="pushcopy">Copy for a bug report</button></div>
+    </details>`;
     h+=`<div class="note">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {

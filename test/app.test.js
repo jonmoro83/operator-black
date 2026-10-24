@@ -8649,3 +8649,47 @@ test("moving a session does not change what the session is", () => {
   a.deepEqual(now.lifts, was, "it is the same session, on a different day");
   a.equal(now.sess.home, x.addDays(mon, 2), "and it knows which day is its own");
 });
+
+test("a push the server refuses is recorded, not swallowed", async () => {
+  const x = app({ now: "2026-10-21" });
+  localStorage.setItem("ob.push", JSON.stringify("https://push.example/abc"));
+  const keepN = window.Notification;
+  window.Notification = { permission: "granted" }; global.Notification = window.Notification;
+  const keepF = global.fetch;
+  try {
+    a.equal(x.alertsOn(), true);
+    // The failure that bites in silence: a clock out of step earns a 400 on every
+    // rest, and every one of these calls used to end in .catch(()=>{}).
+    global.fetch = () => Promise.resolve({ ok: false, status: 400, type: "basic" });
+    x.startRest("squat", "Squat · set 2", 120);
+    await new Promise((r) => setTimeout(r, 400));
+    a.ok(x.pushLast, "the attempt is on the record");
+    a.equal(x.pushLast.ok, false);
+    a.match(x.pushLast.d, /400/);
+    a.match(x.pushStatusText(), /REFUSED/);
+    a.ok(x.pushAdvice().some((t) => /clock/.test(t)), "and it names the usual cause");
+    a.match(x.tlogText(), /push · rest alert · refused/, "the timer log has it too");
+
+    // And the happy path says so just as plainly.
+    global.fetch = () => Promise.resolve({ ok: true, status: 200, type: "basic",
+      json: () => Promise.resolve({ scheduled: 1, next: Date.now() + 120000 }) });
+    x.stopRest(); x.startRest("bench", "Bench · set 2", 120);
+    await new Promise((r) => setTimeout(r, 400));
+    a.equal(x.pushLast.ok, true);
+    a.match(x.pushStatusText(), /accepted/);
+  } finally { global.fetch = keepF; window.Notification = keepN; global.Notification = keepN; x.stopRest() }
+});
+
+test("the alerts card asks the server what it is holding", async () => {
+  const x = app({ now: "2026-10-21" });
+  const keepF = global.fetch;
+  try {
+    global.fetch = () => Promise.resolve({ ok: true, status: 200, type: "basic",
+      json: () => Promise.resolve({ devices: 0, queued: 0, pendingAt: null }) });
+    await x.checkAlerts();
+    a.match(x.pushStatusText(), /0 devices registered/);
+    a.ok(x.pushAdvice().some((t) => /no device registered/.test(t)),
+      "no device registered is the answer to 'alerts are on and nothing arrives'");
+    a.match(x.pushReport(), /^Operator \+ Black .* alerts/);
+  } finally { global.fetch = keepF }
+});

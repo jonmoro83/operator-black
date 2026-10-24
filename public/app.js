@@ -5223,9 +5223,24 @@ function tlog(ev,what,detail,pend){
     if(!pend&&last&&!last.p&&tlogSame(last,e)){ last.n=(last.n||1)+1; last.t=e.t }
     else a.push(e);
     while(a.length>TLOG_MAX) a.shift();
-    LS.set('ob.tlog',a);
+    // The log must never be the reason something else cannot be written. 3.37 took the
+    // cap from 80 to 200, and localStorage fails by returning false rather than by
+    // throwing, so a full store would have eaten the rest timer's own state in silence.
+    if(!LS.set('ob.tlog',a)){
+      try{ LS.set('ob.tlog',a.slice(-20)) }catch(e2){ try{ localStorage.removeItem('ob.tlog') }catch(e3){} }
+    }
     return e.id;
   }catch(e){ return 0 }
+}
+/* Whether this phone can still write anything at all. A full store is invisible --
+   `setItem` throws, `LS.set` turns that into `false`, and every caller ignores it --
+   and it would stop alerts dead by losing the subscription. */
+function storageNote(){
+  try{
+    let n=0; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); n+=(k||'').length+((localStorage.getItem(k)||'').length) }
+    const probe='ob.probe', ok=LS.set(probe,'x'); try{ localStorage.removeItem(probe) }catch(e){}
+    return Math.round(n/1024)+' KB stored, writes '+(ok?'working':'FAILING');
+  }catch(e){ return 'unreadable ('+((e&&e.name)||'?')+')' }
 }
 /** Replace a pending line's outcome, leaving it where it happened in the sequence. */
 function tlogAmend(id,what,detail){
@@ -5485,8 +5500,8 @@ function gtPush(){
   if((rest && !rest.done) || (iv && !iv.done)) return;
   clearTimeout(gtPushT);
   gtPushT = setTimeout(() => {
-    if(gt && gt.mode === 'down' && !gt.paused && !gt.done) api('POST', '/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }).catch(() => {});
-    else api('POST', '/push/cancel').catch(() => {});
+    if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
+    else pushCall('/push/cancel', null, 'cancel');
   }, 300);
 }
 
@@ -6204,7 +6219,7 @@ function ivStart(fmt){
 }
 function ivPush(){
   if(!alertsOn()||!iv) return;
-  if(iv.paused||iv.done){api('POST','/push/cancel').catch(()=>{});return}
+  if(iv.paused||iv.done){pushCall('/push/cancel',null,'cancel');return}
   const now=Date.now(), el=ivElapsed(), list=[]; let acc=0;
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
@@ -6212,7 +6227,7 @@ function ivPush(){
     if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
-  if(list.length) api('POST','/push/schedule',{alerts:list.slice(0,80)}).catch(()=>{});
+  if(list.length) pushCall('/push/schedule',{alerts:list.slice(0,80)},'interval alerts');
 }
 function ivShow(){
   const el=document.getElementById('iv');
@@ -6300,7 +6315,7 @@ document.getElementById('iv').addEventListener('click',e=>{
       if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
-  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) api('POST','/push/cancel').catch(()=>{}); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
+  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) pushCall('/push/cancel',null,'cancel'); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });
@@ -6533,10 +6548,71 @@ async function disableAlerts(){
   try{ const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription(); if(sub){ await api('POST','/push/unsubscribe',{endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe() } }catch(e){}
   LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; showCover(); render();
 }
+/* What the server thinks, as against what this phone thinks. The two disagreeing is
+   the whole of "alerts are on and nothing arrives": a device that unsubscribed itself,
+   a queue that is empty because every schedule was refused, an alarm set for a time
+   that has already gone by. `/push/status` has always returned it; nothing showed it. */
+let pushStat=null;
+// Deliberately not `async function`: the test harness exposes top-level declarations by
+// scanning for `function name(`, so an async one is invisible to every test.
+function checkAlerts(){
+  pushStat={busy:true}; render();
+  return api('GET','/push/status').then(
+    r=>{ pushStat=Object.assign({at:Date.now()},r); render() },
+    e=>{ pushStat={at:Date.now(),err:e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'}; render() });
+}
+function pushStatusText(){
+  const L=pushLast, S=pushStat, out=[];
+  out.push('This phone: alerts '+(alertsOn()?'on':'off')+' \u00b7 '+alertsSupport()+' \u00b7 clock '+new Date().toISOString());
+  out.push('Storage: '+storageNote());
+  if(L) out.push('Last asked: '+L.what+' at '+hhmm(L.t)+' \u2014 '+(L.ok?'accepted':'REFUSED')+(L.d?' ('+L.d+')':''));
+  else out.push('Last asked: nothing yet on this phone');
+  if(S&&!S.busy) out.push(S.err?'Server: could not ask ('+S.err+')'
+    :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+hhmm(S.pendingAt):'no alarm set'));
+  return out.join('\n');
+}
+function pushAdvice(){
+  const L=pushLast, S=pushStat, out=[];
+  if(!alertsOn()) out.push('Alerts are off on this phone. Turn them on above.');
+  if(L&&!L.ok&&/400/.test(L.d)) out.push('The server refused the time. It only accepts alerts between now and two hours ahead, so this is almost always a phone clock that has drifted \u2014 check Settings \u2192 General \u2192 Date & Time \u2192 Set Automatically.');
+  if(L&&!L.ok&&/401|403/.test(L.d)) out.push('You were signed out when the alert was scheduled. Open the app, sign in, and start the rest again.');
+  if(L&&!L.ok&&/no answer|Failed|network/i.test(L.d)) out.push('The request never reached the server. If you train somewhere with no signal, the alert cannot be scheduled \u2014 the in-app beep is what you get.');
+  if(S&&!S.busy&&!S.err&&S.devices===0) out.push('The server has no device registered for you, so there is nothing to push to. Turn alerts off and on again above.');
+  if(S&&!S.busy&&!S.err&&S.devices>0&&S.queued===0&&rest&&!rest.done) out.push('A rest is running but the server has nothing queued for it. That is the bug \u2014 copy this and send it.');
+  if(/FAILING/.test(storageNote())) out.push('This phone can no longer write to its own storage, which is enough on its own to stop alerts: the subscription lives there. Setup \u2192 About this app \u2192 clear the cache, or reinstall the home-screen app.');
+  if(!out.length) out.push('Nothing here looks wrong. If an alert still did not arrive, it is iOS deciding not to show it: check Settings \u2192 Notifications \u2192 Operator, and that a Focus mode is not filtering it.');
+  return out;
+}
+function pushReport(){
+  return 'Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 alerts\n'+
+    (typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'')+'\n\n'+pushStatusText()+'\n\n'+pushAdvice().join('\n');
+}
 async function testAlert(){
   try{ await api('POST','/push/schedule',{at:Date.now()+8000,title:'Test alert',body:'Rest alerts work. This is what the end of a rest looks like.'}); alerts.msg='Test alert coming in 8 seconds. Lock your phone now to see it on the lock screen.' }
   catch(e){ alerts.msg='Couldn’t send the test. Check your connection.' }
   render();
+}
+/* ---------- what the server was last asked for, and what it said ----------
+Every one of these calls ended in `.catch(()=>{})`. The intent was right -- a rest must
+not fail because the network did -- but it meant a push that was never scheduled looked
+exactly like one that was, and "the alerts don't work" had nothing behind it. The
+outcome is recorded now and shown on the Rest alerts card.
+
+The failure that bites in silence: the server refuses an alert whose time is already
+past or more than two hours out, so a phone clock a few minutes slow earns a 400 on
+every rest it ever schedules and never makes a sound. */
+let pushLast=LS.get('ob.pushlast')||null;
+function pushNote(what,ok,detail){
+  pushLast={t:Date.now(),what,ok:!!ok,d:detail==null?'':String(detail)};
+  LS.set('ob.pushlast',pushLast);
+  tlog('push',what+' · '+(ok?'accepted':'refused'),detail);
+}
+function hhmm(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
+/** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
+function pushCall(path,body,what){
+  return api('POST',path,body).then(
+    r=>{ pushNote(what,true,r&&r.next?'fires '+hhmm(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
+    e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
 }
 let pushTimer=null;
 function syncPush(){
@@ -6545,8 +6621,8 @@ function syncPush(){
   pushTimer=setTimeout(()=>{
     if(rest&&!rest.done){
       const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
-      api('POST','/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body}).catch(()=>{});
-    } else api('POST','/push/cancel').catch(()=>{});
+      pushCall('/push/schedule',{at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body},'rest alert');
+    } else pushCall('/push/cancel',null,'cancel');
   },300);
 }
 function startHold(name,secs,sides,side){
@@ -8077,6 +8153,12 @@ function vSetup(){
     else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
     else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
+    h+=`<details class="plain" style="margin-top:10px"><summary>Is it actually working?</summary>
+      <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding. Until 3.49 every one of those requests threw its answer away, so an alert that was never scheduled looked exactly like one that was.</p>
+      <div class="mono small tlog">${esc(pushStatusText())}</div>
+      ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="pushcheck" ${pushStat&&pushStat.busy?'disabled':''}>${pushStat&&pushStat.busy?'Asking\u2026':'Ask the server'}</button><button class="btn sm ghost" data-act="pushcopy">Copy for a bug report</button></div>
+    </details>`;
     h+=`<div class="note">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
   {
@@ -9152,6 +9234,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alerton'){enableAlerts();return}
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
+  if(a==='pushcheck'){checkAlerts();return}
+  if(a==='pushcopy'){
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(pushReport()).then(done,()=>{});
+    return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }

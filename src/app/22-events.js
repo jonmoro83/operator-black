@@ -225,6 +225,11 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alerton'){enableAlerts();return}
   if(a==='alertoff'){disableAlerts();return}
   if(a==='alerttest'){testAlert();return}
+  if(a==='pushcheck'){checkAlerts();return}
+  if(a==='pushcopy'){
+    const done=()=>{ b.textContent='Copied'; setTimeout(()=>{b.textContent='Copy for a bug report'},1500) };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(pushReport()).then(done,()=>{});
+    return}
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }

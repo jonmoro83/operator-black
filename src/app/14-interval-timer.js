@@ -123,7 +123,7 @@ function ivStart(fmt){
 }
 function ivPush(){
   if(!alertsOn()||!iv) return;
-  if(iv.paused||iv.done){api('POST','/push/cancel').catch(()=>{});return}
+  if(iv.paused||iv.done){pushCall('/push/cancel',null,'cancel');return}
   const now=Date.now(), el=ivElapsed(), list=[]; let acc=0;
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
@@ -131,7 +131,7 @@ function ivPush(){
     if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
-  if(list.length) api('POST','/push/schedule',{alerts:list.slice(0,80)}).catch(()=>{});
+  if(list.length) pushCall('/push/schedule',{alerts:list.slice(0,80)},'interval alerts');
 }
 function ivShow(){
   const el=document.getElementById('iv');
@@ -219,7 +219,7 @@ document.getElementById('iv').addEventListener('click',e=>{
       if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
-  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) api('POST','/push/cancel').catch(()=>{}); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
+  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) pushCall('/push/cancel',null,'cancel'); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });

@@ -75,8 +75,8 @@ function gtPush(){
   if((rest && !rest.done) || (iv && !iv.done)) return;
   clearTimeout(gtPushT);
   gtPushT = setTimeout(() => {
-    if(gt && gt.mode === 'down' && !gt.paused && !gt.done) api('POST', '/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }).catch(() => {});
-    else api('POST', '/push/cancel').catch(() => {});
+    if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
+    else pushCall('/push/cancel', null, 'cancel');
   }, 300);
 }
 
