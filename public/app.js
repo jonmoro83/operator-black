@@ -5009,9 +5009,15 @@ function audioAwake(){
   if(audioCtx.state==='running') return true;
   try{ audioCtx.resume(); return true }catch(e){ return false }
 }
-function unlockAudio(){
+/* `voice:false` leaves the speech priming alone, for a caller that is about to make a
+   tone. iOS wants the first utterance inside a tap, so this primes within the gesture
+   -- but speaking parks the AudioContext, so doing it immediately before a beep hands
+   that beep a channel that has just been interrupted. The one place it mattered most
+   was the Test the beep button, where the first tap primes and beeps together. */
+function unlockAudio(opt){
   if(quiet()) return;
-  try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
+  const wantVoice=!(opt&&opt.voice===false);
+  try{ if(wantVoice&&plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
     if(navigator.audioSession) navigator.audioSession.type=soundMode()==='takeover'?'playback':'transient';
     if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); ctxWatch(audioCtx); tlog('audio','channel opened') }
@@ -6611,6 +6617,26 @@ function pushAdvice(){
   if(!out.length) out.push('Nothing here looks wrong. If an alert still did not arrive, it is iOS deciding not to show it: check Settings \u2192 Notifications \u2192 Operator, and that a Focus mode is not filtering it.');
   return out;
 }
+/* ---------- sending a report without the clipboard ----------
+Two goes at a copy button, and both times the answer was "nothing I can send you". The
+clipboard is a bad channel on a phone: it can be missing, it can refuse, and on iOS it
+can resolve and still leave you with nothing to paste. So the app posts the thing to
+the server, where it can be read directly, and the button says whether that worked. */
+let sendState=null;
+function sendReport(kind,text){
+  sendState={busy:true}; render();
+  return api('POST','/report',{kind,body:text,version:typeof APP_VERSION==='string'?APP_VERSION:'',
+    ua:typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,200):''}).then(
+    ()=>{ sendState={ok:true,at:Date.now()}; render() },
+    e=>{ sendState={ok:false,err:e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'}; render() });
+}
+function sendNote(){
+  if(!sendState) return '';
+  if(sendState.busy) return '<div class="small muted">Sending\u2026</div>';
+  return sendState.ok
+    ? '<div class="small" style="color:var(--green)">Sent. Nothing else needed \u2014 it can be read from here.</div>'
+    : `<div class="small" style="color:var(--red)">Could not send it (${esc(sendState.err)}). The text is below; a screenshot works too.</div>`;
+}
 function pushReport(){
   return 'Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 alerts\n'+
     (typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'')+'\n\n'+pushStatusText()+'\n\n'+pushAdvice().join('\n');
@@ -8190,7 +8216,7 @@ function vSetup(){
       <p class="note" style="margin:6px 0">What this phone last asked the server for, and what the server says it is holding. Until 3.49 every one of those requests threw its answer away, so an alert that was never scheduled looked exactly like one that was.${pushLast?'':' <b>Nothing has been asked for yet on this build</b> — start a rest, then come back here.'}</p>
       <div class="mono small tlog">${esc(pushStatusText())}</div>
       ${pushAdvice().map(t=>`<div class="small" style="margin-top:6px">${esc(t)}</div>`).join('')}
-      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="pushcheck" ${pushStat&&pushStat.busy?'disabled':''}>${pushStat&&pushStat.busy?'Asking\u2026':'Ask the server'}</button><button class="btn sm ghost" data-act="pushcopy">Copy for a bug report</button></div>
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="pushcheck" ${pushStat&&pushStat.busy?'disabled':''}>${pushStat&&pushStat.busy?'Asking\u2026':'Ask the server'}</button><button class="btn sm primary" data-act="pushsend" ${sendState&&sendState.busy?'disabled':''}>Send this to the developer</button><button class="btn sm ghost" data-act="pushcopy">Copy</button></div>${sendNote()}
     </details>`;
     h+=`<div class="note">Alerts use the standard notification sound. Silent mode and Focus apply, and they also show on a paired Apple Watch. With the app open you’ll get both the in-app beep and the notification.</div></div>`;
   }
@@ -8212,7 +8238,7 @@ function vSetup(){
     <p class="note" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>
     ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
       <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['mode '+beepSeen.mode,'silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
-      <div class="row"><button class="btn sm ghost" data-act="beepcopy">Copy for a bug report</button></div></div>`:''}
+      <div class="row"><button class="btn sm primary" data-act="beepsend" ${sendState&&sendState.busy?'disabled':''}>Send this to the developer</button><button class="btn sm ghost" data-act="beepcopy">Copy</button></div>${sendNote()}</div>`:''}
     <details class="plain" style="margin-top:10px"><summary>Timer log</summary>
       <p class="note" style="margin:6px 0">What the timers did on this phone: every sound and what the audio was doing when it was asked for, how late each rest\u2019s end was noticed, and when the screen lock was refused. It holds a whole interval session now, so if the beeps stop partway through, copy it straight after and the line where they stopped will still be in it.</p>
       <div class="mono small tlog">${esc(tlogText())}</div>
@@ -9304,13 +9330,17 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alerttest'){testAlert();return}
   if(a==='pushcheck'){checkAlerts();return}
   if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }
+  if(a==='pushsend'){ sendReport('alerts',pushReport()+'\n\n--- timer log ---\n'+tlogText()); return }
+  if(a==='beepsend'){ sendReport('beep',beepReport()+'\n\n--- timer log ---\n'+tlogText()); return }
   if(a==='copydismiss'){ copyFallback=null; render(); return }
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
   if(a==='bandseed'){ bandSeed(b.dataset.v); return }
-  if(a==='beeptest'){unlockAudio();beepTest();return}
+  // No speech priming here: the tone is the whole point of the button, and an
+  // utterance a few milliseconds before it parks the channel it has to play on.
+  if(a==='beeptest'){unlockAudio({voice:false});beepTest();return}
   if(a==='tlogcopy'){ copyOut(b,tlogReport(),'Copy the timer log'); return }
   if(a==='beepcopy'){ copyOut(b,beepReport(),'Copy for a bug report'); return }
   if(a==='restore'){const nm=b.dataset.name;if(restoreState.arm!==nm){restoreState.arm=nm;restoreState.msg=null;render();setTimeout(()=>{if(restoreState.arm===nm){restoreState.arm=null;render()}},4000);return}doRestore('/backups/'+encodeURIComponent(nm)+'/restore');return}

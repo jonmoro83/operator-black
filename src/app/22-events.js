@@ -262,13 +262,17 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='alerttest'){testAlert();return}
   if(a==='pushcheck'){checkAlerts();return}
   if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }
+  if(a==='pushsend'){ sendReport('alerts',pushReport()+'\n\n--- timer log ---\n'+tlogText()); return }
+  if(a==='beepsend'){ sendReport('beep',beepReport()+'\n\n--- timer log ---\n'+tlogText()); return }
   if(a==='copydismiss'){ copyFallback=null; render(); return }
   if(a==='voicetest'){unlockAudio();setTimeout(()=>say('Rest over. Next: squat, set two.'),120);return}
   if(a==='soundmode'){setSoundMode(b.dataset.v);return}
   if(a==='bandadd'){ if(bandAdd(bandNew.n,bandNew.w)){bandNew={n:'',w:''};render()} return }
   if(a==='bandrm'){ bandRemove(b.dataset.n); return }
   if(a==='bandseed'){ bandSeed(b.dataset.v); return }
-  if(a==='beeptest'){unlockAudio();beepTest();return}
+  // No speech priming here: the tone is the whole point of the button, and an
+  // utterance a few milliseconds before it parks the channel it has to play on.
+  if(a==='beeptest'){unlockAudio({voice:false});beepTest();return}
   if(a==='tlogcopy'){ copyOut(b,tlogReport(),'Copy the timer log'); return }
   if(a==='beepcopy'){ copyOut(b,beepReport(),'Copy for a bug report'); return }
   if(a==='restore'){const nm=b.dataset.name;if(restoreState.arm!==nm){restoreState.arm=nm;restoreState.msg=null;render();setTimeout(()=>{if(restoreState.arm===nm){restoreState.arm=null;render()}},4000);return}doRestore('/backups/'+encodeURIComponent(nm)+'/restore');return}

@@ -65,9 +65,15 @@ function audioAwake(){
   if(audioCtx.state==='running') return true;
   try{ audioCtx.resume(); return true }catch(e){ return false }
 }
-function unlockAudio(){
+/* `voice:false` leaves the speech priming alone, for a caller that is about to make a
+   tone. iOS wants the first utterance inside a tap, so this primes within the gesture
+   -- but speaking parks the AudioContext, so doing it immediately before a beep hands
+   that beep a channel that has just been interrupted. The one place it mattered most
+   was the Test the beep button, where the first tap primes and beeps together. */
+function unlockAudio(opt){
   if(quiet()) return;
-  try{ if(plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
+  const wantVoice=!(opt&&opt.voice===false);
+  try{ if(wantVoice&&plan.voice&&!voicePrimed&&'speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); voicePrimed=true } }catch(e){}
   try{
     if(navigator.audioSession) navigator.audioSession.type=soundMode()==='takeover'?'playback':'transient';
     if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); ctxWatch(audioCtx); tlog('audio','channel opened') }

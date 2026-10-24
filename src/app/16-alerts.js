@@ -134,6 +134,26 @@ function pushAdvice(){
   if(!out.length) out.push('Nothing here looks wrong. If an alert still did not arrive, it is iOS deciding not to show it: check Settings \u2192 Notifications \u2192 Operator, and that a Focus mode is not filtering it.');
   return out;
 }
+/* ---------- sending a report without the clipboard ----------
+Two goes at a copy button, and both times the answer was "nothing I can send you". The
+clipboard is a bad channel on a phone: it can be missing, it can refuse, and on iOS it
+can resolve and still leave you with nothing to paste. So the app posts the thing to
+the server, where it can be read directly, and the button says whether that worked. */
+let sendState=null;
+function sendReport(kind,text){
+  sendState={busy:true}; render();
+  return api('POST','/report',{kind,body:text,version:typeof APP_VERSION==='string'?APP_VERSION:'',
+    ua:typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,200):''}).then(
+    ()=>{ sendState={ok:true,at:Date.now()}; render() },
+    e=>{ sendState={ok:false,err:e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'}; render() });
+}
+function sendNote(){
+  if(!sendState) return '';
+  if(sendState.busy) return '<div class="small muted">Sending\u2026</div>';
+  return sendState.ok
+    ? '<div class="small" style="color:var(--green)">Sent. Nothing else needed \u2014 it can be read from here.</div>'
+    : `<div class="small" style="color:var(--red)">Could not send it (${esc(sendState.err)}). The text is below; a screenshot works too.</div>`;
+}
 function pushReport(){
   return 'Operator + Black '+(typeof APP_VERSION==='string'?APP_VERSION:'')+' \u00b7 alerts\n'+
     (typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'')+'\n\n'+pushStatusText()+'\n\n'+pushAdvice().join('\n');

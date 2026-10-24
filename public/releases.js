@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.52',date:'2026-10-24',title:"Send a report without copying anything",items:[
+    "Twice now a bug report has come down to \u201cthe copy button gave me nothing to send\u201d. The clipboard is a poor channel on a phone: it can be missing, it can refuse, and on iOS it can report success and still leave you with nothing to paste.",
+    "So there's a <b>Send this to the developer</b> button on the beep test and on the alerts card. It posts the diagnostic and the timer log straight to the server, where they can be read directly. It says plainly whether it worked.",
+    "The beep test had a real fault of its own: it primed the speech voice a few milliseconds before playing its tone, and on iOS speaking parks the audio channel \u2014 so the tone it was testing landed on a channel that had just been interrupted. The test no longer touches speech.",
+    "Everywhere else still primes speech on the first tap, because iOS requires that first utterance to come from a tap."]},
   {v:'3.51',date:'2026-10-24',title:"Found it: a dead subscription nobody could see",items:[
     "When Apple rejects a phone's push subscription as gone \u2014 a 410 \u2014 the server deleted it and said nothing. Your phone kept its end of it in storage, the card kept saying On, and no alert ever arrived again. No error anywhere, on either side. That is the shape of what you reported.",
     "Worse, the app's self-repair handed the same dead subscription straight back whenever the server came up empty, so it could never recover on its own.",

@@ -149,6 +149,33 @@ export async function handleApi(request, env) {
     return json({ error: "Not found." }, 404);
   }
 
+  /* A diagnostic the app could not otherwise deliver. Kept deliberately dumb: the
+     app decides what is worth sending and this stores the text, capped, against the
+     signed-in person. Read with:
+       npx wrangler d1 execute operator-black --remote \
+         --command "SELECT at,kind,version,body FROM reports ORDER BY at DESC LIMIT 5" */
+  if (route === "report" && request.method === "POST") {
+    const b = await request.json().catch(() => ({}));
+    const body = String(b.body || "").slice(0, 20000);
+    if (!body) return json({ error: "Nothing to report." }, 400);
+    const insert = () => env.DB.prepare("INSERT INTO reports (user, at, kind, version, ua, body) VALUES (?,?,?,?,?,?)")
+      .bind(user, Date.now(), String(b.kind || "report").slice(0, 40), String(b.version || "").slice(0, 20),
+        String(b.ua || "").slice(0, 200), body).run();
+    // Creates its own table if the migration has not been applied. This is the channel
+    // somebody uses when nothing else is working, so it must not be the thing that
+    // needs a deploy step to have gone right.
+    try {
+      await insert();
+    } catch (e) {
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT NOT NULL, at INTEGER NOT NULL,
+        kind TEXT NOT NULL, version TEXT, ua TEXT, body TEXT NOT NULL)`).run();
+      await insert();
+    }
+    // Keep the table small: this is a channel, not an archive.
+    await env.DB.prepare("DELETE FROM reports WHERE id NOT IN (SELECT id FROM reports ORDER BY at DESC LIMIT 200)").run();
+    return json({ sent: true });
+  }
   if (route === "push/key" && request.method === "GET") {
     return json({ key: vapidPublicKey(env) });
   }

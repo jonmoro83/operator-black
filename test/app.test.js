@@ -8781,3 +8781,41 @@ test("the card reports what the push service said, which nothing used to keep", 
   a.ok(x.pushAdvice().some((t) => /accepted by Apple/.test(t)),
     "an accepted push points at iOS rather than at the app");
 });
+
+test("the beep test does not prime speech a moment before its own tone", () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.voice = true; x.plan.soundMode = "duck"; x.bump();
+  // Speaking parks the AudioContext on iOS, so priming it immediately before the
+  // test tone hands that tone a channel that has just been interrupted.
+  x.audio.said.length = 0;
+  x.unlockAudio({ voice: false });
+  a.equal(x.audio.said.length, 0, "nothing was spoken");
+  a.ok(x.audio.ctx, "but the channel is open, which is the part the tone needs");
+  // The ordinary path still primes, because iOS wants the first utterance in a tap.
+  const y = app({ now: "2026-10-24" });
+  y.plan.voice = true; y.plan.soundMode = "duck"; y.bump();
+  y.unlockAudio();
+  a.equal(y.audio.said.length, 1, "primed as usual elsewhere");
+});
+
+test("a report goes to the server, so getting it off the phone is not the user's problem", async () => {
+  const x = app({ now: "2026-10-24" });
+  const keepF = global.fetch;
+  try {
+    let sent = null;
+    global.fetch = (u, o) => {
+      sent = { url: String(u), body: JSON.parse(o.body) };
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: () => Promise.resolve({ sent: true }) });
+    };
+    await x.sendReport("beep", "the diagnostic text");
+    a.match(sent.url, /\/api\/report$/);
+    a.equal(sent.body.kind, "beep");
+    a.match(sent.body.body, /the diagnostic text/);
+    a.ok(sent.body.version, "stamped with the version it came from");
+    a.match(x.sendNote(), /Sent/);
+    // A failure says so rather than looking like success.
+    global.fetch = () => Promise.resolve({ ok: false, status: 500, type: "basic" });
+    await x.sendReport("beep", "x");
+    a.match(x.sendNote(), /Could not send it \(HTTP 500\)/);
+  } finally { global.fetch = keepF }
+});
