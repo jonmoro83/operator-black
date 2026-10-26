@@ -549,8 +549,12 @@ function vSetup(){
     ${beepSeen?`<div class="banner ${beepSeen.silent?'warn':'info'}"><div class="small">${beepAdvice(beepSeen).map(t=>`<div>${esc(t)}</div>`).join('')}
       <details class="plain" style="margin-top:6px"><summary>What the app saw</summary><div class="mono small" style="word-break:break-word;margin-top:4px">${esc(['mode '+beepSeen.mode,'silent '+beepSeen.silent,'vibrate '+(beepSeen.canVibrate?'yes':'no')+(beepSeen.vibrated?' (fired)':''),'clip '+beepSeen.media,'tones '+beepSeen.tones,'channel '+beepSeen.ctx,'session '+beepSeen.session,beepSeen.ua].join(' \u00b7 '))}</div></details></div>
       <div class="row"><button class="btn sm primary" data-act="beepsend" ${sendState&&sendState.busy?'disabled':''}>Send this to the developer</button><button class="btn sm ghost" data-act="beepcopy">Copy</button></div>${sendNote()}</div>`:''}
-    <details class="plain" style="margin-top:10px"><summary>Timer log</summary>
-      <p class="note" style="margin:6px 0">What the timers did on this phone: every sound and what the audio was doing when it was asked for, how late each rest\u2019s end was noticed, and when the screen lock was refused. It holds a whole interval session now, so if the beeps stop partway through, copy it straight after and the line where they stopped will still be in it.</p>
+    <!-- The send button was only reachable after running a beep test, which is the
+         wrong moment: what is worth reading is the log from a real session, and
+         nobody wants to run a test first to be allowed to send it. -->
+    <div class="row" style="margin-top:10px"><button class="btn sm primary" data-act="logsend" ${sendState&&sendState.busy?'disabled':''}>${sendState&&sendState.busy?'Sending\u2026':'Send the timer log to the developer'}</button></div>${sendNote()}
+    <p class="note" style="margin:6px 0">Best straight after a session where something went wrong. It records every sound, what the audio channel was doing when it was asked for, how late each rest\u2019s end was noticed, and whether the screen stayed awake.</p>
+    <details class="plain" style="margin-top:4px"><summary>Read it here</summary>
       <div class="mono small tlog">${esc(tlogText())}</div>
       <div class="row"><button class="btn sm ghost" data-act="tlogcopy">Copy the timer log</button></div>
     </details>`;

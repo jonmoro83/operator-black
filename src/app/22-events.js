@@ -275,6 +275,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // utterance a few milliseconds before it parks the channel it has to play on.
   if(a==='beeptest'){unlockAudio({voice:false});beepTest();return}
   if(a==='tlogcopy'){ copyOut(b,tlogReport(),'Copy the timer log'); return }
+  if(a==='logsend'){ sendReport('timerlog',tlogReport()+'\n\n--- sound ---\n'+JSON.stringify(audioState())); return }
   if(a==='beepcopy'){ copyOut(b,beepReport(),'Copy for a bug report'); return }
   if(a==='restore'){const nm=b.dataset.name;if(restoreState.arm!==nm){restoreState.arm=nm;restoreState.msg=null;render();setTimeout(()=>{if(restoreState.arm===nm){restoreState.arm=null;render()}},4000);return}doRestore('/backups/'+encodeURIComponent(nm)+'/restore');return}
   if(a==='restorefile'){if(restoreState.file) doRestore('/restore',restoreState.file.data);return}

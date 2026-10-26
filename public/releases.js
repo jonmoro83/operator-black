@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.58',date:'2026-10-26',title:"Send the timer log straight after a session",items:[
+    "The button that sends the timer log was buried inside the beep test's result, so you had to run a test to be allowed to send the log from a real session \u2014 which is the only one worth reading. It sits on the Sound card on its own now.",
+    "Use it straight after a session where the beeps went wrong. It records every sound, what the audio channel was doing when each was asked for, how late each rest's end was noticed, and whether the screen stayed awake \u2014 which is what separates \u201cthe beep failed\u201d from \u201cthe phone was asleep and the page with it\u201d."]},
   {v:'3.57',date:'2026-10-24',title:"The beep stops arriving late",items:[
     "A real rest beeped about a second late. The tone was never the slow part: your audio channel sits interrupted, so the beep had to wake it first and then play, and the wake is what cost the second. Nothing can be scheduled against a sleeping channel, so the only way to be on time is to already be awake.",
     "The rest timer now wakes the channel three seconds before the end, and the interval timer four seconds before each change. By the time the sound is due the channel is ready and the tone goes straight out.",

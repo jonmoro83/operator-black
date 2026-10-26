@@ -7720,13 +7720,15 @@ test("a refused screen lock is shown on the rest bar, not discovered at the end"
   } finally { navigator.wakeLock = keep }
 });
 
-test("the timer log is reachable from Setup, with a copy button", () => {
+test("the timer log can be sent from Setup without running a test first", () => {
   const x = app({ now: "2026-10-19" });
   x.tlog("rest", "started", "180 s");
   const h = x.vSetup();
-  a.match(h, /Timer log/);
+  a.match(h, /rest · started/, "it is readable on the page");
   a.match(h, /data-act="tlogcopy"/);
-  a.match(h, /rest · started/);
+  // The send button used to live inside the beep-test result, so the log from a real
+  // session -- the only one worth reading -- could not be sent without running a test.
+  a.match(h, /data-act="logsend"/, "and sendable on its own");
 });
 
 test("a wake that resolves but leaves the channel parked plays nothing, and says so", async () => {
