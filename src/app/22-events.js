@@ -197,11 +197,19 @@ document.getElementById('main').addEventListener('click',e=>{
     return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
-    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    // A new set starts as a copy of the one before it, which is what you were going to
+    // type into it anyway.
+    if(a==='accadd'){ cur.push({}); accCarryInto(cur,cur.length-2) } else cur.splice(+b.dataset.i,1);
     setLog(sel,'acc.sets.'+sl,cur);
     // Logging a set is itself the record that it happened; drop the manual tick.
     if(cur.length) setLog(sel,'acc.done.'+sl,null);
     render();return}
+  if(a==='accset'){ accTick(sel,b.dataset.slot,+b.dataset.i); render(); return }
+  if(a==='accrestset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accRestSecs(sl)===v) return;
+    mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return}
   if(a==='acclater'){ accLater=b.dataset.v==='1'; render(); return }
   if(a==='accslotrm'){
     const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);

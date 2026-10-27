@@ -308,6 +308,19 @@ function accCard(wk,dp){
   return h+`</div>`;
 }
 
+/* How long the rest after a set of this job runs for. Written where the sets are, the
+   way the warm-up rest is, because that is where you find out it is wrong. One per
+   pair: the attribute differs because session mode has its own click handler. */
+function accRestSel(slot,inLs){
+  const at=inLs?'data-ls':'data-act', cur=accRestSecs(slot);
+  return `<div class="restsel"><span>Rest after a set</span><div class="seg">${ACC_RESTS.map(v=>`<button class="segb${cur===v?' on':''}" ${at}="accrestset" data-slot="${esc(slot)}" data-v="${v}" aria-pressed="${cur===v}">${warmRestLabel(v)}</button>`).join('')}</div></div>`;
+}
+// The tick that finishes a set. Same button in both places, so the two cannot drift.
+function accTickBtn(date,slot,i,inLs){
+  const on=!!(accSets(date,slot)[i]||{}).done;
+  return `<button class="wu-chk${on?' on':''}" ${inLs?'data-ls':'data-act'}="accset" data-slot="${esc(slot)}" data-i="${i}" aria-pressed="${on}" aria-label="Set ${i+1} done">\u2713</button>`;
+}
+
 // One slot: what it is for, what is filling it today, and what you did.
 function accSlotRow(date,slot){
   const id=accOn(date,slot), e=accEx(id), sets=accSets(date,slot), swapped=accSwapped(date,slot);
@@ -327,9 +340,10 @@ function accSlotRow(date,slot){
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   h+=accLastLine(date,slot,id);
+  if(!viewing&&sets.length&&accGroupOf(date,slot)[0]===slot) h+=accRestSel(slot,false);
   for(let i=0;i<sets.length;i++){
     const x=sets[i]||{};
-    h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}<span></span>${viewing?'<span></span>':`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
+    h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}${viewing?'<span></span><span></span>':accTickBtn(date,slot,i,false)+`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
   }
   if(!viewing) h+=`<div class="row" style="gap:8px"><button class="btn sm ghost" data-act="accadd" data-slot="${esc(slot)}">+ Add set</button>${noSets?`<button class="btn sm${isDone?' primary':' ghost'}" data-act="accdone" data-slot="${esc(slot)}">${isDone?'\u2713 Done':'Mark done'}</button>`:''}</div>`;
   return h+`</div>`;

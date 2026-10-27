@@ -13,6 +13,24 @@ function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
 const WARM_RESTS=[60,90,120,150];
 function warmRestSecs(k){const v=+((plan.warmRest||{})[k]);return v>=60&&v<=600?v:90}
 function warmRestLabel(v){return v<120?v+'s':(v/60)+' min'}
+/* Accessory rest. A loaded carry and a set of curls do not want the same clock, so the
+   number is per job rather than one figure for all of them. plan.accRest is the figure
+   that used to be the only one; it stays as what a job falls back to, so nobody who
+   never opens this loses their 90 seconds. */
+const ACC_RESTS=[30,45,60,90,120,180];
+function accRestSecs(slot){
+  const v=+((plan.accRestBy||{})[slot]); if(v>=15&&v<=600) return v;
+  const d=+plan.accRest; return d>=15&&d<=600?d:90;
+}
+// The rest belongs to the pair, not to each half of it, so a superset's clock is the
+// first job's and the label names both.
+function accRestStart(date,slot,i){
+  const g=accGroupOf(date,slot);
+  const nm=g.map(s=>accName(accOn(date,s))).filter(Boolean).join(' + ');
+  unlockAudio();
+  startRest(null,i==null||!nm?nm:nm+' \u00b7 set '+(i+2),accRestSecs(g[0]),
+    'Rest \u00b7 '+g.map(s=>(ASLOT[s]||{}).name||s).join(' + '));
+}
 // Spoken cues (Setup / timer card). iOS only speaks after a first utterance inside a
 // tap, so unlockAudio primes it with a silent one.
 let voicePrimed=false;

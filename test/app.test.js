@@ -2676,6 +2676,103 @@ test("accessory work is logged against the slot, with sets, weight and reps", ()
   a.deepEqual(x.accSets(mon, "spress"), [{ w: 95, r: 10 }, { w: 95, r: 9 }], "with its sets intact");
 });
 
+test("ticking an accessory set starts the rest and fills in the next one", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+
+  x.setLog(mon, "acc.sets.spress", [{ w: 95, r: 10 }, {}]);
+  a.equal(x.accTick(mon, "spress", 0), true);
+  a.deepEqual(x.accSets(mon, "spress"), [{ w: 95, r: 10, done: true }, { w: 95, r: 10 }],
+    "the set you just did is already in the next one");
+  a.ok(x.rest, "and the rest is running without being asked for");
+  a.equal(x.rest.dur, 90, "for 90 seconds by default");
+
+  // Carried numbers are a guess. Changing one before the tick is the point of them.
+  x.setLog(mon, "acc.sets.spress.1.r", 8);
+  a.equal(x.accTick(mon, "spress", 1), true);
+  a.deepEqual(x.accSets(mon, "spress")[1], { w: 95, r: 8, done: true }, "the edit stands");
+
+  // And it comes off again.
+  a.equal(x.accTick(mon, "spress", 1), false);
+  a.deepEqual(x.accSets(mon, "spress")[1], { w: 95, r: 8 }, "unticked, numbers kept");
+});
+
+test("a ticked set with nothing typed into it still counts, and copies what came before", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+
+  x.setLog(mon, "acc.sets.core", [{ r: 30 }, {}]);
+  x.accTick(mon, "core", 1);
+  a.deepEqual(x.accSets(mon, "core")[1], { r: 30, done: true }, "a blank set takes the one before it");
+  a.equal(x.accDone(mon, "core"), true);
+});
+
+test("a new accessory set starts as a copy of the one before it", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+  x.setLog(mon, "acc.sets.biceps", [{ w: 35, r: 12 }]);
+  x.ls = { date: mon, i: 0, warm: false };
+  x.ls.i = x.lsSteps(mon).findIndex((s) => s.type === "acc" && s.slot === "biceps");
+
+  x.lsAct("accadd", { dataset: { slot: "biceps" } });
+  a.deepEqual(x.accSets(mon, "biceps"), [{ w: 35, r: 12 }, { w: 35, r: 12 }], "typed once, not twice");
+  a.equal(x.accDone(mon, "biceps"), true, "and the copy is not a claim that you did it");
+});
+
+test("the accessory rest is per job, with the old single number standing behind it", () => {
+  const x = app({ now: "2026-09-07" });
+  a.equal(x.accRestSecs("spress"), 90, "90 seconds unless told otherwise");
+  x.plan.accRest = 60; x.bump();
+  a.equal(x.accRestSecs("spress"), 60, "the one number everything used to share still applies");
+  x.plan.accRestBy = { spress: 180 }; x.bump();
+  a.equal(x.accRestSecs("spress"), 180, "a job can have its own");
+  a.equal(x.accRestSecs("core"), 60, "and only that job");
+  x.plan.accRestBy = { spress: 5 }; x.bump();
+  a.equal(x.accRestSecs("spress"), 60, "nonsense is ignored");
+});
+
+test("a superset rests once, after both halves of the set", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  const slots = x.accSlots("mon");
+  x.plan.accSuper = { mon: [slots[0]] }; x.bump();
+  const mon = "2026-09-07";
+  a.deepEqual(x.accGroupOf(mon, slots[1]), [slots[0], slots[1]], "they run as a pair");
+
+  x.rest = null;
+  x.accTick(mon, slots[0], 0);
+  a.equal(x.rest, null, "half a superset is not the end of a set");
+  x.accTick(mon, slots[1], 0);
+  a.ok(x.rest, "both halves done, now the clock starts");
+});
+
+test("a rest only starts for the day you are actually training", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  x.rest = null;
+  x.accTick("2026-09-07", "spress", 0);
+  a.equal(x.rest, null, "filling in last Monday is not a set you just did");
+  a.equal(x.accSets("2026-09-07", "spress")[0].done, true, "but it is still logged");
+});
+
+test("every accessory set has a tick, and the rest length sits with the sets", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+  x.setLog(mon, "acc.sets.biceps", [{ w: 35, r: 12 }]);
+  const h = x.accSlotRow(mon, "biceps");
+
+  a.match(h, /data-act="accset"[^>]*data-i="0"/, "the set can be ticked");
+  a.match(h, /data-act="accrestset"[^>]*data-v="120"/, "and the rest after it chosen");
+  a.match(h, /Rest after a set/);
+
+  // Nothing to rest between until there is a set.
+  a.doesNotMatch(x.accSlotRow(mon, "core"), /accrestset/, "not before you have logged anything");
+});
+
 test("ticks stored by position are migrated to slots, and old programs still read", () => {
   const x = app({ now: "2026-09-14" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
@@ -3195,6 +3292,8 @@ test("the accessory step offers the swap and the sets, not just a tick", () => {
   a.match(h, /data-lsacc="biceps\|0\|r"/, "and a reps box");
   a.match(h, /value="35"/, "carrying what is already logged");
   a.match(h, /data-ls="accadd"/, "a way to add another set");
+  a.match(h, /data-ls="accset"[^>]*data-i="0"/, "a tick to finish the set with");
+  a.match(h, /data-ls="accrestset"[^>]*data-v="45"/, "the rest length, set here");
   a.match(h, /data-ls="accrest"[^>]*>Rest 90s/, "and a rest timer, defaulting to 90 seconds");
 
   // Every input in the overlay can be found again, same rule as the main view.

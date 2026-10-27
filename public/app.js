@@ -1285,7 +1285,7 @@ const DEF={
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
-  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90,
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90, accRestBy:{},
   // Plyos ride on a weekday of their own rather than being welded to a session, so
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
@@ -1976,7 +1976,50 @@ function accDone(date,slot){
   // rather than rewriting history we cannot map with confidence.
   if(Array.isArray(A)){ const dp=dayPlan(date), sl=dp&&dp.acc?accSlots(dp.acc):[]; const i=sl.indexOf(slot); return i>=0&&!!A[i] }
   if(((A||{}).done||{})[slot]) return true;
-  return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
+  return accSets(date,slot).some(x=>x&&(x.done||(x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
+}
+function accBlank(v){ return v==null||v==='' }
+
+/* The set you just did is the best guess at the set you are about to do, so it is in
+   the boxes when you get there instead of being typed again. A guess, not a commitment:
+   both numbers stay editable right up to the tick, and a number already entered is
+   never overwritten. */
+function accCarryInto(sets,i){
+  const from=sets[i], to=sets[i+1];
+  if(!from||!to||to.done) return sets;
+  const nx=Object.assign({},to);
+  if(accBlank(nx.w)&&!accBlank(from.w)) nx.w=from.w;
+  if(accBlank(nx.r)&&!accBlank(from.r)) nx.r=from.r;
+  sets[i+1]=nx;
+  return sets;
+}
+// Which jobs run together, because a superset rests once, at the end of the pair.
+function accGroupOf(date,slot){
+  const g=accRunGroups(accDayOf(date)).find(x=>x.includes(slot));
+  return g&&g.length?g:[slot];
+}
+// A set of a pair is only finished when both halves of it are.
+function accSetReady(date,slot,i){
+  return accGroupOf(date,slot).every(s=>!!(accSets(date,s)[i]||{}).done);
+}
+/* Ticking a set is the whole of it: it fills in what you left blank, carries the
+   numbers into the next set, says the set happened and starts the rest. Before this an
+   accessory set was logged by typing into it, and the rest was a button you had to
+   remember to press. */
+function accTick(date,slot,i){
+  const cur=accSets(date,slot).slice();
+  while(cur.length<=i) cur.push({});
+  const x=Object.assign({},cur[i]||{}), on=!x.done;
+  if(on){
+    x.done=true;
+    const prev=cur[i-1];
+    if(prev){ if(accBlank(x.w)&&!accBlank(prev.w)) x.w=prev.w; if(accBlank(x.r)&&!accBlank(prev.r)) x.r=prev.r }
+  } else delete x.done;
+  cur[i]=x;
+  if(on) accCarryInto(cur,i);
+  setLog(date,'acc.sets.'+slot,cur);
+  if(on&&date===todayStr()&&accSetReady(date,slot,i)) accRestStart(date,slot,i);
+  return on;
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
 // Skipping is a decision about today, so it lives on the day rather than in the plan.
@@ -4348,6 +4391,19 @@ function accCard(wk,dp){
   return h+`</div>`;
 }
 
+/* How long the rest after a set of this job runs for. Written where the sets are, the
+   way the warm-up rest is, because that is where you find out it is wrong. One per
+   pair: the attribute differs because session mode has its own click handler. */
+function accRestSel(slot,inLs){
+  const at=inLs?'data-ls':'data-act', cur=accRestSecs(slot);
+  return `<div class="restsel"><span>Rest after a set</span><div class="seg">${ACC_RESTS.map(v=>`<button class="segb${cur===v?' on':''}" ${at}="accrestset" data-slot="${esc(slot)}" data-v="${v}" aria-pressed="${cur===v}">${warmRestLabel(v)}</button>`).join('')}</div></div>`;
+}
+// The tick that finishes a set. Same button in both places, so the two cannot drift.
+function accTickBtn(date,slot,i,inLs){
+  const on=!!(accSets(date,slot)[i]||{}).done;
+  return `<button class="wu-chk${on?' on':''}" ${inLs?'data-ls':'data-act'}="accset" data-slot="${esc(slot)}" data-i="${i}" aria-pressed="${on}" aria-label="Set ${i+1} done">\u2713</button>`;
+}
+
 // One slot: what it is for, what is filling it today, and what you did.
 function accSlotRow(date,slot){
   const id=accOn(date,slot), e=accEx(id), sets=accSets(date,slot), swapped=accSwapped(date,slot);
@@ -4367,9 +4423,10 @@ function accSlotRow(date,slot){
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   h+=accLastLine(date,slot,id);
+  if(!viewing&&sets.length&&accGroupOf(date,slot)[0]===slot) h+=accRestSel(slot,false);
   for(let i=0;i<sets.length;i++){
     const x=sets[i]||{};
-    h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}<span></span>${viewing?'<span></span>':`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
+    h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}${viewing?'<span></span><span></span>':accTickBtn(date,slot,i,false)+`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
   }
   if(!viewing) h+=`<div class="row" style="gap:8px"><button class="btn sm ghost" data-act="accadd" data-slot="${esc(slot)}">+ Add set</button>${noSets?`<button class="btn sm${isDone?' primary':' ghost'}" data-act="accdone" data-slot="${esc(slot)}">${isDone?'\u2713 Done':'Mark done'}</button>`:''}</div>`;
   return h+`</div>`;
@@ -4957,6 +5014,24 @@ function restMins(k){const m=+((plan.rest||{})[k]);return m>=2&&m<=5?m:3}
 const WARM_RESTS=[60,90,120,150];
 function warmRestSecs(k){const v=+((plan.warmRest||{})[k]);return v>=60&&v<=600?v:90}
 function warmRestLabel(v){return v<120?v+'s':(v/60)+' min'}
+/* Accessory rest. A loaded carry and a set of curls do not want the same clock, so the
+   number is per job rather than one figure for all of them. plan.accRest is the figure
+   that used to be the only one; it stays as what a job falls back to, so nobody who
+   never opens this loses their 90 seconds. */
+const ACC_RESTS=[30,45,60,90,120,180];
+function accRestSecs(slot){
+  const v=+((plan.accRestBy||{})[slot]); if(v>=15&&v<=600) return v;
+  const d=+plan.accRest; return d>=15&&d<=600?d:90;
+}
+// The rest belongs to the pair, not to each half of it, so a superset's clock is the
+// first job's and the label names both.
+function accRestStart(date,slot,i){
+  const g=accGroupOf(date,slot);
+  const nm=g.map(s=>accName(accOn(date,s))).filter(Boolean).join(' + ');
+  unlockAudio();
+  startRest(null,i==null||!nm?nm:nm+' \u00b7 set '+(i+2),accRestSecs(g[0]),
+    'Rest \u00b7 '+g.map(s=>(ASLOT[s]||{}).name||s).join(' + '));
+}
 // Spoken cues (Setup / timer card). iOS only speaks after a first utterance inside a
 // tap, so unlockAudio primes it with a silent one.
 let voicePrimed=false;
@@ -6002,13 +6077,14 @@ function lsRender(){
         return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const pair=[st.slot,st.pair].filter(Boolean), rest=+plan.accRest||90;
+    const pair=[st.slot,st.pair].filter(Boolean), rest=accRestSecs(st.slot);
     const allDone=pair.every(sl=>accDone(ls.date,sl));
     h+=`<div class="ls-card"><div class="ls-lift">${esc(pair.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
       <div class="ls-kind">${pair.length>1?'Superset':'Accessory'}${pair.some(sl=>accSwapped(ls.date,sl))?' \u00b7 swapped for today':''}${allDone?' \u00b7 \u2713 done':''}</div>
       ${pair.length>1?'<div class="small muted">A set of each, back to back, then rest.</div>':''}
       ${pair.map(sl=>lsAccBlock(sl,pair.length>1)).join('')}
-      <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${rest}s</button></div>
+      ${accRestSel(st.slot,true)}
+      <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${warmRestLabel(rest)}</button></div>
     </div>
     <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
   } else if(st.test){
@@ -6049,7 +6125,7 @@ function lsAccBlock(sl,inPair){
       <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i+1} weight">
       <span class="wu-x">\u00d7</span>
       <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i+1} reps">
-      <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button></div>`).join('')}</div>
+      ${accTickBtn(ls.date,sl,i,true)}<button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button></div>`).join('')}</div>
     <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button></div></div>`;
 }
 function lsMarkWarm(st){
@@ -6085,14 +6161,20 @@ function lsAct(a,b){
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(ls.date,sl).slice();
-    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    if(a==='accadd'){ cur.push({}); accCarryInto(cur,cur.length-2) } else cur.splice(+b.dataset.i,1);
     setLog(ls.date,'acc.sets.'+sl,cur);
     if(cur.length) setLog(ls.date,'acc.done.'+sl,null);
     return lsRender();
   }
+  if(a==='accset'){ accTick(ls.date,b.dataset.slot,+b.dataset.i); return lsRender() }
+  if(a==='accrestset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accRestSecs(sl)!==v) mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return lsRender();
+  }
   if(a==='accrest'){
     const sl=b.dataset.slot, next=lsSteps(ls.date)[ls.i+1];
-    startRest(null,next&&next.type==='acc'?(ASLOT[next.slot]||{}).name:accName(accOn(ls.date,sl)),+plan.accRest||90,'Rest \u00b7 '+((ASLOT[sl]||{}).name||sl));
+    startRest(null,next&&next.type==='acc'?(ASLOT[next.slot]||{}).name:accName(accOn(ls.date,sl)),accRestSecs(sl),'Rest \u00b7 '+((ASLOT[sl]||{}).name||sl));
     return lsRender();
   }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}
@@ -7792,7 +7874,7 @@ async function exportCsv(which){
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','supps','suppCustom','warmRoutine','warmCustom','stempl','cproto'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','accRest','accRestBy','supps','suppCustom','warmRoutine','warmCustom','stempl','cproto'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -8600,8 +8682,9 @@ function vGuide(){
   <div class="card guide"><h3>Accessories</h3>
   <p><b>Jobs, not a list.</b> Each lifting day covers a few jobs — a horizontal pull, some core, a carry, arms — and you choose what does each one. Setup → Accessories sets which jobs a day covers and what fills them. The choice is per cycle, like your cluster lifts, because that is what it is: a program decision, not something to re-make every session. It is also per day, so a job that comes round three times a week can be a different movement each time.</p>
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
-  <p><b>In session mode.</b> Each job is its own step, after the lifts: it names what is doing it, lets you swap for that session, takes the sets, and has a rest timer of its own — 90 seconds by default, where the main lifts use your per-lift two to five minutes.</p>
-  <p><b>Logging.</b> Sets, weight and reps, like the main lifts, or just <b>Mark done</b> if you would rather not count. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
+  <p><b>In session mode.</b> Each job is its own step, after the lifts: it names what is doing it, lets you swap for that session, and takes the sets.</p>
+  <p><b>Logging.</b> Tick a set off and three things happen: the set is logged, the rest starts, and the next set is filled in with the weight and reps you just did — which is what the next set usually is. Both numbers stay editable until you tick that one too, anything you have already typed is left alone, and adding a set copies the one before it the same way. Or just <b>Mark done</b> if you would rather not count at all. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
+  <p><b>The rest between sets is yours to set</b>, and it is per job rather than one figure for all of them — a loaded carry and a set of curls do not want the same clock. It sits with the sets, in the day’s card and in session mode, and starts at 90 seconds, where the main lifts use your per-lift two to five minutes. A superset rests once, at the end of the pair: tick one half and nothing starts, tick the other and it does.</p>
   <p><b>Missing a movement?</b> The list is shared and curated, so ask and it can be added for everyone. A movement that is retired stops being offered but stays with anyone who had already chosen it — nobody has their program rewritten mid-cycle.</p>
   <p><b>The order is not the order you listed them in.</b> Core runs last and carries run last of all, whatever position they hold in Setup, and a superset containing either moves as a pair rather than being split. A fried grip makes everything after it worse, and bracing is the thing you want intact while you are still loading a bar.</p>
   <p><b>The ab triad</b> is a core option that is one prescription rather than three exercises: it is taken exactly as written, and nothing is added to it.</p>
@@ -9369,11 +9452,19 @@ document.getElementById('main').addEventListener('click',e=>{
     return }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(sel,sl).slice();
-    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    // A new set starts as a copy of the one before it, which is what you were going to
+    // type into it anyway.
+    if(a==='accadd'){ cur.push({}); accCarryInto(cur,cur.length-2) } else cur.splice(+b.dataset.i,1);
     setLog(sel,'acc.sets.'+sl,cur);
     // Logging a set is itself the record that it happened; drop the manual tick.
     if(cur.length) setLog(sel,'acc.done.'+sl,null);
     render();return}
+  if(a==='accset'){ accTick(sel,b.dataset.slot,+b.dataset.i); render(); return }
+  if(a==='accrestset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accRestSecs(sl)===v) return;
+    mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return}
   if(a==='acclater'){ accLater=b.dataset.v==='1'; render(); return }
   if(a==='accslotrm'){
     const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);

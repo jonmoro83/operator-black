@@ -666,7 +666,7 @@ const DEF={
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
-  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90,
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90, accRestBy:{},
   // Plyos ride on a weekday of their own rather than being welded to a session, so
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.

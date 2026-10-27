@@ -239,7 +239,50 @@ function accDone(date,slot){
   // rather than rewriting history we cannot map with confidence.
   if(Array.isArray(A)){ const dp=dayPlan(date), sl=dp&&dp.acc?accSlots(dp.acc):[]; const i=sl.indexOf(slot); return i>=0&&!!A[i] }
   if(((A||{}).done||{})[slot]) return true;
-  return accSets(date,slot).some(x=>x&&((x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
+  return accSets(date,slot).some(x=>x&&(x.done||(x.w!=null&&x.w!=='')||(x.r!=null&&x.r!=='')));
+}
+function accBlank(v){ return v==null||v==='' }
+
+/* The set you just did is the best guess at the set you are about to do, so it is in
+   the boxes when you get there instead of being typed again. A guess, not a commitment:
+   both numbers stay editable right up to the tick, and a number already entered is
+   never overwritten. */
+function accCarryInto(sets,i){
+  const from=sets[i], to=sets[i+1];
+  if(!from||!to||to.done) return sets;
+  const nx=Object.assign({},to);
+  if(accBlank(nx.w)&&!accBlank(from.w)) nx.w=from.w;
+  if(accBlank(nx.r)&&!accBlank(from.r)) nx.r=from.r;
+  sets[i+1]=nx;
+  return sets;
+}
+// Which jobs run together, because a superset rests once, at the end of the pair.
+function accGroupOf(date,slot){
+  const g=accRunGroups(accDayOf(date)).find(x=>x.includes(slot));
+  return g&&g.length?g:[slot];
+}
+// A set of a pair is only finished when both halves of it are.
+function accSetReady(date,slot,i){
+  return accGroupOf(date,slot).every(s=>!!(accSets(date,s)[i]||{}).done);
+}
+/* Ticking a set is the whole of it: it fills in what you left blank, carries the
+   numbers into the next set, says the set happened and starts the rest. Before this an
+   accessory set was logged by typing into it, and the rest was a button you had to
+   remember to press. */
+function accTick(date,slot,i){
+  const cur=accSets(date,slot).slice();
+  while(cur.length<=i) cur.push({});
+  const x=Object.assign({},cur[i]||{}), on=!x.done;
+  if(on){
+    x.done=true;
+    const prev=cur[i-1];
+    if(prev){ if(accBlank(x.w)&&!accBlank(prev.w)) x.w=prev.w; if(accBlank(x.r)&&!accBlank(prev.r)) x.r=prev.r }
+  } else delete x.done;
+  cur[i]=x;
+  if(on) accCarryInto(cur,i);
+  setLog(date,'acc.sets.'+slot,cur);
+  if(on&&date===todayStr()&&accSetReady(date,slot,i)) accRestStart(date,slot,i);
+  return on;
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
 // Skipping is a decision about today, so it lives on the day rather than in the plan.

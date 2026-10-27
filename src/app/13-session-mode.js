@@ -150,13 +150,14 @@ function lsRender(){
         return `<div class="ls-wrow"><button class="btn${flags[i]?' primary':''}" style="justify-content:flex-start;text-align:left;flex:1" data-ls="${isW?'gw':'mb'}" data-i="${i}">${flags[i]?'✓ ':''}${esc(n)}${d?` <span class="small">· ${esc(d)}</span>`:''}</button>${hs?`<button class="btn sm hold" data-ls="hold" data-i="${i}" aria-label="Time ${esc(n)}">⏱</button>`:''}</div>`}).join('')}</div></div>
       <div class="ls-row"><button class="btn" data-ls="guide">Guide me ›</button><button class="btn primary" style="flex:2" data-ls="next">${done>=items.length?'Done ✓ · next':isW?'Skip to lifting ›':'Next'}</button></div>`;
   } else if(st.type==='acc'){
-    const pair=[st.slot,st.pair].filter(Boolean), rest=+plan.accRest||90;
+    const pair=[st.slot,st.pair].filter(Boolean), rest=accRestSecs(st.slot);
     const allDone=pair.every(sl=>accDone(ls.date,sl));
     h+=`<div class="ls-card"><div class="ls-lift">${esc(pair.map(sl=>(ASLOT[sl]||{}).name||sl).join(' + '))}</div>
       <div class="ls-kind">${pair.length>1?'Superset':'Accessory'}${pair.some(sl=>accSwapped(ls.date,sl))?' \u00b7 swapped for today':''}${allDone?' \u00b7 \u2713 done':''}</div>
       ${pair.length>1?'<div class="small muted">A set of each, back to back, then rest.</div>':''}
       ${pair.map(sl=>lsAccBlock(sl,pair.length>1)).join('')}
-      <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${rest}s</button></div>
+      ${accRestSel(st.slot,true)}
+      <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${warmRestLabel(rest)}</button></div>
     </div>
     <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
   } else if(st.test){
@@ -197,7 +198,7 @@ function lsAccBlock(sl,inPair){
       <input type="number" inputmode="decimal" step="any" id="ls-accw-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|w" value="${x&&x.w!=null?esc(String(x.w)):''}" placeholder="${isBWAcc(id)?'bw':esc(u())}" aria-label="Set ${i+1} weight">
       <span class="wu-x">\u00d7</span>
       <input type="number" inputmode="numeric" step="1" id="ls-accr-${esc(sl)}-${i}" data-lsacc="${esc(sl)}|${i}|r" value="${x&&x.r!=null?esc(String(x.r)):''}" placeholder="reps" aria-label="Set ${i+1} reps">
-      <span></span><button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button></div>`).join('')}</div>
+      ${accTickBtn(ls.date,sl,i,true)}<button class="wu-rm" data-ls="accrm" data-slot="${esc(sl)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button></div>`).join('')}</div>
     <div class="ls-row"><button class="btn sm" data-ls="accadd" data-slot="${esc(sl)}">+ Add set</button></div></div>`;
 }
 function lsMarkWarm(st){
@@ -233,14 +234,20 @@ function lsAct(a,b){
   if(a==='acc'){ const sl=b.dataset.slot; setLog(ls.date,'acc.done.'+sl,accDone(ls.date,sl)?null:true); return lsRender() }
   if(a==='accadd'||a==='accrm'){
     const sl=b.dataset.slot, cur=accSets(ls.date,sl).slice();
-    if(a==='accadd') cur.push({}); else cur.splice(+b.dataset.i,1);
+    if(a==='accadd'){ cur.push({}); accCarryInto(cur,cur.length-2) } else cur.splice(+b.dataset.i,1);
     setLog(ls.date,'acc.sets.'+sl,cur);
     if(cur.length) setLog(ls.date,'acc.done.'+sl,null);
     return lsRender();
   }
+  if(a==='accset'){ accTick(ls.date,b.dataset.slot,+b.dataset.i); return lsRender() }
+  if(a==='accrestset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accRestSecs(sl)!==v) mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return lsRender();
+  }
   if(a==='accrest'){
     const sl=b.dataset.slot, next=lsSteps(ls.date)[ls.i+1];
-    startRest(null,next&&next.type==='acc'?(ASLOT[next.slot]||{}).name:accName(accOn(ls.date,sl)),+plan.accRest||90,'Rest \u00b7 '+((ASLOT[sl]||{}).name||sl));
+    startRest(null,next&&next.type==='acc'?(ASLOT[next.slot]||{}).name:accName(accOn(ls.date,sl)),accRestSecs(sl),'Rest \u00b7 '+((ASLOT[sl]||{}).name||sl));
     return lsRender();
   }
   if(a==='guide'){gdStart(st.type==='gwarm'?'warmup':'mobility');return}

@@ -335,6 +335,32 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Accessory sets tick off, and rest themselves (2026-10-27)**
+- Asked for: a configurable rest for accessory sets, started by marking a set done
+  rather than by the fixed 90 s button; and each new set pre-filled with the weight
+  and reps of the one before it, editable until it is ticked.
+- **A set is now ticked, not typed.** `accTick(date,slot,i)` is the whole behaviour in
+  one place: it fills in what was left blank from the set before, carries the numbers
+  into the next set, records the set, and starts the rest. Both surfaces call it, so
+  the day card and session mode cannot drift — the one bug this pair of views has
+  produced before (see the 2026-09 entry on `lsSteps` and the heavy-week rule).
+- The tick is the same `wu-chk` button the warm-up sets already have, in the slot the
+  accessory row was leaving empty, so the `.wu-row` grid did not change.
+- **Carry-forward never overwrites.** `accCarryInto` fills only a blank field, and
+  skips a set already ticked. `+ Add set` carries the same way, which is what "this
+  should continue as sets are added" asked for.
+- **The rest is per job**, `plan.accRestBy[slot]`, with `plan.accRest` (the one number
+  that used to apply to everything) still standing behind every job as the fallback,
+  so nobody loses their 90 seconds. Chooser sits with the sets in both views, the way
+  the per-lift warm-up rest does. Both keys added to `PREF_KEYS`: a rest preference
+  has no business resetting when a new program starts.
+- **A superset rests once.** `accSetReady` requires the same set index to be ticked on
+  every job in the run group before the clock starts, which keeps the rule the
+  existing comment states ("you rest once at the end of the pair") true of the
+  automatic rest and not just the manual button.
+- `accDone` now also counts a ticked set with no numbers in it, for work nobody
+  counts reps on.
+
 **Rescheduling, rebuilt on dates (2026-10-23)**
 - Reported as "still all messed up... I don't want the move tool to do a swap, just a
   straight move". Right, and not fixable in the old model: `plan.order[monday]` was a
