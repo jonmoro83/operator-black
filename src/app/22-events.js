@@ -210,6 +210,11 @@ document.getElementById('main').addEventListener('click',e=>{
     if(accRestSecs(sl)===v) return;
     mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
     return}
+  if(a==='accswitchset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accSwitchSecs(sl)===v) return;
+    mutatePlan(p=>{p.accSwitchBy=Object.assign({},p.accSwitchBy,{[sl]:v})});
+    return}
   if(a==='acclater'){ accLater=b.dataset.v==='1'; render(); return }
   if(a==='accslotrm'){
     const d=b.dataset.day, cur=accSlots(d).filter(x=>x!==b.dataset.slot);

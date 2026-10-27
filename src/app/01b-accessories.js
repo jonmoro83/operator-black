@@ -281,7 +281,10 @@ function accTick(date,slot,i){
   cur[i]=x;
   if(on) accCarryInto(cur,i);
   setLog(date,'acc.sets.'+slot,cur);
-  if(on&&date===todayStr()&&accSetReady(date,slot,i)) accRestStart(date,slot,i);
+  // Half of a pair finishes nothing, so it gets the short switch rather than the rest.
+  if(on&&date===todayStr()){
+    if(accSetReady(date,slot,i)) accRestStart(date,slot,i); else accSwitchStart(date,slot,i);
+  }
   return on;
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }

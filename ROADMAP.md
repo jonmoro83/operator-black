@@ -354,10 +354,14 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   so nobody loses their 90 seconds. Chooser sits with the sets in both views, the way
   the per-lift warm-up rest does. Both keys added to `PREF_KEYS`: a rest preference
   has no business resetting when a new program starts.
-- **A superset rests once.** `accSetReady` requires the same set index to be ticked on
-  every job in the run group before the clock starts, which keeps the rule the
-  existing comment states ("you rest once at the end of the pair") true of the
-  automatic rest and not just the manual button.
+- **A superset rests once, and switches in between.** `accSetReady` requires the same
+  set index to be ticked on every job in the run group before the full rest starts,
+  which keeps the rule the existing comment states ("you rest once at the end of the
+  pair") true of the automatic rest and not just the manual button. Ticking a half
+  that does not finish the set gets `accSwitchStart` instead: `plan.accSwitchBy[slot]`
+  on the group leader, default 20 s, **Off** offered because back to back with no
+  clock is what some people mean by a superset. Asked for the same day, straight
+  after the rest work landed.
 - `accDone` now also counts a ticked set with no numbers in it, for work nobody
   counts reps on.
 

@@ -156,7 +156,7 @@ function lsRender(){
       <div class="ls-kind">${pair.length>1?'Superset':'Accessory'}${pair.some(sl=>accSwapped(ls.date,sl))?' \u00b7 swapped for today':''}${allDone?' \u00b7 \u2713 done':''}</div>
       ${pair.length>1?'<div class="small muted">A set of each, back to back, then rest.</div>':''}
       ${pair.map(sl=>lsAccBlock(sl,pair.length>1)).join('')}
-      ${accRestSel(st.slot,true)}
+      ${accRestSel(st.slot,true,pair.length>1)}
       <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${warmRestLabel(rest)}</button></div>
     </div>
     <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
@@ -243,6 +243,11 @@ function lsAct(a,b){
   if(a==='accrestset'){
     const sl=b.dataset.slot, v=+b.dataset.v;
     if(accRestSecs(sl)!==v) mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return lsRender();
+  }
+  if(a==='accswitchset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accSwitchSecs(sl)!==v) mutatePlan(p=>{p.accSwitchBy=Object.assign({},p.accSwitchBy,{[sl]:v})});
     return lsRender();
   }
   if(a==='accrest'){

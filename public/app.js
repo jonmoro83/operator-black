@@ -1285,7 +1285,7 @@ const DEF={
   cal:{mode:'allday',time:'06:00',weekend:'',alarm:null},
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
-  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90, accRestBy:{},
+  accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90, accRestBy:{}, accSwitch:20, accSwitchBy:{},
   // Plyos ride on a weekday of their own rather than being welded to a session, so
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
@@ -2018,7 +2018,10 @@ function accTick(date,slot,i){
   cur[i]=x;
   if(on) accCarryInto(cur,i);
   setLog(date,'acc.sets.'+slot,cur);
-  if(on&&date===todayStr()&&accSetReady(date,slot,i)) accRestStart(date,slot,i);
+  // Half of a pair finishes nothing, so it gets the short switch rather than the rest.
+  if(on&&date===todayStr()){
+    if(accSetReady(date,slot,i)) accRestStart(date,slot,i); else accSwitchStart(date,slot,i);
+  }
   return on;
 }
 function accDoneCount(date,day){ return accSlots(day).filter(s=>accDone(date,s)).length }
@@ -4394,9 +4397,11 @@ function accCard(wk,dp){
 /* How long the rest after a set of this job runs for. Written where the sets are, the
    way the warm-up rest is, because that is where you find out it is wrong. One per
    pair: the attribute differs because session mode has its own click handler. */
-function accRestSel(slot,inLs){
-  const at=inLs?'data-ls':'data-act', cur=accRestSecs(slot);
-  return `<div class="restsel"><span>Rest after a set</span><div class="seg">${ACC_RESTS.map(v=>`<button class="segb${cur===v?' on':''}" ${at}="accrestset" data-slot="${esc(slot)}" data-v="${v}" aria-pressed="${cur===v}">${warmRestLabel(v)}</button>`).join('')}</div></div>`;
+function accRestSel(slot,inLs,pair){
+  const at=inLs?'data-ls':'data-act', cur=accRestSecs(slot), sw=accSwitchSecs(slot);
+  let h=`<div class="restsel"><span>Rest after a set</span><div class="seg">${ACC_RESTS.map(v=>`<button class="segb${cur===v?' on':''}" ${at}="accrestset" data-slot="${esc(slot)}" data-v="${v}" aria-pressed="${cur===v}">${warmRestLabel(v)}</button>`).join('')}</div></div>`;
+  if(pair) h+=`<div class="restsel"><span>Between the pair</span><div class="seg">${ACC_SWITCHES.map(v=>`<button class="segb${sw===v?' on':''}" ${at}="accswitchset" data-slot="${esc(slot)}" data-v="${v}" aria-pressed="${sw===v}">${accSwitchLabel(v)}</button>`).join('')}</div></div>`;
+  return h;
 }
 // The tick that finishes a set. Same button in both places, so the two cannot drift.
 function accTickBtn(date,slot,i,inLs){
@@ -4423,7 +4428,8 @@ function accSlotRow(date,slot){
   // field. Still editable afterwards — the band is a shortcut, not a lock.
   if(!viewing&&isBandEx(id)&&bands().length) h+=`<label class="f small">Band<select data-act-band="${esc(slot)}"><option value="">Pick a band\u2026</option>${bands().map(x=>`<option value="${esc(String(x.w))}">${esc(x.n)} \u00b7 ${n(x.w)} ${esc(u())}</option>`).join('')}</select></label>`;
   h+=accLastLine(date,slot,id);
-  if(!viewing&&sets.length&&accGroupOf(date,slot)[0]===slot) h+=accRestSel(slot,false);
+  const grp=accGroupOf(date,slot);
+  if(!viewing&&sets.length&&grp[0]===slot) h+=accRestSel(slot,false,grp.length>1);
   for(let i=0;i<sets.length;i++){
     const x=sets[i]||{};
     h+=`<div class="wu-row"><span class="wu-lbl">${i+1}</span>${numIn(`acc.sets.${slot}.${i}.w`,x.w,isBWAcc(id)?'bw':u(),`aria-label="Set ${i+1} weight"`)}<span class="wu-x">\u00d7</span>${numIn(`acc.sets.${slot}.${i}.r`,x.r,'reps',`aria-label="Set ${i+1} reps"`)}${viewing?'<span></span><span></span>':accTickBtn(date,slot,i,false)+`<button class="wu-rm" data-act="accrm" data-slot="${esc(slot)}" data-i="${i}" aria-label="Remove set ${i+1}">\u00d7</button>`}</div>`;
@@ -5022,6 +5028,24 @@ const ACC_RESTS=[30,45,60,90,120,180];
 function accRestSecs(slot){
   const v=+((plan.accRestBy||{})[slot]); if(v>=15&&v<=600) return v;
   const d=+plan.accRest; return d>=15&&d<=600?d:90;
+}
+/* The pause between the halves of a superset. Long enough to walk to the other bar and
+   get set, not long enough to be a rest -- the pair's own rest still waits for both
+   halves. Off is a real choice: back to back with no clock at all is what some people
+   mean by a superset. */
+const ACC_SWITCHES=[0,15,20,30,45];
+function accSwitchSecs(slot){
+  const v=+((plan.accSwitchBy||{})[slot]); if(v>=0&&v<=120) return v;
+  const d=+plan.accSwitch; return d>=0&&d<=120?d:20;
+}
+function accSwitchLabel(v){ return v?v+'s':'Off' }
+function accSwitchStart(date,slot,i){
+  const g=accGroupOf(date,slot), secs=accSwitchSecs(g[0]);
+  if(!secs) return;
+  const nx=g.find(s=>!(accSets(date,s)[i]||{}).done); if(!nx) return;
+  const nm=(ASLOT[nx]||{}).name||nx;
+  unlockAudio();
+  startRest(null,accName(accOn(date,nx))||nm,secs,'Switch \u00b7 '+nm);
 }
 // The rest belongs to the pair, not to each half of it, so a superset's clock is the
 // first job's and the label names both.
@@ -6083,7 +6107,7 @@ function lsRender(){
       <div class="ls-kind">${pair.length>1?'Superset':'Accessory'}${pair.some(sl=>accSwapped(ls.date,sl))?' \u00b7 swapped for today':''}${allDone?' \u00b7 \u2713 done':''}</div>
       ${pair.length>1?'<div class="small muted">A set of each, back to back, then rest.</div>':''}
       ${pair.map(sl=>lsAccBlock(sl,pair.length>1)).join('')}
-      ${accRestSel(st.slot,true)}
+      ${accRestSel(st.slot,true,pair.length>1)}
       <div class="ls-row"><button class="btn sm" data-ls="accrest" data-slot="${esc(st.slot)}">Rest ${warmRestLabel(rest)}</button></div>
     </div>
     <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
@@ -6170,6 +6194,11 @@ function lsAct(a,b){
   if(a==='accrestset'){
     const sl=b.dataset.slot, v=+b.dataset.v;
     if(accRestSecs(sl)!==v) mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return lsRender();
+  }
+  if(a==='accswitchset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accSwitchSecs(sl)!==v) mutatePlan(p=>{p.accSwitchBy=Object.assign({},p.accSwitchBy,{[sl]:v})});
     return lsRender();
   }
   if(a==='accrest'){
@@ -7874,7 +7903,7 @@ async function exportCsv(which){
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','accRest','accRestBy','supps','suppCustom','warmRoutine','warmCustom','stempl','cproto'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','cal','accSlots','accPick','accCustom','accRest','accRestBy','accSwitch','accSwitchBy','supps','suppCustom','warmRoutine','warmCustom','stempl','cproto'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -8684,7 +8713,7 @@ function vGuide(){
   <p><b>Swapping on the day.</b> If your biceps slot is barbell curls and the bar is taken, change it on the day’s card. That session uses what you picked and is logged as it, the block’s choice is untouched, and the card marks it <b>today only</b> so you can see at a glance that it was a substitution.</p>
   <p><b>In session mode.</b> Each job is its own step, after the lifts: it names what is doing it, lets you swap for that session, and takes the sets.</p>
   <p><b>Logging.</b> Tick a set off and three things happen: the set is logged, the rest starts, and the next set is filled in with the weight and reps you just did — which is what the next set usually is. Both numbers stay editable until you tick that one too, anything you have already typed is left alone, and adding a set copies the one before it the same way. Or just <b>Mark done</b> if you would rather not count at all. Everything is recorded against the job and against the exercise, so a year later the log still says it was hammer curls and not what happens to be in that slot now.</p>
-  <p><b>The rest between sets is yours to set</b>, and it is per job rather than one figure for all of them — a loaded carry and a set of curls do not want the same clock. It sits with the sets, in the day’s card and in session mode, and starts at 90 seconds, where the main lifts use your per-lift two to five minutes. A superset rests once, at the end of the pair: tick one half and nothing starts, tick the other and it does.</p>
+  <p><b>The rest between sets is yours to set</b>, and it is per job rather than one figure for all of them — a loaded carry and a set of curls do not want the same clock. It sits with the sets, in the day’s card and in session mode, and starts at 90 seconds, where the main lifts use your per-lift two to five minutes. A superset gets two clocks: a short one between its halves \u2014 20 seconds by default, enough to walk to the other bar \u2014 and then its own rest once both halves are ticked. Set <b>Between the pair</b> to <b>Off</b> if you would rather go straight into the second movement.</p>
   <p><b>Missing a movement?</b> The list is shared and curated, so ask and it can be added for everyone. A movement that is retired stops being offered but stays with anyone who had already chosen it — nobody has their program rewritten mid-cycle.</p>
   <p><b>The order is not the order you listed them in.</b> Core runs last and carries run last of all, whatever position they hold in Setup, and a superset containing either moves as a pair rather than being split. A fried grip makes everything after it worse, and bracing is the thing you want intact while you are still loading a bar.</p>
   <p><b>The ab triad</b> is a core option that is one prescription rather than three exercises: it is taken exactly as written, and nothing is added to it.</p>
@@ -9464,6 +9493,11 @@ document.getElementById('main').addEventListener('click',e=>{
     const sl=b.dataset.slot, v=+b.dataset.v;
     if(accRestSecs(sl)===v) return;
     mutatePlan(p=>{p.accRestBy=Object.assign({},p.accRestBy,{[sl]:v})});
+    return}
+  if(a==='accswitchset'){
+    const sl=b.dataset.slot, v=+b.dataset.v;
+    if(accSwitchSecs(sl)===v) return;
+    mutatePlan(p=>{p.accSwitchBy=Object.assign({},p.accSwitchBy,{[sl]:v})});
     return}
   if(a==='acclater'){ accLater=b.dataset.v==='1'; render(); return }
   if(a==='accslotrm'){

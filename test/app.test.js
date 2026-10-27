@@ -2744,9 +2744,53 @@ test("a superset rests once, after both halves of the set", () => {
 
   x.rest = null;
   x.accTick(mon, slots[0], 0);
-  a.equal(x.rest, null, "half a superset is not the end of a set");
+  a.equal(x.rest.dur, 20, "half a superset gets the short switch, not the rest");
+  a.match(x.rest.lbl, /^Switch /, "and it says so");
   x.accTick(mon, slots[1], 0);
-  a.ok(x.rest, "both halves done, now the clock starts");
+  a.equal(x.rest.dur, 90, "both halves done, now the pair's own rest");
+});
+
+test("the switch between the halves of a superset is yours to set, Off included", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false;
+  const slots = x.accSlots("mon");
+  x.plan.accSuper = { mon: [slots[0]] }; x.bump();
+  const mon = "2026-09-07";
+
+  a.equal(x.accSwitchSecs(slots[0]), 20, "20 seconds unless told otherwise");
+
+  // Offered once per pair, against the job that leads it, like the pair's own rest.
+  x.setLog(mon, "acc.sets." + slots[0], [{ w: 35, r: 12 }]);
+  x.setLog(mon, "acc.sets." + slots[1], [{ w: 20, r: 12 }]);
+  a.match(x.accSlotRow(mon, slots[0]), /data-act="accswitchset"[^>]*data-v="30"/, "and set where the sets are");
+  a.doesNotMatch(x.accSlotRow(mon, slots[1]), /restsel/, "once for the pair, not once per half");
+
+  x.plan.accSwitchBy = { [slots[0]]: 30 }; x.bump();
+  x.rest = null;
+  x.accTick(mon, slots[0], 0);
+  a.equal(x.rest.dur, 30);
+
+  // Off means back to back with no clock at all, which is what some people mean by a
+  // superset. The pair's own rest is untouched by it.
+  x.accTick(mon, slots[0], 0);                 // untick
+  x.plan.accSwitchBy = { [slots[0]]: 0 }; x.bump();
+  x.rest = null;
+  x.accTick(mon, slots[0], 0);
+  a.equal(x.rest, null, "no switch at all");
+  x.accTick(mon, slots[1], 0);
+  a.equal(x.rest.dur, 90, "and the rest after the pair still runs");
+});
+
+test("a job on its own never gets a switch, or the offer of one", () => {
+  const x = app({ now: "2026-09-07" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-07";
+  x.setLog(mon, "acc.sets.biceps", [{ w: 35, r: 12 }]);
+
+  a.doesNotMatch(x.accSlotRow(mon, "biceps"), /accswitchset/, "nothing to switch to");
+  x.rest = null;
+  x.accTick(mon, "biceps", 0);
+  a.equal(x.rest.dur, 90, "ticking it is the end of a set, so it is the full rest");
 });
 
 test("a rest only starts for the day you are actually training", () => {

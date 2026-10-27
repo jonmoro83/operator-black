@@ -22,6 +22,24 @@ function accRestSecs(slot){
   const v=+((plan.accRestBy||{})[slot]); if(v>=15&&v<=600) return v;
   const d=+plan.accRest; return d>=15&&d<=600?d:90;
 }
+/* The pause between the halves of a superset. Long enough to walk to the other bar and
+   get set, not long enough to be a rest -- the pair's own rest still waits for both
+   halves. Off is a real choice: back to back with no clock at all is what some people
+   mean by a superset. */
+const ACC_SWITCHES=[0,15,20,30,45];
+function accSwitchSecs(slot){
+  const v=+((plan.accSwitchBy||{})[slot]); if(v>=0&&v<=120) return v;
+  const d=+plan.accSwitch; return d>=0&&d<=120?d:20;
+}
+function accSwitchLabel(v){ return v?v+'s':'Off' }
+function accSwitchStart(date,slot,i){
+  const g=accGroupOf(date,slot), secs=accSwitchSecs(g[0]);
+  if(!secs) return;
+  const nx=g.find(s=>!(accSets(date,s)[i]||{}).done); if(!nx) return;
+  const nm=(ASLOT[nx]||{}).name||nx;
+  unlockAudio();
+  startRest(null,accName(accOn(date,nx))||nm,secs,'Switch \u00b7 '+nm);
+}
 // The rest belongs to the pair, not to each half of it, so a superset's clock is the
 // first job's and the label names both.
 function accRestStart(date,slot,i){
