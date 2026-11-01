@@ -276,6 +276,9 @@ function tickRest(){
   // Three seconds' notice for the audio channel, so the end beep is not waiting on a
   // resume() when it should be sounding.
   if(left<=3&&left>0) sfxArm();
+  // Is the channel really alive? Checked every tick so a dead one is found mid-rest,
+  // while there is still time to tap, rather than at the end.
+  if(left>0){ audioClockSample(); showArm() }
   if(restWarnDue(rest,left)){
     rest.warned=true; LS.set('ob.rest',rest); beepWarn(); tlog('rest','warning',left+' s left');
   }
@@ -298,6 +301,9 @@ document.getElementById('rest').addEventListener('click',e=>{
   if(v==='cover'){ coverTap(); return }
   if(v==='stop') return stopRest();
   if(v==='unquiet'){ unquiet(); return }
+  // The tap itself is the repair (gestureWake, on the way in). Named here so it never
+  // falls through to the +/-30 s branch below, which would read 'arm' as a number.
+  if(v==='arm'){ showRest(); return }
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));

@@ -11,6 +11,32 @@ Setup → About this app → What's new.
 
 Genuinely open: things that still need doing or confirming.
 
+- **Rest beeps: the real-session failure, reframed 2026-11-02, fix in 3.61, awaiting a
+  session log.** The user's report that settled it: *the tests always work; it fails in
+  real sessions, especially after going to another app and coming back.* A test plays
+  from the tap that asked for it; a rest plays from a timer minutes after the last tap.
+  Two mechanisms fit, both invisible to the old log:
+  1. **A dead channel that reads `running`.** Another app takes the speaker and WebKit
+     hands the context back reporting `running` with no output. Five guards trusted
+     `state==='running'` -- `gestureWake` returned early on it -- so it was never
+     repaired and every silent beep logged `played`. That is why the logs looked
+     healthy for weeks.
+  2. **iOS evicting the PWA in the background.** It reloads on return, looks the same
+     (state is in localStorage), and has no audio until a tap.
+  3.61: returning from another app marks the channel stale; the next tap closes it and
+  makes a fresh `AudioContext` inside the gesture (never within 1.5 s of opening one, or
+  the same tap's touchend undoes its pointerdown); `audioClockSample` checks
+  `currentTime` actually advances, from the rest and interval ticks; a **"Sound needs
+  a tap"** prompt on the rest bar, interval bar and session-mode rest box; and the log
+  gains `app · started` (with what was running), `rebuilt by a tap`, `clock stopped`,
+  and a heard/not-heard note beside each `played`. **Next:** a real session on 3.61
+  with an app switch in it, then the log -- it now says which of the two it was.
+  Still open behind this, from the 2026-11-02 analysis: the alert layer rewrite
+  (named per-timer alerts instead of one replace-on-write queue, which has a real
+  cancel/schedule race on Plyo -> HIC; keepalive + retry; delivery lateness recorded
+  server-side; per-device targeting) and a check of Settings -> Notifications ->
+  Operator -> Sounds, since 3.56's ring-switch theory rested on logs contaminated by the
+  3.53 speech bug and the user hears in-app beeps in duck mode, so the switch is on.
 - **Rest alerts: cause found 2026-10-24, fixed in 3.55, not yet confirmed on the
   phone.** The device report settled the half I had wrong: Apple accepted the test
   push on all three registered devices (201 each) and the notification appeared, so

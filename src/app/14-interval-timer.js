@@ -177,6 +177,7 @@ function ivRender(){
       ivLast.idx=p.i;
     }
     if(left<=4&&left>0) sfxArm();
+    audioClockSample(); showArm();
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
     // iOS lets the screen lock go mid-session; this is what notices. Free while it holds.
@@ -216,6 +217,7 @@ document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
   if(a==='cover'){ coverTap(); return }
+  if(a==='arm'){ ivShow(); return }
   unlockAudio();
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
     if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();

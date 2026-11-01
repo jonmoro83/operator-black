@@ -7683,7 +7683,8 @@ test("the log holds a long session, folds repeats, and copies with the version a
   const y = app({ now: "2026-10-19" });
   y.tlog("sound", "tick \u00b7 played"); y.tlog("sound", "tick \u00b7 played"); y.tlog("sound", "tick \u00b7 played");
   y.tlog("sound", "go \u00b7 played");
-  lines = y.tlogText().split("\n");
+  // The page writes one line of its own when it loads; that is not what is counted here.
+  lines = y.tlogText().split("\n").filter((l) => !/app · started/.test(l));
   a.equal(lines.length, 2, "the three ticks are one line");
   a.match(lines[0], /tick \u00b7 played \u00d73/, "with the count on it");
   a.match(lines[1], /go \u00b7 played/, "and a different sound is its own line");
@@ -7698,7 +7699,8 @@ test("a whole HIC session fits in the log, which is the point of keeping one", (
   a.equal(segs.length, 22, "warm-up plus eight rounds");
   // What a session writes: the change cue for each segment, and its 3-2-1 folded to one.
   for (const s of segs) { x.sfx(s.k === "work" ? "go" : "easy"); for (let i = 0; i < 3; i++) x.sfx("tick") }
-  const lines = x.tlogText().split("\n");
+  // Past the line the page writes when it loads, which is the app starting, not the session.
+  const lines = x.tlogText().split("\n").filter((l) => !/app · started/.test(l));
   a.ok(lines.length < x.TLOG_MAX, `a session writes ${lines.length} lines, under the ${x.TLOG_MAX} cap`);
   a.match(lines[0], /channel opened|easy|go/, "and the first line is still the start of the session");
 });
@@ -9270,4 +9272,114 @@ test("the lift card shows the weight and where it is going, not a percentage", (
   a.doesNotMatch(h, /No max entered/, "and it never asks for a max");
   a.match(h, /Up 5 lb from 45/, "it says where this weight came from");
   a.match(h, /the next one is 55 lb/, "and what finishing it buys");
+});
+
+/* ---------------- coming back from another app ----------------
+   Every test of the beep passed and real sessions failed. The difference is a trip to
+   another app between the tap that started a rest and the beep that ends it. */
+
+test("coming back from another app rebuilds the sound on the next tap, whatever it claims", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.soundMode = "duck"; x.bump();
+  x.unlockAudio(); await settle();
+  const first = x.audio.ctx;
+  a.equal(first.state, "running");
+  x.ctxOpenedAt = Date.now() - 60000;
+
+  // Away and back. The channel still reads 'running', which is the state that logged
+  // "played" for weeks while nothing came out of the speaker.
+  document.visibilityState = "hidden"; x.audio.fire("visibilitychange");
+  document.visibilityState = "visible"; x.audio.fire("visibilitychange");
+  a.equal(x.audioStale, true, "'running' is not taken on trust after a trip away");
+  a.equal(x.audioNeedsTap(), true);
+
+  const made = x.audio.ctxs;
+  x.audio.fire("pointerdown");
+  a.equal(x.audio.ctxs, made + 1, "the tap opens a fresh channel rather than resuming the old one");
+  a.notEqual(x.audio.ctx, first);
+  a.equal(first.state, "closed", "and the old one is let go");
+  a.equal(x.audioStale, false);
+  a.match(x.tlogText(), /audio · rebuilt by a tap/, "which the log can see");
+});
+
+test("a tap leaves a healthy channel alone", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.unlockAudio(); await settle();
+  x.ctxOpenedAt = Date.now() - 60000;
+  const made = x.audio.ctxs;
+  x.audio.fire("pointerdown");
+  a.equal(x.audio.ctxs, made, "nothing to repair, nothing replaced");
+});
+
+test("the second half of the same tap does not undo the first", async () => {
+  const x = app({ now: "2026-10-24" });
+  // pointerdown opens the channel; touchend arrives while its resume is still settling.
+  x.audio.fire("pointerdown");
+  const first = x.audio.ctx, made = x.audio.ctxs;
+  x.audio.fire("touchend");
+  a.equal(x.audio.ctxs, made, "a channel opened a moment ago is not torn down again");
+  a.notEqual(first.state, "closed");
+});
+
+test("a channel whose clock stands still is found out, logged and shown", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.soundMode = "duck"; x.bump();
+  x.unlockAudio(); await settle();
+  x.startRest("squat", "Squat · set 2", 120);
+  // startRest ticks once and samples; the stub's clock does not run on its own, so start
+  // more than two seconds later, which takes a fresh baseline rather than comparing.
+  const t0 = Date.now() + 5000;
+  x.audioClockSample(t0);
+  x.audio.ctx.currentTime += 0.25;
+  a.equal(x.audioClockSample(t0 + 250), "moving", "a live channel's clock keeps pace with the wall clock");
+  a.equal(x.dom.made["rest-arm"].hidden, true, "and nothing is asked of you");
+
+  // The clock stops while the channel still reads 'running'.
+  a.equal(x.audioClockSample(t0 + 500), "stopped");
+  a.equal(x.audioStale, true);
+  a.match(x.tlogText(), /audio · clock stopped/);
+  a.equal(x.dom.made["rest-arm"].hidden, false, "the rest bar asks for a tap, while there is still time");
+
+  // A beep now says it was probably not heard, instead of a bare "played".
+  x.sfx("done");
+  a.match(x.tlogText(), /done · played \(clock stopped, likely silent\)/);
+  x.stopRest();
+});
+
+test("a gap between samples is the page pausing, not the sound dying", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.unlockAudio(); await settle();
+  const t0 = Date.now() + 1000;
+  x.audioClockSample(t0);
+  a.notEqual(x.audioClockSample(t0 + 30000), "stopped", "thirty seconds frozen says nothing about the audio");
+  a.equal(x.audioStale, false);
+});
+
+test("a rest with no sound behind it asks for a tap, and one tap clears it", async () => {
+  const x = app({ now: "2026-10-24" });
+  // The page starting is on the record: a start mid-rest is iOS having reloaded the app.
+  a.match(x.tlogText(), /app · started/);
+  // A rest restored from the phone into a page that has not been tapped yet.
+  x.rest = { k: "squat", lbl: "Rest · Squat", next: "", end: Date.now() + 90000, dur: 90, done: false };
+  x.showRest();
+  a.equal(x.dom.made["rest-arm"].hidden, false, "asked before the rest ends, not discovered after");
+  x.audio.fire("pointerdown"); await settle();
+  a.equal(x.dom.made["rest-arm"].hidden, true, "the tap is the repair");
+  x.stopRest();
+});
+
+test("session mode carries the same prompt in its own rest box", async () => {
+  const x = app({ now: "2026-10-24" });
+  x.ls = { date: "2026-10-24", i: 0, warm: false };
+  x.rest = { k: "squat", lbl: "Rest · Squat", next: "", end: Date.now() + 90000, dur: 90, done: false };
+  a.match(x.lsRestHtml(), /data-ls="arm"/, "no channel yet, so it asks");
+  x.audio.fire("pointerdown"); await settle();
+  a.doesNotMatch(x.lsRestHtml(), /data-ls="arm"/, "and stops asking once there is one");
+  x.rest = null; x.ls = null;
+});
+
+test("silent mode never asks for a tap it does not need", () => {
+  const x = app({ now: "2026-10-24" });
+  x.plan.soundMode = "silent"; x.bump();
+  a.equal(x.audioNeedsTap(), false);
 });

@@ -5474,7 +5474,7 @@ function sfx(name){
   sfxUntil=Date.now()+sfxLen(name)*1000+120;
   const play=()=>{ try{ const t0=audioCtx.currentTime+.005; for(const n of notes) sfxNote(audioCtx,t0+(n.at||0),n) }catch(e){} };
   const was=audioCtx.state;
-  if(was==='running'){ play(); lastSfx='played'; tlog('sound',name+' \u00b7 played'); return 'running' }
+  if(was==='running'){ play(); lastSfx='played'; tlog('sound',name+' \u00b7 played',sfxHeard()); return 'running' }
   // The line goes in now, pending, and the outcome amends it. Before, a wake that never
   // answered wrote nothing at all, so a beep lost that way and a beep never asked for
   // looked identical in the log -- which is the one distinction a report needs.
@@ -5520,6 +5520,7 @@ let ctxWakes=[];
 function ctxWatch(ctx){
   ctx.onstatechange=()=>{
     tlog('audio',ctx.state);
+    showArm();      // the prompt follows the channel, not the next tick
     if(ctx.state==='interrupted'&&ctxOpenedAt&&Date.now()-ctxOpenedAt<2000&&!ctxQuickKill){
       ctxQuickKill=true; tlog('audio','taken away as soon as it opened','ringer switch?');
     }
@@ -5545,11 +5546,82 @@ function ctxWatch(ctx){
    happened on the way in. Waking the audio must never make a sound of its own. */
 function gestureWake(){
   if(quiet()) return;
-  if(audioCtx&&audioCtx.state==='running') return;
-  unlockAudio({voice:false}); tlog('audio','woken by a tap');
+  if(audioCtx&&audioCtx.state==='running'&&!audioStale) return;
+  /* A channel that is stale or not running is replaced, not resumed. Resuming an
+     interrupted one took up to seven taps in the device log, and a dead one that reads
+     'running' never answered at all. A fresh context made inside a tap always starts.
+     Not one opened a moment ago, though: the touchend of the same tap arrives while the
+     first resume is still settling, and closing that would undo the tap. */
+  const rebuild=!!audioCtx&&Date.now()-ctxOpenedAt>1500;
+  if(rebuild) rebuildAudio(); else unlockAudio({voice:false});
+  audioStale=false;
+  tlog('audio',rebuild?'rebuilt by a tap':'woken by a tap');
+  showArm();
 }
 if(typeof document!=='undefined'&&document.addEventListener)
   ['pointerdown','touchend','keydown'].forEach(ev=>document.addEventListener(ev,gestureWake,{capture:true,passive:true}));
+
+/* ---------- coming back from another app ----------
+Every test passes and real sessions fail, and the difference is the other app. A test
+plays its beep from the tap that asked for it. A rest plays its beep from a timer,
+minutes after the last tap, often after a trip to another app -- and two things can
+happen on that trip that the old code was blind to:
+
+  The channel comes back reading 'running' with nothing coming out of it. Another app
+  took the speaker, and WebKit can hand the page its context back in that state. Five
+  places here believed 'running', the tap repair among them -- it returned early on
+  it -- so a dead channel logged "played" and was never repaired.
+
+  iOS throws the app away while it is in the background and reloads it on the way
+  back. It looks identical, because the timer is saved, but the new page has no audio
+  until it is tapped, and a rest that ends first has nothing to play on.
+
+So the status is no longer taken on trust. Coming back marks the channel stale; the
+next tap closes it and opens a fresh one, inside the tap, where iOS always allows it;
+and until that tap happens, the timer says so on screen -- before the phone goes in a
+pocket, not when the beep fails to come. */
+let audioStale=false;
+function audioNeedsTap(){
+  if(quiet()) return false;
+  return !audioCtx||audioStale||audioCtx.state!=='running';
+}
+function rebuildAudio(){
+  const old=audioCtx; audioCtx=null; clk=null; clkState='unknown';
+  try{ if(old&&old.state!=='closed'){ old.onstatechange=null; const p=old.close(); if(p&&p.catch) p.catch(()=>{}) } }catch(e){}
+  unlockAudio({voice:false});
+}
+/* Whether the audio clock is actually moving -- the honest version of 'running'. A
+   context that is producing sound advances currentTime with the wall clock; a dead one
+   reading 'running' does not. Sampled by the timer ticks while the page is on screen.
+   A gap over two seconds between samples means the page was paused, which says
+   nothing about the audio, so it starts over rather than reporting a false stop. */
+let clk=null, clkState='unknown';
+function audioClockSample(now){
+  if(!audioCtx||audioCtx.state!=='running'||audioStale){ clk=null; return clkState }
+  if(typeof document!=='undefined'&&document.visibilityState&&document.visibilityState!=='visible'){ clk=null; return clkState }
+  const t=now==null?Date.now():now, ct=audioCtx.currentTime, prev=clk;
+  if(!prev||t-prev.t>2000||t<prev.t){ clk={t,ct}; return clkState }
+  if(t-prev.t<200) return clkState;
+  clk={t,ct};
+  if(ct-prev.ct>=(t-prev.t)/1000*0.5) return clkState='moving';
+  clkState='stopped'; audioStale=true;
+  tlog('audio','clock stopped','reads running, nothing is playing');
+  showArm();
+  return clkState;
+}
+// What the last sound can be said to have done, beyond "the code ran".
+function sfxHeard(){
+  if(clkState==='stopped') return 'clock stopped, likely silent';
+  if(audioStale) return 'back from another app, not re-armed yet';
+  return clkState==='moving'?'clock moving':'';
+}
+function showArm(){
+  if(typeof document==='undefined') return;
+  const need=audioNeedsTap();
+  const set=(id,on)=>{ const el=document.getElementById(id); if(el) el.hidden=!on };
+  set('rest-arm',need&&!!rest&&!rest.done);
+  set('iv-arm',need&&!!iv&&!iv.done);
+}
 
 /* ---------- the timer log ----------
 The last eighty things the timers did, kept on the device: each sound and what the audio
@@ -5777,6 +5849,7 @@ function showWake(){
   const set=(id,on)=>{ const el=document.getElementById(id); if(el) el.hidden=!on };
   set('rest-wake',warn&&!!rest);
   set('iv-wake',warn&&!!iv&&!iv.done);
+  showArm();
 }
 // The screen stays on for as long as anything is actually going on, not just while a
 // rest happens to be counting: a session is open, or any timer is running.
@@ -5792,10 +5865,21 @@ function syncScreen(){ holdScreen(wantScreen()) }
 // context, which iOS suspends while the page is hidden and a silent beep never recovers.
 document.addEventListener('visibilitychange',()=>{
   tlog('page',document.visibilityState);
+  clk=null;
   if(document.visibilityState!=='visible') return;
+  // Whatever the channel says, it has been away. See "coming back from another app".
+  if(audioCtx&&!quiet()) audioStale=true;
   syncScreen();
   try{ audioAwake() }catch(e){}
+  showArm();
 });
+/* A start with a timer already running is iOS having thrown the app away and reloaded
+   it mid-session -- or a manual reload. Either way the new page has no audio until it
+   is tapped, and before this line nothing in the log could show it had happened. */
+try{
+  const v=LS.get('ob.iv'), on=[rest&&!rest.done?'rest running':'',v&&!v.done?'intervals running':'',LS.get('ob.ls')?'session open':''].filter(Boolean);
+  tlog('app','started',on.join(', '));
+}catch(e){}
 
 /* ---------- a timer for anything ---------- */
 // Deliberately not tied to a session: open it from the header on any tab, any day, with
@@ -6251,11 +6335,13 @@ function lsShow(){
 function lsRestHtml(){
   if(!rest) return '';
   const left=Math.max(0,Math.ceil((rest.end-Date.now())/1000));
-  return `<div class="ls-rest${left===0?' done':''}" id="ls-rest"><div><div class="small" style="font-weight:700">${esc(rest.lbl)}</div><b id="ls-rest-t">${Math.floor(left/60)}:${pad(left%60)}</b></div><div class="ls-row" style="flex:0 0 auto"><button class="btn sm" data-ls="r-30">−30s</button><button class="btn sm" data-ls="r+30">+30s</button><button class="btn sm" data-ls="rskip">${left===0?'Clear':'Skip'}</button></div></div>`;
+  return `<div class="ls-rest${left===0?' done':''}" id="ls-rest" data-arm="${audioNeedsTap()&&!rest.done?1:0}"><div><div class="small" style="font-weight:700">${esc(rest.lbl)}</div><b id="ls-rest-t">${Math.floor(left/60)}:${pad(left%60)}</b>${audioNeedsTap()&&!rest.done?'<div><button class="quiet-tag" data-ls="arm">Sound needs a tap \u00b7 tap to re-arm</button></div>':''}</div><div class="ls-row" style="flex:0 0 auto"><button class="btn sm" data-ls="r-30">−30s</button><button class="btn sm" data-ls="r+30">+30s</button><button class="btn sm" data-ls="rskip">${left===0?'Clear':'Skip'}</button></div></div>`;
 }
 function lsRestTick(){
   if(!ls) return; const box=document.getElementById('ls-rest');
   if(!rest){ if(box) lsRender(); return } if(!box){ lsRender(); return }
+  // The prompt comes and goes with the channel, which changes between renders.
+  if(box.dataset&&box.dataset.arm!==String(audioNeedsTap()&&!rest.done?1:0)){ lsRender(); return }
   const left=Math.max(0,Math.ceil((rest.end-Date.now())/1000));
   document.getElementById('ls-rest-t').textContent=Math.floor(left/60)+':'+pad(left%60);
   box.classList.toggle('done',left===0);
@@ -6381,6 +6467,7 @@ function lsAct(a,b){
   if(a==='skip'||a==='next') return go(ls.i+1);
   if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
   if(a==='rskip'){ stopRest(); return lsRender() }
+  if(a==='arm') return lsRender();   // the tap was the repair; this just redraws
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
   // A rating is a Done with something to say: it records how the set moved and then
   // takes the same path, so rating costs no extra tap. Re-rating a set already done
@@ -6659,6 +6746,7 @@ function ivRender(){
       ivLast.idx=p.i;
     }
     if(left<=4&&left>0) sfxArm();
+    audioClockSample(); showArm();
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
     // iOS lets the screen lock go mid-session; this is what notices. Free while it holds.
@@ -6698,6 +6786,7 @@ document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
   if(a==='cover'){ coverTap(); return }
+  if(a==='arm'){ ivShow(); return }
   unlockAudio();
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
     if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();
@@ -7142,6 +7231,9 @@ function tickRest(){
   // Three seconds' notice for the audio channel, so the end beep is not waiting on a
   // resume() when it should be sounding.
   if(left<=3&&left>0) sfxArm();
+  // Is the channel really alive? Checked every tick so a dead one is found mid-rest,
+  // while there is still time to tap, rather than at the end.
+  if(left>0){ audioClockSample(); showArm() }
   if(restWarnDue(rest,left)){
     rest.warned=true; LS.set('ob.rest',rest); beepWarn(); tlog('rest','warning',left+' s left');
   }
@@ -7164,6 +7256,9 @@ document.getElementById('rest').addEventListener('click',e=>{
   if(v==='cover'){ coverTap(); return }
   if(v==='stop') return stopRest();
   if(v==='unquiet'){ unquiet(); return }
+  // The tap itself is the repair (gestureWake, on the way in). Named here so it never
+  // falls through to the +/-30 s branch below, which would read 'arm' as a number.
+  if(v==='arm'){ showRest(); return }
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
@@ -8679,6 +8774,7 @@ function vSetup(){
     ${sm==='silent'?`<div class="note">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
     <div class="restsel" style="margin-top:10px"><span>Warning</span><div class="seg">${REST_WARNS.map(v=>`<button class="segb${restWarnSecs()===v?' on':''}" data-act="restwarn" data-v="${v}" aria-pressed="${restWarnSecs()===v}">${v?v+'s':'Off'}</button>`).join('')}</div></div>
     <div class="note">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. A tone and nothing spoken: on iPhone, speech can interrupt the audio, and a spoken warning was enough to cost you the beep at the end. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
+    <div class="note"><b>\u201cSound needs a tap.\u201d</b> Going to another app mid-rest can leave this app\u2019s sound broken while it still reports itself working, and iOS sometimes restarts the app while you are away, which leaves it with no sound at all. Either way it takes a tap to put right \u2014 iOS only lets sound start from one \u2014 so when you come back the rest bar asks for it. Any tap anywhere does it. Do it before the phone goes back down and the end-of-rest beep has something to play on.</div>
     <div class="note">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
     <p class="note" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>

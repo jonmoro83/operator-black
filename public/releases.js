@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.61',date:'2026-11-02',title:"The beep survives a trip to another app",items:[
+    "Every test of the beep worked and real sessions didn't. The difference was going to another app mid-rest. A test plays its beep from the tap that asks for it; a rest plays its beep from a timer minutes later, and a trip to another app can break the sound in between.",
+    "Two things can happen while you're away. The app's sound can come back broken while it still reports itself working \u2014 and the app believed it, so it never repaired it and logged every silent beep as played. Or iOS restarts the app in the background, which looks identical when you return but leaves it with no sound until you tap.",
+    "Coming back from another app now counts as broken whatever the sound claims. Your next tap, anywhere, throws the old sound channel away and starts a fresh one, which iOS always allows from a tap. Until you've tapped, the rest bar says \u201cSound needs a tap\u201d, so you find out before the phone goes back down rather than when the beep doesn't come.",
+    "The app also checks that the sound is really running, by watching its clock move, rather than taking its word for it. If it stops mid-rest the same prompt appears while there's still time to tap.",
+    "The timer log can now see all of this: a line when the app starts (so an iOS restart mid-session shows up), a line when the sound is rebuilt, and next to every beep whether it can actually have been heard."]},
   {v:'3.60',date:'2026-11-01',title:"A program for somebody who has never lifted",items:[
     "StrongLifts 5\u00d75 is now one of the strength templates. Three days a week, two sessions alternating \u2014 squat, bench and row, against squat, press and deadlift. Five sets of five on everything but the deadlift, which is one set.",
     "It is the first program here with no percentages in it, because a true beginner has no max to take a percentage of. The weight on the bar is the program: it starts at an empty bar, goes up every session you finish, and comes down 10% when you miss three sessions in a row on the same lift. Setup asks what to start at and what to add instead of asking for maxes.",

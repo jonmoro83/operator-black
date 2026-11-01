@@ -89,11 +89,13 @@ function lsShow(){
 function lsRestHtml(){
   if(!rest) return '';
   const left=Math.max(0,Math.ceil((rest.end-Date.now())/1000));
-  return `<div class="ls-rest${left===0?' done':''}" id="ls-rest"><div><div class="small" style="font-weight:700">${esc(rest.lbl)}</div><b id="ls-rest-t">${Math.floor(left/60)}:${pad(left%60)}</b></div><div class="ls-row" style="flex:0 0 auto"><button class="btn sm" data-ls="r-30">−30s</button><button class="btn sm" data-ls="r+30">+30s</button><button class="btn sm" data-ls="rskip">${left===0?'Clear':'Skip'}</button></div></div>`;
+  return `<div class="ls-rest${left===0?' done':''}" id="ls-rest" data-arm="${audioNeedsTap()&&!rest.done?1:0}"><div><div class="small" style="font-weight:700">${esc(rest.lbl)}</div><b id="ls-rest-t">${Math.floor(left/60)}:${pad(left%60)}</b>${audioNeedsTap()&&!rest.done?'<div><button class="quiet-tag" data-ls="arm">Sound needs a tap \u00b7 tap to re-arm</button></div>':''}</div><div class="ls-row" style="flex:0 0 auto"><button class="btn sm" data-ls="r-30">−30s</button><button class="btn sm" data-ls="r+30">+30s</button><button class="btn sm" data-ls="rskip">${left===0?'Clear':'Skip'}</button></div></div>`;
 }
 function lsRestTick(){
   if(!ls) return; const box=document.getElementById('ls-rest');
   if(!rest){ if(box) lsRender(); return } if(!box){ lsRender(); return }
+  // The prompt comes and goes with the channel, which changes between renders.
+  if(box.dataset&&box.dataset.arm!==String(audioNeedsTap()&&!rest.done?1:0)){ lsRender(); return }
   const left=Math.max(0,Math.ceil((rest.end-Date.now())/1000));
   document.getElementById('ls-rest-t').textContent=Math.floor(left/60)+':'+pad(left%60);
   box.classList.toggle('done',left===0);
@@ -219,6 +221,7 @@ function lsAct(a,b){
   if(a==='skip'||a==='next') return go(ls.i+1);
   if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
   if(a==='rskip'){ stopRest(); return lsRender() }
+  if(a==='arm') return lsRender();   // the tap was the repair; this just redraws
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
   // A rating is a Done with something to say: it records how the set moved and then
   // takes the same path, so rating costs no extra tap. Re-rating a set already done
