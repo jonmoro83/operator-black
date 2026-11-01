@@ -214,79 +214,138 @@ test("a subscription has to be a real https endpoint with both keys", async () =
   a.equal((await call("unsubscribe", { endpoint: d.sub.endpoint })).json.devices, 0);
 });
 
-test("a schedule replaces the queue, sorted, and arms the alarm for the first", async () => {
+// A device's rest, set the way the app sets it.
+const later = (ms) => Date.now() + ms;
+async function setAlerts(call, kind, rev, alerts, endpoint) {
+  return call("set", { kind, rev, alerts, endpoint });
+}
+
+test("a timer's alerts go in a slot of their own, sorted, and the alarm is the earliest of all", async () => {
   const { call, st } = await object();
-  const now = Date.now();
-  const r = await call("schedule", { alerts: [{ at: now + 60000, title: "Two" }, { at: now + 30000, title: "One" }] });
-  a.equal(r.json.scheduled, 2);
-  a.deepEqual((await st.get("queue")).map((q) => q.title), ["One", "Two"], "earliest first");
-  a.equal(st.alarm, now + 30000, "the alarm is the first alert");
-  // A single {at,title,body} is a queue of one, and replaces what was there.
-  await call("schedule", { at: now + 90000, title: "Rest done", body: "Next: bench." });
-  a.deepEqual((await st.get("queue")).map((q) => q.title), ["Rest done"], "replaced, not appended");
-  // Due right now still gets a quarter-second, rather than an alarm in the past.
-  await call("schedule", { at: now - 1000, title: "Just now" });
-  a.ok(st.alarm >= now + 250, "never in the past");
+  const d = await device(1); await call("subscribe", { subscription: d.sub });
+  const r = await setAlerts(call, "iv", 1, [{ at: later(60000), title: "Two" }, { at: later(30000), title: "One" }], d.sub.endpoint);
+  a.equal(r.status, 200); a.equal(r.json.applied, true); a.equal(r.json.scheduled, 2);
+  const slots = await st.get("slots");
+  a.deepEqual(slots["iv|" + d.sub.endpoint].alerts.map((q) => q.title), ["One", "Two"], "earliest first");
+  await setAlerts(call, "rest", 1, [{ at: later(10000), title: "Rest done" }], d.sub.endpoint);
+  a.ok(Math.abs(st.alarm - later(10000)) < 50, "the alarm follows the earliest alert across every slot");
   const s = (await call("status")).json;
-  a.equal(s.queued, 1); a.equal(s.pendingAt, st.alarm);
+  a.equal(s.queued, 3); a.equal(s.slots.length, 2);
 });
 
-test("a schedule outside the next two hours, or of more than eighty, is refused whole", async () => {
+test("a rest and an interval session do not clobber each other", async () => {
   const { call, st } = await object();
-  const now = Date.now();
-  a.equal((await call("schedule", { at: now - 10000 })).status, 400, "more than five seconds stale");
-  a.equal((await call("schedule", { at: now + 3 * 3600 * 1000 })).status, 400, "more than two hours out");
-  a.equal((await call("schedule", { at: "soon" })).status, 400, "not a time");
-  a.equal((await call("schedule", { alerts: Array.from({ length: 81 }, (_, i) => ({ at: now + 1000 + i })) })).status, 400);
-  a.equal((await call("schedule", { alerts: [] })).status, 400);
-  a.equal(await st.get("queue"), undefined, "nothing half-stored from a refused schedule");
+  const ep = (await device(1)).sub.endpoint;
+  await setAlerts(call, "gt", 1, [{ at: later(300000), title: "Timer done" }], ep);
+  // Under the old single queue, this replaced the generic timer's alert...
+  await setAlerts(call, "rest", 2, [{ at: later(90000), title: "Rest done" }], ep);
+  // ...and this cancel wiped it.
+  await setAlerts(call, "rest", 3, [], ep);
+  const slots = await st.get("slots");
+  a.equal(slots["gt|" + ep].alerts.length, 1, "the generic timer still has its alert");
+  a.equal(slots["rest|" + ep].alerts.length, 0, "and the rest's is gone, as asked");
+});
+
+test("a write that loses the race on the way in cannot undo a newer one", async () => {
+  const { call, st } = await object();
+  const ep = (await device(1)).sub.endpoint;
+  // Plyo into HIC: the rest's cancel and the interval schedule leave together. Here the
+  // newer schedule lands first and the older cancel second -- the order that used to
+  // erase every interval alert.
+  await setAlerts(call, "iv", 20, [{ at: later(60000), title: "Go hard" }, { at: later(120000), title: "Easy" }], ep);
+  const stale = await setAlerts(call, "iv", 19, [], ep);
+  a.equal(stale.json.applied, false); a.equal(stale.json.stale, true);
+  a.equal((await st.get("slots"))["iv|" + ep].alerts.length, 2, "the newer schedule stands");
+  // And the reverse: a cancel that lands first is remembered, so an older schedule
+  // arriving late cannot bring the alert back.
+  await setAlerts(call, "rest", 31, [], ep);
+  await setAlerts(call, "rest", 30, [{ at: later(90000), title: "Rest done" }], ep);
+  a.equal((await st.get("slots"))["rest|" + ep].alerts.length, 0, "a cancelled alert stays cancelled");
+  // The same revision again is the same request again, and harmless.
+  a.equal((await setAlerts(call, "rest", 31, [], ep)).json.applied, true);
+});
+
+test("each device's timers are its own", async () => {
+  const { call, st } = await object();
+  const phone = (await device(1)).sub.endpoint, laptop = (await device(2)).sub.endpoint;
+  await setAlerts(call, "rest", 5, [{ at: later(90000), title: "Phone rest" }], phone);
+  await setAlerts(call, "rest", 1, [], laptop);
+  const slots = await st.get("slots");
+  a.equal(slots["rest|" + phone].alerts.length, 1, "the laptop cancelling its rest leaves the phone's alone");
+});
+
+test("a set is refused whole: outside two hours, too many, an unknown kind, no revision", async () => {
+  const { call, st } = await object();
+  const ep = (await device(1)).sub.endpoint;
+  a.equal((await setAlerts(call, "rest", 1, [{ at: Date.now() - 10000 }], ep)).status, 400, "more than five seconds stale");
+  a.equal((await setAlerts(call, "rest", 1, [{ at: later(3 * 3600 * 1000) }], ep)).status, 400, "more than two hours out");
+  a.equal((await setAlerts(call, "rest", 1, [{ at: "soon" }], ep)).status, 400, "not a time");
+  a.equal((await setAlerts(call, "iv", 1, Array.from({ length: 81 }, (_, i) => ({ at: later(1000 + i) })), ep)).status, 400);
+  a.equal((await setAlerts(call, "Rest!", 1, [], ep)).status, 400, "kind is a short lowercase word");
+  a.equal((await setAlerts(call, "legacy", 1, [], ep)).status, 400, "and not the old API's own slot");
+  a.equal((await call("set", { kind: "rest", alerts: [] })).status, 400, "a revision is required");
+  a.equal((await setAlerts(call, "rest", 1, [], "http://evil.example/x")).status, 400, "an endpoint has to be real");
+  a.equal(await st.get("slots"), undefined, "nothing half-stored from a refusal");
   a.equal(st.alarm, null);
-  // Titles and bodies are capped, so a long one cannot bloat the queue.
-  await call("schedule", { at: now + 5000, title: "x".repeat(500), body: "y".repeat(500) });
-  const q = (await st.get("queue"))[0];
-  a.equal(q.title.length, 80); a.equal(q.body.length, 160);
+  await setAlerts(call, "rest", 2, [{ at: later(5000), title: "x".repeat(500), body: "y".repeat(500) }], ep);
+  const q = (await st.get("slots"))["rest|" + ep].alerts[0];
+  a.equal(q.title.length, 80); a.equal(q.body.length, 160, "titles and bodies are capped");
 });
 
-test("cancel clears the queue and the alarm", async () => {
+test("the last alert going clears the alarm", async () => {
   const { call, st } = await object();
-  await call("schedule", { at: Date.now() + 5000, title: "x" });
-  await call("cancel", {});
-  a.equal(st.alarm, null); a.equal(await st.get("queue"), undefined);
+  const ep = (await device(1)).sub.endpoint;
+  await setAlerts(call, "rest", 1, [{ at: later(5000), title: "x" }], ep);
+  a.ok(st.alarm);
+  await setAlerts(call, "rest", 2, [], ep);
+  a.equal(st.alarm, null);
 });
 
-test("the alarm sends only the newest of what is due, to every device, and re-arms for the rest", async () => {
+test("an alert goes to the device that set it, and the send is logged with how late it was", async () => {
   const { o, call, st } = await object();
   const d1 = await device(1), d2 = await device(2);
   await call("subscribe", { subscription: d1.sub }); await call("subscribe", { subscription: d2.sub });
   const now = Date.now();
   // A late alarm: two came due while it waited. Only the newer one is still worth reading.
-  await st.put("queue", [{ at: now - 3000, title: "Stale", body: "" }, { at: now - 100, title: "Rest done", body: "Next: squat." },
-    { at: now + 60000, title: "Later", body: "" }]);
+  await st.put("slots", { ["rest|" + d1.sub.endpoint]: { kind: "rest", to: d1.sub.endpoint, rev: 1, alerts: [
+    { at: now - 3000, title: "Stale", body: "" }, { at: now - 1200, title: "Rest done", body: "Next: squat." },
+    { at: now + 60000, title: "Later", body: "" }] } });
   const f = captureFetch(201);
   try {
     await o.alarm();
-    a.equal(f.calls.length, 2, "one push per device");
-    a.deepEqual(f.calls.map((c) => c.url).sort(), [d1.sub.endpoint, d2.sub.endpoint].sort());
-    for (const c of f.calls) {
-      const who = c.url === d1.sub.endpoint ? d1 : d2;
-      const payload = JSON.parse((await decrypt(u8(c.init.body), who.ua, who.auth)).text);
-      a.deepEqual(payload, { title: "Rest done", body: "Next: squat." }, "the newest due, decrypted on each device");
-    }
-    a.deepEqual((await st.get("queue")).map((q) => q.title), ["Later"], "the future one stays");
-    a.equal(st.alarm, now + 60000, "and the alarm moves to it");
+    a.equal(f.calls.length, 1, "one push, to the phone that started the rest, not every device");
+    a.equal(f.calls[0].url, d1.sub.endpoint);
+    a.equal(f.calls[0].init.headers.Topic, "rest", "and its topic is its timer, so timers never collapse each other");
+    const payload = JSON.parse((await decrypt(u8(f.calls[0].init.body), d1.ua, d1.auth)).text);
+    a.deepEqual(payload, { title: "Rest done", body: "Next: squat." }, "the newest due");
   } finally { f.restore() }
-  // The last one goes, and the queue goes with it.
-  await st.put("queue", [{ at: now - 10, title: "Last", body: "" }]);
-  const g = captureFetch(201);
-  try { await o.alarm() } finally { g.restore() }
-  a.equal(await st.get("queue"), undefined);
+  const slot = (await st.get("slots"))["rest|" + d1.sub.endpoint];
+  a.deepEqual(slot.alerts.map((q) => q.title), ["Later"], "the future one stays");
+  a.equal(st.alarm, now + 60000, "and the alarm moves to it");
+  const log = (await call("status")).json.log;
+  a.equal(log.length, 1);
+  a.equal(log[0].kind, "rest"); a.equal(log[0].skipped, 1);
+  a.ok(log[0].late >= 1200 && log[0].late < 5000, `late is measured against the alert's own time (${log[0].late} ms)`);
+  a.equal(log[0].results[0].status, 201);
+});
+
+test("an alert for a device that has gone from the list goes to every device instead", async () => {
+  const { o, call, st } = await object();
+  const d1 = await device(1); await call("subscribe", { subscription: d1.sub });
+  await st.put("slots", { "rest|https://web.push.apple.com/gone": { kind: "rest", to: "https://web.push.apple.com/gone", rev: 1,
+    alerts: [{ at: Date.now() - 10, title: "Rest done", body: "" }] } });
+  const f = captureFetch(201);
+  try { await o.alarm() } finally { f.restore() }
+  a.equal(f.calls.length, 1, "never lost to bookkeeping");
+  a.equal((await call("status")).json.log[0].to, "all (device not registered)", "and the log says why it went wide");
 });
 
 test("a device the push service says is gone is dropped; one that merely failed is kept", async () => {
   const { o, call, st } = await object();
   const gone = await device(1), expired = await device(2), flaky = await device(3), fine = await device(4);
   for (const d of [gone, expired, flaky, fine]) await call("subscribe", { subscription: d.sub });
-  await st.put("queue", [{ at: Date.now() - 10, title: "Rest done", body: "" }]);
+  // An untargeted alert, so it reaches all four.
+  await st.put("slots", { "legacy|*": { kind: "legacy", to: null, rev: 1, alerts: [{ at: Date.now() - 10, title: "Rest done", body: "" }] } });
   const f = captureFetch((url) => url.endsWith("dev1") ? 410 : url.endsWith("dev2") ? 404 : url.endsWith("dev3") ? 503 : 201);
   try { await o.alarm() } finally { f.restore() }
   const left = Object.keys(await st.get("subs")).sort();
@@ -294,10 +353,39 @@ test("a device the push service says is gone is dropped; one that merely failed 
     "410 and 404 mean unsubscribed for good; a 503 is a bad moment, not a dead device");
 });
 
+test("turning alerts off on a device takes its pending alerts with it", async () => {
+  const { call, st } = await object();
+  const d = await device(1); await call("subscribe", { subscription: d.sub });
+  await setAlerts(call, "rest", 1, [{ at: later(90000), title: "Rest done" }], d.sub.endpoint);
+  await call("unsubscribe", { endpoint: d.sub.endpoint });
+  a.equal((await st.get("slots"))["rest|" + d.sub.endpoint], undefined);
+  a.equal(st.alarm, null);
+});
+
+test("a phone still running the old app keeps its alerts through the switchover", async () => {
+  const { call, st } = await object();
+  // The pre-slots API: one queue, replaced by every schedule, emptied by cancel.
+  const r = await call("schedule", { alerts: [{ at: later(60000), title: "Two" }, { at: later(30000), title: "One" }] });
+  a.equal(r.json.scheduled, 2);
+  a.deepEqual((await st.get("slots"))["legacy|*"].alerts.map((q) => q.title), ["One", "Two"]);
+  await call("schedule", { at: later(90000), title: "Rest done" });
+  a.deepEqual((await st.get("slots"))["legacy|*"].alerts.map((q) => q.title), ["Rest done"], "replaced, not appended");
+  a.equal((await call("schedule", { at: Date.now() - 10000 })).status, 400);
+  await call("cancel", {});
+  a.equal((await st.get("slots"))["legacy|*"], undefined); a.equal(st.alarm, null);
+  // A queue left pending in storage at the moment of the deploy is picked up, not lost.
+  const fresh = await object();
+  await fresh.st.put("queue", [{ at: later(40000), title: "Pending at deploy", body: "" }]);
+  const s = (await fresh.call("status")).json;
+  a.equal(s.queued, 1);
+  a.equal(await fresh.st.get("queue"), undefined, "the old key is folded in once");
+});
+
 test("wipe removes everything, and an unknown operation is a 404", async () => {
   const { call, st } = await object();
-  await call("subscribe", { subscription: (await device(1)).sub });
-  await call("schedule", { at: Date.now() + 5000 });
+  const d = await device(1);
+  await call("subscribe", { subscription: d.sub });
+  await setAlerts(call, "rest", 1, [{ at: later(5000) }], d.sub.endpoint);
   await call("wipe", {});
   a.equal(st.m.size, 0); a.equal(st.alarm, null);
   a.equal((await call("nonsense", {})).status, 404);

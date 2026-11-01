@@ -5,7 +5,7 @@
 // above the rest bar rather than replacing it, so a rest keeps counting underneath.
 const GT_PRESETS = [30, 60, 120, 180, 300, 600];
 const GT_STALE_MS = 12 * 3600 * 1000;
-let gt = LS.get('ob.gt'), gtTick = null, gtPushT = null;
+let gt = LS.get('ob.gt'), gtTick = null;
 
 function gtSave(){ LS.set('ob.gt', gt) }
 function gtFmt(s){
@@ -24,13 +24,13 @@ function gtStart(mode, secs){
   const now = Date.now();
   gt = mode === 'up' ? { mode:'up', start:now, pausedMs:0, paused:null }
                      : { mode:'down', dur:secs, end:now + secs * 1000, pausedMs:0, paused:null, done:false };
-  gtSave(); syncScreen(); gtShow(); gtPush();
+  gtSave(); syncScreen(); gtShow(); alarmSync();
 }
 function gtPause(){
   if(!gt) return;
   if(gt.paused){ const d = Date.now() - gt.paused; gt.pausedMs += d; if(gt.mode === 'down') gt.end += d; gt.paused = null }
   else gt.paused = Date.now();
-  gtSave(); syncScreen(); gtRender(); gtPanelDraw(); gtPush();
+  gtSave(); syncScreen(); gtRender(); gtPanelDraw(); alarmSync();
 }
 function gtAdd(s){
   if(!gt || gt.mode !== 'down') return;
@@ -38,13 +38,13 @@ function gtAdd(s){
   gt.end = Math.max(base + 1000, gt.end + s * 1000);
   gt.dur = Math.max(gt.dur, Math.round((gt.end - base) / 1000));
   if(gt.end > base) gt.done = false;
-  gtSave(); gtRender(); gtPanelDraw(); gtPush();
+  gtSave(); gtRender(); gtPanelDraw(); alarmSync();
 }
 function gtStop(){
   gt = null; gtSave();
   clearInterval(gtTick); gtTick = null;
   syncScreen();
-  gtShow(); gtPanelDraw(); gtPush();
+  gtShow(); gtPanelDraw(); alarmSync();
 }
 function gtShow(){
   const el = document.getElementById('gt'); if(!el) return;
@@ -70,15 +70,6 @@ function gtRender(){
   if(over && Date.now() - gt.end > 5 * 60000) gtStop();   // nobody dismissed it
 }
 // Only touch the alert queue when nothing in a session owns it.
-function gtPush(){
-  if(!alertsOn()) return;
-  if((rest && !rest.done) || (iv && !iv.done)) return;
-  // Immediately, for the reason in syncPush: a hidden page is frozen before a 300 ms
-  // timer gets to run, and this one exists to fire while you are not looking.
-  pushForget();
-  if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
-  else pushCall('/push/cancel', null, 'cancel');
-}
 
 /* the header panel */
 function gtPanel(){

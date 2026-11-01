@@ -219,7 +219,7 @@ function lsAct(a,b){
   if(a==='close') return lsClose();
   if(a==='back') return go(ls.i-1);
   if(a==='skip'||a==='next') return go(ls.i+1);
-  if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
+  if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);alarmSync()} return lsRender() }
   if(a==='rskip'){ stopRest(); return lsRender() }
   if(a==='arm') return lsRender();   // the tap was the repair; this just redraws
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }

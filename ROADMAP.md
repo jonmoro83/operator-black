@@ -31,12 +31,23 @@ Genuinely open: things that still need doing or confirming.
   gains `app · started` (with what was running), `rebuilt by a tap`, `clock stopped`,
   and a heard/not-heard note beside each `played`. **Next:** a real session on 3.61
   with an app switch in it, then the log -- it now says which of the two it was.
-  Still open behind this, from the 2026-11-02 analysis: the alert layer rewrite
-  (named per-timer alerts instead of one replace-on-write queue, which has a real
-  cancel/schedule race on Plyo -> HIC; keepalive + retry; delivery lateness recorded
-  server-side; per-device targeting) and a check of Settings -> Notifications ->
-  Operator -> Sounds, since 3.56's ring-switch theory rested on logs contaminated by the
-  3.53 speech bug and the user hears in-app beeps in duck mode, so the switch is on.
+  **3.62 rewrote the alert layer** (the locked-phone half): the DO keeps one slot per
+  timer per device (`kind|endpoint`), each write replacing that slot's list and carrying
+  a client revision -- an older revision is ignored, and an emptied slot is kept as a
+  tombstone so a late schedule cannot resurrect a cancel. That closes the Plyo -> HIC
+  race (stopRest's cancel and ivStart's schedule used to hit one replace-on-write queue
+  as two concurrent requests) and the generic timer losing its alert to any rest. Alerts
+  target the setting device (falling back to all if it is not registered, so nothing is
+  lost to bookkeeping); the push `Topic` is the timer kind. Client side, `syncPush`,
+  `ivPush` and `gtPush` are gone: one `alarmSync()` diffs wanted against confirmed,
+  sends with `keepalive`, times out at 10 s, retries 2/5/15/30 s and on `online` and
+  visible, ignores answers to superseded writes, and persists confirmed slots so a
+  restarted page can still cancel. The DO logs every send with lateness against the
+  alert's own time; the report prints it. Old clients' `/push/schedule` and `cancel`
+  map to a `legacy|*` slot through the switchover. **Still to check on the phone:**
+  Settings -> Notifications -> Operator -> Sounds, since 3.56's ring-switch theory rested
+  on logs contaminated by the 3.53 speech bug, and the user hears in-app beeps in duck
+  mode, so the switch is on.
 - **Rest alerts: cause found 2026-10-24, fixed in 3.55, not yet confirmed on the
   phone.** The device report settled the half I had wrong: Apple accepted the test
   push on all three registered devices (201 each) and the notification appeared, so

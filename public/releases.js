@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.62',date:'2026-11-02',title:"Lock-screen alerts you can count on",items:[
+    "With the phone locked, the notification is the only thing that can tell you a rest is over \u2014 iOS stops the app making any sound of its own. So the way alerts are set has been rebuilt to be certain rather than hopeful.",
+    "Each timer now has its own alert on the server: the rest, an interval session and the general timer no longer share one, so starting one can't wipe out another's. That fixes a real fault on Plyo and HIC days, where starting the intervals straight out of the rest before HIC could erase every interval alert, depending on which of two requests arrived first.",
+    "Alerts go only to the phone that set them, not to every device you've ever turned alerts on for.",
+    "Setting an alert now survives the app being put away mid-request, and if it fails \u2014 a gym with no signal \u2014 it's tried again, and again whenever the connection or the app comes back. The rest bar says \u201cLock-screen alert set \u2713\u201d once the server has confirmed it, or \u201cAlert not set \u00b7 tap to retry\u201d if it hasn't, so you know before the phone goes in your pocket.",
+    "The server now records how late each alert went out, and Setup \u2192 Rest alerts shows it in the report. For the first time we can see whether alerts actually arrive on time."]},
   {v:'3.61',date:'2026-11-02',title:"The beep survives a trip to another app",items:[
     "Every test of the beep worked and real sessions didn't. The difference was going to another app mid-rest. A test plays its beep from the tap that asks for it; a rest plays its beep from a timer minutes later, and a trip to another app can break the sound in between.",
     "Two things can happen while you're away. The app's sound can come back broken while it still reports itself working \u2014 and the app believed it, so it never repaired it and logged every silent beep as played. Or iOS restarts the app in the background, which looks identical when you return but leaves it with no sound until you tap.",

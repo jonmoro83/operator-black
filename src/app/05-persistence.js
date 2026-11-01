@@ -17,8 +17,10 @@ function docFor(path){return path==='plan/main'?(stash?stash.plan:plan):path.sta
 function pending(path){const w=writers[path];return !!(w&&(w.dirty||w.busy||w.timer))||!!outbox[path]}
 function anyPending(){return Object.keys(writers).some(pending)||Object.keys(outbox).length>0}
 function waitingCount(){return Object.keys(outbox).length}
-async function api(method,path,body){
-  const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',
+// `keepalive` lets a request finish after the page around it is frozen or closed --
+// which, for scheduling a lock-screen alert, is the moment it matters.
+async function api(method,path,body,opt){
+  const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',keepalive:!!(opt&&opt.keepalive),
     headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
   // An expired Access session answers with a redirect to the login page.
   if(r.type==='opaqueredirect'){const e=new Error('signed out');e.status=401;throw e}
@@ -193,7 +195,9 @@ async function connect(){
     if(!st.plan&&!Object.keys(st.logs||{}).length&&!plan.onboarded&&!wz){wz=wzNew(false);plan.startMonday=nextMonday();planV++;render()}
     if(!viewing&&freezePast()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
-    healAlerts();
+    // Then re-check what the server holds: after a restart mid-session the page has to
+    // pick its alerts back up, and a cancel made while offline still has to land.
+    healAlerts().then(()=>alarmSync());
   }
   catch(e){
     if(e&&(e.status===401||e.status===403)) signedOut=true;

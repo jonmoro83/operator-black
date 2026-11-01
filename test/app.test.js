@@ -9029,39 +9029,169 @@ test("no two top-level functions in the bundle share a name", () => {
   a.deepEqual(clashes, [], "the later declaration wins and the earlier one's callers break");
 });
 
-test("a rest schedules its alert before the page can be frozen", async () => {
-  const x = app({ now: "2026-10-24" });
-  const keepN = window.Notification, keepF = global.fetch;
-  try {
-    window.Notification = { permission: "granted" }; global.Notification = window.Notification;
-    localStorage.setItem("ob.push", JSON.stringify("https://x"));
-    const posts = [];
-    global.fetch = (u, o) => {
-      posts.push({ url: String(u), body: o && o.body && JSON.parse(o.body) });
-      return Promise.resolve({ ok: true, status: 200, type: "basic", json: () => Promise.resolve({ scheduled: 1 }) });
-    };
-    // The request has to be in flight by the time the handler returns. It used to sit
-    // behind a 300 ms debounce, and a phone going into a pocket freezes the page well
-    // inside that -- which is exactly the difference between the manual test, which
-    // always worked, and a rest alert, which is what got reported as broken.
-    x.startRest("squat", "Squat · set 2", 90);
-    a.equal(posts.length, 1, "sent synchronously, not on a timer");
-    a.match(posts[0].url, /push\/schedule$/);
-    a.ok(posts[0].body.at > Date.now() + 80000);
+/* ---------------- the lock-screen alarm ---------------- */
 
-    // The identical call again is not worth a second request.
-    x.syncPush();
-    a.equal(posts.length, 1, "the same schedule is not re-sent");
-    // A different end time is.
-    x.rest.end += 30000; x.syncPush();
-    a.equal(posts.length, 2, "but a changed one is");
-    // And another scheduler writing the queue clears that assumption.
-    x.pushForget(); x.syncPush();
-    a.equal(posts.length, 3);
-  } finally {
-    global.fetch = keepF; window.Notification = keepN; global.Notification = keepN;
-    localStorage.removeItem("ob.push"); x.stopRest();
-  }
+// Alerts on for this phone, and a fetch that records each request and answers as told:
+// `answer(post)` returns a plain {ok, status, json}, or a promise of a Response-like.
+function alertsOnFor(answer) {
+  const keepN = window.Notification, keepF = global.fetch;
+  window.Notification = { permission: "granted" }; global.Notification = window.Notification;
+  localStorage.setItem("ob.push", JSON.stringify("https://web.push.apple.com/me"));
+  const posts = [];
+  global.fetch = (u, o) => {
+    const p = { url: String(u), body: o && o.body ? JSON.parse(o.body) : null, keepalive: !!(o && o.keepalive) };
+    posts.push(p);
+    const r = answer ? answer(p) : { ok: true, status: 200, json: { applied: true } };
+    if (r && typeof r.then === "function") return r;
+    return Promise.resolve({ ok: r.ok, status: r.status, type: "basic", json: () => Promise.resolve(r.json) });
+  };
+  return { posts, restore() { global.fetch = keepF; window.Notification = keepN; global.Notification = keepN; localStorage.removeItem("ob.push") } };
+}
+const okResponse = () => ({ ok: true, status: 200, type: "basic", json: () => Promise.resolve({ applied: true }) });
+const answered = async () => { await settle(); await settle(); };
+
+test("a rest's alert is sent at once, kept alive, to this phone's rest slot", async () => {
+  const x = app({ now: "2026-11-02" });
+  const h = alertsOnFor();
+  try {
+    // In flight by the time the tap handler returns: a pocketed phone freezes the page
+    // well inside the 300 ms a debounce used to wait.
+    x.startRest("squat", "Squat · set 2", 90);
+    a.equal(h.posts.length, 1, "sent synchronously, not on a timer");
+    const p = h.posts[0];
+    a.match(p.url, /\/api\/push\/set$/);
+    a.equal(p.keepalive, true, "and allowed to finish after the page is frozen around it");
+    a.equal(p.body.kind, "rest");
+    a.equal(p.body.endpoint, "https://web.push.apple.com/me", "for this phone, not every device");
+    a.equal(p.body.alerts.length, 1); a.ok(p.body.alerts[0].at > Date.now() + 80000);
+    a.ok(p.body.rev > 0);
+
+    x.alarmSync();
+    a.equal(h.posts.length, 1, "not sent twice while it is on its way");
+    await answered(); x.alarmSync();
+    a.equal(h.posts.length, 1, "nor once it is confirmed");
+    x.rest.end += 30000; x.alarmSync();
+    a.equal(h.posts.length, 2, "a changed one is");
+    a.ok(h.posts[1].body.rev > p.body.rev, "with a later revision, so it outranks the first wherever they cross");
+    await answered();
+    x.stopRest();
+    a.equal(h.posts.length, 3);
+    a.deepEqual(h.posts[2].body.alerts, [], "and stopping the rest empties its slot");
+  } finally { h.restore() }
+});
+
+test("the rest bar says the alert is set only once the server has said so", async () => {
+  const x = app({ now: "2026-11-02" });
+  let release;
+  const h = alertsOnFor(() => new Promise((r) => { release = () => r(okResponse()) }));
+  try {
+    x.startRest("squat", "Squat · set 2", 90);
+    a.equal(x.coverText("rest"), null, "nothing claimed while it is on its way");
+    release(); await answered();
+    a.match(x.coverText("rest"), /Lock-screen alert set ✓/);
+    a.equal(x.dom.made["rest-push"].hidden, false, "and it is on the rest bar, where you look before pocketing the phone");
+  } finally { h.restore(); x.stopRest() }
+});
+
+test("an alert that could not be set says so, goes again, and comes good", async () => {
+  const x = app({ now: "2026-11-02" });
+  let down = true;
+  const h = alertsOnFor(() => down ? Promise.reject(new TypeError("Failed to fetch")) : { ok: true, status: 200, json: { applied: true } });
+  try {
+    x.startRest("squat", "Squat · set 2", 90);
+    await answered();
+    a.match(x.coverText("rest"), /Alert not set \(offline\) · tap to retry/, "said before the phone goes down, not after");
+    a.match(x.tlogText(), /push · rest alert · refused \(Failed to fetch\)/);
+    down = false;
+    // What the retry timer, the connection coming back and the app coming back all call.
+    x.alarmSync();
+    a.equal(h.posts.length, 2, "a failed alert is sent again");
+    await answered();
+    a.match(x.coverText("rest"), /alert set ✓/);
+  } finally { h.restore(); x.stopRest() }
+});
+
+test("a slow answer to an old write cannot overrule a newer one", async () => {
+  const x = app({ now: "2026-11-02" });
+  const pending = [];
+  const h = alertsOnFor(() => new Promise((r) => pending.push(r)));
+  try {
+    x.startRest("squat", "Squat · set 2", 90);       // first write
+    x.rest.end += 30000; x.alarmSync();               // second, for the rest as it now is
+    pending[1](okResponse()); await answered();
+    a.match(x.coverText("rest"), /alert set ✓/);
+    // The first write's answer turns up late, and it is a failure.
+    pending[0]({ ok: false, status: 500, type: "basic", json: () => Promise.resolve({}) }); await answered();
+    a.match(x.coverText("rest"), /alert set ✓/, "it was about an alert that no longer exists");
+  } finally { h.restore(); x.stopRest() }
+});
+
+test("starting intervals out of a running rest cancels one slot and fills another", async () => {
+  const x = app({ now: "2026-11-02" });
+  const h = alertsOnFor();
+  try {
+    x.startRest(null, "HIC: MAP", 600, "Rest before HIC");
+    a.equal(h.posts[0].body.alerts[0].title, "Time for HIC");
+    await answered();
+    h.posts.length = 0;
+    // The Plyo-into-HIC flow. These used to be a cancel and a schedule of one shared
+    // queue, and whichever arrived second won -- sometimes erasing every interval alert.
+    x.ivStart("map");
+    const seen = h.posts.map((p) => p.body.kind + ":" + p.body.alerts.length);
+    a.ok(seen.includes("rest:0"), "the rest's alert is cancelled in the rest's slot");
+    const ivp = h.posts.find((p) => p.body.kind === "iv");
+    a.ok(ivp && ivp.body.alerts.length > 5, "and the session's alerts go in their own");
+  } finally { h.restore(); x.iv = null }
+});
+
+test("the generic timer keeps its alert while a rest comes and goes", async () => {
+  const x = app({ now: "2026-11-02" });
+  const h = alertsOnFor();
+  try {
+    x.gtStart("down", 300); await answered();
+    x.startRest("squat", "Squat · set 2", 90); await answered();
+    x.stopRest(); await answered();
+    const gt = h.posts.filter((p) => p.body.kind === "gt");
+    a.equal(gt.length, 1, "set once");
+    a.equal(gt[0].body.alerts.length, 1, "and never replaced or cancelled by the rest");
+  } finally { h.restore(); x.gt = null }
+});
+
+test("a confirmed alert is remembered, so a restarted page can still cancel it", async () => {
+  const x = app({ now: "2026-11-02" });
+  const h = alertsOnFor();
+  try {
+    x.startRest("squat", "Squat · set 2", 90); await answered();
+    const kept = JSON.parse(localStorage.getItem("ob.alarm"));
+    a.ok(kept.rest && kept.rest.ok, "kept on the phone once confirmed");
+    // iOS restarts the app; the new page starts from what was kept, and the rest is
+    // skipped. Without the record it would think nothing was set and the alert would fire.
+    x.alarmState = kept; x.rest = null;
+    h.posts.length = 0;
+    x.alarmSync();
+    a.equal(h.posts.length, 1); a.deepEqual(h.posts[0].body.alerts, []);
+  } finally { h.restore() }
+});
+
+test("the report shows what the server holds and how late each alert went out", () => {
+  const x = app({ now: "2026-11-02" });
+  x.pushStat = { at: Date.now(), devices: 1, queued: 1, pendingAt: null,
+    slots: [{ kind: "rest", n: 1, next: Date.now() + 60000, to: "web.push.apple.com" }],
+    log: [{ kind: "rest", title: "Rest done", due: Date.now() - 1400, sent: Date.now(), late: 1400, skipped: 0, to: "device",
+      results: [{ host: "web.push.apple.com", status: 201 }] }] };
+  const t = x.pushStatusText();
+  a.match(t, /Server holds: rest ×1/);
+  a.match(t, /rest “Rest done”  1\.4 s late  → device: web\.push\.apple\.com 201/, "the one number that says whether alerts arrive on time");
+});
+
+test("the test alert goes to this phone only", async () => {
+  const x = app({ now: "2026-11-02" });
+  const h = alertsOnFor();
+  try {
+    await x.testAlert();
+    a.equal(h.posts[0].body.kind, "test");
+    a.equal(h.posts[0].body.endpoint, "https://web.push.apple.com/me");
+  } finally { h.restore() }
 });
 
 test("a channel taken away the instant it opens is reported as the ring switch", async () => {

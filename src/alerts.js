@@ -1,13 +1,24 @@
-// Rest and interval alerts: one Durable Object holds your push subscriptions (one per
-// device that enabled alerts) and a queue of pending alerts. A lifting rest queues one
-// alert at its end time; an interval session queues one per interval change. Any new
-// schedule replaces the queue; cancel clears it. The DO alarm fires at the next alert's
-// time and pushes it to every device.
+// Rest and interval alerts. One Durable Object per person holds their push
+// subscriptions (one per device that turned alerts on) and their pending alerts.
+//
+// Pending alerts live in slots: one per timer per device -- the rest timer on the
+// phone, the interval timer on the phone, the generic timer, a test. A write replaces
+// one slot's whole list and carries the client's revision number, and a write older
+// than what the slot already holds is ignored.
+//
+// It used to be one queue per person that every schedule replaced and every cancel
+// emptied. Three timers shared it, so a rest starting wiped the generic timer's alert,
+// and starting intervals out of a running rest sent a cancel and a schedule as two
+// requests -- if the cancel arrived second, every interval alert was erased. Slots
+// with revisions make that impossible rather than unlikely.
 import { DurableObject } from "cloudflare:workers";
 import { sendPush } from "./webpush.js";
 
 const MAX_AHEAD_MS = 2 * 60 * 60 * 1000;
 const MAX_QUEUE = 80;
+const LOG_KEEP = 30;
+const KIND = /^[a-z]{1,12}$/;
+const LEGACY = "legacy";
 
 export class RestAlerts extends DurableObject {
   async fetch(request) {
@@ -16,21 +27,25 @@ export class RestAlerts extends DurableObject {
     const subs = (await this.ctx.storage.get("subs")) || {};
 
     if (op === "status") {
+      const slots = await this.slots();
       const at = await this.ctx.storage.getAlarm();
-      const queue = (await this.ctx.storage.get("queue")) || [];
       // `lastSend` is the only record of what the push service actually said. Without
-      // it, a subscription Apple has rejected looks identical to one that works: the
-      // phone still has its endpoint, the card still says On, and nothing arrives.
+      // it, a subscription Apple has rejected looks identical to one that works.
       const lastSend = (await this.ctx.storage.get("lastSend")) || null;
       const dead = (await this.ctx.storage.get("dead")) || [];
-      return json({ devices: Object.keys(subs).length, pendingAt: at, queued: queue.length, lastSend, dead });
+      const log = (await this.ctx.storage.get("log")) || [];
+      const live = Object.values(slots).filter((s) => s.alerts.length);
+      return json({
+        devices: Object.keys(subs).length, pendingAt: at,
+        queued: live.reduce((n, s) => n + s.alerts.length, 0),
+        slots: live.map((s) => ({ kind: s.kind, n: s.alerts.length, next: s.alerts[0].at, to: s.to ? host(s.to) : "all" })),
+        lastSend, dead, log,
+      });
     }
 
     if (op === "subscribe") {
       const s = body.subscription;
-      const okEndpoint = s && typeof s.endpoint === "string" &&
-        (s.endpoint.startsWith("https://") || (this.env.DEV_ALLOW_ANON === "1" && s.endpoint.startsWith("http://localhost")));
-      if (!okEndpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) return json({ error: "Invalid subscription." }, 400);
+      if (!this.okEndpoint(s && s.endpoint) || !s.keys || !s.keys.p256dh || !s.keys.auth) return json({ error: "Invalid subscription." }, 400);
       subs[s.endpoint] = { endpoint: s.endpoint, keys: { p256dh: s.keys.p256dh, auth: s.keys.auth }, added: Date.now() };
       await this.ctx.storage.put("subs", subs);
       const dead = ((await this.ctx.storage.get("dead")) || []).filter((e) => e !== s.endpoint);
@@ -41,30 +56,51 @@ export class RestAlerts extends DurableObject {
     if (op === "unsubscribe") {
       delete subs[body.endpoint];
       await this.ctx.storage.put("subs", subs);
+      // A device that turned alerts off takes its pending alerts with it.
+      const slots = await this.slots();
+      for (const [k, s] of Object.entries(slots)) if (s.to && s.to === body.endpoint) delete slots[k];
+      await this.saveSlots(slots);
       return json({ devices: Object.keys(subs).length });
     }
 
-    if (op === "schedule") {
-      // {at, title, body} for one alert, or {alerts: [{at, title, body}, ...]}
-      const list = Array.isArray(body.alerts) ? body.alerts : [body];
-      if (!list.length || list.length > MAX_QUEUE) return json({ error: "Too many alerts." }, 400);
-      const now = Date.now(), queue = [];
-      for (const a of list) {
-        const at = Number(a.at);
-        if (!Number.isFinite(at) || at < now - 5000 || at > now + MAX_AHEAD_MS) {
-          return json({ error: "Alert times must be within the next two hours." }, 400);
-        }
-        queue.push({ at, title: String(a.title || "Rest done").slice(0, 80), body: String(a.body || "").slice(0, 160) });
-      }
-      queue.sort((x, y) => x.at - y.at);
-      await this.ctx.storage.put("queue", queue);
-      await this.ctx.storage.setAlarm(Math.max(queue[0].at, now + 250));
-      return json({ scheduled: queue.length, next: queue[0].at });
+    if (op === "set") {
+      // {kind, rev, alerts: [{at, title, body}], endpoint}. An empty list is a cancel.
+      const kind = String(body.kind || ""), rev = Number(body.rev), list = body.alerts;
+      if (!KIND.test(kind) || kind === LEGACY) return json({ error: "Unknown alert kind." }, 400);
+      if (!Number.isFinite(rev)) return json({ error: "A revision is required." }, 400);
+      if (!Array.isArray(list) || list.length > MAX_QUEUE) return json({ error: "Too many alerts." }, 400);
+      const to = body.endpoint == null || body.endpoint === "" ? null : String(body.endpoint);
+      if (to && !this.okEndpoint(to)) return json({ error: "Invalid endpoint." }, 400);
+      const alerts = this.validate(list);
+      if (!alerts) return json({ error: "Alert times must be within the next two hours." }, 400);
+      const slots = await this.slots(), key = kind + "|" + (to || "*"), cur = slots[key];
+      // Older than what is here: a request that lost a race on the way in. Applying it
+      // would undo something newer, which is the whole bug this design is for.
+      if (cur && cur.rev > rev) return json({ applied: false, stale: true, rev: cur.rev, next: cur.alerts.length ? cur.alerts[0].at : null });
+      // An empty slot is kept, not deleted: its revision is what stops a late,
+      // older schedule from bringing a cancelled alert back.
+      slots[key] = { kind, to, rev, alerts };
+      const next = await this.saveSlots(slots);
+      return json({ applied: true, kind, rev, scheduled: alerts.length, next: alerts.length ? alerts[0].at : null, pendingAt: next });
     }
 
+    // What clients before the slots called. Kept so a phone still running a cached copy
+    // of the old app keeps its alerts through the switchover. No revision to protect
+    // it, which is exactly how it always behaved.
+    if (op === "schedule") {
+      const list = Array.isArray(body.alerts) ? body.alerts : [body];
+      if (!list.length || list.length > MAX_QUEUE) return json({ error: "Too many alerts." }, 400);
+      const alerts = this.validate(list);
+      if (!alerts) return json({ error: "Alert times must be within the next two hours." }, 400);
+      const slots = await this.slots();
+      slots[LEGACY + "|*"] = { kind: LEGACY, to: null, rev: Date.now(), alerts };
+      await this.saveSlots(slots);
+      return json({ scheduled: alerts.length, next: alerts[0].at });
+    }
     if (op === "cancel") {
-      await this.ctx.storage.deleteAlarm();
-      await this.ctx.storage.delete("queue");
+      const slots = await this.slots();
+      delete slots[LEGACY + "|*"];
+      await this.saveSlots(slots);
       return json({ canceled: true });
     }
 
@@ -77,56 +113,109 @@ export class RestAlerts extends DurableObject {
     }
 
     if (op === "test") {
-      return json(await this.sendAll({ title: "Rest alerts are on", body: "This is how the end of a rest will look." }));
+      return json(await this.send({ title: "Rest alerts are on", body: "This is how the end of a rest will look." }, null, "test"));
     }
 
     return json({ error: "Not found." }, 404);
   }
 
-  async alarm() {
-    const queue = (await this.ctx.storage.get("queue")) || [];
-    const now = Date.now();
-    const due = queue.filter((a) => a.at <= now + 500);
-    const rest = queue.filter((a) => a.at > now + 500);
-    // If several came due at once (a late alarm), only the newest is still worth showing.
-    if (due.length) await this.sendAll({ title: due[due.length - 1].title, body: due[due.length - 1].body });
-    if (rest.length) {
-      await this.ctx.storage.put("queue", rest);
-      await this.ctx.storage.setAlarm(rest[0].at);
-    } else await this.ctx.storage.delete("queue");
+  okEndpoint(e) {
+    return typeof e === "string" &&
+      (e.startsWith("https://") || (this.env.DEV_ALLOW_ANON === "1" && e.startsWith("http://localhost")));
   }
 
-  /* The results of this were returned to the caller and, from `alarm()`, dropped on
-     the floor -- which is the one place it matters, because that is every real alert.
-     A 404 or 410 means the subscription is gone for good, and deleting it here while
-     the phone keeps its endpoint in localStorage is how you get "alerts are on" and
-     silence with no error anywhere. Both the results and the dead endpoints are kept
-     now, so `/push/status` can say so and the app can re-subscribe properly. */
-  async sendAll(payload) {
+  // Every alert in a list inside the window, or null for the whole list: a schedule is
+  // refused whole rather than half-stored.
+  validate(list) {
+    const now = Date.now(), out = [];
+    for (const a of list) {
+      const at = Number(a && a.at);
+      if (!Number.isFinite(at) || at < now - 5000 || at > now + MAX_AHEAD_MS) return null;
+      out.push({ at, title: String(a.title || "Rest done").slice(0, 80), body: String(a.body || "").slice(0, 160) });
+    }
+    return out.sort((x, y) => x.at - y.at);
+  }
+
+  async slots() {
+    const slots = (await this.ctx.storage.get("slots")) || {};
+    // The single queue from before the slots, if one was pending at the deploy.
+    const old = await this.ctx.storage.get("queue");
+    if (Array.isArray(old)) {
+      if (old.length && !slots[LEGACY + "|*"]) slots[LEGACY + "|*"] = { kind: LEGACY, to: null, rev: 0, alerts: old };
+      await this.ctx.storage.delete("queue");
+      await this.ctx.storage.put("slots", slots);
+    }
+    return slots;
+  }
+
+  // Store the slots and point the alarm at the earliest alert in any of them.
+  async saveSlots(slots) {
+    await this.ctx.storage.put("slots", slots);
+    let next = null;
+    for (const s of Object.values(slots)) if (s.alerts.length && (next == null || s.alerts[0].at < next)) next = s.alerts[0].at;
+    if (next == null) { await this.ctx.storage.deleteAlarm(); return null }
+    const at = Math.max(next, Date.now() + 250);
+    await this.ctx.storage.setAlarm(at);
+    return at;
+  }
+
+  async alarm() {
+    const slots = await this.slots(), now = Date.now();
+    for (const s of Object.values(slots)) {
+      const due = s.alerts.filter((a) => a.at <= now + 500);
+      if (!due.length) continue;
+      s.alerts = s.alerts.filter((a) => a.at > now + 500);
+      // If several came due at once (a late alarm), only the newest is still worth showing.
+      const a = due[due.length - 1];
+      await this.send({ title: a.title, body: a.body }, s.to, s.kind, a.at, due.length - 1);
+    }
+    await this.saveSlots(slots);
+  }
+
+  /* One alert, to the device that set it -- or to every device for a slot with no
+     device, or one whose device has gone from the list, so an alert is never lost to
+     bookkeeping. The push service's answer is kept per device: a 404 or 410 means the
+     subscription is gone for good, and deleting it here while the phone keeps its
+     endpoint is how you get "alerts are on" and silence with no error anywhere. And
+     every send goes in a short log with how late it went out, which is the one
+     number that says whether alerts arrive on time. */
+  async send(payload, to, kind, due, skipped) {
     const subs = (await this.ctx.storage.get("subs")) || {};
-    const results = [];
-    let changed = false;
+    const targeted = to && subs[to];
+    const targets = targeted ? [subs[to]] : Object.values(subs);
     const dead = new Set((await this.ctx.storage.get("dead")) || []);
-    for (const s of Object.values(subs)) {
+    const results = [], sentAt = Date.now();
+    let changed = false;
+    for (const s of targets) {
       let status;
       try {
-        status = await sendPush(s, JSON.stringify(payload), this.env);
+        status = await sendPush(s, JSON.stringify(payload), this.env, { topic: kind || "rest" });
       } catch (e) {
         status = "error:" + ((e && e.name) || "?");
       }
-      results.push({ host: new URL(s.endpoint).host, status });
+      results.push({ host: host(s.endpoint), status });
       if (status === 404 || status === 410) {
         delete subs[s.endpoint];
         dead.add(s.endpoint);
         changed = true;
       }
     }
-    if (changed) await this.ctx.storage.put("subs", subs);
-    await this.ctx.storage.put("lastSend", { at: Date.now(), title: payload.title, results });
-    // Keep only the handful that matter; this is a diagnosis aid, not a ledger.
-    if (changed) await this.ctx.storage.put("dead", [...dead].slice(-5));
+    if (changed) {
+      await this.ctx.storage.put("subs", subs);
+      await this.ctx.storage.put("dead", [...dead].slice(-5));
+    }
+    await this.ctx.storage.put("lastSend", { at: sentAt, title: payload.title, results });
+    const log = (await this.ctx.storage.get("log")) || [];
+    log.push({ kind: kind || "", title: payload.title, due: due || sentAt, sent: sentAt,
+      late: due ? sentAt - due : 0, skipped: skipped || 0,
+      to: targeted ? "device" : to ? "all (device not registered)" : "all", results });
+    await this.ctx.storage.put("log", log.slice(-LOG_KEEP));
     return { devices: Object.keys(subs).length, results };
   }
+}
+
+function host(endpoint) {
+  try { return new URL(endpoint).host } catch { return "?" }
 }
 
 function json(data, status = 200) {

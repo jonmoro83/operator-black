@@ -27,7 +27,9 @@
 //   GET  /api/version             → fingerprint of the current page + deploy info
 //   GET  /api/push/key            → VAPID public key for pushManager.subscribe
 //   GET  /api/push/status         → your devices with alerts on, pending alarm time
-//   POST /api/push/subscribe | unsubscribe | schedule | cancel | test
+//   POST /api/push/set                → replace one timer's alerts on one device {kind, rev, alerts, endpoint}
+//   POST /api/push/subscribe | unsubscribe | test
+//   POST /api/push/schedule | cancel  → the pre-slots API, kept for cached old clients
 //
 // Every request must carry a valid Cloudflare Access JWT (Cf-Access-Jwt-Assertion).
 // Set ACCESS_TEAM_DOMAIN and ACCESS_AUD in wrangler.toml. For local dev only,
@@ -181,7 +183,9 @@ export async function handleApi(request, env) {
   }
   if (route.startsWith("push/")) {
     const op = route.slice(5);
-    const allowed = { status: "GET", subscribe: "POST", unsubscribe: "POST", schedule: "POST", cancel: "POST", test: "POST" };
+    // `set` is the current way to schedule; `schedule` and `cancel` are what clients from
+    // before the per-timer slots still call, and stay until no phone is running one.
+    const allowed = { status: "GET", subscribe: "POST", unsubscribe: "POST", set: "POST", schedule: "POST", cancel: "POST", test: "POST" };
     if (allowed[op] !== request.method) return json({ error: "Not found." }, 404);
     // one alerts object per person: their devices, their queue
     const stub = env.ALERTS.get(env.ALERTS.idFromName("user:" + user));

@@ -3375,8 +3375,10 @@ function docFor(path){return path==='plan/main'?(stash?stash.plan:plan):path.sta
 function pending(path){const w=writers[path];return !!(w&&(w.dirty||w.busy||w.timer))||!!outbox[path]}
 function anyPending(){return Object.keys(writers).some(pending)||Object.keys(outbox).length>0}
 function waitingCount(){return Object.keys(outbox).length}
-async function api(method,path,body){
-  const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',
+// `keepalive` lets a request finish after the page around it is frozen or closed --
+// which, for scheduling a lock-screen alert, is the moment it matters.
+async function api(method,path,body,opt){
+  const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',keepalive:!!(opt&&opt.keepalive),
     headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
   // An expired Access session answers with a redirect to the login page.
   if(r.type==='opaqueredirect'){const e=new Error('signed out');e.status=401;throw e}
@@ -3551,7 +3553,9 @@ async function connect(){
     if(!st.plan&&!Object.keys(st.logs||{}).length&&!plan.onboarded&&!wz){wz=wzNew(false);plan.startMonday=nextMonday();planV++;render()}
     if(!viewing&&freezePast()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
-    healAlerts();
+    // Then re-check what the server holds: after a restart mid-session the page has to
+    // pick its alerts back up, and a cancel made while offline still has to land.
+    healAlerts().then(()=>alarmSync());
   }
   catch(e){
     if(e&&(e.status===401||e.status===403)) signedOut=true;
@@ -5888,7 +5892,7 @@ try{
 // above the rest bar rather than replacing it, so a rest keeps counting underneath.
 const GT_PRESETS = [30, 60, 120, 180, 300, 600];
 const GT_STALE_MS = 12 * 3600 * 1000;
-let gt = LS.get('ob.gt'), gtTick = null, gtPushT = null;
+let gt = LS.get('ob.gt'), gtTick = null;
 
 function gtSave(){ LS.set('ob.gt', gt) }
 function gtFmt(s){
@@ -5907,13 +5911,13 @@ function gtStart(mode, secs){
   const now = Date.now();
   gt = mode === 'up' ? { mode:'up', start:now, pausedMs:0, paused:null }
                      : { mode:'down', dur:secs, end:now + secs * 1000, pausedMs:0, paused:null, done:false };
-  gtSave(); syncScreen(); gtShow(); gtPush();
+  gtSave(); syncScreen(); gtShow(); alarmSync();
 }
 function gtPause(){
   if(!gt) return;
   if(gt.paused){ const d = Date.now() - gt.paused; gt.pausedMs += d; if(gt.mode === 'down') gt.end += d; gt.paused = null }
   else gt.paused = Date.now();
-  gtSave(); syncScreen(); gtRender(); gtPanelDraw(); gtPush();
+  gtSave(); syncScreen(); gtRender(); gtPanelDraw(); alarmSync();
 }
 function gtAdd(s){
   if(!gt || gt.mode !== 'down') return;
@@ -5921,13 +5925,13 @@ function gtAdd(s){
   gt.end = Math.max(base + 1000, gt.end + s * 1000);
   gt.dur = Math.max(gt.dur, Math.round((gt.end - base) / 1000));
   if(gt.end > base) gt.done = false;
-  gtSave(); gtRender(); gtPanelDraw(); gtPush();
+  gtSave(); gtRender(); gtPanelDraw(); alarmSync();
 }
 function gtStop(){
   gt = null; gtSave();
   clearInterval(gtTick); gtTick = null;
   syncScreen();
-  gtShow(); gtPanelDraw(); gtPush();
+  gtShow(); gtPanelDraw(); alarmSync();
 }
 function gtShow(){
   const el = document.getElementById('gt'); if(!el) return;
@@ -5953,15 +5957,6 @@ function gtRender(){
   if(over && Date.now() - gt.end > 5 * 60000) gtStop();   // nobody dismissed it
 }
 // Only touch the alert queue when nothing in a session owns it.
-function gtPush(){
-  if(!alertsOn()) return;
-  if((rest && !rest.done) || (iv && !iv.done)) return;
-  // Immediately, for the reason in syncPush: a hidden page is frozen before a 300 ms
-  // timer gets to run, and this one exists to fire while you are not looking.
-  pushForget();
-  if(gt && gt.mode === 'down' && !gt.paused && !gt.done) pushCall('/push/schedule', { at: gt.end, title: 'Timer done', body: 'The timer you set has finished.' }, 'timer alert');
-  else pushCall('/push/cancel', null, 'cancel');
-}
 
 /* the header panel */
 function gtPanel(){
@@ -6465,7 +6460,7 @@ function lsAct(a,b){
   if(a==='close') return lsClose();
   if(a==='back') return go(ls.i-1);
   if(a==='skip'||a==='next') return go(ls.i+1);
-  if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);syncPush()} return lsRender() }
+  if(a==='r-30'||a==='r+30'){ if(rest){rest.end=Math.max(Date.now()+1000,rest.end+(a==='r+30'?30000:-30000));rest.done=false;rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));LS.set('ob.rest',rest);alarmSync()} return lsRender() }
   if(a==='rskip'){ stopRest(); return lsRender() }
   if(a==='arm') return lsRender();   // the tap was the repair; this just redraws
   if(a==='addset'){ addSet(st.k,1,ls.date); return lsRender() }
@@ -6685,24 +6680,23 @@ function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function ivStart(fmt){
   const o=ivOpts(sel,fmt), segs=ivSegments(fmt,o);
-  // stopRest() sends a cancel; the interval's own schedule follows it below and
-  // replaces the queue, which is what the pending-timer clear used to be guarding.
+  // The rest's alert and the session's are separate slots on the server now, so the
+  // rest being cancelled here cannot race the interval schedule and erase it.
   unlockAudio(); stopRest();
   iv={date:sel,fmt,mod:modOf(sel),segs,start:Date.now()+1500,paused:null,pausedMs:0,mini:false,rounds:o.rounds||0,done:false};
   if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
-  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); ivPush();
+  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); alarmSync();
 }
-function ivPush(){
-  if(!alertsOn()||!iv) return;
-  if(iv.paused||iv.done){pushCall('/push/cancel',null,'cancel');return}
-  const now=Date.now(), el=ivElapsed(), list=[]; let acc=0;
+// What the server should hold for this session: one alert per change still to come.
+function ivAlerts(){
+  const now=Date.now(), list=[]; let acc=0;
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
     // Worded to be read aloud (Siri Announce Notifications): no symbols or clock times.
     if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
-  if(list.length){ pushForget(); pushCall('/push/schedule',{alerts:list.slice(0,80)},'interval alerts') }
+  return list;
 }
 function ivShow(){
   const el=document.getElementById('iv');
@@ -6746,7 +6740,7 @@ function ivRender(){
       ivLast.idx=p.i;
     }
     if(left<=4&&left>0) sfxArm();
-    audioClockSample(); showArm();
+    audioClockSample(); showArm(); showCover();
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
     // iOS lets the screen lock go mid-session; this is what notices. Free while it holds.
@@ -6781,7 +6775,7 @@ function ivFinish(){
     box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result"></label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
   }
 }
-function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();render()}
+function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();alarmSync();render()}
 document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
@@ -6791,9 +6785,9 @@ document.getElementById('iv').addEventListener('click',e=>{
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
     if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();
       if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
-    } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
-  else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
-  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) pushCall('/push/cancel',null,'cancel'); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
+    } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); alarmSync(); }
+  else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); alarmSync(); }
+  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });
@@ -6974,8 +6968,14 @@ screen is off is the alert the server already holds for every rest and every int
 change. Which makes "alerts off" a different thing during a session than it is in a
 settings card: it means this session goes silent the moment the screen does. It only
 ever said so in Setup, three taps away from the timer, so the timers say it now. */
-function coverText(){
-  if(alertsOn()) return null;
+function coverText(kind){
+  if(alertsOn()){
+    const st=alarmState[kind||'rest'];
+    if(!st) return null;
+    if(st.ok) return 'Lock-screen alert set \u2713';
+    if(st.busy&&Date.now()-st.t<3000) return null;          // give it a moment before worrying you
+    return 'Alert not set'+(st.err?' ('+st.err+')':' yet')+' \u00b7 tap to retry';
+  }
   switch(alertsSupport()){
     case 'ok': return 'Alerts off \u00b7 tap for sound when locked';
     case 'denied': return 'Alerts blocked \u00b7 silent once the screen is off';
@@ -6985,14 +6985,15 @@ function coverText(){
 }
 function showCover(){
   if(typeof document==='undefined') return;
-  const t=coverText();
-  const set=(id,on)=>{ const el=document.getElementById(id); if(!el) return; if(on) el.textContent=t; el.hidden=!on };
-  set('rest-push',!!t&&!!rest&&!rest.done);
-  set('iv-push',!!t&&!!iv&&!iv.done);
+  const set=(id,t,on)=>{ const el=document.getElementById(id); if(!el) return; if(on) el.textContent=t; el.hidden=!on };
+  const tr=coverText('rest'), ti=coverText('iv');
+  set('rest-push',tr,!!tr&&!!rest&&!rest.done);
+  set('iv-push',ti,!!ti&&!!iv&&!iv.done);
 }
 // Tapping it: turn them on where that is all it takes, or go to the card that explains
 // why it is not.
 function coverTap(){
+  if(alertsOn()){ alarmForce(); return }
   if(alertsSupport()==='ok'){ enableAlerts(); return }
   view='setup'; render();
 }
@@ -7036,13 +7037,15 @@ async function enableAlerts(){
     try{ if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)}) }
     catch(e){ if(sub) await sub.unsubscribe(); sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(key)}) }
     await api('POST','/push/subscribe',{subscription:sub.toJSON()});
-    LS.set('ob.push',sub.endpoint); alerts.msg='Rest alerts are on for this device.'; showCover(); syncPush(); ivPush();
+    LS.set('ob.push',sub.endpoint); alerts.msg='Rest alerts are on for this device.'; showCover(); alarmSync();
   }catch(e){ alerts.msg=e&&e.status?'The server refused the subscription ('+e.status+'). Try again.':'Couldn’t turn on alerts. Check your connection and try again.' }
   finally{ alerts.busy=false; render() }
 }
 async function disableAlerts(){
   alerts.busy=true; render();
   try{ const reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription(); if(sub){ await api('POST','/push/unsubscribe',{endpoint:sub.endpoint}).catch(()=>{}); await sub.unsubscribe() } }catch(e){}
+  // The server drops this device's pending alerts with the subscription.
+  alarmState={}; alarmSave();
   LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; showCover(); render();
 }
 /* What the server thinks, as against what this phone thinks. The two disagreeing is
@@ -7066,6 +7069,12 @@ function pushStatusText(){
   else out.push('Last asked: nothing yet on this phone');
   if(S&&!S.busy) out.push(S.err?'Server: could not ask ('+S.err+')'
     :'Server: '+S.devices+' device'+(S.devices===1?'':'s')+' registered \u00b7 '+S.queued+' alert'+(S.queued===1?'':'s')+' queued \u00b7 '+(S.pendingAt?'next at '+clockTime(S.pendingAt):'no alarm set'));
+  out.push('This phone asked for: '+(Object.entries(alarmState).map(([k,v])=>k+' '+(v.ok?'confirmed':v.busy?'sending':'NOT SET'+(v.err?' ('+v.err+')':''))).join(', ')||'nothing'));
+  if(S&&Array.isArray(S.slots)&&S.slots.length) out.push('Server holds: '+S.slots.map(x=>x.kind+' \u00d7'+x.n+' next '+clockTime(x.next)+' \u2192 '+x.to).join('; '));
+  if(S&&Array.isArray(S.log)&&S.log.length){
+    out.push('Recent sends (how late each went out):');
+    for(const l of S.log.slice(-12)) out.push('  '+clockTime(l.sent)+'  '+(l.kind||'?')+' \u201c'+(l.title||'')+'\u201d  '+(l.late/1000).toFixed(1)+' s late'+(l.skipped?' ('+l.skipped+' skipped)':'')+'  \u2192 '+l.to+': '+((l.results||[]).map(r=>r.host+' '+r.status).join(', ')||'no devices'));
+  }
   if(S&&S.lastSend) out.push('Last send: '+clockTime(S.lastSend.at)+' \u201c'+(S.lastSend.title||'')+'\u201d \u2014 '+
     ((S.lastSend.results||[]).map(r=>r.host+' '+r.status).join(', ')||'no devices to send to'));
   if(S&&Array.isArray(S.dead)&&S.dead.length) out.push('Rejected endpoints on file: '+S.dead.length);
@@ -7123,7 +7132,7 @@ function pushReport(){
     (typeof navigator!=='undefined'?String(navigator.userAgent).slice(0,160):'')+'\n\n'+pushStatusText()+'\n\n'+pushAdvice().join('\n');
 }
 async function testAlert(){
-  try{ await api('POST','/push/schedule',{at:Date.now()+8000,title:'Test alert',body:'Rest alerts work. This is what the end of a rest looks like.'}); alerts.msg='Test alert coming in 8 seconds. Lock your phone now to see it on the lock screen.' }
+  try{ await api('POST','/push/set',{kind:'test',rev:alarmNextRev(),endpoint:LS.get('ob.push')||'',alerts:[{at:Date.now()+8000,title:'Test alert',body:'Rest alerts work. This is what the end of a rest looks like.'}]},{keepalive:true}); alerts.msg='Test alert coming in 8 seconds. Lock your phone now to see it on the lock screen.' }
   catch(e){ alerts.msg='Couldn’t send the test. Check your connection.' }
   render();
 }
@@ -7145,55 +7154,95 @@ function pushNote(what,ok,detail){
 // Not `hhmm`: 21a-calendar.js already has one, it parses rather than formats, and it
 // wins the concatenation -- so every time in this report printed as "null".
 function clockTime(t){ const d=new Date(+t); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()) }
-/** Schedule or cancel, recording the answer. Never throws: a rest survives a flat network. */
-/** Any other scheduler writing the queue invalidates what the rest path thinks it sent. */
-function pushForget(){ pushSent=null }
-function pushCall(path,body,what){
-  return api('POST',path,body).then(
-    r=>{ pushNote(what,true,r&&r.next?'fires '+clockTime(r.next):(r&&r.scheduled!=null?r.scheduled+' queued':'')); return r },
-    e=>{ pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer'); return null });
+/* ---------- the lock-screen alarm ----------
+With the phone locked or the app away, the page is frozen and nothing in it can make a
+sound, so this is the only alarm that works then. It is built to be sure, not hopeful.
+
+One function decides which alerts should exist -- the rest, the interval session, the
+generic timer -- and sends a timer's whole list only when it differs from what the
+server last confirmed. There used to be three schedulers sharing one server queue,
+each replacing all of it: that is how a rest wiped the generic timer's alert, and how
+starting intervals out of a running rest, a cancel and a schedule racing each other,
+could erase every interval alert. Each timer now has its own slot on the server, for
+this device only, and every write carries a revision so one that arrives late cannot
+undo a newer one.
+
+Sent at once, never behind a timer: iOS freezes a pocketed page well inside the 300 ms
+a debounce used to wait (3.55). With keepalive, so the request outlives the page being
+frozen around it. Retried when it fails -- gyms are where the signal is worst -- and
+again when the connection or the app comes back. Counted as set only once the server
+says so, which is what the tick on the rest bar means. */
+let alarmState=LS.get('ob.alarm')||{}, alarmRev=+LS.get('ob.alarmrev')||0, alarmRetryT=null;
+// Only confirmed ones are kept: after a restart they are what a cancel has to undo.
+function alarmSave(){ const o={}; for(const [k,v] of Object.entries(alarmState)) if(v.ok) o[k]={sig:v.sig,ok:true}; LS.set('ob.alarm',o) }
+// Always increasing on this device, whatever its clock does, so a later write outranks an earlier one.
+function alarmNextRev(){ alarmRev=Math.max(alarmRev+1,Date.now()); LS.set('ob.alarmrev',alarmRev); return alarmRev }
+function restAlert(){
+  const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
+  return {at:rest.end,title:rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done',body};
 }
-/* Sent at once, not after a 300 ms debounce.
-
-   That delay is the only difference between the manual test, which works, and a rest
-   alert, which is what gets reported as broken: the test is tapped while you watch the
-   screen, and a rest is started by ticking the last set and putting the phone straight
-   in your pocket. iOS freezes a hidden page, and it does not wait 300 ms to do it --
-   so the timer that was going to schedule the alert never ran, no request was made,
-   and nothing anywhere recorded that anything was missing.
-
-   Debouncing was protecting the network from the +30s buttons. The Durable Object
-   replaces its whole queue on every schedule, so sending more often is idempotent and
-   cheap, and `same` skips the genuinely identical repeat. Correctness beats a saved
-   request on a timer whose whole job is to fire while you are not looking. */
-let pushSent=null;
-function syncPush(){
+function alarmWant(){
+  return {
+    rest:rest&&!rest.done?[restAlert()]:[],
+    iv:iv&&!iv.done&&!iv.paused?ivAlerts():[],
+    gt:gt&&gt.mode==='down'&&!gt.paused&&!gt.done?[{at:gt.end,title:'Timer done',body:'The timer you set has finished.'}]:[],
+  };
+}
+const ALARM_WHAT={rest:'rest alert',iv:'interval alerts',gt:'timer alert'};
+const ALARM_WAIT=10000;            // an answer slower than this is treated as none
+function alarmSync(){
   if(!alertsOn()) return;
-  if(rest&&!rest.done){
-    const body=rest.next?'Next: '+rest.next.replace(/ · /g,', ')+'.':rest.lbl.replace(/^Rest · /,'')+' rest is over.';
-    const at=rest.end, title=rest.lbl.startsWith('Rest before')?'Time for HIC':'Rest done';
-    const key='s:'+at+':'+title;
-    if(key===pushSent) return;
-    pushSent=key;
-    pushCall('/push/schedule',{at,title,body},'rest alert');
-  } else {
-    if(pushSent==='c') return;
-    pushSent='c';
-    pushCall('/push/cancel',null,'cancel');
+  const want=alarmWant(), ep=LS.get('ob.push')||'';
+  for(const [kind,all] of Object.entries(want)){
+    const list=all.slice(0,80);
+    // The device is part of it: a fresh subscription is a fresh slot to fill.
+    const sig=ep+'#'+list.map(x=>x.at+':'+x.title).join('|'), st=alarmState[kind];
+    if(!st&&!list.length) continue;                       // never set, nothing to clear
+    if(st&&st.sig===sig&&(st.ok||st.busy)) continue;      // confirmed, or on its way
+    alarmSend(kind,list,sig,ep);
   }
 }
+function alarmSend(kind,list,sig,ep){
+  const prev=alarmState[kind];
+  const st=alarmState[kind]={sig,busy:true,ok:false,err:null,t:Date.now(),tries:prev&&prev.sig===sig?prev.tries||0:0};
+  const what=list.length?ALARM_WHAT[kind]||kind:'cancel '+(ALARM_WHAT[kind]||kind);
+  const fail=why=>{ st.busy=false; st.tries++; st.err=why; alarmRetry(); showCover() };
+  // A request that never answers would otherwise hold the slot "on its way" for ever.
+  unref(setTimeout(()=>{ if(alarmState[kind]===st&&st.busy){ pushNote(what,false,'no answer in 10 s'); fail('no answer') } },ALARM_WAIT));
+  return api('POST','/push/set',{kind,rev:alarmNextRev(),alerts:list,endpoint:ep},{keepalive:true}).then(
+    r=>{ if(alarmState[kind]!==st) return;                // overtaken by a newer write
+      st.busy=false; st.ok=true; st.err=null; alarmSave();
+      pushNote(what,true,r&&r.stale?'a newer one was already there':r&&r.next?'fires '+clockTime(r.next):'');
+      showCover(); },
+    e=>{ if(alarmState[kind]!==st) return;
+      pushNote(what,false,e&&e.status?'HTTP '+e.status:(e&&e.message)||'no answer');
+      fail(e&&e.status?'HTTP '+e.status:'offline'); });
+}
+// 2, 5 and 15 seconds, then every 30, for as long as anything is still unconfirmed.
+function alarmRetry(){
+  if(alarmRetryT) return;
+  const n=Math.max(1,...Object.values(alarmState).map(x=>x.tries||0));
+  alarmRetryT=unref(setTimeout(()=>{ alarmRetryT=null; alarmSync() },[2000,5000,15000][n-1]||30000));
+}
+// These timers keep going as long as something is unconfirmed. In Node, where the tests
+// run, an unref'd timer does not hold the process open; in a browser a timer is a number
+// and this does nothing.
+function unref(t){ if(t&&typeof t.unref==='function') t.unref(); return t }
+// Tapping the rest bar's "not set": whatever is stuck goes again now.
+function alarmForce(){ for(const x of Object.values(alarmState)) if(!x.ok) x.busy=false; alarmSync() }
+if(typeof window!=='undefined'&&window.addEventListener) window.addEventListener('online',()=>alarmSync());
 function startHold(name,secs,sides,side){
   unlockAudio();
   rest={k:null,lbl:name,next:sides>1?(side<sides?'Switch sides':'Hold done'):'',end:Date.now()+secs*1000,dur:secs,done:false,hold:1,baseLbl:name,sides,side};
-  LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); showRest(); alarmSync();
 }
 function startRest(k,next,secs,lbl){
   secs=secs||restMins(k)*60;
   rest={k,lbl:lbl||'Rest · '+liftName(k),next,end:Date.now()+secs*1000,dur:secs,done:false};
   tlog('rest','started',secs+' s');
-  LS.set('ob.rest',rest); syncScreen(); showRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); showRest(); alarmSync();
 }
-function stopRest(){const was=rest&&!rest.done;rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();if(was)syncPush()}
+function stopRest(){rest=null;LS.set('ob.rest',null);clearInterval(restTick);restTick=null;syncScreen();showRest();alarmSync()}
 function showRest(){
   const el=document.getElementById('rest');
   showCover();
@@ -7233,7 +7282,7 @@ function tickRest(){
   if(left<=3&&left>0) sfxArm();
   // Is the channel really alive? Checked every tick so a dead one is found mid-rest,
   // while there is still time to tap, rather than at the end.
-  if(left>0){ audioClockSample(); showArm() }
+  if(left>0){ audioClockSample(); showArm(); showCover() }
   if(restWarnDue(rest,left)){
     rest.warned=true; LS.set('ob.rest',rest); beepWarn(); tlog('rest','warning',left+' s left');
   }
@@ -7262,9 +7311,13 @@ document.getElementById('rest').addEventListener('click',e=>{
   unlockAudio();
   rest.end=Math.max(Date.now()+1000,rest.end+(+v)*1000); if(rest.end>Date.now()) rest.done=false;
   rest.dur=Math.max(rest.dur,Math.round((rest.end-Date.now())/1000));
-  LS.set('ob.rest',rest); syncScreen(); tickRest(); syncPush();
+  LS.set('ob.rest',rest); syncScreen(); tickRest(); alarmSync();
 });
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&rest){ syncScreen(); tickRest() } });
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  if(rest){ syncScreen(); tickRest() }
+  alarmSync();     // anything that failed while away goes again
+});
 function nextAfterSet(k,sets){
   const wk=weekOf(sel), dp=dayPlan(sel); if(!wk||dp.t!=='lift') return null;
   const r=rx(wk,k), nSets=r.sMax;
@@ -10041,7 +10094,7 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     render();return}
   if(a==='warmrest'){const k=b.dataset.lift,v=+b.dataset.v;if(warmRestSecs(k)===v)return;mutatePlan(p=>{p.warmRest=Object.assign({},p.warmRest,{[k]:v})});
-    if(rest&&rest.ramp&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=v;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
+    if(rest&&rest.ramp&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=v;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();alarmSync()}
     return}
   if(a==='sfeel'){const v=b.dataset.v;setLog(sel,'feel',lg(sel).feel===v?null:v);render();return}
   if(a==='spain'){const v=b.dataset.v,same=lg(sel).pain===v;setLog(sel,'pain',same?null:v);if(!same&&v==='none')setLog(sel,'painAt',[]);render();return}
@@ -10088,7 +10141,7 @@ document.getElementById('main').addEventListener('click',e=>{
     }
     render();return}
   if(a==='restmin'){const k=b.dataset.lift,m=+b.dataset.v;if(restMins(k)===m)return;mutatePlan(p=>{p.rest=Object.assign({},p.rest,{[k]:m})});
-    if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();syncPush()}
+    if(rest&&rest.k===k&&!rest.done){const el=Date.now()-(rest.end-rest.dur*1000);rest.dur=m*60;rest.end=Date.now()-el+rest.dur*1000;LS.set('ob.rest',rest);tickRest();alarmSync()}
     return}
   if(a==='done'){offerUndo(lg(sel).done?'Session reopened':'Session marked done',snapLog(sel));setLog(sel,'done',!lg(sel).done);render();return}
   if(a==='lower'){const k=b.dataset.lift,c=b.dataset.c;const m=maxFor(+c)[k];if(!m)return;offerUndo('Lowered the '+liftName(k)+' max',snapPlan());mutatePlan(p=>{p.cycleMaxes[c]=p.cycleMaxes[c]||{};p.cycleMaxes[c][k]=floorTo(m.v*.95,p.round[k])});return}

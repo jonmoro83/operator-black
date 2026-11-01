@@ -116,24 +116,23 @@ function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function ivStart(fmt){
   const o=ivOpts(sel,fmt), segs=ivSegments(fmt,o);
-  // stopRest() sends a cancel; the interval's own schedule follows it below and
-  // replaces the queue, which is what the pending-timer clear used to be guarding.
+  // The rest's alert and the session's are separate slots on the server now, so the
+  // rest being cancelled here cannot race the interval schedule and erase it.
   unlockAudio(); stopRest();
   iv={date:sel,fmt,mod:modOf(sel),segs,start:Date.now()+1500,paused:null,pausedMs:0,mini:false,rounds:o.rounds||0,done:false};
   if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
-  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); ivPush();
+  ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); alarmSync();
 }
-function ivPush(){
-  if(!alertsOn()||!iv) return;
-  if(iv.paused||iv.done){pushCall('/push/cancel',null,'cancel');return}
-  const now=Date.now(), el=ivElapsed(), list=[]; let acc=0;
+// What the server should hold for this session: one alert per change still to come.
+function ivAlerts(){
+  const now=Date.now(), list=[]; let acc=0;
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
     // Worded to be read aloud (Siri Announce Notifications): no symbols or clock times.
     if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
-  if(list.length){ pushForget(); pushCall('/push/schedule',{alerts:list.slice(0,80)},'interval alerts') }
+  return list;
 }
 function ivShow(){
   const el=document.getElementById('iv');
@@ -177,7 +176,7 @@ function ivRender(){
       ivLast.idx=p.i;
     }
     if(left<=4&&left>0) sfxArm();
-    audioClockSample(); showArm();
+    audioClockSample(); showArm(); showCover();
     if(left!==ivLast.left&&left<=3&&left>=1&&p.left<seg.s-0.5){ sfx('tick'); }
     ivLast.left=left;
     // iOS lets the screen lock go mid-session; this is what notices. Free while it holds.
@@ -212,7 +211,7 @@ function ivFinish(){
     box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result"></label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
   }
 }
-function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();render()}
+function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();alarmSync();render()}
 document.getElementById('iv').addEventListener('click',e=>{
   if(e.target.id==='iv-size'){iv.mini=!iv.mini;LS.set('ob.iv',iv);ivShow();return}
   const b=e.target.closest('[data-iv]'); if(!b||!iv) return; const a=b.dataset.iv;
@@ -222,9 +221,9 @@ document.getElementById('iv').addEventListener('click',e=>{
   if(a==='pause'){ const held=(()=>{const t=ivElapsed();return t>=0&&(iv.segs[ivPos(t).i]||{}).hold})();
     if(iv.paused){iv.pausedMs+=Date.now()-iv.paused;iv.paused=null;syncScreen();
       if(held){const p=ivPos(ivElapsed()); iv.start-=p.left*1000; ivLast.idx=-1}
-    } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); ivPush(); }
-  else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); ivPush(); }
-  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ if(alertsOn()) pushCall('/push/cancel',null,'cancel'); ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
+    } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); alarmSync(); }
+  else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); alarmSync(); }
+  else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
   else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });
