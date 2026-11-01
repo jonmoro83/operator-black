@@ -656,7 +656,10 @@ const ACC={
 const DEF={
   startMonday:'2026-09-28', bridge:true, unit:'lb', bar:45, bodyweight:null,
   maxes:{squat:null,bench:null,pull:null,ohp:null,wpu:null,dead:null},
-  lift3Name:'Lat pulldown', machineNote:'',
+  // Blank, not 'Lat pulldown': the name of the pull slot now has a default that follows
+  // the program (see pullDefName), and a stored value can only override it if the
+  // stored value is one you actually typed.
+  lift3Name:'', machineNote:'',
   l3:{on:{pull:true,ohp:true,wpu:false},mode:'same',primary:'pull'},
   acc:null,
   basis:'1rm', tmPct:90,
@@ -667,6 +670,7 @@ const DEF={
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
   accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90, accRestBy:{}, accSwitch:20, accSwitchBy:{},
+  lp:{start:{},inc:{}},
   // Plyos ride on a weekday of their own rather than being welded to a session, so
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.

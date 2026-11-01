@@ -23,7 +23,7 @@ function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.len
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k,date){
   if(VARS[k]) return varsOf(k)[varOf(k,date)].name;
-  return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
+  return k==='pull'?(plan.lift3Name||pullDefName()):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
 }
 // Which variant of a lift a session uses. Two different things:
 //
@@ -71,7 +71,9 @@ function varMax(k,c,date){
   return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
-function activeLifts(){return ['squat','bench',...l3On(),'dead']}
+// On a linear progression the program names its own lifts outright -- there is no
+// Lift 3 rotation to resolve -- so it answers for itself.
+function activeLifts(){return lpOn()?lpLifts():['squat','bench',...l3On(),'dead']}
 function isBarbell(k){return k!=='pull'&&k!=='wpu'}
 function isBW(k){return k==='wpu'}
 // Which Lift 3 variant a session uses: a per-day swap wins, otherwise the rotation rule.
@@ -92,6 +94,10 @@ function loadFor(k,max,pct,date){
   if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;return rnd((bw+max)*mult()*pct/100-bw,plan.round[k])}
   return rnd(max*mult()*pct/100,plan.round[k]);
 }
+/* The Lift 3 pull slot has always been "a lat pulldown or a row, whichever you have",
+   named in Setup. StrongLifts says which one it means, so the default follows the
+   program; anything you have typed still wins over it. */
+function pullDefName(){ return lpOn()?'Barbell row':'Lat pulldown' }
 function estMax(k,w,r,date){
   if(w==null||w===''||!r) return null;
   if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;const e=e1rm(bw+ +w,r);return e==null?null:e-bw}

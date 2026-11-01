@@ -138,6 +138,10 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // Zulu's A day is squat and bench with no hinge in it, and B already deadlifts, so
   // the posterior chain goes on A — which Zulu runs twice a week anyway.
   z1:['pchain','spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
+  // StrongLifts prescribes no assistance work at all, and says to add none until the
+  // main lifts stall. So both days start empty and the picker is right there -- the
+  // program's own optional additions are chin-ups and dips, and nothing else.
+  sl1:[], sl2:[],
   // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
   // anything more means you picked the wrong template.
   h1:['pullup','biceps','triceps'], h2:['core','rdelt'],

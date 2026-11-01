@@ -38,6 +38,11 @@ const LIFTSET={
   // A hypertrophy day has no barbell prescription at all: the whole session is the
   // cluster you built, which the app already models as supplementary work.
   NONE:()=>[],
+  // StrongLifts' two alternating days. The third lift on day A is the barbell row,
+  // which is the Lift 3 `pull` slot -- the app has always called that slot "lat
+  // pulldown or row" and lets you name it, so no new lift key is needed.
+  SLA:()=>['squat','bench','pull'],
+  SLB:()=>['squat','ohp','dead'],
   // Back "Break": upper body only, then the one lower-body lift on the last day.
   BBU:date=>['bench',...l3On()].slice(0,2),
   BBS:date=>['bench',...l3On()].slice(0,2).concat(['squat']),
@@ -167,6 +172,28 @@ const STEMPL={
       if(w===2&&k==={1:'squat',2:'bench',3:'ohp',4:'dead'}[day]) return Object.assign({},base,{amrap:true});
       return base;
     },
+  },
+  /* The one program here that is not from the four books, and the only one that does
+     not work from a percentage. It is in the app because the books have no answer for
+     a true beginner: Tactical Barbell assumes you arrive with maxes, and Base Building
+     is conditioning with maintenance lifting under it, not a strength program. Someone
+     who has never squatted needs the bar to go up every session until it stops going
+     up, and that is a different kind of program, not a different wave. */
+  strong5:{
+    name:'StrongLifts 5\u00d75', book:'ours', lp:true, slots:[0,2,4],
+    blurb:'For a true beginner, and the only program here with no percentages in it. Three days a week, two alternating sessions, five sets of five. The weight goes up every session you finish and comes down 10% when you miss three in a row. It runs until it stops working rather than in cycles \u2014 which, for a beginner, is usually a few months.',
+    // A-B-A one week, B-A-B the next, so neither session always lands on a Monday.
+    days:wk=>{
+      const A={lifts:'SLA',half:'a',acc:'sl1',short:'SL A',label:'StrongLifts A \u00b7 squat, bench, row'};
+      const B={lifts:'SLB',half:'b',acc:'sl2',short:'SL B',label:'StrongLifts B \u00b7 squat, press, deadlift'};
+      return ((wk&&wk.w||1)%2)?[A,B,A]:[B,A,B];
+    },
+    // There is no wave. The single entry exists because the engine reads one for the
+    // week's tier, and with no percentage in it every week comes out the same.
+    wave:[{s:5,r:5}],
+    // The prescription depends on the lift and nothing else -- not the week, not the
+    // day. That is what makes it a linear progression.
+    rx(wk,day,k){ return lpRx(k) },
   },
   mass:{
     name:'Mass', book:'TB3',
@@ -515,7 +542,10 @@ function waveOf(tpl){
   return Array.isArray(w)&&w.length?w:STEMPL[k].wave;
 }
 // How long a cycle runs. Derived, so a template with a three- or nine-week wave works.
-function cycleWeeks(){ return Math.max(1,waveOf().length) }
+/* A linear-progression program is one cycle that never ends: no wave to run out, so
+   nothing to deload or retest at the end of. Infinity here is what keeps ruleSeq's
+   inner loop from ever reaching the rule weeks or a second cycle. */
+function cycleWeeks(){ return lpOn()?Infinity:Math.max(1,waveOf().length) }
 
 // Only hard sessions have to be kept apart. An easy aerobic day can sit next to
 // anything, which is why Green's own template runs E on days 5 and 6.
@@ -1275,7 +1305,10 @@ const ACC={
 const DEF={
   startMonday:'2026-09-28', bridge:true, unit:'lb', bar:45, bodyweight:null,
   maxes:{squat:null,bench:null,pull:null,ohp:null,wpu:null,dead:null},
-  lift3Name:'Lat pulldown', machineNote:'',
+  // Blank, not 'Lat pulldown': the name of the pull slot now has a default that follows
+  // the program (see pullDefName), and a stored value can only override it if the
+  // stored value is one you actually typed.
+  lift3Name:'', machineNote:'',
   l3:{on:{pull:true,ohp:true,wpu:false},mode:'same',primary:'pull'},
   acc:null,
   basis:'1rm', tmPct:90,
@@ -1286,6 +1319,7 @@ const DEF={
   // Accessories: which slots each day fills, what fills them this block and later,
   // and your own additions to the catalogue. See 01b-accessories.js.
   accSlots:{}, accPick:{}, accCycle:{}, accCustom:[], accRest:90, accRestBy:{}, accSwitch:20, accSwitchBy:{},
+  lp:{start:{},inc:{}},
   // Plyos ride on a weekday of their own rather than being welded to a session, so
   // moving the conditioning around does not drag them with it. plyoMove overrides the
   // default for one week. 0 = Monday.
@@ -1875,6 +1909,10 @@ const ACC_DAYS={ mon:['pchain','spress','rdelt','core','biceps','triceps'], wed:
   // Zulu's A day is squat and bench with no hinge in it, and B already deadlifts, so
   // the posterior chain goes on A — which Zulu runs twice a week anyway.
   z1:['pchain','spress','rdelt','core','biceps','triceps'], z2:['hpull','delts','pullup','sleg','carry'],
+  // StrongLifts prescribes no assistance work at all, and says to add none until the
+  // main lifts stall. So both days start empty and the picker is right there -- the
+  // program's own optional additions are chin-ups and dips, and nothing else.
+  sl1:[], sl2:[],
   // Fighter HT is deliberately spare: the book says bodyweight finishers are fine and
   // anything more means you picked the wrong template.
   h1:['pullup','biceps','triceps'], h2:['core','rdelt'],
@@ -2378,7 +2416,7 @@ function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.len
 function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k,date){
   if(VARS[k]) return varsOf(k)[varOf(k,date)].name;
-  return k==='pull'?(plan.lift3Name||'Lat pulldown'):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
+  return k==='pull'?(plan.lift3Name||pullDefName()):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
 }
 // Which variant of a lift a session uses. Two different things:
 //
@@ -2426,7 +2464,9 @@ function varMax(k,c,date){
   return {v:base.v*r,src:'ratio',vr:v,bv,from:base.v,r};
 }
 function l3On(){const on=(plan.l3&&plan.l3.on)||{};const xs=L3K.filter(k=>on[k]);return xs.length?xs:['pull']}
-function activeLifts(){return ['squat','bench',...l3On(),'dead']}
+// On a linear progression the program names its own lifts outright -- there is no
+// Lift 3 rotation to resolve -- so it answers for itself.
+function activeLifts(){return lpOn()?lpLifts():['squat','bench',...l3On(),'dead']}
 function isBarbell(k){return k!=='pull'&&k!=='wpu'}
 function isBW(k){return k==='wpu'}
 // Which Lift 3 variant a session uses: a per-day swap wins, otherwise the rotation rule.
@@ -2447,6 +2487,10 @@ function loadFor(k,max,pct,date){
   if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;return rnd((bw+max)*mult()*pct/100-bw,plan.round[k])}
   return rnd(max*mult()*pct/100,plan.round[k]);
 }
+/* The Lift 3 pull slot has always been "a lat pulldown or a row, whichever you have",
+   named in Setup. StrongLifts says which one it means, so the default follows the
+   program; anything you have typed still wins over it. */
+function pullDefName(){ return lpOn()?'Barbell row':'Lat pulldown' }
 function estMax(k,w,r,date){
   if(w==null||w===''||!r) return null;
   if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;const e=e1rm(bw+ +w,r);return e==null?null:e-bw}
@@ -2478,13 +2522,17 @@ function weeksUntil(d){
 // after the locked weeks: {c, w} continues cycle c at week w; phase 'rule' means
 // cycle c just finished and its deload/retest check comes next.
 function* ruleSeq(p,from){
+  /* A linear-progression program is a single open-ended run. There is no cycle to
+     bridge into and no wave to recover from, and cycleWeeks() is Infinity, so the
+     loop below never reaches a deload, a retest or a second cycle. */
+  const lp=lpOn();
   let c=1,w=1,ruleFirst=false;
-  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
+  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge&&!lp) yield {kind:'bridge'};
   // Ageless Athlete's 3-1-3-1: a recovery week after every third training week, so a
   // six-week block takes eight. "Notice that it now takes eight weeks to complete what
   // was normally a six-week Operator/Zulu block. That's not a worry because we are in
   // no hurry on the journey to lifelong excellence."
-  const r313=!!p.recovery313;
+  const r313=!!p.recovery313&&!lp;
   for(;;c++,w=1){
     if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++){
       yield {kind:'cycle',cycle:c,w};
@@ -2535,7 +2583,13 @@ function weeks(minIdx){
 }
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
-function wkRx(wk){return wk.rx||(wk.kind==='cycle'?waveOf()[wk.w-1]:plan.deload)}
+function wkRx(wk){
+  if(wk.rx) return wk.rx;
+  if(wk.kind!=='cycle') return plan.deload;
+  // Clamped rather than indexed: an open-ended program runs one entry for ever, and
+  // every other template's cycle is exactly as long as its wave anyway.
+  const W=waveOf(); return W[Math.min(wk.w-1,W.length-1)];
+}
 // TB2's Easy Week Principle: every third week the conditioning load comes down, and it is
 // meant to land on the strength wave's 90-95% weeks so the heavy lifting gets the energy.
 // In a six-week wave those are weeks 3 and 6, which is exactly `tier()==='heavy'`.
@@ -2567,7 +2621,7 @@ function freezePast(){
   const curMon=list[cur]&&list[cur].monday;
   // A cycle's maxes lock once its last week is done. Which week is last comes from the
   // wave that week ran, not from a hardcoded six: a template can have a shorter one.
-  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&f.w===waveOf(f.tpl).length&&!lm[f.cycle]&&mon<curMon){
+  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&!lpOn(f.tpl)&&f.w===waveOf(f.tpl).length&&!lm[f.cycle]&&mon<curMon){
     const mx=maxFor(f.cycle), o={}; for(const k of LK) if(mx[k]) o[k]=mx[k].v; lm[f.cycle]=o; changed=true; planV++;
   }
   if(changed) queueWrite('plan/main',()=>plan);
@@ -2637,9 +2691,16 @@ function rx(wk,k,date){
   // the program's intent; this is the lifter deciding in the gym, which is the half of
   // Operator I/A that actually matters.
   sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
-  const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
-  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null,
-    amrap:!!v.amrap,note:v.note||null,
+  /* A linear progression has no max behind it: the working weight is the program, and
+     it is folded forward out of what you have logged. Same escape hatch as `top`
+     below -- the prescription says the percentage does not apply, and the weight
+     comes from somewhere else. */
+  const lp=!!v.lp;
+  const m=lp?null:(VARS[k]?varMax(k,c,d):maxFor(c)[k]);
+  // No percentage at all on an LP day, and the tier is said outright rather than
+  // inferred from one: every session is the same weight class as the last.
+  return {s,sMax:sx,r,p:lp?null:p,c,m,w:lp?lpWeight(k,d):(m?loadFor(k,m.v,p,d):null),t:lp?'mid':(wk.kind==='cycle'?tier(p):'light'),vr:VARS[k]?varOf(k,d):null,
+    lp,amrap:!!v.amrap,note:v.note||null,
     // Back "Break" works up to a best set for the day rather than off a percentage,
     // and its down sets are a percentage of that set, not of a 1RM.
     top:!!v.top,down:v.down||null,downPct:v.downPct||null};
@@ -3039,6 +3100,9 @@ function inBlockCheck(date){
 }
 function weekTitle(wk){
   if(!wk) return 'Before start';
+  // An open-ended program has no cycle to number and no percentage to quote: every
+  // week is week N of one long run, and the weight is on the lift card.
+  if(wk.kind==='cycle'&&lpOn()){const v=wkRx(wk);return {t:'Week '+wk.w,chip:v.s+'×'+v.r,cls:'mid'}}
   if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
   if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
@@ -3149,6 +3213,147 @@ function addonLabel(a){
   if(a.kind==='lift') return a.what||'Extra lifting';
   const m=MOD[a.mod], f=HIC[a.fmt];
   return (a.what||(m?m.name:'Cardio'))+(f?' · '+f.name:'');
+}
+
+/* ---------------- linear progression ----------------
+
+Every other program in this app works from a percentage of a max. A true beginner has
+no max worth taking a percentage of, and on a linear-progression program the working
+weight *is* the program: it starts light, goes up every session you finish, and comes
+down when you stall. So nothing in here reads plan.maxes, and nothing in here needs a
+cycle — LP ends when it stops working, not on a date. `cycleWeeks()` returning Infinity
+is the whole of "open-ended" as far as the schedule engine is concerned.
+
+The weight for a session is folded forward out of the log rather than stored anywhere,
+which is how the rest of the app does this kind of thing (pullupState, accLast) and
+buys two behaviours the program actually asks for:
+
+  a week you missed costs you nothing, because a session you never logged never
+  happened — LP progresses per session, not per calendar week; and
+
+  a session you typed a different weight into becomes the base for the next one,
+  because on this program the bar is the truth and the plan is only a guess at it.
+
+Source: StrongLifts 5×5 as commonly published — five sets of five, +5 lb a session
+(+10 on the deadlift), three consecutive failed sessions and the weight comes down 10%.
+It is not one of the four Tactical Barbell books, the app has no corpus for it, and so
+it is labelled **ours** and quoted nowhere. Where this departs from the published
+program it says so on the card rather than in a comment. */
+
+const LP_STRIKES=3;                 // failed sessions in a row before the weight drops
+const LP_DROP=0.9;                  // and how far it drops
+const LP_END=2;                     // resets on one lift before the app says LP is done
+/* Five sets of five on everything except the deadlift, which is one. Five sets of
+   deadlift three times a week is the one part of the program nobody actually runs. */
+const LP_SETS={squat:5,bench:5,ohp:5,pull:5,wpu:5,dead:1};
+/* Per session, not per week. The deadlift climbs twice as fast because it starts
+   furthest below what you could already do. */
+const LP_INC={lb:{dead:10,def:5},kg:{dead:5,def:2.5}};
+
+function lpOn(tpl){ const T=tpl?STEMPL[tpl]:stemplOf(); return !!(T&&T.lp) }
+/* The lifts this program actually runs, read off its own days. Not activeLifts()'s
+   squat / bench / Lift 3 / deadlift: StrongLifts runs the press and the row both, as
+   fixed lifts rather than as a Lift 3 rotation, so the Lift 3 setting has no say. */
+function lpLifts(){
+  const T=stemplOf(), out=[];
+  for(const d of tplDays(T,{w:1})){
+    const f=LIFTSET[d.lifts]; if(typeof f!=='function') continue;
+    for(const k of f(todayStr())||[]) if(k&&!out.includes(k)) out.push(k);
+  }
+  return out;
+}
+function lpRx(k){ return {s:LP_SETS[k]||5,r:5,lp:true} }
+function lpInc(k){
+  const v=+(((plan.lp||{}).inc||{})[k]);
+  if(v>0) return v;
+  const t=LP_INC[u()]||LP_INC.lb;
+  return t[k]||t.def;
+}
+/* Where the bar starts. The program's own answer is "light enough that the first few
+   weeks are easy", which for most people is the empty bar: the point of LP is the
+   slope, not the intercept, and starting too heavy is the commonest way to waste it.
+   The deadlift is the exception — pulling an empty bar off the floor is a worse
+   position than pulling a loaded one, so it starts at a plated bar. */
+function lpStart(k){
+  const v=+(((plan.lp||{}).start||{})[k]);
+  if(v>0) return v;
+  const bar=+plan.bar||45;
+  return k==='dead'?rnd(bar*2,plan.round[k]):bar;
+}
+/* Nearest loadable weight rather than the one below it: at a beginner's weights the
+   increment is coarse against the bar, and flooring a 10% cut off 60 lb lands on 50,
+   which is 17%. Always at least one increment though, or a drop at a light weight
+   would not be a drop at all -- and never below the empty bar. */
+function lpDrop(w,k){
+  const inc=+plan.round[k]||5;
+  return Math.max(+plan.bar||0,Math.min(rnd(w*LP_DROP,inc),w-inc));
+}
+
+/* Every day you have logged this lift on, oldest first. Log-driven rather than
+   schedule-driven on purpose: a day you squatted is a day that counts, whatever the
+   calendar has since been rearranged into, and rescheduling is a thing this app
+   deliberately makes easy.
+
+   A day with nothing ticked is not a failed session, it is a session that did not
+   happen — it neither advances the weight nor spends a strike. */
+function lpHist(k,before){
+  const out=[];
+  for(const [d,L] of progLogs()){
+    if(before&&d>=before) continue;
+    const x=(L.lifts||{})[k];
+    if(!x||!(x.sets||[]).some(Boolean)) continue;
+    out.push([d,x]);
+  }
+  return out.sort((a,b)=>a[0]<b[0]?-1:1);
+}
+let lpCache={v:'',m:{}};
+/* What the bar should hold on `date`, and how the program is going. Everything before
+   `date` counts and `date` itself does not, so today's prescription is a fold over
+   everything you have already done. */
+function lpState(k,date){
+  const ver=planV+':'+logsV+':'+stemplKey(), key=k+'|'+(date||'');
+  if(lpCache.v!==ver) lpCache={v:ver,m:{}};
+  if(lpCache.m[key]) return lpCache.m[key];
+  const need=LP_SETS[k]||5;
+  let w=lpStart(k), fails=0, resets=0, last=null, done=0;
+  for(const [d,x] of lpHist(k,date)){
+    // What was on the bar, which is what you typed if you typed anything.
+    const used=x.used!=null&&x.used!==''?+x.used:w;
+    const made=(x.sets||[]).filter(Boolean).length>=need;
+    last={d,w:used,made,sets:(x.sets||[]).filter(Boolean).length,need};
+    done++;
+    if(made){ w=used+lpInc(k); fails=0 }
+    else if(++fails>=LP_STRIKES){ w=lpDrop(used,k); fails=0; resets++ }
+    else w=used;
+  }
+  return lpCache.m[key]={w,fails,resets,last,done};
+}
+function lpWeight(k,date){ return lpState(k,date).w }
+/* When to stop. Two resets on the same lift is the usual sign that the novice phase is
+   over — the weight is no longer the thing holding you back — and the honest thing is
+   to say so rather than let somebody ride the same 10% up and down for ever. Ours: the
+   published program keeps going and changes the set scheme instead. */
+function lpSpent(k,date){ return lpState(k,date).resets>=LP_END }
+function lpSpentLifts(date){ return activeLifts().filter(k=>LP_SETS[k]&&lpSpent(k,date)) }
+
+/* What to say on the lift card: where the weight came from, and what is about to
+   happen to it. One line, because it is read mid-session. */
+function lpNote(k,date){
+  const st=lpState(k,date), inc=lpInc(k), un=' '+u();
+  if(!st.last) return {tone:'note',text:`First session on this lift. Finish all ${LP_SETS[k]||5} sets and the next one is ${n(st.w)}${un} — every session, for as long as it keeps working.`};
+  const when=fmtD(st.last.d,true);
+  if(st.fails>0){
+    const left=LP_STRIKES-st.fails;
+    return {tone:'warn',text:`Missed ${st.fails===1?'the last session':st.fails+' sessions in a row'} (${st.last.sets} of ${st.last.need} sets on ${when}). Same weight again. ${left===1?'Miss it once more':'Miss it '+left+' more times'} and it comes down to ${n(lpDrop(st.w,k))}${un}.`};
+  }
+  if(st.resets&&st.last&&!st.last.made) return {tone:'warn',text:`Down to ${n(st.w)}${un} after three misses in a row. Work back up from here \u2014 the second run at a weight usually goes through.`};
+  return {tone:'note',text:`Up ${n(inc)}${un} from ${n(st.last.w)} on ${when}. ${st.resets?`Reset ${st.resets===1?'once':st.resets+' times'} so far. `:''}Finish all ${st.last.need} sets and the next one is ${n(st.w+inc)}${un}.`};
+}
+/* The one thing the program will not tell you itself. Said once, on the card for the
+   lift it applies to, rather than as a banner that would sit there for weeks. */
+function lpSpentNote(k,date){
+  if(!lpSpent(k,date)) return '';
+  return `<div class="banner info"><div class="small"><b>This lift has reset ${lpState(k,date).resets} times.</b> That is normally where a beginner program has given you what it has: adding weight every session has stopped working, and the answer is a program that does not try to. Operator is the obvious next one — three days a week, the same lifts, and a six-week wave instead of a straight line. Change it in Setup → Template whenever you are ready; everything you have logged stays where it is.</div></div>`;
 }
 
 /* ---------------- persistence ---------------- */
@@ -4025,12 +4230,12 @@ function seCard(dp){
 function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
 function liftCard(wk,k,dp){
   const r=rx(wk,k), L=(lg(sel).lifts||{})[k]||{}, sets=L.sets||[];
-  const isDead=k==='dead'&&wk.kind==='cycle';
+  const isDead=k==='dead'&&wk.kind==='cycle'&&!r.lp;
   const nSets=r.sMax;
   const setLbl=r.sMax>r.s?r.s+'–'+r.sMax:String(r.s);
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${r.top?'Best '+r.r+' of the day':`${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}`}</span></div>`;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${r.top?'Best '+r.r+' of the day':r.lp?`${setLbl} × ${r.r}`:`${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}`}</span></div>`;
   // Tactical Barbell III finishes some weeks on an all-out set, and some of its days
   // carry a note of their own. Both come off the prescription, not off the day type.
   /* A Back "Break" day has no percentage to work from: you climb to the best set you
@@ -4051,6 +4256,12 @@ function liftCard(wk,k,dp){
     if(isBW(k)) h+=`<div class="note">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
+  // On a linear progression there is no max to show, so the card says where the weight
+  // came from and what happens to it next instead. That line is the program.
+  if(r.lp&&!viewing){ const ln=lpNote(k,sel);
+    h+=ln.tone==='warn'?`<div class="banner warn"><div class="small">${esc(ln.text)}</div></div>`:`<div class="note">${esc(ln.text)}</div>`;
+    h+=lpSpentNote(k,sel);
+  }
   h+=`<div class="sets">`;
   for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}" aria-label="Set ${i+1}${setEff(L,i)?', '+setEff(L,i):''}">${r.r}<small>${setEff(L,i)?EFFORT.find(([v])=>v===setEff(L,i))[1]:'Set '+(i+1)}</small></button>`;
   if(!viewing&&nSets<SETCAP(r)) h+=`<button class="setb add" data-act="addset" data-lift="${k}" aria-label="Add a set to ${esc(liftName(k))}">+<small>Set</small></button>`;
@@ -6066,7 +6277,7 @@ function lsRender(){
     const k=st.k, L=(lg(ls.date).lifts||{})[k]||{}, isDone=lsStepDone(st), bar=isBarbell(k);
     const next=steps[ls.i+1];
     h+=`<div class="ls-card"><div class="ls-lift">${esc(liftName(k))}</div>
-      <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''} · ${st.pct}%`}${isDone?' · ✓ done':''}</div>
+      <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''}${st.pct?' \u00b7 '+st.pct+'%':''}`}${isDone?' · ✓ done':''}</div>
       <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
       ${st.type==='warm'?`<div class="ls-row"><button class="btn sm" data-ls="ww-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="ww+">+${n(plan.round[k]||5)}</button></div>`:''}
@@ -8291,10 +8502,34 @@ function plyoCardSetup(){
   } else h+=`<div class="note">Nothing is lost by leaving them off \u2014 jumps you have already logged stay, and the day goes back to whatever else it had.</div>`;
   return h+`</div>`;
 }
+/* Where a linear-progression program keeps its numbers. It has none of the things the
+   Maxes card asks for -- no 1RM, no training max, no per-cycle increment -- and two it
+   does: what the bar starts at, and what it goes up by. Everything after that is read
+   back out of the log, so this card is also where you can see the program working. */
+function lpCard(){
+  const lifts=lpLifts(), t=todayStr();
+  let h=`<div class="card"><div class="lift-h"><h2>Starting weights</h2><span class="chip light">No maxes needed</span></div>
+  <p class="note" style="margin:0">This program has no percentages in it, so there is nothing to take a percentage of. Put the bar somewhere you could do every set comfortably \u2014 lighter than you think \u2014 and let it climb. Starting too heavy is the commonest way to waste a linear progression, because the weeks it buys you at the start are the ones that teach you the lift.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Start at</th><th class="n">Add each session</th><th class="n">Next session</th><th>How it is going</th></tr></thead><tbody>`;
+  for(const k of lifts){
+    const st=lpState(k,t);
+    h+=`<tr><td>${esc(liftName(k,t))}<div class="small muted">${LP_SETS[k]||5} \u00d7 5</div></td>
+    <td class="n">${pIn('lp.start.'+k,((plan.lp||{}).start||{})[k],`placeholder="${n(lpStart(k))}" class="num-in"`)}</td>
+    <td class="n">${pIn('lp.inc.'+k,((plan.lp||{}).inc||{})[k],`placeholder="${n(lpInc(k))}" class="num-in"`)}</td>
+    <td class="n"><b>${n(st.w)}</b></td>
+    <td class="small">${st.done?`${st.done} session${st.done===1?'':'s'}${st.fails?` \u00b7 <b>${st.fails} miss${st.fails===1?'':'es'} in a row</b>`:''}${st.resets?` \u00b7 reset ${st.resets}\u00d7`:''}`:'<span class="muted">not started</span>'}</td></tr>`;
+  }
+  h+=`</tbody></table></div>
+  <div class="note">Leave a cell blank for the default: an empty ${n(+plan.bar||45)} ${esc(u())} bar on everything but the deadlift, which starts at a plated one. Changing a starting weight re-reads the whole history from it, so it is a correction rather than a jump.</div>
+  <div class="note"><b>How the weight moves.</b> Finish every set and it goes up next session. Miss any of them and it stays. Miss ${LP_STRIKES} sessions in a row on the same lift and it comes down 10%, rounded to the nearest plate, and you work back up. A session you never logged is not a miss \u2014 it just did not happen, and the program waits for you.</div>
+  ${lifts.map(k=>lpSpentNote(k,t)).join('')}</div>`;
+  return h;
+}
+
 // Which program you are running. Two choices, composed into a week — see 00b-templates.js.
 function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
-  const days=P.noStrength?0:T.days.length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
+  const days=P.noStrength?0:tplDays(T,{w:1}).length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
   let h=`<div class="card"><div class="lift-h"><h2>Template and protocol</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
   <p class="note" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
   if(keys.length>1){
@@ -8381,9 +8616,9 @@ function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
   <p class="note" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
   <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
-  ${SEC('program')}<div class="card"><h2>Maxes</h2><p class="note" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
+  ${SEC('program')}${lpOn()?lpCard():`<div class="card"><h2>Maxes</h2><p class="note" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k,todayStr()))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
-  <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`;
+  <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`}`;
   {
     const t=themePref();
     h+=SEC('app')+`<div class="card"><h2>Appearance</h2><p class="small muted" style="margin:0">Set per device, so your phone and laptop can differ.</p>
@@ -8403,7 +8638,7 @@ function vSetup(){
   h+=SEC('program')+`<div class="card"><h2>Lift 3</h2><p class="note" style="margin:0">Pick the variants you use on Mondays and Wednesdays. Each keeps its own max. With more than one, choose how they rotate. You can also swap on any day from the lift card.</p>
   <div class="stack">${L3K.map(k=>`<label class="check"><input type="checkbox" id="l3-${k}" data-pbind="l3.on.${k}" ${on.includes(k)&&(L3.on||{})[k]?'checked':''}> ${esc(liftName(k))}${k==='wpu'?' <span class="small muted">(percentages use bodyweight + added weight)</span>':''}</label>`).join('')}</div>
   ${on.length>1?`<div class="grid2"><label class="f">Rotation<select id="l3-mode" data-pbind="l3.mode">${[['same','Same every session'],['alt-day','Alternate Monday ↔ Wednesday'],['alt-week','Alternate each week'],['alt-cycle','Alternate each cycle']].map(([v,l])=>`<option value="${v}"${L3.mode===v?' selected':''}>${l}</option>`).join('')}</select></label>${L3.mode==='same'||!L3.mode?`<label class="f">Default<select id="l3-primary" data-pbind="l3.primary">${on.map(k=>`<option value="${k}"${L3.primary===k?' selected':''}>${esc(liftName(k))}</option>`).join('')}</select></label>`:''}</div>`:''}
-  ${on.includes('pull')?`<div class="grid2"><label class="f">Pulldown name<input type="text" id="p-l3" data-pbind="lift3Name" value="${esc(plan.lift3Name)}"></label><label class="f">Machine and pin setting<input type="text" id="p-mn" data-pbind="machineNote" value="${esc(plan.machineNote)}" placeholder="e.g. Hammer Strength pulldown, seat 4"></label></div>`:''}
+  ${on.includes('pull')?`<div class="grid2"><label class="f">What you call it<input type="text" id="p-l3" data-pbind="lift3Name" value="${esc(plan.lift3Name)}" placeholder="${esc(pullDefName())}"></label><label class="f">Machine and pin setting<input type="text" id="p-mn" data-pbind="machineNote" value="${esc(plan.machineNote)}" placeholder="e.g. Hammer Strength pulldown, seat 4"></label></div>`:''}
   ${on.some(k=>plan.maxes[k]==null||plan.maxes[k]==='')?`<div class="banner warn"><div class="small">Add a 1RM above for ${on.filter(k=>plan.maxes[k]==null||plan.maxes[k]==='').map(k=>liftName(k)).join(' and ')}. Until then its sessions show no working weight.</div></div>`:''}</div>`;
   {
     const sup=alertsSupport(), on=alertsOn();
@@ -8548,7 +8783,9 @@ function vSetup(){
     <p class="note" style="margin:0">A short review of the week just finished, from your log and the books. It counts as one of the month's coach questions, and is skipped in a week with nothing logged.</p>
     </div>`;
   }
-  h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="note" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
+  // Nothing to edit on a program with no wave: the template answers for every session
+  // itself, so an editor here would take numbers and ignore them.
+  if(!lpOn()) h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="note" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
   <p class="note" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${waveOf().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
   {
     const byBook=(+plan.testEvery||0)===2&&(+plan.deloadEvery||0)===0;
@@ -8677,6 +8914,7 @@ function vGuide(){
   <div class="card guide"><h3>Programs</h3><p>Your strength template and your conditioning protocol are separate choices, set in Setup \u2192 Program, and the week is built from the two. That is how the books present it: Tactical Barbell II's sample weeks are headed \u201cBlack + Zulu\u201d, \u201cBlack + Operator\u201d, \u201cBlack + Fighter\u201d.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Strength</th><th class="n">Days</th><th>What it is</th></tr></thead><tbody>${Object.entries(STEMPL).map(([k,v])=>`<tr><td><b>${esc(v.name)}</b></td><td class="n">${tplDays(v,{w:1}).length}</td><td class="small">${esc(v.blurb)}</td></tr>`).join('')}</tbody></table></div>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Conditioning</th><th class="n">Sessions</th><th>What it is</th></tr></thead><tbody>${Object.entries(CPROTO).map(([k,v])=>{const n=(typeof v.sessions==='function'?v.sessions({w:1}):v.sessions||[]).length;return `<tr><td><b>${esc(v.name)}</b></td><td class="n">${n}</td><td class="small">${esc(v.blurb)}</td></tr>`}).join('')}</tbody></table></div>
+  <p><b>One of these is not from the books.</b> StrongLifts 5\u00d75 is there because the four books have no answer for somebody who has never squatted: Tactical Barbell assumes you arrive with maxes to take percentages of, and Base Building is conditioning with maintenance lifting under it, not a strength program. Where every other template here can be checked against a page, that one is labeled <b>ours</b> and quoted nowhere.</p>
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
   <li><b>The default layout follows the book’s own principle</b> for arranging a week: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” So a protocol lays its week out with the strength days apart. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
@@ -8718,6 +8956,15 @@ function vGuide(){
   <p><b>The order is not the order you listed them in.</b> Core runs last and carries run last of all, whatever position they hold in Setup, and a superset containing either moves as a pair rather than being split. A fried grip makes everything after it worse, and bracing is the thing you want intact while you are still loading a bar.</p>
   <p><b>The ab triad</b> is a core option that is one prescription rather than three exercises: it is taken exactly as written, and nothing is added to it.</p>
   <ul class="tight"><li>After the main lifts, never before. Two or three sets of each job, a couple of reps short of failure.</li><li>Skip entirely on heavy weeks and deloads.</li><li>Legs need almost nothing. Keep the pull-up progression in.</li></ul></div>
+  <div class="card guide"><h3>Starting from nothing \u00b7 StrongLifts 5\u00d75</h3>
+  <p><b>Who it is for.</b> Anybody who does not yet have a one-rep max worth taking a percentage of. Every other program here needs one; this one needs the opposite \u2014 a bar light enough that the first few weeks are easy.</p>
+  <p><b>What it is.</b> Three days a week, two sessions alternating. <b>A</b> is squat, bench and row; <b>B</b> is squat, press and deadlift. Five sets of five on everything but the deadlift, which is one set of five \u2014 five sets of deadlift three times a week is the one part of the published program nobody actually runs. A-B-A one week, B-A-B the next, so neither session always lands on a Monday.</p>
+  <p><b>How the weight moves.</b> Finish every set and it goes up next session: ${n(LP_INC[plan.unit==='kg'?'kg':'lb'].def)} ${esc(u())} on the lifts, ${n(LP_INC[plan.unit==='kg'?'kg':'lb'].dead)} on the deadlift. Miss any set and it stays where it is. Miss ${LP_STRIKES} sessions in a row on the same lift and it comes down 10%, rounded to the nearest plate, and you climb back up \u2014 the second run at a weight usually goes through. All of that is read back out of what you logged, so a week you missed entirely costs you nothing: the program waits rather than moving on without you.</p>
+  <p><b>No cycles, no deloads, no retest.</b> There is nothing to test \u2014 the weight on the bar already is the test, every session. There is nothing to deload from either: the reset <i>is</i> the deload, and it arrives when you have earned it rather than on week six. So the program runs open-ended, and the weeks are numbered straight through.</p>
+  <p><b>When to stop.</b> When a lift has reset twice. That is normally the end of the novice phase: adding weight every session has stopped working, and the answer is a program that does not try to. The app says so on the card when it happens and points at Operator. <b>Ours</b> \u2014 the published program keeps going and changes the set scheme instead; we would rather hand you to a program built for where you now are.</p>
+  <p><b>Assistance work.</b> None, on purpose, and the program says to add none until the main lifts stall. Both days start with no accessory jobs and the picker is right there if you disagree; chin-ups and dips are the program's own optional additions.</p>
+  <p><b>Conditioning still composes.</b> Pick any protocol alongside it, the same as any other template. That is this app's arrangement rather than the program's \u2014 StrongLifts says nothing either way, and the Tactical Barbell idea that strength and conditioning run together is the reason the app exists.</p></div>
+
   <div class="card guide"><h3>After the session</h3>
   <p>Three questions at three different grains, and each one feeds something.</p>
   <p><b>Every heavy set: how did it move?</b> ${EFFORT.map(([k,t])=>'<b>'+esc(t)+'</b>').join(', ')} \u2014 the books' own words for it. Tap one on the last set you ticked, or rate it in session mode. This is the best evidence the app has about whether a max has room in it: with four or more rated heavy sets the end-of-cycle review decides on those rather than on your session RPE, and three in four moving fast is a heavy week that did not look heavy.</p>

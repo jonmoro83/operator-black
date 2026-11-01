@@ -115,7 +115,7 @@ function lsRender(){
     const k=st.k, L=(lg(ls.date).lifts||{})[k]||{}, isDone=lsStepDone(st), bar=isBarbell(k);
     const next=steps[ls.i+1];
     h+=`<div class="ls-card"><div class="ls-lift">${esc(liftName(k))}</div>
-      <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''} · ${st.pct}%`}${isDone?' · ✓ done':''}</div>
+      <div class="ls-kind${st.type==='work'?' work':''}">${st.type==='warm'?`Warm-up ${st.j+1} of ${st.n} · ${esc(st.lbl)}`:`Working set ${st.j+1} of ${st.n}${st.opt?' · optional':''}${st.pct?' \u00b7 '+st.pct+'%':''}`}${isDone?' · ✓ done':''}</div>
       <div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()}</small></span> <span class="ls-reps">× ${st.r}</span></div>
       ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
       ${st.type==='warm'?`<div class="ls-row"><button class="btn sm" data-ls="ww-">−${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="ww+">+${n(plan.round[k]||5)}</button></div>`:''}

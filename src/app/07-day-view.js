@@ -386,12 +386,12 @@ function seCard(dp){
 function warmupShort(){return `<div class="stack small"><div><b>1 · Raise temp</b> Bike, rower or easy jog, 4–5 min</div><div><b>2 · Breathe</b> 90/90 breathing ×5 breaths · cat/cow ×8–10</div><div><b>3 · T-spine</b> Thread the needle 6–8/side · open book 8/side · quadruped extension 8/side</div><div><b>4 · Hips</b> 90/90 switches ×10 · 90/90 lean 20–30 s/side · couch stretch 45–60 s/side · frog rocks ×10 · world's greatest ×5/side</div><div><b>5 · Activate</b> Leg swings 10 each way · band pull-aparts + dislocates ×15 · glute bridge or BW squat ×10</div><div class="muted">Short version (7 min): bike 4 min, 90/90 breathing, cat/cow, 90/90 switches, couch stretch, band pull-aparts. Keep static holds easy before heavy squats.</div></div>`}
 function liftCard(wk,k,dp){
   const r=rx(wk,k), L=(lg(sel).lifts||{})[k]||{}, sets=L.sets||[];
-  const isDead=k==='dead'&&wk.kind==='cycle';
+  const isDead=k==='dead'&&wk.kind==='cycle'&&!r.lp;
   const nSets=r.sMax;
   const setLbl=r.sMax>r.s?r.s+'–'+r.sMax:String(r.s);
   const bar=isBarbell(k);
   const T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${r.top?'Best '+r.r+' of the day':`${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}`}</span></div>`;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${r.top?'Best '+r.r+' of the day':r.lp?`${setLbl} × ${r.r}`:`${setLbl} × ${r.r} @ ${r.p}%${plan.basis==='tm'?' TM':''}${r.amrap?' +':''}`}</span></div>`;
   // Tactical Barbell III finishes some weeks on an all-out set, and some of its days
   // carry a note of their own. Both come off the prescription, not off the day type.
   /* A Back "Break" day has no percentage to work from: you climb to the best set you
@@ -412,6 +412,12 @@ function liftCard(wk,k,dp){
     if(isBW(k)) h+=`<div class="note">${T>0?`Hang ${n(T)} ${u()} from a belt. `:'Today’s percentage is at or below your bodyweight: do bodyweight reps. '}Based on ${r1(bwFor(sel))} ${u()} bodyweight${(bwAvg(sel,7)||{}).n>1?' (7-day average)':''}.</div>`;
     if(k==='pull'&&plan.machineNote) h+=`<div class="small muted">Machine: ${esc(plan.machineNote)}</div>`;
   } else h+=`<div class="muted">${isBW(k)&&r.m&&!bwFor(sel)?'Enter your bodyweight (Setup or the daily check-in) to calculate the added weight.':`No max entered for ${esc(liftName(k))}. Add it in Setup.`}</div>`;
+  // On a linear progression there is no max to show, so the card says where the weight
+  // came from and what happens to it next instead. That line is the program.
+  if(r.lp&&!viewing){ const ln=lpNote(k,sel);
+    h+=ln.tone==='warn'?`<div class="banner warn"><div class="small">${esc(ln.text)}</div></div>`:`<div class="note">${esc(ln.text)}</div>`;
+    h+=lpSpentNote(k,sel);
+  }
   h+=`<div class="sets">`;
   for(let i=0;i<nSets;i++) h+=`<button class="setb${sets[i]?' on':''}${popKey===k+':'+i?' pop':''}${i>=r.s?' opt':''}" data-act="set" data-lift="${k}" data-i="${i}" aria-pressed="${!!sets[i]}" aria-label="Set ${i+1}${setEff(L,i)?', '+setEff(L,i):''}">${r.r}<small>${setEff(L,i)?EFFORT.find(([v])=>v===setEff(L,i))[1]:'Set '+(i+1)}</small></button>`;
   if(!viewing&&nSets<SETCAP(r)) h+=`<button class="setb add" data-act="addset" data-lift="${k}" aria-label="Add a set to ${esc(liftName(k))}">+<small>Set</small></button>`;

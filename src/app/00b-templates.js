@@ -36,6 +36,11 @@ const LIFTSET={
   // A hypertrophy day has no barbell prescription at all: the whole session is the
   // cluster you built, which the app already models as supplementary work.
   NONE:()=>[],
+  // StrongLifts' two alternating days. The third lift on day A is the barbell row,
+  // which is the Lift 3 `pull` slot -- the app has always called that slot "lat
+  // pulldown or row" and lets you name it, so no new lift key is needed.
+  SLA:()=>['squat','bench','pull'],
+  SLB:()=>['squat','ohp','dead'],
   // Back "Break": upper body only, then the one lower-body lift on the last day.
   BBU:date=>['bench',...l3On()].slice(0,2),
   BBS:date=>['bench',...l3On()].slice(0,2).concat(['squat']),
@@ -165,6 +170,28 @@ const STEMPL={
       if(w===2&&k==={1:'squat',2:'bench',3:'ohp',4:'dead'}[day]) return Object.assign({},base,{amrap:true});
       return base;
     },
+  },
+  /* The one program here that is not from the four books, and the only one that does
+     not work from a percentage. It is in the app because the books have no answer for
+     a true beginner: Tactical Barbell assumes you arrive with maxes, and Base Building
+     is conditioning with maintenance lifting under it, not a strength program. Someone
+     who has never squatted needs the bar to go up every session until it stops going
+     up, and that is a different kind of program, not a different wave. */
+  strong5:{
+    name:'StrongLifts 5\u00d75', book:'ours', lp:true, slots:[0,2,4],
+    blurb:'For a true beginner, and the only program here with no percentages in it. Three days a week, two alternating sessions, five sets of five. The weight goes up every session you finish and comes down 10% when you miss three in a row. It runs until it stops working rather than in cycles \u2014 which, for a beginner, is usually a few months.',
+    // A-B-A one week, B-A-B the next, so neither session always lands on a Monday.
+    days:wk=>{
+      const A={lifts:'SLA',half:'a',acc:'sl1',short:'SL A',label:'StrongLifts A \u00b7 squat, bench, row'};
+      const B={lifts:'SLB',half:'b',acc:'sl2',short:'SL B',label:'StrongLifts B \u00b7 squat, press, deadlift'};
+      return ((wk&&wk.w||1)%2)?[A,B,A]:[B,A,B];
+    },
+    // There is no wave. The single entry exists because the engine reads one for the
+    // week's tier, and with no percentage in it every week comes out the same.
+    wave:[{s:5,r:5}],
+    // The prescription depends on the lift and nothing else -- not the week, not the
+    // day. That is what makes it a linear progression.
+    rx(wk,day,k){ return lpRx(k) },
   },
   mass:{
     name:'Mass', book:'TB3',
@@ -513,7 +540,10 @@ function waveOf(tpl){
   return Array.isArray(w)&&w.length?w:STEMPL[k].wave;
 }
 // How long a cycle runs. Derived, so a template with a three- or nine-week wave works.
-function cycleWeeks(){ return Math.max(1,waveOf().length) }
+/* A linear-progression program is one cycle that never ends: no wave to run out, so
+   nothing to deload or retest at the end of. Infinity here is what keeps ruleSeq's
+   inner loop from ever reaching the rule weeks or a second cycle. */
+function cycleWeeks(){ return lpOn()?Infinity:Math.max(1,waveOf().length) }
 
 // Only hard sessions have to be kept apart. An easy aerobic day can sit next to
 // anything, which is why Green's own template runs E on days 5 and 6.

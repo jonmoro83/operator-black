@@ -335,6 +335,50 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**StrongLifts 5×5: the first linear progression, and the first non-TB program (2026-11-01)**
+- Asked for: a beginner program, StrongLifts or Starting Strength. Recommended
+  StrongLifts and it was taken. Reasons, for the record: its progression and reset
+  rules are arithmetic rather than a coach's judgment, which is the only kind of rule
+  this app can automate; it needs no new lift keys (the barbell row is the existing
+  `pull` slot) where Starting Strength's phase 2 wants a power clean; and it has a
+  horizontal pull in it, which is Starting Strength's best-known gap.
+- **Why it had to be a new kind of program, not a new template.** Every other template
+  is a wave of percentages against a max. A true beginner has no max worth taking a
+  percentage of, and in LP the working weight *is* the program state. `rx()` grew a
+  second escape hatch beside `top` (Back "Break", which already works up to a best set
+  rather than off a percentage): a prescription carrying `lp` gets its weight from
+  `lpWeight(k,date)` and `m` stays null, so nothing reads `plan.maxes`.
+- **Open-ended, as agreed.** `cycleWeeks()` returns `Infinity` when the template is LP,
+  and that one line is the whole of it: `ruleSeq`'s inner loop never exits, so it never
+  reaches a deload, a retest or a second cycle. The bridge week and 3-1-3-1 recovery are
+  skipped too. `wkRx` now clamps the wave index instead of indexing it, which an
+  open-ended cycle requires and which is a no-op for every other template, since their
+  cycles are exactly as long as their waves.
+- **State is folded out of the log, not stored** (`lpState`, in the new
+  `src/app/04b-linear.js`), the way `pullupState` and `accLast` already work. That buys
+  two behaviours the program actually asks for: a session never logged is not a missed
+  session, so a week off costs nothing; and a weight typed into the box becomes the base
+  for the next session. Cached on `planV:logsV:stempl`.
+- **A reset is 10% to the nearest plate**, not floored: flooring a 10% cut off 60 lb
+  lands on 50, which is 17%. Always at least one increment though, and never below the
+  bar.
+- **Ours, and said so.** Two resets on a lift and the card says the novice phase is
+  over and points at Operator; the published program keeps going and changes the set
+  scheme instead. The deadlift is 1×5 rather than 5×5. Both departures are on the card
+  and in the Guide, which also says the app has no corpus for this one — neither
+  StrongLifts nor Starting Strength is in the D1 book store, so unlike every other
+  template it is quoted nowhere.
+- Knock-ons: `activeLifts()` answers from the template's own days under LP (the press
+  and the row are both fixed lifts here, not a Lift 3 rotation); `plan.lift3Name`
+  defaults to blank so `pullDefName()` can call that slot a barbell row on this program
+  and a lat pulldown elsewhere; `weekTitle` drops the cycle number and the percentage;
+  the wave editor and the Maxes card come off Setup and a Starting weights card
+  replaces them; `templateCard` counted `T.days.length` on templates whose `days` is a
+  function, which had been reading every such template as one day.
+- **Known rough edge:** switching to LP mid-program resumes the frozen week number, so
+  the first StrongLifts week can read "Week 7". Harmless, and a beginner starting fresh
+  gets Week 1. Left alone rather than half-fixed.
+
 **Accessory sets tick off, and rest themselves (2026-10-27)**
 - Asked for: a configurable rest for accessory sets, started by marking a set done
   rather than by the fixed 90 s button; and each new set pre-filled with the weight

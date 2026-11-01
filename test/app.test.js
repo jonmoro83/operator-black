@@ -9115,3 +9115,159 @@ test("the channel is woken before the beep is due, not when it sounds", async ()
   a.equal(x.audio.resumes, running);
   x.stopRest();
 });
+
+/* ---------------- StrongLifts 5x5: the beginner linear progression ---------------- */
+
+function lpApp(now) {
+  const x = app({ now: now || "2026-11-02" });
+  x.plan.startMonday = "2026-11-02"; x.plan.bridge = true; x.plan.stempl = "strong5";
+  x.plan.bar = 45; x.plan.deloadEvery = 3; x.plan.testEvery = 2; x.bump();
+  return x;
+}
+// Tick n sets of a lift on a day, which is how the app records that you did them.
+function lpDid(x, d, k, n) { const a = []; for (let i = 0; i < n; i++) a.push(true); x.setLog(d, "lifts." + k + ".sets", a); }
+
+test("a linear progression runs open-ended: no bridge, no cycles, no deload, no retest", () => {
+  const x = lpApp();
+  // Every rule week is switched on, and none of them may appear.
+  const kinds = new Set(x.weeks(60).slice(0, 60).map((w) => w.kind));
+  a.deepEqual([...kinds], ["cycle"], "one kind of week, for ever");
+  a.deepEqual(x.weeks(60).slice(0, 60).map((w) => w.cycle).filter((c) => c !== 1), [], "and all of it is cycle 1");
+  a.equal(x.weeks(60)[51].w, 52, "week 52 is week 52, not cycle 9 week 4");
+  a.equal(x.cycleWeeks(), Infinity, "which is the whole of how it is expressed");
+
+  // It still says something sensible at the top of the week.
+  const t = x.weekTitle(x.weekOf("2026-11-02"));
+  a.equal(t.t, "Week 1");
+  a.equal(t.chip, "5×5", "no percentage, because there is none");
+});
+
+test("StrongLifts alternates its two days, A-B-A then B-A-B", () => {
+  const x = lpApp();
+  const shorts = (mon) => [0, 2, 4].map((i) => x.dayPlan(x.addDays(mon, i)).short);
+  a.deepEqual(shorts("2026-11-02"), ["SL A", "SL B", "SL A"]);
+  a.deepEqual(shorts("2026-11-09"), ["SL B", "SL A", "SL B"], "so neither always lands on a Monday");
+  a.deepEqual(x.dayPlan("2026-11-02").lifts, ["squat", "bench", "pull"]);
+  a.deepEqual(x.dayPlan("2026-11-04").lifts, ["squat", "ohp", "dead"]);
+  a.equal(x.liftName("pull", "2026-11-02"), "Barbell row", "and the pull slot is the row here");
+});
+
+test("the prescription is five of five with no percentage, and one set of deadlift", () => {
+  const x = lpApp();
+  const wk = x.weekOf("2026-11-02");
+  const sq = x.rx(wk, "squat", "2026-11-02");
+  a.equal(sq.s, 5); a.equal(sq.r, 5); a.equal(sq.sMax, 5, "and no optional sets");
+  a.equal(sq.p, null, "nothing to take a percentage of");
+  a.equal(sq.m, null, "and no max behind it");
+  a.equal(sq.lp, true);
+
+  const dl = x.rx(wk, "dead", "2026-11-04");
+  a.equal(dl.s, 1, "the deadlift is one set");
+  a.equal(dl.sMax, 1, "exactly one, not the usual one-to-three");
+
+  // Week 30 is the same session as week 1. That is what linear means.
+  const late = x.rx(x.weekOf("2027-05-31"), "squat", "2027-05-31");
+  a.equal(late.s, 5); a.equal(late.r, 5);
+});
+
+test("the weight starts at the bar and goes up every session you finish", () => {
+  const x = lpApp();
+  const mon = "2026-11-02";
+  a.equal(x.lpWeight("squat", mon), 45, "an empty bar");
+  a.equal(x.lpWeight("dead", mon), 90, "except the deadlift, which starts plated");
+
+  lpDid(x, mon, "squat", 5);
+  a.equal(x.lpWeight("squat", x.addDays(mon, 2)), 50);
+  lpDid(x, x.addDays(mon, 2), "squat", 5);
+  lpDid(x, x.addDays(mon, 4), "squat", 5);
+  a.equal(x.lpWeight("squat", x.addDays(mon, 7)), 60, "three sessions, three jumps");
+
+  // And the prescription on the day is that weight, with no max in sight.
+  a.equal(x.rx(x.weekOf(x.addDays(mon, 7)), "squat", x.addDays(mon, 7)).w, 60);
+});
+
+test("a missed set holds the weight; three missed sessions drop it 10%", () => {
+  const x = lpApp();
+  const mon = "2026-11-02";
+  lpDid(x, mon, "squat", 5);
+  lpDid(x, x.addDays(mon, 2), "squat", 5);         // 45, 50 -> next is 55
+
+  lpDid(x, x.addDays(mon, 4), "squat", 4);          // missed one of five
+  a.equal(x.lpWeight("squat", x.addDays(mon, 7)), 55, "same weight again, not a drop");
+  a.equal(x.lpState("squat", x.addDays(mon, 7)).fails, 1, "strike one");
+
+  lpDid(x, x.addDays(mon, 7), "squat", 4);
+  a.equal(x.lpWeight("squat", x.addDays(mon, 9)), 55, "still the same weight");
+
+  lpDid(x, x.addDays(mon, 9), "squat", 2);
+  const st = x.lpState("squat", x.addDays(mon, 11));
+  a.equal(st.w, 50, "three in a row and it comes down, to the nearest plate");
+  a.equal(st.fails, 0, "the count starts again");
+  a.equal(st.resets, 1);
+});
+
+test("a session you never logged is not a missed session", () => {
+  const x = lpApp();
+  const mon = "2026-11-02";
+  lpDid(x, mon, "squat", 5);
+  // A whole fortnight off, nothing logged.
+  const later = x.addDays(mon, 21);
+  a.equal(x.lpWeight("squat", later), 50, "the program waits rather than moving on without you");
+  a.equal(x.lpState("squat", later).fails, 0, "and nothing was held against you");
+});
+
+test("a weight you typed in becomes the base for the next session", () => {
+  const x = lpApp();
+  const mon = "2026-11-02";
+  // You turned up and squatted 95 on day one, whatever the app had planned.
+  x.setLog(mon, "lifts.squat.used", 95);
+  lpDid(x, mon, "squat", 5);
+  a.equal(x.lpWeight("squat", x.addDays(mon, 2)), 100, "the bar is the truth, the plan was a guess");
+});
+
+test("the program's own lifts answer for themselves, Lift 3 rotation and maxes aside", () => {
+  const x = lpApp();
+  a.deepEqual(x.activeLifts(), ["squat", "bench", "pull", "ohp", "dead"],
+    "press and row both, as fixed lifts rather than a rotation");
+  x.plan.stempl = "operator"; x.bump();
+  a.ok(x.activeLifts().includes("squat"), "and other templates are untouched");
+  a.equal(x.liftName("pull", "2026-11-02"), "Lat pulldown");
+});
+
+test("two resets on a lift is the app saying the beginner program is finished", () => {
+  const x = lpApp();
+  const mon = "2026-11-02";
+  let d = mon;
+  lpDid(x, d, "squat", 5);                      // 45 -> 50
+  for (let i = 0; i < 6; i++) { d = x.addDays(d, 2); lpDid(x, d, "squat", 1) }   // two resets
+  const st = x.lpState("squat", x.addDays(d, 2));
+  a.equal(st.resets, 2);
+  a.equal(x.lpSpent("squat", x.addDays(d, 2)), true);
+  a.match(x.lpSpentNote("squat", x.addDays(d, 2)), /Operator/, "and points at what comes next");
+  a.equal(x.lpSpentNote("bench", x.addDays(d, 2)), "", "only for the lift it happened to");
+});
+
+test("Setup asks for starting weights instead of maxes, and drops the wave editor", () => {
+  const x = lpApp();
+  x.view = "setup"; x.sel = "2026-11-02";
+  const h = x.vSetup();
+  a.match(h, /Starting weights/, "the card a linear progression needs");
+  a.doesNotMatch(h, /True 1RM for Cycle 1/, "and not the one it does not");
+  a.doesNotMatch(h, /<h2>The wave<\/h2>/, "there is no wave to edit");
+  a.match(h, /data-pbind="lp\.start\.squat"/, "a starting weight per lift");
+  a.match(h, /data-pbind="lp\.inc\.dead"/, "and what it goes up by");
+});
+
+test("the lift card shows the weight and where it is going, not a percentage", () => {
+  const x = lpApp();
+  const mon = "2026-11-02";
+  lpDid(x, mon, "squat", 5);
+  x.sel = x.addDays(mon, 2);
+  const h = x.liftCard(x.weekOf(x.sel), "squat", x.dayPlan(x.sel));
+
+  a.match(h, /<span class="rx">5 × 5<\/span>/, "sets and reps, full stop");
+  a.doesNotMatch(h, /@ \S+%/, "no percentage anywhere on the card");
+  a.doesNotMatch(h, /No max entered/, "and it never asks for a max");
+  a.match(h, /Up 5 lb from 45/, "it says where this weight came from");
+  a.match(h, /the next one is 55 lb/, "and what finishing it buys");
+});

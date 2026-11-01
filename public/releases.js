@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.60',date:'2026-11-01',title:"A program for somebody who has never lifted",items:[
+    "StrongLifts 5\u00d75 is now one of the strength templates. Three days a week, two sessions alternating \u2014 squat, bench and row, against squat, press and deadlift. Five sets of five on everything but the deadlift, which is one set.",
+    "It is the first program here with no percentages in it, because a true beginner has no max to take a percentage of. The weight on the bar is the program: it starts at an empty bar, goes up every session you finish, and comes down 10% when you miss three sessions in a row on the same lift. Setup asks what to start at and what to add instead of asking for maxes.",
+    "It runs open-ended \u2014 no cycles, no deloads, no retest week. There is nothing to test, because the bar is the test every session, and nothing to deload from, because the reset is the deload and it arrives when you have earned it rather than on week six. Weeks are numbered straight through.",
+    "All of it is read back out of what you logged, which means a week you miss entirely costs you nothing: the program waits rather than moving on without you. A weight you type in yourself becomes the base for the next session, because the bar is the truth and the plan was a guess.",
+    "When a lift has reset twice the card says so and points at Operator. That is usually where a beginner program has given you everything it has.",
+    "It is not from the four books \u2014 they have no answer for somebody starting from nothing \u2014 so it is labeled ours and quoted nowhere. The Guide has a section on what it is and where it departs from the published program."]},
   {v:'3.59',date:'2026-10-27',title:"Accessory sets tick off, and rest themselves",items:[
     "Every accessory set now has a tick, the same one the warm-up sets have. Tapping it logs the set and starts the rest, so the rest button is there if you want it rather than something you have to remember.",
     "Ticking a set also fills in the next one with the weight and reps you just did, because that is almost always what the next set is. Both numbers stay editable until you tick it, and anything you have already typed is left alone. Adding a set copies the one before it the same way.",

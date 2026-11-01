@@ -3,13 +3,17 @@
 // after the locked weeks: {c, w} continues cycle c at week w; phase 'rule' means
 // cycle c just finished and its deload/retest check comes next.
 function* ruleSeq(p,from){
+  /* A linear-progression program is a single open-ended run. There is no cycle to
+     bridge into and no wave to recover from, and cycleWeeks() is Infinity, so the
+     loop below never reaches a deload, a retest or a second cycle. */
+  const lp=lpOn();
   let c=1,w=1,ruleFirst=false;
-  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge) yield {kind:'bridge'};
+  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge&&!lp) yield {kind:'bridge'};
   // Ageless Athlete's 3-1-3-1: a recovery week after every third training week, so a
   // six-week block takes eight. "Notice that it now takes eight weeks to complete what
   // was normally a six-week Operator/Zulu block. That's not a worry because we are in
   // no hurry on the journey to lifelong excellence."
-  const r313=!!p.recovery313;
+  const r313=!!p.recovery313&&!lp;
   for(;;c++,w=1){
     if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++){
       yield {kind:'cycle',cycle:c,w};
@@ -60,7 +64,13 @@ function weeks(minIdx){
 }
 function idxOf(date){return Math.floor((D(mondayOf(date))-D(plan.startMonday))/(7*864e5))}
 function weekOf(date){const i=idxOf(date);if(i<0)return null;return weeks(i+10)[i]}
-function wkRx(wk){return wk.rx||(wk.kind==='cycle'?waveOf()[wk.w-1]:plan.deload)}
+function wkRx(wk){
+  if(wk.rx) return wk.rx;
+  if(wk.kind!=='cycle') return plan.deload;
+  // Clamped rather than indexed: an open-ended program runs one entry for ever, and
+  // every other template's cycle is exactly as long as its wave anyway.
+  const W=waveOf(); return W[Math.min(wk.w-1,W.length-1)];
+}
 // TB2's Easy Week Principle: every third week the conditioning load comes down, and it is
 // meant to land on the strength wave's 90-95% weeks so the heavy lifting gets the energy.
 // In a six-week wave those are weeks 3 and 6, which is exactly `tier()==='heavy'`.
@@ -92,7 +102,7 @@ function freezePast(){
   const curMon=list[cur]&&list[cur].monday;
   // A cycle's maxes lock once its last week is done. Which week is last comes from the
   // wave that week ran, not from a hardcoded six: a template can have a shorter one.
-  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&f.w===waveOf(f.tpl).length&&!lm[f.cycle]&&mon<curMon){
+  for(const [mon,f] of Object.entries(fz)) if(f.kind==='cycle'&&!lpOn(f.tpl)&&f.w===waveOf(f.tpl).length&&!lm[f.cycle]&&mon<curMon){
     const mx=maxFor(f.cycle), o={}; for(const k of LK) if(mx[k]) o[k]=mx[k].v; lm[f.cycle]=o; changed=true; planV++;
   }
   if(changed) queueWrite('plan/main',()=>plan);
@@ -162,9 +172,16 @@ function rx(wk,k,date){
   // the program's intent; this is the lifter deciding in the gym, which is the half of
   // Operator I/A that actually matters.
   sx+=Math.max(0,+(((lg(d).lifts||{})[k]||{}).extra)||0);
-  const m=VARS[k]?varMax(k,c,d):maxFor(c)[k];
-  return {s,sMax:sx,r,p,c,m,w:m?loadFor(k,m.v,p,d):null,t:wk.kind==='cycle'?tier(p):'light',vr:VARS[k]?varOf(k,d):null,
-    amrap:!!v.amrap,note:v.note||null,
+  /* A linear progression has no max behind it: the working weight is the program, and
+     it is folded forward out of what you have logged. Same escape hatch as `top`
+     below -- the prescription says the percentage does not apply, and the weight
+     comes from somewhere else. */
+  const lp=!!v.lp;
+  const m=lp?null:(VARS[k]?varMax(k,c,d):maxFor(c)[k]);
+  // No percentage at all on an LP day, and the tier is said outright rather than
+  // inferred from one: every session is the same weight class as the last.
+  return {s,sMax:sx,r,p:lp?null:p,c,m,w:lp?lpWeight(k,d):(m?loadFor(k,m.v,p,d):null),t:lp?'mid':(wk.kind==='cycle'?tier(p):'light'),vr:VARS[k]?varOf(k,d):null,
+    lp,amrap:!!v.amrap,note:v.note||null,
     // Back "Break" works up to a best set for the day rather than off a percentage,
     // and its down sets are a percentage of that set, not of a 1RM.
     top:!!v.top,down:v.down||null,downPct:v.downPct||null};
@@ -564,6 +581,9 @@ function inBlockCheck(date){
 }
 function weekTitle(wk){
   if(!wk) return 'Before start';
+  // An open-ended program has no cycle to number and no percentage to quote: every
+  // week is week N of one long run, and the weight is on the lift card.
+  if(wk.kind==='cycle'&&lpOn()){const v=wkRx(wk);return {t:'Week '+wk.w,chip:v.s+'×'+v.r,cls:'mid'}}
   if(wk.kind==='cycle'){const v=wkRx(wk);return {t:'Cycle '+wk.cycle+' · Week '+wk.w,chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:tier(+v.p)}}
   if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
