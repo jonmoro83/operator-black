@@ -11,7 +11,7 @@ Setup → About this app → What's new.
 
 Genuinely open: things that still need doing or confirming.
 
-- **Rest beeps: the real-session failure, reframed 2026-11-02, fix in 3.61, awaiting a
+- **Rest beeps: the real-session failure, reframed 2026-11-01, fix in 3.61, awaiting a
   session log.** The user's report that settled it: *the tests always work; it fails in
   real sessions, especially after going to another app and coming back.* A test plays
   from the tap that asked for it; a rest plays from a timer minutes after the last tap.
