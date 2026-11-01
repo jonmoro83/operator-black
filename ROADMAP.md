@@ -48,6 +48,10 @@ Genuinely open: things that still need doing or confirming.
   Settings -> Notifications -> Operator -> Sounds, since 3.56's ring-switch theory rested
   on logs contaminated by the 3.53 speech bug, and the user hears in-app beeps in duck
   mode, so the switch is on.
+  **First real result (2026-11-01, on 3.63):** the user ran a HIC session and the timer
+  "worked exactly as expected", which they called a big improvement. No report was sent,
+  so it is not known whether that session included a trip to another app. Still open:
+  a lifting session with rests and app switches, which is where the failure was worst.
 - **Rest alerts: cause found 2026-10-24, fixed in 3.55, not yet confirmed on the
   phone.** The device report settled the half I had wrong: Apple accepted the test
   push on all three registered devices (201 each) and the notification appeared, so
