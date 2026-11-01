@@ -280,7 +280,7 @@ test("a set is refused whole: outside two hours, too many, an unknown kind, no r
   a.equal((await setAlerts(call, "rest", 1, [{ at: Date.now() - 10000 }], ep)).status, 400, "more than five seconds stale");
   a.equal((await setAlerts(call, "rest", 1, [{ at: later(3 * 3600 * 1000) }], ep)).status, 400, "more than two hours out");
   a.equal((await setAlerts(call, "rest", 1, [{ at: "soon" }], ep)).status, 400, "not a time");
-  a.equal((await setAlerts(call, "iv", 1, Array.from({ length: 81 }, (_, i) => ({ at: later(1000 + i) })), ep)).status, 400);
+  a.equal((await setAlerts(call, "iv", 1, Array.from({ length: 241 }, (_, i) => ({ at: later(1000 + i) })), ep)).status, 400);
   a.equal((await setAlerts(call, "Rest!", 1, [], ep)).status, 400, "kind is a short lowercase word");
   a.equal((await setAlerts(call, "legacy", 1, [], ep)).status, 400, "and not the old API's own slot");
   a.equal((await call("set", { kind: "rest", alerts: [] })).status, 400, "a revision is required");

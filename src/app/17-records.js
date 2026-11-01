@@ -33,7 +33,7 @@ function prList(){
   }
   // conditioning: best per activity and format, hard sessions only
   const g={};
-  for(const x of hicSessions(true)){ if(x.f==='liss'||x.v==null) continue; (g[x.mod+'|'+x.f]=g[x.mod+'|'+x.f]||[]).push({d:x.d,v:x.v,u:x.u}) }
+  for(const x of hicSessions(true)){ if(x.f==='liss'||(HIC[x.f]||{}).noCompare||x.v==null) continue; (g[x.mod+'|'+x.f]=g[x.mod+'|'+x.f]||[]).push({d:x.d,v:x.v,u:x.u}) }
   for(const key of Object.keys(g)){
     const [m,f]=key.split('|');
     add('hic:'+key,MOD[m].name+' · '+HIC[f].name,g[key][0].u,g[key]);

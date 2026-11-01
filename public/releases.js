@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.63',date:'2026-11-01',title:"Freeform HIC",items:[
+    "A new HIC format, Freeform, for when you want your own intervals rather than one of the book's. Pick it from the Format list on any HIC day and set the hard time, the easy time and how long the session runs \u2014 say 15 minutes on the bike at 15 seconds hard, 45 easy.",
+    "There are quick picks for the common shapes (15/45, 20/40, 30/30, 10/50 and 20/10 Tabata), and the three numbers for anything else. The timer runs it like any other session, beeps, spoken cues and lock-screen alerts included.",
+    "The length is the length: the last easy period is kept, so 15 minutes is 15 minutes on the clock. If your times don't divide evenly the card rounds to the nearest whole round and tells you what that comes to.",
+    "The app remembers the last shape you ran and offers it next time. A freeform result only compares against sessions with the same hard and easy times, so it stays out of your records and the benchmark, where one number per format is assumed. It still counts toward your minutes and sessions."]},
   {v:'3.62',date:'2026-11-01',title:"Lock-screen alerts you can count on",items:[
     "With the phone locked, the notification is the only thing that can tell you a rest is over \u2014 iOS stops the app making any sound of its own. So the way alerts are set has been rebuilt to be certain rather than hopeful.",
     "Each timer now has its own alert on the server: the rest, an interval session and the general timer no longer share one, so starting one can't wipe out another's. That fixes a real fault on Plyo and HIC days, where starting the intervals straight out of the rest before HIC could erase every interval alert, depending on which of two requests arrived first.",

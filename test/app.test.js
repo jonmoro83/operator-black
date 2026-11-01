@@ -1816,7 +1816,7 @@ test("a format with no comparable number cannot be a benchmark", () => {
   a.ok(opts, "the benchmark format picker exists");
   for (const [k, f] of Object.entries(x.HIC)) {
     const listed = opts.includes(`value="${k}"`);
-    if (k === "liss" || f.noMetric) a.ok(!listed, `${k} is not offerable as a benchmark`);
+    if (k === "liss" || f.noMetric || f.noCompare) a.ok(!listed, `${k} is not offerable as a benchmark`);
     else a.ok(listed, `${k} is`);
   }
 
@@ -9512,4 +9512,63 @@ test("silent mode never asks for a tap it does not need", () => {
   const x = app({ now: "2026-10-24" });
   x.plan.soundMode = "silent"; x.bump();
   a.equal(x.audioNeedsTap(), false);
+});
+
+test("a freeform HIC takes your own hard and easy times, and a length in minutes", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = "2026-10-01"; x.sel = d;
+  x.seed({ [d]: { date: d, hic: { format: "free", mod: "echo" } } }); x.bump();
+
+  // The default is the example that asked for it: 15 minutes of 15 s hard / 45 s easy.
+  let o = x.ivOpts(d, "free");
+  a.deepEqual([o.work, o.rest, o.mins, o.rounds], [15, 45, 15, 15]);
+  a.equal(o.ease, false, "your own dose is not trimmed by the easy week or a soft day");
+  // The last easy period is kept, so the clock reads the length you picked.
+  let segs = x.ivSegments("free", o);
+  a.equal(x.ivTotal(segs), 15 * 60);
+  a.equal(segs.filter((g) => g.k === "work").length, 15);
+  a.ok(segs.filter((g) => g.k === "work").every((g) => g.s === 15));
+
+  let card = x.hicCard({ t: "hic", fmt: "map" }, "");
+  a.match(card, /15 × 15 s hard \/ 45 s easy/, "the card leads with the shape");
+  a.match(card, /data-bind="hic\.iv\.work"/); a.match(card, /data-bind="hic\.iv\.rest"/); a.match(card, /data-bind="hic\.iv\.mins"/);
+  a.match(card, /data-act="ivfree" data-w="20" data-r="10" data-m="4"/, "with quick picks");
+
+  // A length that does not divide evenly goes to the nearest whole round, and says so.
+  x.setLog(d, "hic.iv.work", 30); x.setLog(d, "hic.iv.rest", 90); x.bump();
+  o = x.ivOpts(d, "free");
+  a.equal(o.rounds, 8);
+  a.match(x.hicCard({ t: "hic", fmt: "map" }, ""), /16:00 on the clock — the nearest whole number of rounds to 15 min/);
+
+  // Nonsense is clamped rather than producing a broken timer.
+  x.setLog(d, "hic.iv.work", 0); x.setLog(d, "hic.iv.rest", -4); x.setLog(d, "hic.iv.mins", 900); x.bump();
+  o = x.ivOpts(d, "free");
+  a.ok(o.work >= 5 && o.rest >= 5 && o.mins <= 90 && o.rounds <= x.FREE_MAX_ROUNDS);
+  // Even the longest session fits in what the server will hold for one timer.
+  x.setLog(d, "hic.iv.warm", true); x.bump();
+  a.ok(x.ivSegments("free", x.ivOpts(d, "free")).length <= 240);
+});
+
+test("a freeform session remembers its shape and only compares against the same one", () => {
+  const x = app({ now: "2026-10-01" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const d = "2026-10-01"; x.sel = d;
+  x.seed({
+    "2026-09-20": { date: "2026-09-20", done: true, hic: { format: "free", mod: "echo", cal: 40, iv: { work: 30, rest: 30, mins: 20 } } },
+    "2026-09-24": { date: "2026-09-24", done: true, hic: { format: "free", mod: "echo", cal: 25, iv: { work: 15, rest: 45, mins: 15 } } },
+    [d]: { date: d, hic: { format: "free", mod: "echo" } },
+  }); x.bump();
+  x.ivStart("free");
+  a.deepEqual(x.plan.ivFree, { work: 15, rest: 45, mins: 15 }, "the shape you ran becomes the next default");
+  a.deepEqual(x.lg(d).hic.iv, { work: 15, rest: 45, mins: 15 }, "and the day logs it");
+  x.iv = null;
+
+  // The 30/30 day is not "your last one" for a 15/45 day.
+  const card = x.hicCard({ t: "hic", fmt: "map" }, "");
+  a.match(card, /Last Echo bike Freeform 15 s hard \/ 45 s easy: <span class="mono">25<\/span>/);
+  // And freeform stays out of everything that assumes one number per format.
+  a.ok(!x.prList().some((r) => /Freeform/.test(r.label || r.name || "")), "no records");
+  a.ok(!x.benchmark() || x.benchmark().fmt !== "free", "never the benchmark");
+  a.equal(x.hicSessions(true).filter((h) => h.f === "free").length, 2, "but both count as sessions");
 });

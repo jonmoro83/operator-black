@@ -15,7 +15,8 @@ import { DurableObject } from "cloudflare:workers";
 import { sendPush } from "./webpush.js";
 
 const MAX_AHEAD_MS = 2 * 60 * 60 * 1000;
-const MAX_QUEUE = 80;
+// A freeform interval session can run 100 rounds, two changes each, plus a warm-up.
+const MAX_QUEUE = 240;
 const LOG_KEEP = 30;
 const KIND = /^[a-z]{1,12}$/;
 const LEGACY = "legacy";

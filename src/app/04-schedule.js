@@ -642,7 +642,7 @@ function hicSessions(all){
     if(!all&&!inProgram(d)) continue;
     if(L.hic){ const f=effFmt(d);
       if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-        if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev}); } }
+        if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev,shape:(IV[f]||{}).free?freeLabel(freeShape(d)):null}); } }
     // Sessions you did on top of the program count as training. They are the same
     // shape, carry `extra` so adherence can leave them alone, and otherwise feed the
     // minutes, the records and the benchmark like any other session.

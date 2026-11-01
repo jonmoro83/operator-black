@@ -152,7 +152,7 @@ function hicRut(date,n0){
   const xs=hicSessions().filter(x=>x.d<=date&&hicWasHard(x)).slice(-(n0||6));
   if(xs.length<(n0||6)) return null;
   const f=xs[0].f, mod=xs[0].mod;
-  const sameF=xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
+  const sameF=f!=='free'&&xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
   if(!sameF&&!sameM) return null;
   return {n:xs.length,f:sameF?f:null,mod:sameM?mod:null,since:xs[0].d};
 }
@@ -161,10 +161,10 @@ function hicRut(date,n0){
 // of your conditioning moves around.
 function benchmark(){
   const b=plan.benchmark;
-  if(b&&MOD[b.mod]&&HIC[b.fmt]&&!HIC[b.fmt].noMetric) return b;
+  if(b&&MOD[b.mod]&&HIC[b.fmt]&&!HIC[b.fmt].noMetric&&!HIC[b.fmt].noCompare) return b;
   // not chosen yet: the hard pairing you have done most
   const tally={};
-  for(const x of hicSessions()) if(x.f!=='liss'&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
+  for(const x of hicSessions()) if(x.f!=='liss'&&!(HIC[x.f]||{}).noCompare&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
   const top=Object.keys(tally).sort((a0,b0)=>tally[b0]-tally[a0])[0];
   if(!top) return null;
   const [mod,fmt]=top.split('|');
@@ -354,9 +354,9 @@ function accSlotRow(date,slot){
 // Pull-ups and dips are loaded by bodyweight unless you hang a belt on.
 function isBWAcc(id){ return ['abtriad','chinup','dip','pu_prog','pu_band','pu_neg','invrow','plank','sideplank','copen','deadbug','deadhang','nordic','ghr','abwheel','hangknee','hangleg','backext','pullapart','pike'].includes(id) }
 
-function lastHic(fmt,mod,before){
+function lastHic(fmt,mod,before,shape){
   let best=null,last=null;
-  for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null) continue;
+  for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null||(shape&&x.shape!==shape)) continue;
     if(!last||x.d>last.d) last=x; if(!best||hicValue(x)>hicValue(best)) best=x; }
   return {best,last};
 }
@@ -377,8 +377,8 @@ function fobLoadLine(bouts){
 function hicCard(dp,note){
   const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f);
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
-  const lead0=(IV[f]||{}).lead?ivOpts(sel,f):null;
-  h+=`<div style="font-size:18px;font-weight:700">${lead0?`${lead0.rounds} bouts \u00b7 ${esc(secsLabel(lead0.every))} of base between`:H.sess}</div>${note}`;
+  const lead0=(IV[f]||{}).lead?ivOpts(sel,f):null, free0=(IV[f]||{}).free?freeShape(sel):null;
+  h+=`<div style="font-size:18px;font-weight:700">${lead0?`${lead0.rounds} bouts \u00b7 ${esc(secsLabel(lead0.every))} of base between`:free0?`${free0.rounds} \u00d7 ${esc(freeLabel(free0))}`:H.sess}</div>${note}`;
   h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
   if((IV[f]||{}).lead){
     // What a FOBBIT is, and nothing about which one. Every number that varies between
@@ -424,7 +424,7 @@ function hicCard(dp,note){
     if(L.min==null||L.min==='') {
       const pl=ivPartsLabel(f,ivOpts(sel,f));
       h+=`<div class="row" style="align-items:baseline"><span class="small muted">No minutes logged.</span><button class="btn sm" data-act="minplan" data-v="${plan0}">Use ${plan0} min</button>${(IV[f]||{}).lead&&(L.rounds==null||L.rounds==='')?`<button class="btn sm" data-act="boutplan" data-v="${ivOpts(sel,f).rounds}">Use ${ivOpts(sel,f).rounds} bouts</button>`:''}</div><div class="note">That is ${esc(pl.text)}${pl.rounds?((IV[f]||{}).lead?(()=>{const fo=ivOpts(sel,f),hd=(fo.bouts||[]).some(b=>b.hold);
-        return `, counted as ${pl.rounds} \u00d7 ${esc(secsLabel(fo.every))} of base${hd?`; the ${pl.rounds} bouts of reps sit on top, so the clock will say more`:` and ${pl.rounds} timed bouts, which are counted in`}`})():`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
+        return `, counted as ${pl.rounds} \u00d7 ${esc(secsLabel(fo.every))} of base${hd?`; the ${pl.rounds} bouts of reps sit on top, so the clock will say more`:` and ${pl.rounds} timed bouts, which are counted in`}`})():(IV[f]||{}).free?`, from ${pl.rounds} rounds of ${esc(freeLabel(freeShape(sel)))}`:`, from ${pl.rounds} rounds (there is no easy period after the last one, so ${pl.rounds} \u00d7 hard + ${pl.rounds-1} \u00d7 easy)`):''}. Change the field if you did more or less.</div>`;
     }
   }
   {
@@ -432,6 +432,13 @@ function hicCard(dp,note){
     h+=`<div class="ivset"><div class="lift-h"><span class="lift-name">Interval timer</span><span class="small muted mono">${ivPartsLabel(f,o).total} min${(IV[f]||{}).lead&&o.count!=='total'?' of base':' total'}</span></div>`;
     if(r&&r.lead) h+=`<div class="restsel"><span>Session</span><div class="seg">${(o.minOpts||[]).map(v=>`<button class="segb${o.mins===v?' on':''}" data-act="ivopt" data-k="mins" data-v="${v}" aria-pressed="${o.mins===v}">${v} min</button>`).join('')}</div></div>`
       +`<div class="small muted">${o.rounds} \u00d7 ${esc(secsLabel(o.every))} of base${o.count==='total'?', with the bouts counted in':''}. ${o.isE?'<b>Over 30 minutes, so this counts as an E session rather than a HIC</b> \u2014 that is the book\u2019s line, not ours.':'Under 30 minutes, so it counts as a HIC.'}</div>`;
+    else if(r&&r.free){
+      // Quick picks for the common shapes, and the three numbers for anything else.
+      h+=`<div class="restsel"><span>Quick picks</span><div class="seg">${FREE_PRESETS.map(([w,e,m])=>{const on=o.work===w&&o.rest===e&&o.mins===m;return `<button class="segb${on?' on':''}" data-act="ivfree" data-w="${w}" data-r="${e}" data-m="${m}" aria-pressed="${on}">${w}/${e} \u00b7 ${m} min</button>`}).join('')}</div></div>`;
+      const iv0=((lg(sel).hic||{}).iv)||{};
+      h+=`<div class="grid3"><label class="f">Hard (sec)${numIn('hic.iv.work',iv0.work,String(o.work))}</label><label class="f">Easy (sec)${numIn('hic.iv.rest',iv0.rest,String(o.rest))}</label><label class="f">Length (min)${numIn('hic.iv.mins',iv0.mins,String(o.mins))}</label></div>`;
+      h+=`<div class="small muted">${o.rounds} rounds of ${esc(freeLabel(o))}, ${mmss(o.rounds*(o.work+o.rest))} on the clock${o.rounds*(o.work+o.rest)!==o.mins*60?` \u2014 the nearest whole number of rounds to ${o.mins} min`:''}.${o.rounds>=FREE_MAX_ROUNDS?` Capped at ${FREE_MAX_ROUNDS} rounds.`:''}</div>`;
+    }
     else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="note"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week. TB2 asks for the rounds cut in half here \u2014 \u201cdon\u2019t strain, just grease the groove with little effort\u201d \u2014 and says the easy week is meant to land on the heavy lifting weeks. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
@@ -439,8 +446,8 @@ function hicCard(dp,note){
     if(plan.quietTimer) h+=`<div class="note">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
-  if(f!=='liss'&&met){const hist=lastHic(f,mod,sel);
-    h+= hist.last?`<div class="small muted">Last ${M.name} ${H.name}: <span class="mono">${n(hist.last.v)}</span> ${met[1]}${flatEquiv(hist.last)!=null?` (<span class="mono">${n(flatEquiv(hist.last))}</span> ${met[1]} flat)`:''} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hicValue(hist.best))}</span>${flatEquiv(hist.best)!=null?' flat':''}</div>`:`<div class="small muted">First logged ${M.name} ${H.name} session. Results only compare against the same activity and format.</div>`}
+  if(f!=='liss'&&met){const shape=free0?freeLabel(free0):null, hist=lastHic(f,mod,sel,shape), nm=H.name+(shape?' '+shape:'');
+    h+= hist.last?`<div class="small muted">Last ${M.name} ${esc(nm)}: <span class="mono">${n(hist.last.v)}</span> ${met[1]}${flatEquiv(hist.last)!=null?` (<span class="mono">${n(flatEquiv(hist.last))}</span> ${met[1]} flat)`:''} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hicValue(hist.best))}</span>${flatEquiv(hist.best)!=null?' flat':''}</div>`:`<div class="small muted">First logged ${M.name} ${esc(nm)} session. Results only compare against the same activity and format${shape?', and for Freeform the same hard and easy times':''}.</div>`}
   return h+`</div>`;
 }
 const openPx=new Set();

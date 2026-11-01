@@ -13,7 +13,21 @@ const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds
      instead of in the FOBBIT catalog. Over 30 minutes it reads as an E, which is what
      the book calls it. */
   predator:{work:15,rest:420,lead:true,every:[300,600],count:'total',mins:[30,45,60],def:45,
-    mv:[['Sprint 50 to 100 m',{s:15}]]}};
+    mv:[['Sprint 50 to 100 m',{s:15}]]},
+  /* Freeform: your own hard and easy times for a length in minutes. The rounds fall out
+     of the length, and unlike the book formats the last easy period is kept, so 15
+     minutes of 15 s / 45 s is fifteen rounds and fifteen minutes on the clock. */
+  free:{work:15,rest:45,mins:15,free:true}};
+const FREE_PRESETS=[[15,45,15],[20,40,20],[30,30,20],[10,50,10],[20,10,4]];
+const FREE_MAX_ROUNDS=100;
+// The shape a freeform day used, from what it logged, then what you last ran, then the default.
+function freeShape(date){
+  const o=((lg(date).hic||{}).iv)||{}, last=plan.ivFree||{}, d=IV.free;
+  const pick=(k,lo,hi)=>{const v=o[k]!=null&&o[k]!==''?+o[k]:last[k]!=null?+last[k]:d[k];return Math.min(hi,Math.max(lo,Math.round(v)||d[k]))};
+  const work=pick('work',5,600), rest=pick('rest',5,600), mins=pick('mins',1,90);
+  return {work,rest,mins,rounds:Math.min(FREE_MAX_ROUNDS,Math.max(1,Math.round(mins*60/(work+rest))))};
+}
+function freeLabel(x){return secsLabel(x.work)+' hard / '+secsLabel(x.rest)+' easy'}
 let iv=LS.get('ob.iv'), ivTick=null, ivLast={idx:-1,left:-1}, ivStopArm=0;
 // How far into a segment a change cue is still worth sounding. The tick is 200 ms, so
 // anything past a second and a half means the page was not running.
@@ -62,6 +76,9 @@ function ivOpts(date,fmt){
       warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease,
       bouts:specBouts(F,ease,(lg(date).hic||{}).what)};
   }
+  // Freeform is your own dose, so neither the easy week nor a soft day trims it.
+  if(r&&r.free){const x=freeShape(date);
+    return Object.assign(x,{warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:35, ease:false, bouts:null})}
   const def=r?easeRounds(r,fmt,soft,easyWk):null;
   return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
@@ -82,7 +99,8 @@ function ivSegments(fmt,o){
         seg.push({k:'work',l:b.name,sub:doseLabel(b),s:b.secs||FOB_HELD,round:i,hold:!!b.hold,reps:b.reps});
       }
     }
-    else for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:wk,round:i});if(i<o.rounds)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:r.rest,round:i})}}
+    else {const w=r.free?o.work:wk, e=r.free?o.rest:r.rest;
+      for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:w,round:i});if(i<o.rounds||r.free)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:e,round:i})}}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
   return seg;
 }
@@ -120,7 +138,10 @@ function ivStart(fmt){
   // rest being cancelled here cannot race the interval schedule and erase it.
   unlockAudio(); stopRest();
   iv={date:sel,fmt,mod:modOf(sel),segs,start:Date.now()+1500,paused:null,pausedMs:0,mini:false,rounds:o.rounds||0,done:false};
-  if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
+  // Freeform remembers the whole shape, and the day logs it, so the history can say what it was.
+  if(IV[fmt]&&IV[fmt].free){plan.ivFree={work:o.work,rest:o.rest,mins:o.mins};planV++;queueWrite('plan/main',()=>plan);
+    for(const k of ['work','rest','mins']) setLog(sel,'hic.iv.'+k,o[k])}
+  else if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
   ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); alarmSync();
 }
 // What the server should hold for this session: one alert per change still to come.

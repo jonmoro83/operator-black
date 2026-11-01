@@ -372,6 +372,20 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Freeform HIC (2026-11-01, 3.63)**
+- Asked for: HIC sessions that aren't predefined, e.g. 15 minutes on the bike at 15 s
+  hard / 45 s easy. A new `HIC.free` format with `IV.free`; `freeShape(date)` reads the
+  day's `hic.iv.{work,rest,mins}`, then `plan.ivFree` (the last shape run, a pref key),
+  then 15/45 for 15 min. Clamped 5-600 s and 1-90 min, at most 100 rounds.
+- Unlike the book formats the trailing easy period is kept, so the length picked is the
+  clock length; rounds are `round(mins*60/(work+rest))` and the card says when that
+  isn't exact. Not eased on easy weeks or soft days: it is the user's own dose.
+- `noCompare`: results compare only against the same shape (`hicSessions` carries
+  `shape`, `lastHic` filters on it), and freeform is kept out of records, the progress
+  groups, the benchmark and its picker, and the rotation check's same-format test.
+- Server `MAX_QUEUE` raised 80 -> 240 so a long freeform session's alerts fit in one slot.
+- Not schedulable in programs; it is picked on the day, like any other format swap.
+
 **StrongLifts 5×5: the first linear progression, and the first non-TB program (2026-11-01)**
 - Asked for: a beginner program, StrongLifts or Starting Strength. Recommended
   StrongLifts and it was taken. Reasons, for the record: its progression and reset
