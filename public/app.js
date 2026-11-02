@@ -2959,7 +2959,7 @@ function dayPlan(date){
     // say which day has plyos without anyone having to open it.
     const bare=['off','pre'].includes(dp.t);
     const two=plyoDows(mondayOf(date)).length>1, nm=two?'Plyo '+(pn+1):'Plyo';
-    return Object.assign({},dp,{plyo:true,plyoN:pn+1,plyoCut:dp.plyoCut||wk.kind==='deload',
+    return Object.assign({},dp,{plyo:true,plyoN:pn+1,plyoName:nm,plyoCut:dp.plyoCut||wk.kind==='deload',
       short:bare?nm:nm+'+'+(dp.short||'Session')});
   }
   return dp;
@@ -7092,6 +7092,7 @@ async function healAlerts(){
     const st=await api('GET','/push/status');
     const mine=LS.get('ob.push');
     const isDead=Array.isArray(st.dead)&&mine&&st.dead.includes(mine);
+    alerts.devices=st.devices;
     if(st.devices&&!isDead) return;
     const reg=await navigator.serviceWorker.ready;
     let sub=await reg.pushManager.getSubscription();
@@ -7128,6 +7129,17 @@ async function disableAlerts(){
   // The server drops this device's pending alerts with the subscription.
   alarmState={}; alarmSave();
   LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; showCover(); render();
+}
+// Forget every other device the server is pushing to. Not `async function`, for the
+// harness (see checkAlerts).
+function onlyThisDevice(){
+  const mine=LS.get('ob.push'); if(!mine) return Promise.resolve();
+  alerts.busy=true; render();
+  return api('POST','/push/only',{endpoint:mine}).then(
+    r=>{ alerts.devices=r.devices; if(pushStat&&pushStat.devices) pushStat.devices=r.devices;
+      alerts.msg=r.removed?`Removed ${r.removed} other device${r.removed===1?'':'s'}. Alerts now go to this one only.`:'This was already the only device.' },
+    e=>{ alerts.msg=e&&e.status===400?'The server does not have this device. Turn alerts off and on again first.':'Could not reach the server. Try again.' })
+    .finally(()=>{ alerts.busy=false; render() });
 }
 /* What the server thinks, as against what this phone thinks. The two disagreeing is
    the whole of "alerts are on and nothing arrives": a device that unsubscribed itself,
@@ -8877,6 +8889,9 @@ function vSetup(){
     else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
     else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
+    const nDev=(pushStat&&pushStat.devices)||alerts.devices||0;
+    if(on&&nDev>1) h+=`<div class="banner info"><div class="small">Alerts are going to <b>${nDev} devices</b>. If this is your only one, the rest are old installs: removing the app from the home screen and adding it back leaves the old one behind.</div></div>
+      <div class="row"><button class="btn sm" data-act="alertonly" ${alerts.busy?'disabled':''}>Only this device</button></div>`;
     // Open it when there is something wrong to see. A diagnostic folded away is a
     // diagnostic nobody reads, and this one exists because somebody is already stuck.
     const bad=(pushLast&&!pushLast.ok)||(pushStat&&!pushStat.busy&&!pushStat.err&&pushStat.devices===0);
@@ -9314,19 +9329,28 @@ function calTitle(wk,dp,date){
   return fmt?`${dp.short} \u00b7 ${fmt}`:dp.short||'Training';
 }
 
-function calEvent(date){
-  const wk=weekOf(date); if(!wk) return null;
+// One event per session, so a doubled-up day is two entries rather than one titled
+// "Lift + HIC". Plyos ride on the first: they are done before anything else that day.
+function calEvents(date){
+  const wk=weekOf(date); if(!wk) return [];
   const dp=dayPlan(date);
-  if(!dp||dp.t==='off'||dp.t==='pre') return null;
-  const body=[];
-  const wt=weekTitle(wk); if(wt&&wt.t) body.push(wt.t);
-  if(dp.t==='lift'||dp.t==='test'||dp.t==='rm5') body.push(...calLiftLines(wk,dp,date));
-  if(dp.fmt&&HIC[dp.fmt]) body.push(`${HIC[dp.fmt].name} \u2014 ${HIC[dp.fmt].sess}`);
-  if(dp.t==='se'){ const ex=seDayList(date); if(ex&&ex.length) body.push('Circuit: '+ex.join(', ')) }
-  if(dp.acc) body.push('Accessories: '+accList(dp.acc).join(', '));
-  if(dp.note) body.push(dp.note);
-  body.push('operatorblack.com');
-  return {date,dp,summary:calTitle(wk,dp,date),desc:body.filter(Boolean).join('\n')};
+  if(!dp||dp.t==='off'||dp.t==='pre') return [];
+  const parts=dp.more?[Object.assign({},dp,{more:null,short:(dp.plyo?dp.plyoName+'+':'')+(dayPlans(date)[0].short||'Session')}),
+    ...dp.more]:[dp];
+  const wt=weekTitle(wk);
+  return parts.map((p,i)=>{
+    const body=[];
+    if(wt&&wt.t) body.push(wt.t);
+    if(p.t==='lift'||p.t==='test'||p.t==='rm5') body.push(...calLiftLines(wk,p,date));
+    if(p.fmt&&HIC[p.fmt]) body.push(`${HIC[p.fmt].name} \u2014 ${HIC[p.fmt].sess}`);
+    if(p.t==='se'){ const ex=seDayList(date); if(ex&&ex.length) body.push('Circuit: '+ex.join(', ')) }
+    if(p.acc) body.push('Accessories: '+accList(p.acc).join(', '));
+    if(p.note) body.push(p.note);
+    body.push('operatorblack.com');
+    // The first keeps the bare per-day UID, so subscribers from before this update the
+    // event they already have instead of gaining a duplicate.
+    return {date,dp:p,uid:'ob-'+date+(i?'-'+(i+1):''),summary:calTitle(wk,p,date),desc:body.filter(Boolean).join('\n')};
+  });
 }
 
 function icsFeed(){
@@ -9339,27 +9363,29 @@ function icsFeed(){
     'REFRESH-INTERVAL;VALUE=DURATION:PT6H','X-PUBLISHED-TTL:PT6H'];
   const o=calOpts();
   for(let d=from;d<=to;d=addDays(d,1)){
-    const e=calEvent(d); if(!e) continue;
-    L.push('BEGIN:VEVENT',
-      // Stable per day, so a refresh updates the event instead of adding a second one.
-      'UID:ob-'+e.date+'@operatorblack.com',
-      'DTSTAMP:'+stamp);
-    if(o.timed){
-      const wknd=dow(d)>=5&&o.weekend!=null, st=wknd?o.weekend:o.start;
-      const end=st+calMins(e.dp,d);
-      L.push('DTSTART:'+icsLocal(d,st),
-        // Past midnight is possible with a late start, so the end rolls into the next day.
-        'DTEND:'+icsLocal(addDays(d,Math.floor(end/1440)),end%1440),
-        'TRANSP:OPAQUE');
-    } else {
-      L.push('DTSTART;VALUE=DATE:'+icsDate(e.date),
-        'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
-        'TRANSP:TRANSPARENT');
+    // A second session that day is booked straight after the first ends.
+    let at=dow(d)>=5&&o.weekend!=null?o.weekend:o.start;
+    for(const e of calEvents(d)){
+      L.push('BEGIN:VEVENT',
+        // Stable per session, so a refresh updates the event instead of adding a second one.
+        'UID:'+e.uid+'@operatorblack.com',
+        'DTSTAMP:'+stamp);
+      if(o.timed){
+        const st=at, end=st+calMins(e.dp,d); at=end;
+        L.push('DTSTART:'+icsLocal(addDays(d,Math.floor(st/1440)),st%1440),
+          // Past midnight is possible with a late start, so the end rolls into the next day.
+          'DTEND:'+icsLocal(addDays(d,Math.floor(end/1440)),end%1440),
+          'TRANSP:OPAQUE');
+      } else {
+        L.push('DTSTART;VALUE=DATE:'+icsDate(e.date),
+          'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
+          'TRANSP:TRANSPARENT');
+      }
+      L.push('SUMMARY:'+icsEsc(e.summary),'DESCRIPTION:'+icsEsc(e.desc));
+      if(o.alarm!=null) L.push('BEGIN:VALARM','ACTION:DISPLAY',
+        'DESCRIPTION:'+icsEsc(e.summary),'TRIGGER:'+icsTrigger(o.alarm),'END:VALARM');
+      L.push('END:VEVENT');
     }
-    L.push('SUMMARY:'+icsEsc(e.summary),'DESCRIPTION:'+icsEsc(e.desc));
-    if(o.alarm!=null) L.push('BEGIN:VALARM','ACTION:DISPLAY',
-      'DESCRIPTION:'+icsEsc(e.summary),'TRIGGER:'+icsTrigger(o.alarm),'END:VALARM');
-    L.push('END:VEVENT');
   }
   L.push('END:VCALENDAR');
   return L.map(icsFold).join('\r\n')+'\r\n';
@@ -10033,6 +10059,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='updnow'){applyUpdate();return}
   if(a==='alerton'){enableAlerts();return}
   if(a==='alertoff'){disableAlerts();return}
+  if(a==='alertonly'){onlyThisDevice();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='pushcheck'){checkAlerts();return}
   if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }

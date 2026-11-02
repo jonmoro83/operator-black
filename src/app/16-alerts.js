@@ -62,6 +62,7 @@ async function healAlerts(){
     const st=await api('GET','/push/status');
     const mine=LS.get('ob.push');
     const isDead=Array.isArray(st.dead)&&mine&&st.dead.includes(mine);
+    alerts.devices=st.devices;
     if(st.devices&&!isDead) return;
     const reg=await navigator.serviceWorker.ready;
     let sub=await reg.pushManager.getSubscription();
@@ -98,6 +99,17 @@ async function disableAlerts(){
   // The server drops this device's pending alerts with the subscription.
   alarmState={}; alarmSave();
   LS.set('ob.push',null); alerts.msg='Rest alerts are off for this device.'; alerts.busy=false; showCover(); render();
+}
+// Forget every other device the server is pushing to. Not `async function`, for the
+// harness (see checkAlerts).
+function onlyThisDevice(){
+  const mine=LS.get('ob.push'); if(!mine) return Promise.resolve();
+  alerts.busy=true; render();
+  return api('POST','/push/only',{endpoint:mine}).then(
+    r=>{ alerts.devices=r.devices; if(pushStat&&pushStat.devices) pushStat.devices=r.devices;
+      alerts.msg=r.removed?`Removed ${r.removed} other device${r.removed===1?'':'s'}. Alerts now go to this one only.`:'This was already the only device.' },
+    e=>{ alerts.msg=e&&e.status===400?'The server does not have this device. Turn alerts off and on again first.':'Could not reach the server. Try again.' })
+    .finally(()=>{ alerts.busy=false; render() });
 }
 /* What the server thinks, as against what this phone thinks. The two disagreeing is
    the whole of "alerts are on and nothing arrives": a device that unsubscribed itself,

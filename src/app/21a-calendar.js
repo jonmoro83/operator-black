@@ -68,19 +68,28 @@ function calTitle(wk,dp,date){
   return fmt?`${dp.short} \u00b7 ${fmt}`:dp.short||'Training';
 }
 
-function calEvent(date){
-  const wk=weekOf(date); if(!wk) return null;
+// One event per session, so a doubled-up day is two entries rather than one titled
+// "Lift + HIC". Plyos ride on the first: they are done before anything else that day.
+function calEvents(date){
+  const wk=weekOf(date); if(!wk) return [];
   const dp=dayPlan(date);
-  if(!dp||dp.t==='off'||dp.t==='pre') return null;
-  const body=[];
-  const wt=weekTitle(wk); if(wt&&wt.t) body.push(wt.t);
-  if(dp.t==='lift'||dp.t==='test'||dp.t==='rm5') body.push(...calLiftLines(wk,dp,date));
-  if(dp.fmt&&HIC[dp.fmt]) body.push(`${HIC[dp.fmt].name} \u2014 ${HIC[dp.fmt].sess}`);
-  if(dp.t==='se'){ const ex=seDayList(date); if(ex&&ex.length) body.push('Circuit: '+ex.join(', ')) }
-  if(dp.acc) body.push('Accessories: '+accList(dp.acc).join(', '));
-  if(dp.note) body.push(dp.note);
-  body.push('operatorblack.com');
-  return {date,dp,summary:calTitle(wk,dp,date),desc:body.filter(Boolean).join('\n')};
+  if(!dp||dp.t==='off'||dp.t==='pre') return [];
+  const parts=dp.more?[Object.assign({},dp,{more:null,short:(dp.plyo?dp.plyoName+'+':'')+(dayPlans(date)[0].short||'Session')}),
+    ...dp.more]:[dp];
+  const wt=weekTitle(wk);
+  return parts.map((p,i)=>{
+    const body=[];
+    if(wt&&wt.t) body.push(wt.t);
+    if(p.t==='lift'||p.t==='test'||p.t==='rm5') body.push(...calLiftLines(wk,p,date));
+    if(p.fmt&&HIC[p.fmt]) body.push(`${HIC[p.fmt].name} \u2014 ${HIC[p.fmt].sess}`);
+    if(p.t==='se'){ const ex=seDayList(date); if(ex&&ex.length) body.push('Circuit: '+ex.join(', ')) }
+    if(p.acc) body.push('Accessories: '+accList(p.acc).join(', '));
+    if(p.note) body.push(p.note);
+    body.push('operatorblack.com');
+    // The first keeps the bare per-day UID, so subscribers from before this update the
+    // event they already have instead of gaining a duplicate.
+    return {date,dp:p,uid:'ob-'+date+(i?'-'+(i+1):''),summary:calTitle(wk,p,date),desc:body.filter(Boolean).join('\n')};
+  });
 }
 
 function icsFeed(){
@@ -93,27 +102,29 @@ function icsFeed(){
     'REFRESH-INTERVAL;VALUE=DURATION:PT6H','X-PUBLISHED-TTL:PT6H'];
   const o=calOpts();
   for(let d=from;d<=to;d=addDays(d,1)){
-    const e=calEvent(d); if(!e) continue;
-    L.push('BEGIN:VEVENT',
-      // Stable per day, so a refresh updates the event instead of adding a second one.
-      'UID:ob-'+e.date+'@operatorblack.com',
-      'DTSTAMP:'+stamp);
-    if(o.timed){
-      const wknd=dow(d)>=5&&o.weekend!=null, st=wknd?o.weekend:o.start;
-      const end=st+calMins(e.dp,d);
-      L.push('DTSTART:'+icsLocal(d,st),
-        // Past midnight is possible with a late start, so the end rolls into the next day.
-        'DTEND:'+icsLocal(addDays(d,Math.floor(end/1440)),end%1440),
-        'TRANSP:OPAQUE');
-    } else {
-      L.push('DTSTART;VALUE=DATE:'+icsDate(e.date),
-        'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
-        'TRANSP:TRANSPARENT');
+    // A second session that day is booked straight after the first ends.
+    let at=dow(d)>=5&&o.weekend!=null?o.weekend:o.start;
+    for(const e of calEvents(d)){
+      L.push('BEGIN:VEVENT',
+        // Stable per session, so a refresh updates the event instead of adding a second one.
+        'UID:'+e.uid+'@operatorblack.com',
+        'DTSTAMP:'+stamp);
+      if(o.timed){
+        const st=at, end=st+calMins(e.dp,d); at=end;
+        L.push('DTSTART:'+icsLocal(addDays(d,Math.floor(st/1440)),st%1440),
+          // Past midnight is possible with a late start, so the end rolls into the next day.
+          'DTEND:'+icsLocal(addDays(d,Math.floor(end/1440)),end%1440),
+          'TRANSP:OPAQUE');
+      } else {
+        L.push('DTSTART;VALUE=DATE:'+icsDate(e.date),
+          'DTEND;VALUE=DATE:'+icsDate(addDays(e.date,1)),
+          'TRANSP:TRANSPARENT');
+      }
+      L.push('SUMMARY:'+icsEsc(e.summary),'DESCRIPTION:'+icsEsc(e.desc));
+      if(o.alarm!=null) L.push('BEGIN:VALARM','ACTION:DISPLAY',
+        'DESCRIPTION:'+icsEsc(e.summary),'TRIGGER:'+icsTrigger(o.alarm),'END:VALARM');
+      L.push('END:VEVENT');
     }
-    L.push('SUMMARY:'+icsEsc(e.summary),'DESCRIPTION:'+icsEsc(e.desc));
-    if(o.alarm!=null) L.push('BEGIN:VALARM','ACTION:DISPLAY',
-      'DESCRIPTION:'+icsEsc(e.summary),'TRIGGER:'+icsTrigger(o.alarm),'END:VALARM');
-    L.push('END:VEVENT');
   }
   L.push('END:VCALENDAR');
   return L.map(icsFold).join('\r\n')+'\r\n';

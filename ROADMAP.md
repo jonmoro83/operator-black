@@ -376,6 +376,26 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Calendar events per session, and "Only this device" for alerts (2026-11-02, 3.68)**
+- `calEvent` became `calEvents(date)`, one event per entry in `dayPlans`. The first
+  keeps the bare `ob-<date>` UID so existing subscribers update in place; later ones
+  are `ob-<date>-2` and so on. Plyos ride on the first (they're done first). In timed
+  mode the second is booked from the first's end, and a start past midnight rolls over.
+  `dayPlan` now carries `plyoName` so the first title can be rebuilt without parsing.
+- Stale push subscriptions: three on the owner's account, all still answering 201, so
+  the 404/410 pruning never fired. Every home-screen reinstall leaves one behind and
+  the server can't tell an old install from a second device. New DO op `only`
+  (`POST /api/push/only {endpoint}`) keeps the caller's subscription and drops the rest
+  with their device-targeted slots. The Rest alerts card shows a count and the button
+  when there's more than one; `healAlerts` records the count on app open so it shows
+  without running the diagnostic. **Owner to press it on the phone** to clear the three.
+
+**A centered launch screen (2026-11-02, 3.67)**
+- `tools/brand.js` renders the splash in device pixels at scale 1 (headless Chrome's
+  ~500 px minimum window had cropped the 402-pt layout), pads the bottom to centre the
+  ink rather than the box, and cancels the wordmark's trailing letter-spacing. All ten
+  measured centred to 1 px.
+
 **The welcome setup on StrongLifts (2026-11-02, 3.66)**
 - Reported: picking StrongLifts in the wizard still showed Operator's Lift 3 picker
   (lat pulldown / OHP / weighted pull-up). StrongLifts has fixed A/B lifts. Under
@@ -521,8 +541,7 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   `touch-action:none`, armed only while `calRe` was set, which is almost certainly the
   "I cannot drag and drop" — the Rearrange button had to be found first. The mode is
   gone and dragging is always live.
-- Open: the calendar feed emits one event for a doubled-up day, titled with both
-  sessions, rather than two events. Fine to read, not ideal.
+- ~~Open: the calendar feed emits one event for a doubled-up day.~~ Fixed in 3.68.
 
 **Spoto press, and a classification I got lazy about (2026-10-21)**
 - Asked whether a paused bench and a Spoto press are the same thing. They are not, and

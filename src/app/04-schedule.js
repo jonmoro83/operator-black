@@ -427,7 +427,7 @@ function dayPlan(date){
     // say which day has plyos without anyone having to open it.
     const bare=['off','pre'].includes(dp.t);
     const two=plyoDows(mondayOf(date)).length>1, nm=two?'Plyo '+(pn+1):'Plyo';
-    return Object.assign({},dp,{plyo:true,plyoN:pn+1,plyoCut:dp.plyoCut||wk.kind==='deload',
+    return Object.assign({},dp,{plyo:true,plyoN:pn+1,plyoName:nm,plyoCut:dp.plyoCut||wk.kind==='deload',
       short:bare?nm:nm+'+'+(dp.short||'Session')});
   }
   return dp;

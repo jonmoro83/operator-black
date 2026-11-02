@@ -214,6 +214,22 @@ test("a subscription has to be a real https endpoint with both keys", async () =
   a.equal((await call("unsubscribe", { endpoint: d.sub.endpoint })).json.devices, 0);
 });
 
+test("only this device drops the others and their pending alerts, and keeps its own", async () => {
+  const { call } = await object();
+  const [d1, d2, d3] = [await device(1), await device(2), await device(3)];
+  for (const d of [d1, d2, d3]) await call("subscribe", { subscription: d.sub });
+  const soon = [{ at: Date.now() + 60000, title: "Rest over" }];
+  await call("set", { kind: "rest", rev: 1, alerts: soon, endpoint: d1.sub.endpoint });
+  await call("set", { kind: "rest", rev: 1, alerts: soon, endpoint: d2.sub.endpoint });
+  a.equal((await call("only", { endpoint: "https://web.push.apple.com/nobody" })).status, 400, "not for a device that isn't here");
+  const r = await call("only", { endpoint: d1.sub.endpoint });
+  a.deepEqual(r.json, { devices: 1, removed: 2 });
+  const st = (await call("status")).json;
+  a.equal(st.devices, 1);
+  a.deepEqual(st.slots.map((s) => s.to), ["web.push.apple.com"], "the removed device's queued rest went with it");
+  a.equal(st.queued, 1, "and this device's is still queued");
+});
+
 // A device's rest, set the way the app sets it.
 const later = (ms) => Date.now() + ms;
 async function setAlerts(call, kind, rev, alerts, endpoint) {

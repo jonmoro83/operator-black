@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.68',date:'2026-11-02',title:"Two sessions, two calendar entries",items:[
+    "A day with two sessions on it, say a lifting day you moved a HIC onto, now shows up in the calendar feed as two entries instead of one titled \u201cLift + HIC\u201d. Each has its own lifts or intervals in it. Booked at a set time, the second starts when the first ends.",
+    "Rest alerts can now tell you when they're going to more than one device. Removing the app from your home screen and adding it back leaves the old copy signed up, so alerts quietly kept going to installs that no longer exist. Setup \u2192 Rest alerts shows how many there are and has an Only this device button to clear the rest out."]},
   {v:'3.67',date:'2026-11-02',title:"A centered launch screen",items:[
     "The logo on the launch screen sat right of center and a little low on every iPhone. The images were drawn wider than the phone and then cropped, which pushed everything right. They're redrawn now, and the logo and name sit in the middle. iPhone keeps the old launch screen until you remove the app from your home screen and add it again."]},
   {v:'3.66',date:'2026-11-02',title:"The welcome setup knows StrongLifts",items:[

@@ -64,6 +64,21 @@ export class RestAlerts extends DurableObject {
       return json({ devices: Object.keys(subs).length });
     }
 
+    // "Only this device": drop every other subscription. A home-screen app removed and
+    // added again gets a new subscription, and the old one can keep answering 201 for
+    // months -- Apple doesn't say it's gone -- so the server can't tell a spare iPad from
+    // a phone that no longer exists. The phone that is still here can.
+    if (op === "only") {
+      if (!subs[body.endpoint]) return json({ error: "This device is not registered." }, 400);
+      const gone = Object.keys(subs).filter((e) => e !== body.endpoint);
+      for (const e of gone) delete subs[e];
+      await this.ctx.storage.put("subs", subs);
+      const slots = await this.slots();
+      for (const [k, s] of Object.entries(slots)) if (s.to && gone.includes(s.to)) delete slots[k];
+      await this.saveSlots(slots);
+      return json({ devices: 1, removed: gone.length });
+    }
+
     if (op === "set") {
       // {kind, rev, alerts: [{at, title, body}], endpoint}. An empty list is a cancel.
       const kind = String(body.kind || ""), rev = Number(body.rev), list = body.alerts;

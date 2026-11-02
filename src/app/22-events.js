@@ -272,6 +272,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='updnow'){applyUpdate();return}
   if(a==='alerton'){enableAlerts();return}
   if(a==='alertoff'){disableAlerts();return}
+  if(a==='alertonly'){onlyThisDevice();return}
   if(a==='alerttest'){testAlert();return}
   if(a==='pushcheck'){checkAlerts();return}
   if(a==='pushcopy'){ copyOut(b,pushReport(),'Copy for a bug report'); return }

@@ -536,6 +536,9 @@ function vSetup(){
     else if(sup==='denied') h+=`<div class="banner warn"><div class="small">Notifications are blocked for this app. Turn them on in iOS Settings → Notifications → Operator, then come back here.</div></div>`;
     else h+=`<div class="row">${on?`<button class="btn" data-act="alerttest" ${alerts.busy?'disabled':''}>Send a test</button><button class="btn ghost" data-act="alertoff" ${alerts.busy?'disabled':''}>Turn off</button>`:`<button class="btn primary" data-act="alerton" ${alerts.busy?'disabled':''}>${alerts.busy?'Turning on…':'Turn on rest alerts'}</button>`}</div>`;
     if(alerts.msg) h+=`<div class="small">${esc(alerts.msg)}</div>`;
+    const nDev=(pushStat&&pushStat.devices)||alerts.devices||0;
+    if(on&&nDev>1) h+=`<div class="banner info"><div class="small">Alerts are going to <b>${nDev} devices</b>. If this is your only one, the rest are old installs: removing the app from the home screen and adding it back leaves the old one behind.</div></div>
+      <div class="row"><button class="btn sm" data-act="alertonly" ${alerts.busy?'disabled':''}>Only this device</button></div>`;
     // Open it when there is something wrong to see. A diagnostic folded away is a
     // diagnostic nobody reads, and this one exists because somebody is already stuck.
     const bad=(pushLast&&!pushLast.ok)||(pushStat&&!pushStat.busy&&!pushStat.err&&pushStat.devices===0);

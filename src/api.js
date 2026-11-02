@@ -185,7 +185,7 @@ export async function handleApi(request, env) {
     const op = route.slice(5);
     // `set` is the current way to schedule; `schedule` and `cancel` are what clients from
     // before the per-timer slots still call, and stay until no phone is running one.
-    const allowed = { status: "GET", subscribe: "POST", unsubscribe: "POST", set: "POST", schedule: "POST", cancel: "POST", test: "POST" };
+    const allowed = { status: "GET", subscribe: "POST", unsubscribe: "POST", only: "POST", set: "POST", schedule: "POST", cancel: "POST", test: "POST" };
     if (allowed[op] !== request.method) return json({ error: "Not found." }, 404);
     // one alerts object per person: their devices, their queue
     const stub = env.ALERTS.get(env.ALERTS.idFromName("user:" + user));

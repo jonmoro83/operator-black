@@ -2264,12 +2264,37 @@ test("the calendar feed is valid iCalendar that a phone will accept", () => {
   a.ok(open > 50, `a useful horizon, got ${open} events`);
   const uids = t.match(/^UID:.*$/gm);
   a.equal(new Set(uids).size, uids.length, "UIDs are unique, so a refresh updates rather than duplicates");
-  a.ok(uids.every((u) => /^UID:ob-\d{4}-\d{2}-\d{2}@/.test(u)), "and stable per day, not random");
+  a.ok(uids.every((u) => /^UID:ob-\d{4}-\d{2}-\d{2}(-\d)?@/.test(u)), "and stable per session, not random");
 
   // All-day events, with the end on the following day as the spec requires.
   a.match(t, /DTSTART;VALUE=DATE:20260907\r\nDTEND;VALUE=DATE:20260908\r\n/);
   // Commas and semicolons in a title have to be escaped or the line splits.
   a.match(t, /SUMMARY:Op 1 · Squat\\, Bench\\, Pulldown/);
+});
+
+test("a doubled-up day is two calendar events, booked back to back", () => {
+  const x = app({ now: "2026-09-14" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = "2026-09-14", day = (i) => x.addDays(mon, i);
+  const sl = [0, 1, 2, 3, 4, 5, 6].find((i) => x.dayPlans(day(i)).length === 1 && x.dayPlan(day(i)).t !== "lift");
+  const lift = [0, 1, 2, 3, 4, 5, 6].find((i) => x.dayPlan(day(i)).t === "lift");
+  a.ok(sl != null && lift != null, "the week has a lifting day and a conditioning day");
+  a.equal(x.moveSession(mon, sl, day(lift)), true);
+  a.equal(x.dayPlans(day(lift)).length, 2, "the lifting day now holds two sessions");
+
+  const ymd = day(lift).replace(/-/g, "");
+  let t = x.icsFeed();
+  a.equal((t.match(new RegExp("DTSTART;VALUE=DATE:" + ymd, "g")) || []).length, 2, "two events on that date");
+  a.match(t, new RegExp("UID:ob-" + day(lift) + "@"), "the first keeps the per-day UID");
+  a.match(t, new RegExp("UID:ob-" + day(lift) + "-2@"), "the second gets its own");
+  a.ok(!/SUMMARY:[^\r]* \+ /.test(t), "and no title runs two sessions together");
+
+  x.plan.cal = { mode: "timed", time: "06:00" }; x.bump();
+  t = x.icsFeed();
+  const starts = [...t.matchAll(new RegExp("DTSTART:" + ymd + "T(\\d{4})00\r\nDTEND:" + ymd + "T(\\d{4})00", "g"))];
+  a.equal(starts.length, 2);
+  a.equal(starts[0][1], "0600", "lifting first, at the usual time");
+  a.equal(starts[1][1], starts[0][2], "the second starts when the first ends");
 });
 
 test("the feed carries the weights, and leaves rest days out", () => {
