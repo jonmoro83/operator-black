@@ -56,19 +56,30 @@ function icon(px, out) {
   return fs.statSync(out).size;
 }
 
-/** iPhone launch screen: the mark plus the wordmark, centred on ink. */
+/**
+ * iPhone launch screen: the mark plus the wordmark, centred on ink.
+ * Laid out in device pixels at a scale factor of 1, not in points at the phone's dpr:
+ * headless Chrome will not make a window narrower than about 500 px, so a 402-point
+ * window was laid out wider than asked and the screenshot kept only its left part --
+ * which put the logo right of centre (and low) on every launch screen.
+ */
 function splash(w, h, dpr, out) {
-  const icon = Math.round(w * 0.34), fs_ = Math.max(11, Math.round(w * 0.042)), gap = Math.round(w * 0.05);
+  const icon = Math.round(w * 0.34) * dpr, fs_ = Math.max(11, Math.round(w * 0.042)) * dpr, gap = Math.round(w * 0.05) * dpr;
+  // Flex centres the boxes, not the ink: the mark's 64-unit square has more empty space
+  // above the OB than below the bar, and the wordmark's line box has room under it, so
+  // the artwork sat about 4.5% of the width low. Padding the bottom by twice that lifts
+  // it back to the middle. Measured off the rendered PNGs, not guessed.
+  const lift = Math.round(w * 0.091) * dpr;
   const html = `<!doctype html><meta charset=utf8>${FONT}<style>
     html,body{margin:0;height:100%;background:${INK}}
-    .w{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:${gap}px;
+    .w{height:100%;box-sizing:border-box;padding-bottom:${lift}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:${gap}px;
        font-family:Archivo,system-ui,sans-serif}
     svg{width:${icon}px;height:${icon}px}
-    .t{color:${CHALK};font-size:${fs_}px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+    .t{color:${CHALK};font-size:${fs_}px;font-weight:800;letter-spacing:.14em;margin-right:-.14em;text-transform:uppercase}
     .t b{color:${BLUE}}</style>
     <div class="w"><svg viewBox="0 0 64 64">${mark(CHALK, BLUE)}</svg>
     <div class="t">Operator <b>+</b> Black</div></div>`;
-  return shoot(html, w, h, out, dpr);
+  return shoot(html, w * dpr, h * dpr, out, 1);
 }
 
 const SPLASHES = [[440,956,3],[430,932,3],[402,874,3],[393,852,3],[390,844,3],

@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.67',date:'2026-11-02',title:"A centered launch screen",items:[
+    "The logo on the launch screen sat right of center and a little low on every iPhone. The images were drawn wider than the phone and then cropped, which pushed everything right. They're redrawn now, and the logo and name sit in the middle. iPhone keeps the old launch screen until you remove the app from your home screen and add it again."]},
   {v:'3.66',date:'2026-11-02',title:"The welcome setup knows StrongLifts",items:[
     "Picking StrongLifts 5\u00d75 in the welcome setup used to show Operator's Lift 3 choice: lat pulldown, overhead press or weighted pull-up. StrongLifts has no Lift 3. It alternates two fixed workouts, A (squat, bench, barbell row) and B (squat, overhead press, deadlift), and that step now shows them instead.",
     "The Start step no longer offers a bridge week or asks for maxes, since StrongLifts has no percentages to take of them. It starts every lift on the empty bar (the deadlift at twice the bar), and you can set your own starting weights in Setup \u2192 Program.",
