@@ -469,9 +469,10 @@ function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
   const SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
   if(wk.kind==='cycle') return composeSlot(date,wk,d);
-  // No conditioning: the deload and test weeks' easy cardio days become rest days.
+  // No conditioning: the conditioning days of the weeks that hardcode their own become
+  // rest days. The bridge week's spin after a test day is dropped where it is written.
   const noCond=(CPROTO[wk.cpr]||cprotoOf()).none;
-  if(noCond&&(wk.kind==='deload'||wk.kind==='test')){
+  if(noCond&&['deload','test','bridge','travel'].includes(wk.kind)){
     const x=dayPlanSlot0(date,wk,d,SBP,SBD);
     return x.t==='hic'?{t:'off',short:'Off'}:x;
   }
@@ -492,7 +493,7 @@ function dayPlanSlot0(date,wk,d,SBP,SBD){
     {t:'hic',fmt:'liss',short:'Easy',note:'Easy day. 20–30 min of conversational cardio.'},
     // Thursday to Saturday, split by testSplit: jumps on the first test day, the pull-up
     // test and the button that applies the results on the last.
-    ...(()=>{const sp=testSplit(3);return sp.map((L,i)=>L.length?Object.assign({t:'test',lifts:L,short:'Test'},i===0?{jumps:true}:{},i===2?{pullups:true,apply:true}:{}):{t:'off',short:'Off'})})(),
+    ...(()=>{const sp=testSplit(3);return sp.map((L,i)=>L.length?Object.assign({t:'test',lifts:L,short:'Test'},i===0&&plan.plyoOn!==false?{jumps:true}:{},i===2?{pullups:true,apply:true}:{}):{t:'off',short:'Off'})})(),
     {t:'off',short:'Off'}][d];
   if(wk.kind==='bb'){
     const row=bbRow(wk)[d]||['rest'], k=row[0];
@@ -550,9 +551,12 @@ function dayPlanSlot0(date,wk,d,SBP,SBD){
     {t:'off',short:'—',note:'Bridge week starts Tuesday.'},
     {t:'rm5',lifts:['squat','bench'],short:'5RM'},
     {t:'hic',fmt:'map',baseline:true,short:'HIC',note:'Baseline: 8 × 1 min. Record total calories.'},
-    {t:'plyobase',short:'Jumps'},
+    // Plyos switched off: no jump baselines either, so Thursday is a rest day.
+    plan.plyoOn===false?{t:'off',short:'Off'}:{t:'plyobase',short:'Jumps'},
     {t:'rm5',lifts:['dead',l3On()[0]],short:'5RM'},
-    l3On().length>1?(()=>{const rest=l3On().slice(1);return {t:'rm5',lifts:rest,cardio:true,fmt:'liss',short:'5RM+Spin',note:rest.length>1?'Test these first — two lifts per day keeps the numbers honest — then ride easy for 30–40 min.':'Test the '+liftName(rest[0]).toLowerCase()+' first — it is on its own day so the number is honest — then ride easy for 30–40 min.'}})():{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
+    l3On().length>1?(()=>{const rest=l3On().slice(1);
+      if(cprotoOf().none) return {t:'rm5',lifts:rest,short:'5RM',note:rest.length>1?'Two lifts per day keeps the numbers honest, so these get a day of their own.':'The '+liftName(rest[0]).toLowerCase()+' gets a day of its own so the number is honest.'};
+      return {t:'rm5',lifts:rest,cardio:true,fmt:'liss',short:'5RM+Spin',note:rest.length>1?'Test these first — two lifts per day keeps the numbers honest — then ride easy for 30–40 min.':'Test the '+liftName(rest[0]).toLowerCase()+' first — it is on its own day so the number is honest — then ride easy for 30–40 min.'}})():{t:'hic',fmt:'liss',short:'Easy',note:'30–40 min easy cardio.'},
     {t:'convert',short:'Maxes'}][d];
   if(wk.kind==='travel') return [
     {t:'travel',slot:'day1',short:'Travel 1'},

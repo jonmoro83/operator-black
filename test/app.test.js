@@ -9601,3 +9601,42 @@ test("no conditioning can be picked at setup, and then none is scheduled anywher
   }
   a.match(x.templateCard(), /3 lifting days and no conditioning\./);
 });
+
+test("with no conditioning the bridge week (and a travel week) carry no HIC, and with plyos off no jumps", () => {
+  for (const l3 of [{ pull: true }, { pull: true, ohp: true }]) {
+    const x = app({ now: "2026-10-19" });
+    x.wz = x.wzNew(false); Object.assign(x.wz.l3, l3); x.wz.cproto = "none"; x.wz.mode = "bridge"; x.wz.start = "2026-10-19";
+    x.wzFinish();
+    const br = x.weeks().find((w) => w.kind === "bridge");
+    a.ok(br, "there is a bridge week");
+    const days = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlan(x.addDays(br.monday, d)));
+    a.ok(days.every((p) => p.t !== "hic" && !p.cardio), `no conditioning in the bridge week (${days.map((p) => p.short).join(" ")})`);
+    a.equal(days.filter((p) => p.t === "rm5").length, l3.ohp ? 3 : 2, "every lift is still tested");
+    a.ok(days.some((p) => p.t === "plyobase"), "and the jumps baseline stays: plyos are their own choice");
+    a.ok(days.every((p) => !/ride/.test(p.note || "")), "no note tells you to ride");
+  }
+  // Plyos off works the same way: no jumps baseline in the bridge, no jump test in a retest.
+  const z = app({ now: "2026-10-19" });
+  z.wz = z.wzNew(false); z.wz.plyo = false; z.wz.mode = "bridge"; z.wz.start = "2026-10-19"; z.wz.test = 2;
+  z.wzFinish();
+  const zb = z.weeks().find((w) => w.kind === "bridge"), zt = z.weeks().find((w) => w.kind === "test");
+  a.ok(zb && zt, "there is a bridge and a retest week");
+  for (const w of [zb, zt]) for (let d = 0; d < 7; d++) {
+    const p = z.dayPlan(z.addDays(w.monday, d));
+    a.ok(p.t !== "plyobase" && !p.jumps && !p.plyo, `${w.kind} day ${d} has no jumps (${p.short})`);
+  }
+  a.equal(z.dayPlan(z.addDays(zb.monday, 3)).t, "off", "the bridge's jumps day is a rest day");
+  a.ok([0, 1, 2, 3, 4, 5, 6].some((d) => z.dayPlan(z.addDays(zt.monday, d)).pullups), "the retest still tests pull-ups");
+  // With plyos on, both are still there.
+  const on = app({ now: "2026-10-19" });
+  on.wz = on.wzNew(false); on.wz.mode = "bridge"; on.wz.start = "2026-10-19"; on.wz.test = 2; on.wzFinish();
+  const ob = on.weeks().find((w) => w.kind === "bridge"), ot = on.weeks().find((w) => w.kind === "test");
+  a.equal(on.dayPlan(on.addDays(ob.monday, 3)).t, "plyobase");
+  a.ok([0, 1, 2, 3, 4, 5, 6].some((d) => on.dayPlan(on.addDays(ot.monday, d)).jumps));
+  // A travel week is the same promise.
+  const y = app({ now: "2026-10-19" });
+  y.plan.startMonday = "2026-09-07"; y.plan.bridge = false; y.plan.cproto = "none"; y.bump();
+  const mon = y.mondayOf("2026-10-26");
+  y.replan("Travel week", (p) => { p.inserts[mon] = "travel" });
+  a.ok([0, 1, 2, 3, 4, 5, 6].every((d) => y.dayPlan(y.addDays(mon, d)).t !== "hic"));
+});

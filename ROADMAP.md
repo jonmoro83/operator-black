@@ -385,6 +385,11 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   days into rest under `none` (split into `dayPlanSlot`/`dayPlanSlot0` to do it in one
   place). Recovery weeks (3-1-3-1) keep their two easy sessions: those are the book's
   general workouts, not conditioning.
+- 3.65: bridge and travel weeks follow it too -- their `hic` days go to rest through the
+  same `dayPlanSlot` check, and the bridge's 5RM+Spin day loses the spin and its "then
+  ride" note. Plyos switched off now also drop the bridge's `plyobase` day (to rest) and
+  the retest week's `jumps` flag; before, `plyoOn` only reached cycle, deload and travel
+  weeks through `weekHasPlyo`.
 - The wizard's Conditioning step skips the tool picker and says what None means; the
   summary reads "Conditioning: none". The step's note also no longer claims "three hard
   sessions" for every protocol: it counts the chosen protocol's sessions.

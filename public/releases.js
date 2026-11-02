@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.65',date:'2026-11-02',title:"The bridge week follows your choices",items:[
+    "With no conditioning picked, the bridge week no longer schedules its baseline HIC or the easy spin after a test day: those days are rest now, and every lift is still tested. A travel week drops its HIC sessions the same way.",
+    "With plyos switched off, the bridge week no longer has a jumps day and the retest week no longer opens with a jump test. Turning plyos off used to clear them from your regular weeks only."]},
   {v:'3.64',date:'2026-11-02',title:"Lifting with no conditioning",items:[
     "Setup now offers None as a conditioning protocol, for when you don't want the app to schedule any: you already run or play a sport, or you're starting out on StrongLifts and want to keep it to the barbell. Pick it in the welcome setup, or later under Setup \u2192 Program.",
     "With None the week is lifting days and rest days only. Deload and retest weeks leave out their easy cardio days too, rather than scheduling cardio you said you didn't want.",
