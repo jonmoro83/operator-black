@@ -12,9 +12,9 @@ function wzNew(rerun){
 }
 const WZ_STEPS=['You','Program','Lift 3','Start','Conditioning','Plyos','Deloads','Ready'];
 function vWelcome(){
-  const w=wz, steps=WZ_STEPS.map((t,i)=>`<span class="chip${i===w.step?' blue':i<w.step?' light':''}">${i+1}. ${t}</span>`).join('');
+  const w=wz, steps=WZ_STEPS.map((t,i)=>`<span class="chip${i===w.step?' blue':i<w.step?' light':''}">${i+1}. ${t==='Lift 3'&&lpOn(w.stempl)?'Lifts':t}</span>`).join('');
   let h=`<div class="card"><div class="lift-h"><h2>${w.rerun?'Welcome setup':'Welcome to Operator + Black'}</h2>${w.rerun?'':'<button class="btn sm ghost" data-act="wzskip">Skip</button>'}</div><div class="row" style="gap:6px">${steps}</div>`;
-  const on=L3K.filter(k=>w.l3[k]);
+  const on=L3K.filter(k=>w.l3[k]), lp=lpOn(w.stempl);
   if(w.step===0){
     h+=`<p style="margin:0">A training log for Tactical Barbell’s <b>Operator</b> (squat, bench and a third lift, three days a week, never near failure) and the <b>Black</b> conditioning protocol (three hard cardio sessions a week), plus plyometrics on Thursdays. It works out your weights, rest and intervals.</p>
     <div class="grid2"><label class="f">Units<div class="seg">${['lb','kg'].map(x=>`<button class="segb${w.unit===x?' on':''}" data-act="wzset" data-k="unit" data-v="${x}">${x}</button>`).join('')}</div></label><label class="f">Bodyweight (${w.unit}, optional)<input type="number" inputmode="decimal" step="any" id="wz-bw" data-wz="bw" value="${w.bw??''}"></label></div>
@@ -26,9 +26,19 @@ function vWelcome(){
     <label class="check"><input type="checkbox" id="wz-bb" data-act-change="wzbb" ${w.bb?'checked':''}> Start with <b>Base Building</b> first</label>
     <div class="note">Tactical Barbell II\u2019s Block I: eight weeks of aerobic base and strength-endurance before you go near a heavy barbell cycle. The book\u2019s advice is to do it first if you have not built that base, and once or twice a year after.</div>
     ${wzWarnings(w)}`;
+  } else if(w.step===2&&lp){
+    // A linear progression names its lifts outright: there is no Lift 3 to pick.
+    h+=`<p style="margin:0">${esc(STEMPL[w.stempl].name)} has no Lift 3 to choose. It alternates two workouts, three days a week:</p>
+    <dl class="kv">${wzLpDays(w).map(x=>`<dt>${esc(x.short)}</dt><dd>${x.lifts.map((k,i)=>esc(i?wzLiftName(w,k).toLowerCase():wzLiftName(w,k))).join(', ')}</dd>`).join('')}</dl>
+    <div class="note">The order flips each week, A-B-A then B-A-B. Every lift is five sets of five except the deadlift, which is one set of five.</div>`;
   } else if(w.step===2){
     h+=`<p style="margin:0">Monday and Wednesday include a third lift. Pick the ones you’ll use; with more than one, you can swap on any day.</p>
     <div class="stack">${L3K.map(k=>`<button class="btn${w.l3[k]?' primary':''}" style="justify-content:flex-start" data-act="wzl3" data-v="${k}">${w.l3[k]?'✓ ':''}${esc(liftName(k))}${k==='wpu'?' <span class="small">(once you can do a strict pull-up)</span>':''}</button>`).join('')}</div>`;
+  } else if(w.step===3&&lp){
+    // No percentages, so no maxes and no bridge week to find them in.
+    h+=`<label class="f" style="max-width:260px">Start the week of<input type="date" id="wz-start" data-wz="start" value="${w.start}"></label>
+    <div class="note">No maxes needed: this program has no percentages to take of them, so there is no bridge week either. Every lift starts on the empty bar (the deadlift at twice the bar) and climbs each session. If you already lift, set your own starting weights in Setup \u2192 Program after this.</div>`;
+    if(w.rerun) h+=`<div class="banner warn"><div class="small">Changing the start week re-plans your whole calendar, locked weeks included.</div></div>`;
   } else if(w.step===3){
     const lifts=['squat','bench',...on,'dead'];
     h+=`<label class="f" style="max-width:260px">Start the week of<input type="date" id="wz-start" data-wz="start" value="${w.start}"></label>
@@ -58,6 +68,9 @@ function vWelcome(){
       ${w.plyoPer===2?'<div class="note">Both are lit, numbered in the order the week runs them. Tapping a third replaces whichever you picked longer ago.</div>':''}
       <div class="note">They go first on whatever day you pick, and you can move one a week at a time from the Move… button on any day.</div>
       ${wzPlyoWarn(w)}`:''}`;
+  } else if(w.step===6&&lp){
+    h+=`<p style="margin:0">${esc(STEMPL[w.stempl].name)} is one open-ended run, with no cycles to end, so there are no scheduled deload or retest weeks.</p>
+    <div class="note">It manages itself instead: miss a lift three sessions running and its weight drops 10% so you can build back up. The app still offers a deload when your check-ins show low readiness, and you can add one from the Plan tab any time.</div>`;
   } else if(w.step===6){
     h+=`<p style="margin:0">How the block itself runs. Both of these apply to the whole program, not just one part of it.</p>
     <label class="f">Scheduled deload week<div class="seg">${DELOAD_OPTS.map(([v,l])=>`<button class="segb${w.deload===v?' on':''}" data-act="wzset" data-k="deload" data-v="${v}">${l}</button>`).join('')}</div></label>
@@ -67,7 +80,7 @@ function vWelcome(){
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
-    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(k=>liftName(k)).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${CPROTO[w.cproto].none?'none':MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
+    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd>${lp?`<dt>Lifts</dt><dd>${wzLpDays(w).map(x=>esc(x.short)+': '+x.lifts.map(k=>esc(wzLiftName(w,k))).join(', ')).join(' \u00b7 ')}</dd>`:`<dt>Lift 3</dt><dd>${on.map(k=>liftName(k)).map(esc).join(', ')}</dd>`}<dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))}${lp?' \u00b7 starting weights, no maxes':' · '+(w.mode==='bridge'?'bridge week':'Cycle 1')}</dd>${!lp&&w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${CPROTO[w.cproto].none?'none':MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${lp?'when you need one; no retest weeks':deloadLabel(w.deload).toLowerCase()+(w.test?' · retest every '+w.test+' cycles':' · no retest weeks')}</dd></dl>
     ${wzWarnings(w)}
     <div class="note">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
@@ -83,6 +96,15 @@ function vWelcome(){
    pair, so every numeric field added afterwards was stored as a string and never looked
    chosen — which is what happened to the plyo day. The field's own starting type is the
    answer, and it cannot be forgotten. */
+// A linear program's distinct workouts and their lifts, for the wizard. The plan is not
+// saved yet, so the row is named for the template picked here, not the one in force.
+function wzLpDays(w){
+  const seen=new Set(), out=[];
+  for(const x of tplDays(STEMPL[w.stempl],{w:1})){ if(seen.has(x.lifts)) continue; seen.add(x.lifts);
+    out.push({short:x.short,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(w.start)}) }
+  return out;
+}
+function wzLiftName(w,k){ return k==='pull'&&lpOn(w.stempl)?(plan.lift3Name||'Barbell row'):liftName(k) }
 function wzSet(k,v){
   if(!wz) return false;
   wz[k]=typeof wz[k]==='number'?+v:v;
@@ -100,6 +122,8 @@ function wzWarnings(w){
 }
 function wzFinish(){
   const w=wz, on=L3K.filter(k=>w.l3[k]); if(!on.length) on.push('pull');
+  // A linear program has no bridge week and no maxes, and its steps never asked.
+  if(lpOn(w.stempl)) w.mode='lp';
   mutatePlan(p=>{
     const start=mondayOf(w.start), restart=start!==p.startMonday||(w.mode==='bridge')!==!!p.bridge;
     p.unit=w.unit; p.bar=w.unit==='kg'?20:45; if(w.bw!==''&&w.bw!=null) p.bodyweight=+w.bw;

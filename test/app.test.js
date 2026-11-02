@@ -9640,3 +9640,36 @@ test("with no conditioning the bridge week (and a travel week) carry no HIC, and
   y.replan("Travel week", (p) => { p.inserts[mon] = "travel" });
   a.ok([0, 1, 2, 3, 4, 5, 6].every((d) => y.dayPlan(y.addDays(mon, d)).t !== "hic"));
 });
+
+test("the setup wizard on StrongLifts shows its fixed lifts, not a Lift 3 choice", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false); x.wz.stempl = "strong5";
+  x.wz.step = 2;
+  let h = x.vWelcome();
+  a.ok(!h.includes('data-act="wzl3"'), "no Lift 3 buttons");
+  a.ok(!/Lat pulldown|Weighted pull-up/.test(h), "and none of Operator's Lift 3 options");
+  a.match(h, /<dt>SL A<\/dt><dd>[^<]*squat, bench press, barbell row<\/dd>/i);
+  a.match(h, /<dt>SL B<\/dt><dd>[^<]*squat, overhead press, [^<]*deadlift<\/dd>/i);
+  a.match(h, /3\. Lifts</, "the step is called Lifts");
+
+  // No bridge week or maxes to choose, and no deload schedule that would never run.
+  x.wz.step = 3; h = x.vWelcome();
+  a.ok(!h.includes('data-k="mode"') && !h.includes('data-wz="maxes.'), "no bridge or maxes");
+  a.match(h, /No maxes needed/);
+  x.wz.step = 6; h = x.vWelcome();
+  a.ok(!h.includes('data-k="deload"') && !h.includes('data-k="test"'));
+  x.wz.step = 7; h = x.vWelcome();
+  a.match(h, /<dt>Lifts<\/dt><dd>SL A: [^<]*Barbell row · SL B: [^<]*Overhead press, [^<]*deadlift<\/dd>/i);
+  a.ok(!/<dt>Lift 3<\/dt>|<dt>Maxes<\/dt>/.test(h));
+
+  x.wzFinish();
+  a.equal(x.plan.stempl, "strong5");
+  a.equal(x.plan.bridge, false, "no bridge week saved");
+  a.equal(x.weeks()[0].kind, "cycle");
+  a.equal(x.liftName("pull"), "Barbell row", "and the row is called a row once it is running");
+
+  // Operator still gets the choice.
+  const y = app({ now: "2026-10-19" });
+  y.wz = y.wzNew(false); y.wz.step = 2;
+  a.match(y.vWelcome(), /data-act="wzl3" data-v="wpu"/);
+});

@@ -376,6 +376,15 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The welcome setup on StrongLifts (2026-11-02, 3.66)**
+- Reported: picking StrongLifts in the wizard still showed Operator's Lift 3 picker
+  (lat pulldown / OHP / weighted pull-up). StrongLifts has fixed A/B lifts. Under
+  `lpOn(w.stempl)` the wizard's Lift 3 step lists the template's own days
+  (`wzLpDays`, named via `wzLiftName` because the plan is not saved yet, so `pullDefName`
+  would still say lat pulldown), the Start step drops bridge/maxes, the Deloads step
+  explains the LP's own resets, and the summary follows. `wzFinish` saves
+  `bridge:false` and no maxes for an LP (`mode='lp'`).
+
 **No conditioning as a protocol (2026-11-02, 3.64)**
 - Asked for: the option to pick no conditioning in the setup wizard. `CPROTO.none`
   (`none:true`, book 'ours', `sessions:()=>[]`), so it is offered everywhere protocols

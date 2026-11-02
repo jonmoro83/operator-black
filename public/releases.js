@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.66',date:'2026-11-02',title:"The welcome setup knows StrongLifts",items:[
+    "Picking StrongLifts 5\u00d75 in the welcome setup used to show Operator's Lift 3 choice: lat pulldown, overhead press or weighted pull-up. StrongLifts has no Lift 3. It alternates two fixed workouts, A (squat, bench, barbell row) and B (squat, overhead press, deadlift), and that step now shows them instead.",
+    "The Start step no longer offers a bridge week or asks for maxes, since StrongLifts has no percentages to take of them. It starts every lift on the empty bar (the deadlift at twice the bar), and you can set your own starting weights in Setup \u2192 Program.",
+    "The Deloads step explains that StrongLifts handles its own back-offs (miss a lift three sessions running and it drops 10%) instead of offering a schedule that would never run."]},
   {v:'3.65',date:'2026-11-02',title:"The bridge week follows your choices",items:[
     "With no conditioning picked, the bridge week no longer schedules its baseline HIC or the easy spin after a test day: those days are rest now, and every lift is still tested. A travel week drops its HIC sessions the same way.",
     "With plyos switched off, the bridge week no longer has a jumps day and the retest week no longer opens with a jump test. Turning plyos off used to clear them from your regular weeks only."]},
