@@ -459,7 +459,9 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   function, which had been reading every such template as one day.
 - **Known rough edge:** switching to LP mid-program resumes the frozen week number, so
   the first StrongLifts week can read "Week 7". Harmless, and a beginner starting fresh
-  gets Week 1. Left alone rather than half-fixed.
+  gets Week 1. Left alone rather than half-fixed. StrongLifts is for a different user,
+  who will start fresh through the setup wizard; the owner isn't switching, so this
+  stays parked unless that changes.
 
 **Accessory sets tick off, and rest themselves (2026-10-27)**
 - Asked for: a configurable rest for accessory sets, started by marking a set done
