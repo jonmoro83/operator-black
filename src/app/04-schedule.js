@@ -469,6 +469,15 @@ function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
   const SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
   if(wk.kind==='cycle') return composeSlot(date,wk,d);
+  // No conditioning: the deload and test weeks' easy cardio days become rest days.
+  const noCond=(CPROTO[wk.cpr]||cprotoOf()).none;
+  if(noCond&&(wk.kind==='deload'||wk.kind==='test')){
+    const x=dayPlanSlot0(date,wk,d,SBP,SBD);
+    return x.t==='hic'?{t:'off',short:'Off'}:x;
+  }
+  return dayPlanSlot0(date,wk,d,SBP,SBD);
+}
+function dayPlanSlot0(date,wk,d,SBP,SBD){
   if(wk.kind==='deload') return [
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS'},

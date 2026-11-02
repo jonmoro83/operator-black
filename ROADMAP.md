@@ -376,6 +376,19 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**No conditioning as a protocol (2026-11-02, 3.64)**
+- Asked for: the option to pick no conditioning in the setup wizard. `CPROTO.none`
+  (`none:true`, book 'ours', `sessions:()=>[]`), so it is offered everywhere protocols
+  are: the wizard, Setup's protocol picker and the Guide's table. `weekShape` already
+  handled an empty session list.
+- Deload and test weeks hardcode their LISS days, so `dayPlanSlot` turns their `hic`
+  days into rest under `none` (split into `dayPlanSlot`/`dayPlanSlot0` to do it in one
+  place). Recovery weeks (3-1-3-1) keep their two easy sessions: those are the book's
+  general workouts, not conditioning.
+- The wizard's Conditioning step skips the tool picker and says what None means; the
+  summary reads "Conditioning: none". The step's note also no longer claims "three hard
+  sessions" for every protocol: it counts the chosen protocol's sessions.
+
 **Freeform HIC (2026-11-01, 3.63)**
 - Asked for: HIC sessions that aren't predefined, e.g. 15 minutes on the bike at 15 s
   hard / 45 s easy. A new `HIC.free` format with `IV.free`; `freeShape(date)` reads the

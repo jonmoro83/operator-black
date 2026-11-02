@@ -457,6 +457,15 @@ const CPROTO={
       ];
     },
   },
+  /* Ours, not the books': lifting only. Every TB protocol has conditioning in it, but
+     someone already running, playing a sport or starting out on StrongLifts may want the
+     app to schedule none. Deload and test weeks drop their easy cardio too (see
+     dayPlanSlot), and a session can still be added on any day. */
+  none:{
+    name:'None', book:'ours', none:true,
+    blurb:'Lifting only. No conditioning is scheduled, and deload and test weeks leave out their easy cardio too. You can still add a session of your own on any day.',
+    sessions:()=>[],
+  },
 };
 
 // Green's circuits climb over a three-week block and start again. Progressive SE's
@@ -2992,6 +3001,15 @@ function dayPlanSlot(date,d){
   const wk=weekOf(date); if(!wk) return {t:'pre'};
   const SBP=['squat','bench',l3For(date)], SBD=['squat','bench','dead'];
   if(wk.kind==='cycle') return composeSlot(date,wk,d);
+  // No conditioning: the deload and test weeks' easy cardio days become rest days.
+  const noCond=(CPROTO[wk.cpr]||cprotoOf()).none;
+  if(noCond&&(wk.kind==='deload'||wk.kind==='test')){
+    const x=dayPlanSlot0(date,wk,d,SBP,SBD);
+    return x.t==='hic'?{t:'off',short:'Off'}:x;
+  }
+  return dayPlanSlot0(date,wk,d,SBP,SBD);
+}
+function dayPlanSlot0(date,wk,d,SBP,SBD){
   if(wk.kind==='deload') return [
     {t:'lift',deload:true,lifts:SBP,short:'Lift'},
     {t:'hic',fmt:'liss',short:'LISS'},
@@ -6057,9 +6075,12 @@ function vWelcome(){
       ${w.rm==='5rm'?'<div class="small muted">5-rep maxes are converted to 1-rep maxes (÷ 0.87).</div>':''}`;
     else h+=`<div class="note">The bridge week tests two lifts per test day, then converts your 5-rep maxes into Cycle 1’s numbers on Sunday.</div>`;
     if(w.rerun) h+=`<div class="banner warn"><div class="small">Changing the start week or bridge choice re-plans your whole calendar, locked weeks included.</div></div>`;
+  } else if(w.step===4&&CPROTO[w.cproto].none){
+    h+=`<p style="margin:0">You picked <b>no conditioning</b>, so none is scheduled: lifting days and rest days only, and deload and test weeks leave out their easy cardio too.</p>
+    <div class="note">You can still add a session of your own on any day, and switch to a protocol later in Setup if you want the app to plan it.</div>`;
   } else if(w.step===4){
     h+=`<label class="f">Main conditioning tool<div class="seg">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<button class="segb${w.cardio===k?' on':''}" data-act="wzset" data-k="cardio" data-v="${k}">${x.name}</button>`).join('')}</div></label>
-    <div class="note">Three hard sessions a week, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
+    <div class="note">${(n0=>`${n0} conditioning session${n0===1?'':'s'} a week`)(CPROTO[w.cproto].sessions({w:1}).length)} on ${esc(CPROTO[w.cproto].name)}, all on this by default. You can switch activity on any single day — sprints, rower, ruck, hike, swim and more — and the app compares results only against the same activity.</div>`;
 
   } else if(w.step===5){
     h+=`<p style="margin:0">Jumps and bounds, 15 to 20 minutes of real work, in three-week phases. A nervous-system stimulus rather than a workout — quality of each rep matters far more than how many.</p>
@@ -6080,7 +6101,7 @@ function vWelcome(){
     <div class="small muted">The app checks in every second cycle to ask whether the deload setting still fits.</div>`;
   } else {
     const lifts=['squat','bench',...on,'dead'];
-    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(k=>liftName(k)).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
+    h+=`<dl class="kv"><dt>Units</dt><dd>${w.unit}${w.bw?' · bodyweight '+esc(w.bw):''}</dd><dt>Lift 3</dt><dd>${on.map(k=>liftName(k)).map(esc).join(', ')}</dd><dt>Starts</dt><dd>${fmtLong(mondayOf(w.start))} · ${w.mode==='bridge'?'bridge week':'Cycle 1'}</dd>${w.mode==='maxes'?`<dt>Maxes</dt><dd>${lifts.map(k=>esc(liftName(k))+' '+(w.maxes[k]!=null&&w.maxes[k]!==''?(w.rm==='5rm'?n(floorTo(+w.maxes[k]/.87,5)):n(+w.maxes[k])):'—')).join(' · ')}</dd>`:''}<dt>Program</dt><dd>${esc(STEMPL[w.stempl].name)} + ${esc(CPROTO[w.cproto].name)}${w.bb?' \u00b7 after Base Building':''}</dd><dt>Conditioning</dt><dd>${CPROTO[w.cproto].none?'none':MOD[w.cardio].name}</dd><dt>Plyos</dt><dd>${w.plyo?(w.plyoPer===2?esc(DAYN[w.plyoDow])+' and '+esc(DAYN[w.plyoDow2]):esc(DAYN[w.plyoDow])):'none'}</dd><dt>Deloads</dt><dd>${deloadLabel(w.deload).toLowerCase()}${w.test?' · retest every '+w.test+' cycles':' · no retest weeks'}</dd></dl>
     ${wzWarnings(w)}
     <div class="note">Everything can be changed later in Setup. Tip: turn on <b>Rest alerts</b> in Setup to get notified when a rest ends.</div>`;
   }
@@ -8711,7 +8732,7 @@ function templateCard(){
   const T=stemplOf(), P=cprotoOf(), keys=Object.keys(STEMPL), pkeys=Object.keys(CPROTO);
   const days=P.noStrength?0:tplDays(T,{w:1}).length, hard=(typeof P.sessions==='function'?P.sessions({w:1}):P.sessions||[]).length;
   let h=`<div class="card"><div class="lift-h"><h2>Template and protocol</h2><span class="chip light">${esc(T.name)} + ${esc(P.name)}</span></div>
-  <p class="note" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives.</p>`;
+  <p class="note" style="margin:0">Your strength template and your conditioning protocol are separate choices, the way the books put them. The week is built from the two: ${days} lifting day${days===1?'':'s'} and ${hard?`${hard} conditioning session${hard===1?'':'s'}, laid out so no two hard days land together and a rest day survives`:'no conditioning'}.</p>`;
   if(keys.length>1){
     h+=`<label class="f">Strength template<select id="p-stempl" data-pbind="stempl">${keys.map(k=>`<option value="${k}"${k===stemplKey()?' selected':''}>${esc(STEMPL[k].name)} · ${tplDays(STEMPL[k],{w:1}).length} day${tplDays(STEMPL[k],{w:1}).length===1?'':'s'} · ${esc(STEMPL[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(T.blurb)}</div>`;

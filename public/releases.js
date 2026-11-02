@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.64',date:'2026-11-02',title:"Lifting with no conditioning",items:[
+    "Setup now offers None as a conditioning protocol, for when you don't want the app to schedule any: you already run or play a sport, or you're starting out on StrongLifts and want to keep it to the barbell. Pick it in the welcome setup, or later under Setup \u2192 Program.",
+    "With None the week is lifting days and rest days only. Deload and retest weeks leave out their easy cardio days too, rather than scheduling cardio you said you didn't want.",
+    "You can still add a conditioning session of your own on any day, and switch to a protocol whenever you want the app to plan it again."]},
   {v:'3.63',date:'2026-11-01',title:"Freeform HIC",items:[
     "A new HIC format, Freeform, for when you want your own intervals rather than one of the book's. Pick it from the Format list on any HIC day and set the hard time, the easy time and how long the session runs \u2014 say 15 minutes on the bike at 15 seconds hard, 45 easy.",
     "There are quick picks for the common shapes (15/45, 20/40, 30/30, 10/50 and 20/10 Tabata), and the three numbers for anything else. The timer runs it like any other session, beeps, spoken cues and lock-screen alerts included.",

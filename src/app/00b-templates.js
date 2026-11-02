@@ -455,6 +455,15 @@ const CPROTO={
       ];
     },
   },
+  /* Ours, not the books': lifting only. Every TB protocol has conditioning in it, but
+     someone already running, playing a sport or starting out on StrongLifts may want the
+     app to schedule none. Deload and test weeks drop their easy cardio too (see
+     dayPlanSlot), and a session can still be added on any day. */
+  none:{
+    name:'None', book:'ours', none:true,
+    blurb:'Lifting only. No conditioning is scheduled, and deload and test weeks leave out their easy cardio too. You can still add a session of your own on any day.',
+    sessions:()=>[],
+  },
 };
 
 // Green's circuits climb over a three-week block and start again. Progressive SE's

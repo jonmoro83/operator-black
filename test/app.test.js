@@ -9572,3 +9572,32 @@ test("a freeform session remembers its shape and only compares against the same 
   a.ok(!x.benchmark() || x.benchmark().fmt !== "free", "never the benchmark");
   a.equal(x.hicSessions(true).filter((h) => h.f === "free").length, 2, "but both count as sessions");
 });
+
+test("no conditioning can be picked at setup, and then none is scheduled anywhere", () => {
+  const x = app({ now: "2026-10-19" });
+  x.wz = x.wzNew(false);
+  x.wz.step = 1;
+  a.match(x.vWelcome(), /data-k="cproto" data-v="none"/, "it is on offer with the protocols");
+  x.wz.cproto = "none";
+  x.wz.step = 4;
+  let h = x.vWelcome();
+  a.match(h, /no conditioning/);
+  a.ok(!h.includes('data-k="cardio"'), "no tool to pick for sessions that will not happen");
+  x.wz.step = 7;
+  a.match(x.vWelcome(), /<dt>Conditioning<\/dt><dd>none<\/dd>/);
+  x.wz.mode = "maxes"; x.wz.start = "2026-09-07"; x.wz.deload = 2; x.wz.test = 3;
+  x.wzFinish();
+  a.equal(x.plan.cproto, "none");
+
+  // Cycle, deload and test weeks alike: lifting and rest, never a conditioning day.
+  const ws = x.weeks();
+  for (const kind of ["cycle", "deload", "test"]) a.ok(ws.some((w) => w.kind === kind), `there is a ${kind} week to check`);
+  for (const w of ws.filter((w) => ["cycle", "deload", "test"].includes(w.kind)).slice(0, 20)) {
+    for (let d = 0; d < 7; d++) {
+      const p = x.dayPlan(x.addDays(w.monday, d));
+      a.ok(p.t !== "hic" && !p.cardio && p.t !== "se", `${w.kind} ${w.monday} day ${d} has no conditioning (${p.t})`);
+    }
+    if (w.kind === "cycle") a.equal([0, 1, 2, 3, 4, 5, 6].filter((d) => x.dayPlan(x.addDays(w.monday, d)).t === "lift").length, 3, "and the lifting is untouched");
+  }
+  a.match(x.templateCard(), /3 lifting days and no conditioning\./);
+});
