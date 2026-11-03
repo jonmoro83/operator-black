@@ -52,6 +52,15 @@ Genuinely open: things that still need doing or confirming.
   "worked exactly as expected", which they called a big improvement. No report was sent,
   so it is not known whether that session included a trip to another app. Still open:
   a lifting session with rests and app switches, which is where the failure was worst.
+  **3.69 (2026-11-03): check before asking.** Asked whether the re-arm tap could go.
+  It cannot go entirely (iOS starts web audio only from a gesture; a native wrapper is
+  the only full fix), but 3.61 asked after *every* return. Now `probeAudio` runs on
+  return and on a start mid-timer: resume the existing context and watch `currentTime`
+  for `PROBE_MS`; if it doesn't move, rebuild without a gesture and watch again; only
+  then show the prompt (held back while probing). Log lines: `still working after
+  coming back`, `reopened without a tap`, `needs a tap (...)`, `check abandoned`.
+  **Next session's log answers** whether step 2 ever succeeds on iOS; if it never does,
+  it can go and the eviction case simply asks.
 - **Rest alerts: cause found 2026-10-24, fixed in 3.55, not yet confirmed on the
   phone.** The device report settled the half I had wrong: Apple accepted the test
   push on all three registered devices (201 each) and the notification appeared, so
@@ -375,6 +384,12 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**Fewer taps for the beep (2026-11-03, 3.69)**
+- See the rest-beeps entry under Open issues for the design. Four tests: a channel
+  that still plays is left alone with no prompt; a dead one is reopened without a tap
+  when allowed; a refusal brings the prompt back; a tap or leaving again settles a check
+  in flight. `audioAwake` stays (tested) but nothing calls it on return any more.
 
 **Calendar events per session, and "Only this device" for alerts (2026-11-02, 3.68)**
 - `calEvent` became `calEvents(date)`, one event per entry in `dayPlans`. The first

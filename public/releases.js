@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.69',date:'2026-11-03',title:"Fewer taps for the beep",items:[
+    "Coming back from another app mid-rest used to ask for a tap every time, just in case the sound had broken while you were away. Now the app checks first. If the sound still works there's no prompt, and if it's broken the app tries to restart it on its own.",
+    "You'll only see \u201cSound needs a tap\u201d when iOS won't let the app restart its sound by itself. That's most likely when iOS closed the app in the background while you were away. Any tap still fixes it, logging a set included.",
+    "The timer log records which of these happened each time you came back, so a session's report shows how often the tap is still needed."]},
   {v:'3.68',date:'2026-11-02',title:"Two sessions, two calendar entries",items:[
     "A day with two sessions on it, say a lifting day you moved a HIC onto, now shows up in the calendar feed as two entries instead of one titled \u201cLift + HIC\u201d. Each has its own lifts or intervals in it. Booked at a set time, the second starts when the first ends.",
     "Rest alerts can now tell you when they're going to more than one device. Removing the app from your home screen and adding it back leaves the old copy signed up, so alerts quietly kept going to installs that no longer exist. Setup \u2192 Rest alerts shows how many there are and has an Only this device button to clear the rest out."]},

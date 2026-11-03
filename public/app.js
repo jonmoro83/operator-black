@@ -5589,6 +5589,7 @@ function gestureWake(){
      'running' never answered at all. A fresh context made inside a tap always starts.
      Not one opened a moment ago, though: the touchend of the same tap arrives while the
      first resume is still settling, and closing that would undo the tap. */
+  probeGen++; audioProbing=false;
   const rebuild=!!audioCtx&&Date.now()-ctxOpenedAt>1500;
   if(rebuild) rebuildAudio(); else unlockAudio({voice:false});
   audioStale=false;
@@ -5619,7 +5620,7 @@ and until that tap happens, the timer says so on screen -- before the phone goes
 pocket, not when the beep fails to come. */
 let audioStale=false;
 function audioNeedsTap(){
-  if(quiet()) return false;
+  if(quiet()||audioProbing) return false;
   return !audioCtx||audioStale||audioCtx.state!=='running';
 }
 function rebuildAudio(){
@@ -5646,6 +5647,54 @@ function audioClockSample(now){
   showArm();
   return clkState;
 }
+/* ---------- checking before asking (3.69) ----------
+3.61 asked for a tap after every trip away, because 'running' can't be trusted. But the
+clock can: a channel that is producing sound advances currentTime, a dead one doesn't.
+So coming back, the app checks first, and only asks when it has to:
+
+  1. resume the channel it has and watch the clock for PROBE_MS. Moving means it works.
+  2. if not, open a fresh channel without a tap and watch that. iOS may refuse -- it
+     only promises to start sound from a tap -- but if it allows it, nobody has to.
+  3. only then the "Sound needs a tap" prompt, which is held back while this runs so it
+     doesn't flash up and vanish.
+
+A tap during the check settles it the old way, and going away again abandons it. Every
+outcome is logged, so a session's log says which of the three the phone actually hits. */
+const PROBE_MS=400;
+let audioProbing=false, probeGen=0;
+function audioClockMoves(ctx,done){
+  const t0=Date.now(), c0=ctx.currentTime;
+  setTimeout(()=>{
+    const dt=(Date.now()-t0)/1000;
+    done(ctx.state==='running'&&dt>0&&ctx.currentTime-c0>=dt*0.5);
+  },PROBE_MS);
+}
+function probeAudio(why){
+  if(quiet()||typeof setTimeout==='undefined') return;
+  const gen=++probeGen;
+  const live=()=>gen===probeGen&&audioStale&&(typeof document==='undefined'||!document.visibilityState||document.visibilityState==='visible');
+  const end=(ok,what,detail)=>{
+    if(gen!==probeGen) return;
+    audioProbing=false;
+    if(ok){ audioStale=false; clk=null; clkState='unknown' }
+    tlog('audio',what,detail||why||'');
+    showArm(); try{ if(ls&&loaded) render() }catch(e){}
+  };
+  const check=(ctx,next)=>{
+    const p=ctx.state==='running'?Promise.resolve():Promise.resolve().then(()=>ctx.resume());
+    p.catch(()=>{}).then(()=>{ if(!live()) return end(false,'check abandoned');
+      audioClockMoves(ctx,ok=>{ if(!live()) return end(false,'check abandoned'); next(ok) }) });
+  };
+  audioProbing=true; showArm();
+  const fresh=()=>{
+    try{ audioCtx?rebuildAudio():unlockAudio({voice:false}) }catch(e){}
+    if(!audioCtx) return end(false,'needs a tap','could not open a channel');
+    check(audioCtx,ok=>ok?end(true,'reopened without a tap'):end(false,'needs a tap','iOS would not start sound without one'));
+  };
+  if(audioCtx) check(audioCtx,ok=>ok?end(true,'still working after coming back'):fresh());
+  else fresh();
+}
+
 // What the last sound can be said to have done, beyond "the code ran".
 function sfxHeard(){
   if(clkState==='stopped') return 'clock stopped, likely silent';
@@ -5905,9 +5954,8 @@ document.addEventListener('visibilitychange',()=>{
   clk=null;
   if(document.visibilityState!=='visible') return;
   // Whatever the channel says, it has been away. See "coming back from another app".
-  if(audioCtx&&!quiet()) audioStale=true;
+  if(audioCtx&&!quiet()){ audioStale=true; probeAudio('back from another app') }
   syncScreen();
-  try{ audioAwake() }catch(e){}
   showArm();
 });
 /* A start with a timer already running is iOS having thrown the app away and reloaded
@@ -5916,6 +5964,8 @@ document.addEventListener('visibilitychange',()=>{
 try{
   const v=LS.get('ob.iv'), on=[rest&&!rest.done?'rest running':'',v&&!v.done?'intervals running':'',LS.get('ob.ls')?'session open':''].filter(Boolean);
   tlog('app','started',on.join(', '));
+  // A timer running at start is iOS having reloaded the app: try for sound before asking.
+  if(on.length&&!on.every(x=>x==='session open')){ audioStale=true; probeAudio('app restarted mid-timer') }
 }catch(e){}
 
 /* ---------- a timer for anything ---------- */
@@ -8923,7 +8973,7 @@ function vSetup(){
     ${sm==='silent'?`<div class="note">The rest timer shows a <b>Silent</b> tag while this is on, so a quiet timer never looks like a broken one.</div>`:''}
     <div class="restsel" style="margin-top:10px"><span>Warning</span><div class="seg">${REST_WARNS.map(v=>`<button class="segb${restWarnSecs()===v?' on':''}" data-act="restwarn" data-v="${v}" aria-pressed="${restWarnSecs()===v}">${v?v+'s':'Off'}</button>`).join('')}</div></div>
     <div class="note">A short low tone before the rest ends, so you can get back under the bar rather than find out you are late. A tone and nothing spoken: on iPhone, speech can interrupt the audio, and a spoken warning was enough to cost you the beep at the end. Deliberately not the finishing sound — one low note against three rising ones — or you would have to look at the phone to tell which had happened. Skipped on a rest shorter than twice the warning.</div>
-    <div class="note"><b>\u201cSound needs a tap.\u201d</b> Going to another app mid-rest can leave this app\u2019s sound broken while it still reports itself working, and iOS sometimes restarts the app while you are away, which leaves it with no sound at all. Either way it takes a tap to put right \u2014 iOS only lets sound start from one \u2014 so when you come back the rest bar asks for it. Any tap anywhere does it. Do it before the phone goes back down and the end-of-rest beep has something to play on.</div>
+    <div class="note"><b>\u201cSound needs a tap.\u201d</b> Going to another app mid-rest can leave this app\u2019s sound broken while it still reports itself working, and iOS sometimes restarts the app while you are away, which leaves it with no sound at all. When you come back the app checks whether its sound still works, and tries to restart it on its own if it doesn\u2019t. Only if that fails does the rest bar ask for a tap \u2014 iOS only promises to start sound from one. Any tap anywhere does it. Do it before the phone goes back down and the end-of-rest beep has something to play on.</div>
     <div class="note">Spoken cues follow this setting too. <b>On iPhone there is no way to vibrate</b> \u2014 Safari gives a web app no Vibration API at all \u2014 so sound, the screen and notifications are the whole of it there. Android buzzes whatever this is set to.</div></div>
     <div class="row"><button class="btn" data-act="beeptest">Test the beep</button></div>
     <p class="note" style="margin:0">Plays the rest-end alert right now, the same way the timer does, and says what it found. Use it on the phone you train with — what works on a laptop tells you nothing about the ringer switch.</p>

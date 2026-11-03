@@ -9446,7 +9446,7 @@ test("coming back from another app rebuilds the sound on the next tap, whatever 
   document.visibilityState = "hidden"; x.audio.fire("visibilitychange");
   document.visibilityState = "visible"; x.audio.fire("visibilitychange");
   a.equal(x.audioStale, true, "'running' is not taken on trust after a trip away");
-  a.equal(x.audioNeedsTap(), true);
+  a.equal(x.audioProbing, true, "it is checked before anything is asked");
 
   const made = x.audio.ctxs;
   x.audio.fire("pointerdown");
@@ -9455,6 +9455,73 @@ test("coming back from another app rebuilds the sound on the next tap, whatever 
   a.equal(first.state, "closed", "and the old one is let go");
   a.equal(x.audioStale, false);
   a.match(x.tlogText(), /audio · rebuilt by a tap/, "which the log can see");
+});
+
+// Checking before asking (3.69). The stub's clock only moves when a test moves it, so a
+// test moves it partway through the check to stand for a channel that is playing.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function awayAndBack(x) {
+  x.plan.soundMode = "duck"; x.bump();
+  x.unlockAudio(); await settle();
+  x.ctxOpenedAt = Date.now() - 60000;
+  document.visibilityState = "hidden"; x.audio.fire("visibilitychange");
+  document.visibilityState = "visible"; x.audio.fire("visibilitychange");
+}
+
+test("coming back to a channel that still plays asks for nothing", async () => {
+  const x = app({ now: "2026-10-24" });
+  await awayAndBack(x);
+  const first = x.audio.ctx, made = x.audio.ctxs;
+  a.equal(x.audioNeedsTap(), false, "no prompt flashes up while it checks");
+  await wait(x.PROBE_MS / 2); first.currentTime += 1;
+  await wait(x.PROBE_MS);
+  a.equal(x.audioStale, false, "the clock moved, so the channel works");
+  a.equal(x.audioProbing, false);
+  a.equal(x.audioNeedsTap(), false);
+  a.equal(x.audio.ctxs, made, "and it was left alone");
+  a.match(x.tlogText(), /audio · still working after coming back/);
+});
+
+test("a dead channel is reopened without a tap when iOS allows it", async () => {
+  const x = app({ now: "2026-10-24" });
+  await awayAndBack(x);
+  const first = x.audio.ctx;
+  await wait(x.PROBE_MS + 100);           // the old clock never moved
+  a.notEqual(x.audio.ctx, first, "a fresh channel, without a tap");
+  a.equal(first.state, "closed");
+  x.audio.ctx.currentTime += 1;
+  await wait(x.PROBE_MS);
+  a.equal(x.audioStale, false);
+  a.equal(x.audioNeedsTap(), false);
+  a.match(x.tlogText(), /audio · reopened without a tap/);
+});
+
+test("when iOS will not start sound without a tap, the prompt comes back", async () => {
+  const x = app({ now: "2026-10-24" });
+  await awayAndBack(x);
+  x.audio.stuck = true;                    // resume() resolves and nothing starts
+  x.audio.ctx.state = "suspended";
+  await wait(x.PROBE_MS * 2 + 100);
+  a.equal(x.audioProbing, false);
+  a.equal(x.audioStale, true);
+  a.equal(x.audioNeedsTap(), true, "asked, as before 3.69");
+  a.match(x.tlogText(), /audio · needs a tap \(iOS would not start sound without one\)/);
+});
+
+test("a tap during the check settles it, and so does leaving again", async () => {
+  let x = app({ now: "2026-10-24" });
+  await awayAndBack(x);
+  x.audio.fire("pointerdown");
+  a.equal(x.audioProbing, false, "the tap repairs it the usual way");
+  await wait(x.PROBE_MS * 2 + 100);
+  a.doesNotMatch(x.tlogText(), /needs a tap|without a tap/, "and the check it overtook says nothing");
+
+  x = app({ now: "2026-10-24" });
+  await awayAndBack(x);
+  document.visibilityState = "hidden"; x.audio.fire("visibilitychange");
+  await wait(x.PROBE_MS + 100);
+  a.match(x.tlogText(), /audio · check abandoned/);
+  document.visibilityState = "visible";
 });
 
 test("a tap leaves a healthy channel alone", async () => {
