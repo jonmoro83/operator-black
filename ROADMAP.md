@@ -392,6 +392,12 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   its kind. A `pre-push` hook (`npm run hooks`, opt in per clone) runs the suite locally,
   because GitHub Actions minutes run out here and the gate has to hold without them. CI
   cancels superseded runs and has an optional deploy job that skips without a token.
+- **Security headers.** Every page leaves the Worker with a Content-Security-Policy
+  (`script-src 'self'`: no inline scripts or handlers, no eval; inline styles stay
+  allowed; Google Fonts, `data:` images and audio, `blob:` for the CSV), `X-Frame-Options:
+  DENY`, nosniff and a referrer policy. The one inline `onclick` (the calendar address
+  selecting itself) became a delegated `data-selectall`. `test/worker.test.js` is new and
+  covers the redirect, the stamp, the headers, and that no inline handler creeps back.
 
 **Fewer taps for the beep (2026-11-03, 3.69)**
 - See the rest-beeps entry under Open issues for the design. Four tests: a channel

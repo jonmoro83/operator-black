@@ -9,6 +9,37 @@ export function pageVersion(etag) {
   return (etag || "").replace(/^W\//, "").replace(/"/g, "").slice(0, 16) || "dev";
 }
 
+// Defense in depth behind Access. The page renders the coach's model output and an
+// administrator's catalog text through innerHTML (escaped, but a slip there should not
+// become script), so scripts come only from this origin: no inline handlers, no eval.
+// Inline *styles* stay allowed because the templates use style="" attributes throughout.
+// data: covers the inlined touch icon and the beep's WAV; blob: the CSV download.
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data:",
+  "media-src 'self' data: blob:",
+  "connect-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
+export function securityHeaders(res, html) {
+  const h = new Headers(res.headers);
+  h.set("x-content-type-options", "nosniff");
+  h.set("referrer-policy", "strict-origin-when-cross-origin");
+  if (html) {
+    h.set("content-security-policy", CSP);
+    h.set("x-frame-options", "DENY");
+  }
+  return h;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -25,13 +56,15 @@ export default {
     const res = await env.ASSETS.fetch(request);
     // Stamp the page with its own fingerprint (the asset's ETag) so the app can tell
     // whether a newer page has been deployed since it loaded.
-    if (res.status === 200 && (res.headers.get("content-type") || "").includes("text/html")) {
+    const html = res.status === 200 && (res.headers.get("content-type") || "").includes("text/html");
+    const out = new Response(res.body, { status: res.status, statusText: res.statusText, headers: securityHeaders(res, html) });
+    if (html) {
       const ver = pageVersion(res.headers.get("etag"));
       return new HTMLRewriter()
         .on("head", { element(el) { el.append(`<meta name="app-version" content="${ver}">`, { html: true }); } })
-        .transform(res);
+        .transform(out);
     }
-    return res;
+    return out;
   },
 
   async scheduled(event, env, ctx) {

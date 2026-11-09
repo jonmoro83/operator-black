@@ -9496,7 +9496,7 @@ function calFeedCard(){
     return h;
   }
   const web=f.url.replace(/^https?:/,'webcal:');
-  h+=`<label class="f">Your feed address<input type="text" id="cal-url" value="${esc(f.url)}" readonly onclick="this.select()"></label>
+  h+=`<label class="f">Your feed address<input type="text" id="cal-url" value="${esc(f.url)}" readonly data-selectall></label>
   <div class="row"><a class="btn primary" href="${esc(web)}">Add to iPhone</a><button class="btn" data-act="calcopy">Copy address</button></div>
   <div class="note"><b>iPhone:</b> tap Add to iPhone above, or Settings \u2192 Apps \u2192 Calendar \u2192 Accounts \u2192 Add Account \u2192 Other \u2192 Add Subscribed Calendar, and paste the address.
   <b>Android:</b> on a computer open Google Calendar \u2192 Other calendars \u2192 + \u2192 From URL, and paste it there. It then syncs to the phone. Google refreshes subscribed calendars on its own schedule, which can take a day.</div>
@@ -9970,6 +9970,9 @@ document.addEventListener('change',e=>{ const t=e.target; if(t.dataset.bind||t.d
 function goView(v){view=v;try{localStorage.setItem('ob.view',view)}catch(err){}render();window.scrollTo(0,0)}
 document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;goView(b.dataset.view)});
 document.getElementById('main').addEventListener('click',e=>{
+  // A read-only field that selects itself on tap (the calendar address). Delegated
+  // rather than an onclick attribute, which the page's CSP does not allow.
+  if(e.target.hasAttribute&&e.target.hasAttribute('data-selectall')&&e.target.select){e.target.select();return}
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
   if(a==='progview'){enterArchive(b.dataset.id);return}
   if(a==='progexit'){exitArchive();return}
