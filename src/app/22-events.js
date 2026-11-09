@@ -141,6 +141,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(e.target.hasAttribute&&e.target.hasAttribute('data-selectall')&&e.target.select){e.target.select();return}
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
   if(a==='findclear'){ if(b.dataset.for==='data-setupfind') setupQ=''; else guideQ=''; render(); return }
+  if(a==='liftsel'){ liftSel={date:sel,k:b.dataset.lift}; render(); return }
   if(a==='progview'){enterArchive(b.dataset.id);return}
   if(a==='progexit'){exitArchive();return}
   // an archived program is read-only: only navigation works

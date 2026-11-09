@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.73',date:'2026-11-08',title:"Today opens on the session",items:[
+    "On a lifting day, Today now starts with the session: every lift with its sets, its weight and a small lamp per set, what conditioning follows, how long the whole thing should take, and the Start session button. Everything you need before the bar is loaded, in one block at the top.",
+    "Below it, one lift at a time. A switcher names the lifts with their progress; the pane shows the one you're on with the weight large, the plates, the sets, the rest and the warm-up ramp. Tap another lift to switch. The first lift with sets left is the one that opens.",
+    "The week strip is drawn as seven cells with a lamp for each day done, and the date is set large. The check-ins, notes and the rest of the day are unchanged for now; they're redrawn in the next release."]},
   {v:'3.72',date:'2026-11-08',title:"A new look begins: palettes and a bottom bar",items:[
     "The app is being redrawn as an instrument panel, and this is the foundation: new typefaces (B612, which was designed for cockpit displays, for text and readouts, and a condensed face for the big numbers), and seven color worlds to choose from under Setup → Appearance → Palette. Graphite is the default; try Night ops, Olive or Blackout. Your pick stays on this device, like the theme.",
     "The tabs moved to the bottom of the screen, under your thumb, with an icon each. The timer button sits up by your initials. The rest and interval bars now sit just above the tabs.",

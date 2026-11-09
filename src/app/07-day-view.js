@@ -46,10 +46,9 @@ function vToday(){
   h+=`</div>`;
   if(!wk){ return h+checkinCard(sel)+`<div class="card"><h3>Not started</h3><p class="muted">The program starts the week of ${fmtLong(plan.startMonday)}. Change the start date in Setup.</p></div>` }
   const wt=weekTitle(wk);
-  // On a lifting day the first lift card is the ninth block down, after the week, the
-  // check-ins and the warm-up. Session mode is the screen you want once the bar is
-  // loaded, so it gets a button up here too; the full-width one below the lifts stays.
-  const startBtn=sel===todayStr()&&!viewing&&(dp.t==='lift'||dp.t==='rm5'||dp.t==='test')
+  // A test or 5RM day keeps a Start button up here; a lifting day's is on the session
+  // brief, which is the first thing on the screen (3.73).
+  const startBtn=sel===todayStr()&&!viewing&&(dp.t==='rm5'||dp.t==='test')
     ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
   h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
@@ -212,6 +211,55 @@ function banners(wk,dp){
   }
   return h;
 }
+/* ---------------- the session brief and the lift pane (3.73) ----------------
+   Today on a lifting day opens on the session: every lift with its prescription, its
+   weight and a lamp per set, what conditioning follows, how long it should take, and the
+   way into session mode. Under it one lift is shown at a time, chosen with a switcher.
+   `liftSel` is which; it is per day and in memory only, and when nothing has been chosen
+   the focus is the first lift with sets still to do. */
+let liftSel=null;
+function liftSets(wk,k){ const r=rx(wk,k), L=(lg(sel).lifts||{})[k]||{}, sets=L.sets||[]; return {r,L,sets,done:sets.filter(Boolean).length} }
+// One lamp per prescribed set, plus any optional set that was taken.
+function liftLamps(wk,k){
+  const {r,sets}=liftSets(wk,k); let h='';
+  for(let i=0;i<Math.max(r.s,sets.length);i++){ if(i>=r.s&&!sets[i]) continue; h+=`<i class="lamp${sets[i]?' ok':''}"></i>` }
+  return `<span class="lamps">${h}</span>`;
+}
+function liftFocus(dp,wk){
+  const ks=dp.lifts||[]; if(!ks.length) return null;
+  if(liftSel&&liftSel.date===sel&&ks.includes(liftSel.k)) return liftSel.k;
+  const open=ks.find(k=>{const {r,done}=liftSets(wk,k); return done<r.s});
+  return open||ks[ks.length-1];
+}
+function liftShort(k){ return VAR_OF[k]||liftName(k) }
+/* A rough length for the brief: the general warm-up, then each lift's ramp at a minute
+   and a half a set and its working sets at their rest plus a minute. Rounded to five. */
+function sessionEstimate(wk,dp){
+  let m=12;
+  for(const k of dp.lifts||[]){ const r=rx(wk,k); m+=r.s*(restMins(k)+1)+ramp(k,r.w||null,r.t,dp.deload).length*1.5 }
+  return Math.max(5,Math.round(m/5)*5);
+}
+function briefCard(wk,dp){
+  const ks=dp.lifts||[], t=todayStr(), pad=n=>String(n).padStart(2,'0');
+  let rows='', prog=[];
+  for(const k of ks){
+    const {r,L,sets}=liftSets(wk,k), T=L.used!=null&&L.used!==''?+L.used:r.w, has=T!=null&&(isBW(k)||T>0);
+    for(let i=0;i<Math.max(r.s,sets.length);i++){ if(i>=r.s&&!sets[i]) continue; prog.push(!!sets[i]) }
+    const rxl=r.top?'best '+r.r:r.lp?`${r.s} × ${r.r}`:`${r.s}${r.sMax>r.s?'–'+r.sMax:''} × ${r.r}${r.p?' @ '+r.p+'%':''}`;
+    rows+=`<tr><td class="l">${esc(liftShort(k))}</td><td class="rx">${esc(rxl)}</td><td class="w">${has?`${fmtLoad(k,T)}<small>${esc(isBW(k)?(T>0?'+'+u():'bw'):u())}</small>`:'<small>no max</small>'}</td><td class="d">${liftLamps(wk,k)}</td></tr>`;
+  }
+  const cond=dp.ride==='se'?'SE circuit':(dp.cardio||dp.ride)?`${MOD[modOf(sel)].name} · ${HIC[effFmt(sel)].name}`:'';
+  rows+=`<tr class="cond"><td class="l">Conditioning</td><td class="rx">${cond?'after':'—'}</td><td class="w"><small>${esc(cond||'rest')}</small></td><td class="d"></td></tr>`;
+  const W=lg(sel).warmup||[], items=warmItems(), wdone=items.filter((x,i)=>W[i]).length, dn=prog.filter(Boolean).length;
+  let h=`<section class="brief" aria-label="Session"><div class="hd"><span class="eyebrow">Session</span><span class="segbar" role="img" aria-label="${dn} of ${prog.length} sets done">${prog.map(s=>`<i${s?' class="on"':''}></i>`).join('')}</span></div>
+  <table>${rows}</table>
+  <div class="ft"><div class="cell"><span class="eyebrow">Warm-up</span><span class="v">${pad(wdone)} / ${pad(items.length)}</span></div><div class="cell"><span class="eyebrow">Estimate</span><span class="v">${sessionEstimate(wk,dp)} MIN</span></div></div>`;
+  if(!viewing) h+=`<div class="cta">${sel===t?`<button class="btn inv" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:`<span class="btn quiet">${sel<t?'A logged day':'Not today'}</span>`}</div>`;
+  return h+`</section>`;
+}
+function liftSwitch(wk,dp,focus){
+  return `<div class="switch" role="tablist" aria-label="Lift">${(dp.lifts||[]).map(k=>`<button class="sw${k===focus?' on':''}" role="tab" aria-selected="${k===focus}" data-act="liftsel" data-lift="${k}"><span class="n">${esc(liftShort(k))}</span>${liftLamps(wk,k)}</button>`).join('')}</div>`;
+}
 /* The mobility block and the RPE/notes footer belong to the day, not to each session
    on it, so a day holding two renders them once at the end. `solo` is false for all but
    the last, which is the only one that gets them. */
@@ -245,9 +293,14 @@ function sessionHtml(wk,dp){
   }
   if(dp.t==='off'){ return h+`<div class="card"><h3>Rest</h3><p style="margin:0">${esc(dp.note||'Full rest. Walk, sleep, eat.')} Deep stretching belongs today if you want it — the block below is the long version.</p></div>`+sessTail(dp,false) }
   if(dp.t==='lift'){
-    if(sel===todayStr()&&!viewing) h+=`<button class="btn primary" style="width:100%;padding:14px" data-act="lsstart">${lg(sel).done?'Reopen session mode':'Start session mode'}</button>`;
+    // The session first: the brief, then one lift at a time. Every lift's card is in the
+    // page (hidden when not in focus) so a card's state survives switching and the
+    // markup of any lift can still be read as a whole.
+    const focus=liftFocus(dp,wk);
+    h+=briefCard(wk,dp);
+    h+=liftSwitch(wk,dp,focus);
+    for(const k of dp.lifts) h+=`<div class="lift-pane"${k===focus?'':' hidden'}>${liftCard(wk,k,dp)}</div>`;
     h+=warmupCard(sel);
-    for(const k of dp.lifts) h+=liftCard(wk,k,dp);
     h+=accCard(wk,dp);
     if(dp.ride||dp.cardio){
       const note=dp.condNote?`<p class="muted small" style="margin:0">${esc(dp.condNote)}</p>`:'';

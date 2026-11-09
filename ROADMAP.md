@@ -87,9 +87,10 @@ within each group, roughly in order of how useful they'd be.
 
 ## Parked
 
-- **Declined 2026-10-20, not to be re-proposed:** shortening Today on a lifting day
-  (collapsing the cards above the first lift), half-minute rest options (2:30, 3:30),
-  and a read-only progress view to share with a partner or coach.
+- **Declined 2026-10-20, not to be re-proposed:** half-minute rest options (2:30, 3:30),
+  and a read-only progress view to share with a partner or coach. (Shortening Today on
+  a lifting day was declined here too, and then superseded on 2026-11-08 when the user
+  chose a session-first Today for the redesign; see 3.73.)
 
 Decided against for now.
 
@@ -136,6 +137,29 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The redesign, step two: Today opens on the session (2026-11-08, 3.73)**
+- `sessionHtml`'s lifting branch now draws `briefCard` (a bordered table: lift, rx,
+  weight, a lamp per prescribed set plus any optional set taken; a conditioning row; a
+  seven-segment progress bar in the header; warm-up count and `sessionEstimate` in the
+  footer; Start session as the CTA on today, "Not today" / "A logged day" otherwise),
+  then `liftSwitch` (one tab per lift with lamps) and every lift's `liftCard` wrapped in
+  `.lift-pane`, hidden unless in focus. All cards stay in the page so a card's inputs
+  survive switching and `sessionHtml`'s markup still carries every lift for the tests
+  that read it. `liftFocus`: `liftSel` for the day if set, else the first lift with
+  prescribed sets undone, else the last. `liftsel` is the new action.
+- The week-line Start button (3.71) went back to test and 5RM days only; a lifting day's
+  is on the brief. The full-width "Start session mode" button below the lifts is gone.
+- **Superseded decision:** "do not collapse the cards above the first lift" (2026-10-20)
+  gave way to the user's 2026-11-08 choice of a session-first Today in the redesign.
+  Step three turns the cards above and below into rows, which is the same idea.
+- `sessionEstimate`: 12 min warm-up + per lift (prescribed sets × (rest + 1) + ramp sets
+  × 1.5), rounded to five. A brief's own number, not a promise.
+- Styles under `.lift-pane` restyle the existing card controls (set cells, rest and
+  effort options, the variant select) in the panel language without touching their
+  markup. `test/today.test.js` covers the brief, the switcher, focus and the lamps.
+- **Next:** the rows (check-in collapsing to a sentence, accessories, mobility, note,
+  aims), the ⓘ sheet for the prose, and the cards above the brief folded into them.
 
 **The redesign, step one: type, palettes, bottom bar (2026-11-08, 3.72)**
 - The direction, settled 2026-11-08 after three mocks: **an instrument panel**. Session

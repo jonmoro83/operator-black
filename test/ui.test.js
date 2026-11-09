@@ -105,23 +105,26 @@ test("a card that is empty outside Status still renders as itself", () => {
   a.match(x.prBoard(), /<h3>Personal records<\/h3>/, "called from anywhere else it is the usual card");
 });
 
-test("the week line offers Start session on today's lifting day, and only then", () => {
+test("Start session is at the top of today's lifting day, on the brief, and only then", () => {
+  // 3.71 put it on the week line; 3.73's session brief is the first thing on the screen
+  // and carries it instead. The week line keeps Move….
   const x = ready({ now: "2026-10-19" });   // Monday: Operator day 1
   const line = x.$("#main .wkline");
   a.ok(line, "the week line is drawn");
-  const btn = line.querySelector('[data-act="lsstart"]');
-  a.ok(btn, "Start session sits on the week line");
+  a.ok(line.querySelector('[data-act="move"]'), "Move… is on the week line");
+  const btn = x.$('#main .brief [data-act="lsstart"]');
+  a.ok(btn, "Start session sits on the brief");
   a.equal(btn.textContent, "Start session");
-  a.ok(line.querySelector('[data-act="move"]'), "Move… is still there");
-  a.ok(!line.querySelector('[data-act="move"]').getAttribute("style"), "and no longer pushes itself to the right, since Start does");
+  const html = x.$("#main").innerHTML;
+  a.ok(html.indexOf('class="brief"') < html.indexOf('class="lift-pane"'), "which comes before the lifts");
+  a.ok(html.indexOf('class="brief"') < html.indexOf("Warm-up"), "and before the warm-up");
 
   x.fire(btn, "click");
   a.ok(x.ls && x.ls.date === "2026-10-19", "the tap opens session mode for today");
 
   const y = ready({ now: "2026-10-25" });   // Sunday: off
-  a.equal(y.$("#main .wkline") && y.$("#main .wkline").querySelector('[data-act="lsstart"]'), null, "a rest day has no session to start");
+  a.equal(y.$('#main [data-act="lsstart"]'), null, "a rest day has no session to start");
   const z = ready({ now: "2026-10-19" });
   z.sel = "2026-10-21"; z.render();           // Wednesday, looked at from Monday
-  a.equal(z.$("#main .wkline").querySelector('[data-act="lsstart"]'), null, "not for a day that is not today");
-  a.match(z.$("#main .wkline").querySelector('[data-act="move"]').getAttribute("style") || "", /margin-left:auto/, "Move… takes the right edge back");
+  a.equal(z.$('#main [data-act="lsstart"]'), null, "not for a day that is not today");
 });
