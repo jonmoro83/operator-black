@@ -29,7 +29,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/app.css?b=ac33df5b77">
+<link rel="stylesheet" href="/app.css?b=67a9f86697">
 
 </head>
 <body>
@@ -48,6 +48,7 @@
     <div id="acct-m" class="acct-m" hidden role="menu" aria-labeledby="acct">
       <div class="acct-who"><span class="small muted">Signed in as</span><span id="acct-e">—</span><span class="acct-st" id="acct-st"></span></div>
       <button class="acct-b" data-view="setup" role="menuitem">Profile and settings</button>
+      <button class="acct-b" data-view="coach" role="menuitem">Coach</button>
       <button class="acct-b" data-view="guide" role="menuitem">Guide</button>
       <button class="acct-b" data-view="releases" role="menuitem">What’s new</button>
       <a class="acct-b out" id="acct-out" href="/cdn-cgi/access/logout" role="menuitem">Sign out</a>
@@ -60,7 +61,8 @@
       <button data-view="plan">Plan</button>
       <button data-view="history">History</button>
       <button data-view="setup">Setup</button>
-      <button data-view="coach">Coach</button>
+      <!-- Coach is in the account menu (3.70): six tabs fit a phone where seven scrolled.
+           Guide stays a tab by request: it went to the menu in 3.1 and came back. -->
       <button data-view="guide">Guide</button>
       <!-- Shown only when the server says this address administers the app. -->
       <button data-view="admin" hidden>Admin</button>
@@ -124,7 +126,6 @@
 </div>
 </div>
 
-<script src="/releases.js?b=ac33df5b77"></script>
-<script src="/app.js?b=ac33df5b77"></script>
+<script src="/app.js?b=67a9f86697"></script>
 </body>
 </html>

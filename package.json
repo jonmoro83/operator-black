@@ -3,7 +3,8 @@
   "private": true,
   "description": "Operator strength + Black conditioning training log",
   "scripts": {
-    "test": "node build.js && node --no-warnings=ExperimentalWarning --test test/*.test.js",
+    "test": "node build.js && eslint . && node --no-warnings=ExperimentalWarning --test test/*.test.js",
+    "lint": "node build.js && eslint .",
     "dev": "wrangler dev",
     "db:migrate:local": "wrangler d1 migrations apply operator-black --local",
     "db:migrate:remote": "wrangler d1 migrations apply operator-black --remote",
@@ -12,6 +13,10 @@
     "hooks": "git config core.hooksPath .githooks && echo 'pre-push hook on: every push runs the tests first'"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "linkedom": "^0.18.15",
     "wrangler": "^4.143.1"
   },
   "version": "3.69.0"

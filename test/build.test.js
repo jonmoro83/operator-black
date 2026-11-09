@@ -11,7 +11,7 @@ const a = require("node:assert");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { shellFiles, shellVersion, stampServiceWorker, build } = require("../build.js");
+const { shellFiles, shellVersion, stampServiceWorker, build, releaseStamp, sha } = require("../build.js");
 
 const root = path.join(__dirname, "..");
 const read = (dir, f) => fs.readFileSync(path.join(dir, "public", f), "utf8");
@@ -120,6 +120,32 @@ test("the build repairs a stale cache name rather than trusting what is there", 
     build(dir);
     a.equal(read(dir, "sw.js"), good, "the build put the right name back");
   } finally { drop(dir) }
+});
+
+test("the bundle carries the newest release's version and where to fetch the notes, and the page no longer loads them up front", () => {
+  const dir = sandbox();
+  try {
+    const r = build(dir);
+    const releases = read(dir, "releases.js");
+    const newest = releases.match(/\{v:'(\d+\.\d+)'/)[1];
+    a.equal(r.appVersion, newest);
+    a.equal(r.releasesSrc, `/releases.js?b=${sha(releases)}`);
+    const app = read(dir, "app.js");
+    a.match(app, new RegExp(`^const APP_VERSION="${newest.replace(".", "\\.")}", RELEASES_SRC="/releases\\.js\\?b=[0-9a-f]{10}";$`, "m"));
+    a.doesNotMatch(read(dir, "index.html"), /<script[^>]*releases\.js/, "the notes are not a script tag on the page");
+
+    // A new release note changes the address the app will fetch, and so the bundle.
+    fs.writeFileSync(path.join(dir, "public", "releases.js"), releases.replace("const RELEASES=[", "const RELEASES=[\n  {v:'99.1',date:'2099-01-01',title:\"Test\",items:[\"x\"]},"));
+    const r2 = build(dir);
+    a.equal(r2.appVersion, "99.1", "the version follows the newest entry");
+    a.notEqual(r2.releasesSrc, r.releasesSrc);
+    a.notEqual(r2.hash, r.hash, "so installed apps see a new bundle");
+  } finally { drop(dir) }
+});
+
+test("releaseStamp refuses a notes file it cannot read a version from", () => {
+  a.throws(() => releaseStamp("const RELEASES=[];"), /no \{v:'x\.y'\} entry/);
+  a.deepEqual(releaseStamp("const RELEASES=[\n  {v:'3.70',date:'2026-11-08',title:\"t\",items:[]}];").version, "3.70");
 });
 
 test("an icon change alone is enough to move the cache name through a full build", () => {

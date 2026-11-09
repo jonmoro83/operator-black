@@ -417,6 +417,25 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   the handles sit below the sleeves, so the hands travel past the chest. Not from a
   book; both ratios are the usual gap and the note says to give it its own max if yours
   differs, as the other variants do.
+- **The release notes load when wanted.** `releases.js` (150 KB, 180 entries) was a
+  `<script>` ahead of the app on every open, for one page. `build.js` now stamps
+  `APP_VERSION` and `RELEASES_SRC` into the top of the bundle; `releases()` injects the
+  script when What's new or About asks and renders again when it lands. The build refuses
+  an `index.html` that loads it up front. `releaseStamp` has tests.
+- **Six tabs.** Coach moved to the account menu, so the bar is Today, Status, Plan,
+  History, Setup, Guide. Guide stays a tab: it went to the menu in 3.1 and came back by
+  request, and the test that records that decision caught the first draft of this change
+  hiding it again. Every route to Coach from a card (`data-act="view"`) still works.
+- **Tests in a real DOM.** `test/dom.js` loads `index.html` into linkedom and lets the
+  app boot against it; `dom.test.js` taps the nav, types into a bound field, ticks a set,
+  and checks `morph()` keeps the nodes it should and the crash banner draws when a view
+  throws. None of that was reachable from the stub DOM.
+- **ESLint, correctness rules only.** `eslint.config.js` lints the built bundle (one
+  scope, so the 37 fragments can be checked together), `src/*.js` as Workers modules,
+  `public/sw.js`, and the tests and tools as Node. Style rules are off; `npm test` runs
+  it ahead of the suite. Prettier was measured and dropped: at `printWidth: 120` it
+  doubles the line count (10,392 to 19,297) and leaves 548 of 707 over-200-character
+  lines as they are, because the density is in template literals it does not touch.
 
 **Fewer taps for the beep (2026-11-03, 3.69)**
 - See the rest-beeps entry under Open issues for the design. Four tests: a channel

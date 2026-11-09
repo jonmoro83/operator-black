@@ -119,6 +119,23 @@ function stubDom() {
   return { store, made, audio };
 }
 
+/** The code that exposes the app's insides as globalThis.__app: every top-level function,
+ *  accessors for the state and constants above, and a few helpers. Goes at the end of the
+ *  IIFE, before its closing `})();`. Shared with the real-DOM harness in dom.js. */
+function exposeTail(src) {
+  // `async function` was not matched, so every async top-level function in the app --
+  // enableAlerts, healAlerts, testAlert, holdScreen and the rest -- was invisible to
+  // every test. That is most of the alert path, which is the part that broke.
+  const fns = [...new Set([...src.matchAll(/^(?:async\s+)?function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]))];
+  const accessors = STATE.map((v) => `get ${v}(){return ${v}},set ${v}(x){${v}=x}`).join(",")
+    + "," + CONSTS.map((c) => `get ${c}(){return ${c}}`).join(",");
+  return `globalThis.__app={${fns.join(",")},${accessors},
+    bump(){planV++},
+    setToday(d){realToday=()=>d;sel=d},
+    seed(o){for(const [k,v] of Object.entries(o||{})) logs[k]=v; planV++},
+  };`;
+}
+
 /** Load the app. `now` fixes "today" (YYYY-MM-DD). Returns every function plus live state. */
 function loadApp({ now = "2026-10-19" } = {}) {
   const dom = stubDom();
@@ -133,19 +150,8 @@ function loadApp({ now = "2026-10-19" } = {}) {
   (0, eval)(fs.readFileSync(path.join(__dirname, "..", "public", "releases.js"), "utf8") +
     ";globalThis.RELEASES=RELEASES;");
 
-  // `async function` was not matched, so every async top-level function in the app --
-  // enableAlerts, healAlerts, testAlert, holdScreen and the rest -- was invisible to
-  // every test. That is most of the alert path, which is the part that broke.
-  const fns = [...new Set([...src.matchAll(/^(?:async\s+)?function\s+\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]))];
-  const accessors = STATE.map((v) => `get ${v}(){return ${v}},set ${v}(x){${v}=x}`).join(",")
-    + "," + CONSTS.map((c) => `get ${c}(){return ${c}}`).join(",");
-  const tail = `globalThis.__app={${fns.join(",")},${accessors},
-    bump(){planV++},
-    setToday(d){realToday=()=>d;sel=d},
-    seed(o){for(const [k,v] of Object.entries(o||{})) logs[k]=v; planV++},
-  };})();`;
   // replace the boot sequence at the end of the IIFE
-  src = src.replace(/applyTheme\(\);\r?\nloadLocal\(\);[\s\S]*$/, tail);
+  src = src.replace(/applyTheme\(\);\r?\nloadLocal\(\);[\s\S]*$/, exposeTail(src) + "})();");
   if (!src.includes("globalThis.__app")) throw new Error("could not replace the boot block");
 
   (0, eval)(src);
@@ -158,4 +164,4 @@ function loadApp({ now = "2026-10-19" } = {}) {
   return app;
 }
 
-module.exports = { loadApp };
+module.exports = { loadApp, exposeTail };

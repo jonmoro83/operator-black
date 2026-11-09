@@ -8,7 +8,7 @@
 
 // Stamped by build.js from the contents of SHELL below. Do not edit by hand: it moves
 // when one of those files does, which is what drops the old cache after a deploy.
-const VERSION = "ob-d3e5221ca3";
+const VERSION = "ob-0a69925efb";
 const SHELL = ["/", "/app.css", "/app.js", "/releases.js", "/icon-32.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
@@ -102,7 +102,7 @@ function withTimeout(promise, ms) {
 
 // Rest alerts: the server pushes {title, body} when a rest ends.
 self.addEventListener("push", (event) => {
-  let data = {};
+  let data;
   try {
     data = event.data ? event.data.json() : {};
   } catch {

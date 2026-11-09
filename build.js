@@ -55,27 +55,46 @@ function build(root = __dirname) {
   const body = files
     .map((f) => fs.readFileSync(path.join(srcDir, f), "utf8").replace(/\s+$/, ""))
     .join("\n\n");
-  const bundle = `(function(){\n"use strict";\n${body}\n})();\n`;
+
+  // The release notes used to be a <script> ahead of the app on every open, 150 KB read
+  // on one page. The app now needs two things from them up front -- the newest version,
+  // and where to fetch the notes when that page is opened -- and both are stamped here.
+  const releases = fs.readFileSync(path.join(root, "public", "releases.js"), "utf8");
+  const { version: appVersion, src: releasesSrc } = releaseStamp(releases);
+  const bundle = `(function(){\n"use strict";\n` +
+    `// Stamped by build.js from public/releases.js: the newest release, and the address the\n` +
+    `// What's new page loads the notes from. Do not edit here.\n` +
+    `const APP_VERSION="${appVersion}", RELEASES_SRC="${releasesSrc}";\n${body}\n})();\n`;
   fs.writeFileSync(path.join(root, "public", "app.js"), bundle);
 
   const css = fs.readFileSync(path.join(root, "public", "app.css"), "utf8");
-  const releases = fs.readFileSync(path.join(root, "public", "releases.js"), "utf8");
-  const hash = sha(bundle + css + releases);
+  const hash = sha(bundle + css);
 
   const indexPath = path.join(root, "public", "index.html");
   let html = fs.readFileSync(indexPath, "utf8");
   const before = html;
   html = html.replace(/(href="\/app\.css)(\?b=[0-9a-f]+)?"/, `$1?b=${hash}"`);
-  html = html.replace(/(src="\/releases\.js)(\?b=[0-9a-f]+)?"/, `$1?b=${hash}"`);
   html = html.replace(/(src="\/app\.js)(\?b=[0-9a-f]+)?"/, `$1?b=${hash}"`);
-  for (const need of ["/app.css?b=", "/releases.js?b=", "/app.js?b="]) {
+  for (const need of ["/app.css?b=", "/app.js?b="]) {
     if (!html.includes(need)) throw new Error(`index.html is missing a tag for ${need}`);
+  }
+  if (/<script[^>]*src="\/releases\.js/.test(html)) {
+    throw new Error("index.html loads releases.js up front; the app loads it on demand from RELEASES_SRC");
   }
   if (html !== before) fs.writeFileSync(indexPath, html);
 
   // After index.html, since the worker precaches "/" and its contents just moved.
   const version = stampServiceWorker(root);
-  return { files: files.length, lines: bundle.split("\n").length, hash, version };
+  return { files: files.length, lines: bundle.split("\n").length, hash, version, appVersion, releasesSrc };
+}
+
+/** What the bundle carries about the release notes: the newest entry's version and the
+ *  cache-busted address of the file. The version is read off the first {v:'x.y'} entry,
+ *  which is the newest since the file is kept newest-first (a test enforces the order). */
+function releaseStamp(releases) {
+  const m = releases.match(/\{v:'(\d+\.\d+)'/);
+  if (!m) throw new Error("releases.js has no {v:'x.y'} entry to take the version from");
+  return { version: m[1], src: `/releases.js?b=${sha(releases)}` };
 }
 
 if (require.main === module) {
@@ -83,4 +102,4 @@ if (require.main === module) {
   console.log(`built public/app.js — ${r.files} files, ${r.lines} lines, build ${r.hash}, sw ${r.version}`);
 }
 
-module.exports = { build, shellFiles, shellVersion, stampServiceWorker, sha };
+module.exports = { build, shellFiles, shellVersion, stampServiceWorker, releaseStamp, sha };

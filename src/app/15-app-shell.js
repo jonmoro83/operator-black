@@ -1,13 +1,29 @@
-/* ---------- what's new (RELEASES comes from releases.js) ---------- */
-const APP_VERSION=RELEASES[0].v;
+/* ---------- what's new (the notes load when the page is opened) ---------- */
+// APP_VERSION and RELEASES_SRC are stamped into the bundle by build.js from releases.js.
+// The notes themselves, 180 releases and growing, used to load ahead of the app on every
+// open to be read on one page. Now that page asks for them, and renders again when they
+// arrive. In the test harness RELEASES is already defined, so this returns it at once.
+function releases(){
+  if(typeof RELEASES!=='undefined') return RELEASES;
+  if(!releases.busy&&!releases.failed&&typeof document!=='undefined'&&document.createElement&&document.head){
+    releases.busy=true;
+    const s=document.createElement('script'); s.src=RELEASES_SRC;
+    s.onload=()=>{releases.busy=false;render()};
+    s.onerror=()=>{releases.busy=false;releases.failed=true;render()};
+    document.head.appendChild(s);
+  }
+  return null;
+}
 // deploys are tagged v<version>-<commit>, so the server can name the latest version too
 function tagVersion(t){const m=/^v(\d+\.\d+)/.exec(String(t||''));return m?m[1]:null}
 function vReleases(){
-  return `<div class="card"><div class="lift-h"><h2>What\u2019s new</h2><button class="btn sm ghost" data-act="view" data-view="setup">Back to Setup</button></div>
-  <p class="note" style="margin:0">What each release added. The app updates itself: when a new one is deployed you get a banner at the top, and reloading is all it takes.</p></div>
-  ${RELEASES.map(r=>`<div class="card"><div class="lift-h"><h3>${esc(r.title)}</h3><span class="chip${r.v===APP_VERSION?' blue':''}">${r.v===APP_VERSION?'Current \u00b7 ':''}${esc(r.v)}</span></div>
+  const R=releases();
+  let h=`<div class="card"><div class="lift-h"><h2>What\u2019s new</h2><button class="btn sm ghost" data-act="view" data-view="setup">Back to Setup</button></div>
+  <p class="note" style="margin:0">What each release added. The app updates itself: when a new one is deployed you get a banner at the top, and reloading is all it takes.</p></div>`;
+  if(!R) return h+`<div class="card"><p class="note" style="margin:0">${releases.failed?'The release notes could not be loaded. Check your connection and open this page again.':'Loading the release notes\u2026'}</p></div>`;
+  return h+R.map(r=>`<div class="card"><div class="lift-h"><h3>${esc(r.title)}</h3><span class="chip${r.v===APP_VERSION?' blue':''}">${r.v===APP_VERSION?'Current \u00b7 ':''}${esc(r.v)}</span></div>
   <div class="small muted">${fmtLong(r.date)}</div>
-  <ul class="tight small">${r.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}`;
+  <ul class="tight small">${r.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
 }
 
 /* ---------- undo ---------- */

@@ -53,8 +53,10 @@ through unauthenticated — iOS fetches a startup image before any session exist
 `node build.js` into `public/app.js`. No bundler, no transforms, no module graph: the
 bundle is the sources concatenated, so what runs is what you wrote and the scope is
 exactly what it was when it lived in one file. The build also stamps a content hash onto
-the `app.css`, `releases.js` and `app.js` tags in `index.html`, so a changed bundle is
-fetched fresh and the in-app update banner still fires.
+the `app.css` and `app.js` tags in `index.html`, so a changed bundle is fetched fresh and
+the in-app update banner still fires, and writes `APP_VERSION` and `RELEASES_SRC` into the
+top of the bundle from `public/releases.js`. The notes themselves are not loaded until
+the What's new page (or About) asks for them.
 
 `npm test` and `npm run deploy` build first. CI rebuilds and fails if the committed
 `public/app.js` or `index.html` differ, so the bundle can never drift from its sources.
@@ -216,8 +218,8 @@ The Worker stamps every page it serves with the page's fingerprint (its asset ET
 opens, when it comes back from the background, and every 30 minutes, and shows a
 "new version is ready · Reload" banner if they differ. Backend-only deploys don't
 change the fingerprint, so they don't trigger it. Setup → About this app shows both
-versions and the deploy time. The running page reports itself as `RELEASES[0].v`
-(`APP_VERSION`), and `npm run deploy` tags the Worker `v<package.json version>-<commit>`
+versions and the deploy time. The running page reports itself as the newest entry in
+`releases.js` (`APP_VERSION`, stamped at build), and `npm run deploy` tags the Worker `v<package.json version>-<commit>`
 so `/api/version` can name the deployed release too. A test keeps `package.json`,
 `RELEASES[0]` and the tag format in step — bump all three together when you add a release.
 
