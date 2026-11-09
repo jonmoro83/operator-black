@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.70',date:'2026-11-08',title:"Swiss bars, a shorter tab bar, and a review pass",items:[
+    "Swiss bar bench and cambered Swiss bar bench are bench press variants now. The old neutral-grip bar entry is the Swiss bar, and the cambered one sits a little under it, since your hands travel past your chest. Pick either in Setup → Program or from the lift card, and give it its own max if the usual gap doesn't match yours.",
+    "Coach has moved into the account menu, up by your initials, so the tab bar fits a phone without scrolling. Guide stays where it is.",
+    "Coming back to the app now checks whether anything changed on the server before downloading your history again, so switching back from another app is quicker and uses less data.",
+    "The release notes load when you open What's new, instead of ahead of the app every time it starts.",
+    "Under the hood, from a full review of the app: deploys apply database changes themselves, every page comes with stricter security headers, and the tests now run against a real database and a real page. None of that changes what you see."]},
   {v:'3.69',date:'2026-11-03',title:"Fewer taps for the beep",items:[
     "Coming back from another app mid-rest used to ask for a tap every time, just in case the sound had broken while you were away. Now the app checks first. If the sound still works there's no prompt, and if it's broken the app tries to restart it on its own.",
     "You'll only see \u201cSound needs a tap\u201d when iOS won't let the app restart its sound by itself. That's most likely when iOS closed the app in the background while you were away. Any tap still fixes it, logging a set included.",

@@ -7,7 +7,8 @@ retests automatically, calculates working weights and plates, and logs every ses
 Hosted as a Cloudflare Worker at **operatorblack.com**, with storage in D1 and sign-in
 through Cloudflare Access.
 
-Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md).
+Open issues, next steps and ideas live in [ROADMAP.md](ROADMAP.md); the investigation
+record behind them (what was tried, what the device said) is [JOURNAL.md](JOURNAL.md).
 
 ```
 src/app/*.js                the app, in ordered sections (01-constants … 22-events)
@@ -64,15 +65,27 @@ the What's new page (or About) asks for them.
 
 ## Tests
 
-`test/harness.js` pulls the `<script>` out of `public/index.html`, evaluates it against a
-stub DOM, and exposes every top-level function plus the live state, so the calculations
-can be tested without a browser. `npm test` runs them, `npm run deploy` runs them first
-and refuses to deploy if any fail, and they also run on every push
-(`.github/workflows/test.yml`). Covered: the schedule engine (bridge, cycles, deload and
-retest cadence, inserts, skips, frozen weeks), working weights, rounding, training-max
-basis, cycle increments and overrides, ramp sets, weighted pull-up maths, Lift 3
-rotation, day rearranging, personal records, the bodyweight average, mobility mapping,
-the guided runner and CSV export.
+`npm test` builds, lints (`eslint.config.js`, correctness rules only, over the built
+bundle, the Worker and the tests) and runs every `test/*.test.js`. `npm run deploy` runs
+it first and refuses to deploy if anything fails; the pre-push hook runs it before a
+push; CI runs it on every push too (`.github/workflows/test.yml`).
+
+Three harnesses, no browser:
+
+- `test/harness.js` evaluates `public/app.js` against a stub DOM and exposes every
+  top-level function plus the live state. Most of the suite: the schedule engine
+  (bridge, cycles, deload and retest cadence, inserts, skips, frozen weeks), working
+  weights, rounding, training-max basis, increments and overrides, ramp sets, weighted
+  pull-up math, Lift 3 rotation, rearranging, records, the bodyweight average, mobility,
+  the guided runner, CSV export, the timers and the alert path.
+- `test/dom.js` loads `index.html` into linkedom and lets the app boot against a real
+  DOM (`dom.test.js`): taps on the nav, typing into bound fields, ticking sets, `morph()`
+  keeping its nodes, the crash banner.
+- `test/d1.js` is D1's surface over Node's built-in SQLite with the real migrations
+  applied (`db.test.js`): the Worker's own SQL, FTS5 with porter, the state ETag, the
+  restore batch, the legacy claim. `api.test.js` keeps a fixed-answer DB fake for
+  handler logic and the Access JWT path; `worker.test.js` covers routing and headers;
+  `push.test.js` the Durable Object and Web Push; `sync.test.js` drives `connect()`.
 
 ## Deploys
 

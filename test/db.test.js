@@ -164,7 +164,8 @@ test("a report is stored against the sender and the table is kept to 200 rows", 
   a.equal(e.DB.rows("SELECT COUNT(*) AS n FROM reports")[0].n, 231);
   await send("newest", "timer");
   a.equal(e.DB.rows("SELECT COUNT(*) AS n FROM reports")[0].n, 200, "trimmed after the insert");
-  a.equal(e.DB.rows("SELECT body FROM reports ORDER BY at DESC LIMIT 1")[0].body, "newest", "the newest is kept");
+  // Two inserts can share a millisecond, so `at` alone does not order them; id does.
+  a.equal(e.DB.rows("SELECT body FROM reports ORDER BY at DESC, id DESC LIMIT 1")[0].body, "newest", "the newest is kept");
   a.equal(e.DB.rows("SELECT COUNT(*) AS n FROM reports WHERE at < ?", 1031)[0].n, 0, "the oldest went");
 });
 
