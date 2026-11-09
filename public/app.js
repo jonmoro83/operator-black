@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.70", RELEASES_SRC="/releases.js?b=8ca4bf566c";
+const APP_VERSION="3.71", RELEASES_SRC="/releases.js?b=8a5c91e75a";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -3900,7 +3900,12 @@ function vToday(){
   h+=`</div>`;
   if(!wk){ return h+checkinCard(sel)+`<div class="card"><h3>Not started</h3><p class="muted">The program starts the week of ${fmtLong(plan.startMonday)}. Change the start date in Setup.</p></div>` }
   const wt=weekTitle(wk);
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
+  // On a lifting day the first lift card is the ninth block down, after the week, the
+  // check-ins and the warm-up. Session mode is the screen you want once the bar is
+  // loaded, so it gets a button up here too; the full-width one below the lifts stays.
+  const startBtn=sel===todayStr()&&!viewing&&(dp.t==='lift'||dp.t==='rm5'||dp.t==='test')
+    ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
   h+=noteCard(sel);
   h+=aimsCard(sel);
@@ -7524,7 +7529,7 @@ function pullupState(date){
 }
 function pullupCard(date){
   const p=pullupState(date);
-  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
+  if(!p.best&&!p.wpu) return emptyCard('Pull-ups','one all-out set on a test day, full hang to chin over bar',`<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`);
   let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
   // The best set measured against the next rung: the B shape exactly, reps over target.
   h+=`<div class="mbs">`;
@@ -7543,7 +7548,7 @@ function pullupCard(date){
 }
 function prBoard(){
   const rs=prList();
-  if(!rs.length) return `<div class="card"><h3>Personal records</h3><div class="empty">Nothing tested yet. Bests from test days, jumps, pull-ups and conditioning land here.</div></div>`;
+  if(!rs.length) return emptyCard('Personal records','bests from test days, jumps, pull-ups and conditioning',`<div class="card"><h3>Personal records</h3><div class="empty">Nothing tested yet. Bests from test days, jumps, pull-ups and conditioning land here.</div></div>`);
   return `<div class="card"><div class="lift-h"><h3>Personal records</h3><span class="small muted">All programs</span></div>
   <div class="tbl-wrap"><table><thead><tr><th>Record</th><th class="n">Best</th><th class="n">Set</th><th class="n">Gain</th></tr></thead><tbody>
   ${rs.map(r=>`<tr><td>${r.label}</td><td class="n"><b>${r.fmt(r.value)}</b> <span class="muted">${esc(r.unit)}</span></td><td class="n small">${fmtD(r.date,true)}</td><td class="n small">${r.prev!=null?`<span class="chip light">+${n(Math.round((r.value-r.prev)*10)/10)}</span>`:'<span class="muted">first</span>'}</td></tr>`).join('')}
@@ -7724,11 +7729,27 @@ function bwSeries(t){
     .map(([d,L])=>({d,raw:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1);
   return xs.map(x=>{const a=bwAvg(x.d,7);return {d:x.d,v:a?a.avg:x.raw,raw:x.raw,n:a?a.n:1}});
 }
+/* A card with nothing to show yet used to take a whole card to say so, and on a new
+   account that was half of Status: five cards of "log this and it appears here". Inside
+   Status they report themselves here instead and one card lists them, each with where
+   the data comes from. Anywhere else these cards render as they always did. */
+let statusEmpties=null;
+function emptyCard(label,hint,html){
+  if(view!=='status'||!statusEmpties) return html;
+  statusEmpties.push({label,hint});
+  return '';
+}
+function emptiesCard(){
+  if(!statusEmpties||!statusEmpties.length) return '';
+  return `<div class="card"><div class="lift-h"><h3>Not tracking yet</h3><span class="small muted">Each fills in as you log</span></div>
+  <div class="stack small">${statusEmpties.map(e=>`<div><b>${esc(e.label)}</b> <span class="muted">· ${esc(e.hint)}</span></div>`).join('')}</div></div>`;
+}
 function bwCard(t){
   const xs=bwSeries(t), r=bwRange(), rate=bwRate(t,14);
   const seg=`<div class="restsel"><span>Range</span><div class="seg">${Object.entries(BWR).map(([k,l])=>`<button class="segb${k===r?' on':''}" data-act="bwrange" data-v="${k}" aria-pressed="${k===r}">${l}</button>`).join('')}</div></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Bodyweight</h3><span class="small muted">Every weigh-in, and the 7-day average</span></div>${seg}`;
-  if(xs.length<2) return h+`<div class="none">${xs.length?'One weigh-in in this range. The average needs a few days.':'Log your weight in the daily check-in and it charts here.'}</div></div>`;
+  if(!xs.length) return emptyCard('Bodyweight','your weight, in the daily check-in',h+`<div class="none">Log your weight in the daily check-in and it charts here.</div></div>`);
+  if(xs.length<2) return h+`<div class="none">One weigh-in in this range. The average needs a few days.</div></div>`;
   const first=xs[0], last=xs[xs.length-1];
   const k0=Math.min(7,Math.floor(xs.length/2)), mean=a0=>a0.reduce((x,y)=>x+y.raw,0)/a0.length;
   const ch=k0>=2?mean(xs.slice(-k0))-mean(xs.slice(0,k0)):last.raw-first.raw;
@@ -7869,7 +7890,7 @@ function macroCard(t){
   const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t));
   const lb=bwLb(t);
   let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="chip ${tgt.src==='tb3'?'light':''}">${tgt.src==='tb3'?'TB III':'Ours'}</span>`:''}</div>`;
-  if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
+  if(!lb) return emptyCard('Macros','a bodyweight in the daily check-in sets the target',h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`);
   if(!tgt) return h+`<p class="note" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
 
   h+=`<div class="seg wide">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${esc(l)}</button>`).join('')}</div>`;
@@ -7903,7 +7924,7 @@ function energyCard(t){
   const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
   const bf=bfSeries(t), last=bf[bf.length-1];
   const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
-  if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="note" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
+  if(!meas&&!pred&&!bf.length) return emptyCard('Energy and composition','calories in the check-in; height, sex and birth year in Setup; neck and waist weekly',`<div class="card"><h3>Energy and composition</h3><p class="note" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`);
   let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
   const ate=kc.length?Math.round(kc.reduce((a,b)=>a+b,0)/kc.length):null, kt=(macroTarget(t)||{}).kcal||null;
   const at=kt&&ate!=null?macroTone(kt,ate):null;
@@ -8064,6 +8085,7 @@ function vStatus(){
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
   const list=weeks(), ci0=wk.idx;
   let h='';
+  statusEmpties=[];
   // The answer leads; the orientation and the evidence follow it.
   h+=verdictBlock(t);
   // The comparison the Progress line points at, while it is the thing to read.
@@ -8157,6 +8179,7 @@ function vStatus(){
   }
   h+=pullupCard(t);
   h+=prBoard();
+  h+=emptiesCard(); statusEmpties=null;
   h+=`<div class="row between" style="padding:0 2px"><span class="small muted">Readiness, jumps, maxes by cycle and every session you have logged.</span><button class="btn sm" data-act="view" data-view="history">Open History</button></div>`;
   return h;
 }
@@ -8854,6 +8877,19 @@ const SEC=k=>'\u0000'+k+'\u0000';
    already learned that with the mobility panels (`openPx`): open state is state, not
    DOM. More than one section can be open at once, which is the whole point of
    remembering a set. */
+/* "Find a setting". Setup is twenty-nine sections and a hundred and sixty-odd fields;
+   the groups help, but finding Bands or the calendar feed still meant scrolling and
+   guessing which group. A query keeps only the cards whose text contains it, drops the
+   sections that end up empty, and opens the rest regardless of the remembered open set,
+   since the point of searching is to see the result. In memory only: a fresh open of
+   Setup starts unfiltered. The Guide uses the same box over its cards. */
+let setupQ='', guideQ='';
+function textOf(html){ return html.replace(/<[^>]+>/g,' ').replace(/&[a-z#0-9]+;/g,' ').toLowerCase() }
+// Top-level cards only: every card starts with this prefix and nothing nests one.
+function cardsMatching(html,q){ return html.split(/(?=<div class="card)/).filter(c=>textOf(c).includes(q)).join('') }
+function findBox(id,attr,q,ph){
+  return `<div class="find"><input type="search" id="${id}" ${attr} value="${esc(q)}" placeholder="${esc(ph)}" aria-label="${esc(ph)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${q?`<button class="btn sm ghost" data-act="findclear" data-for="${attr}">Clear</button>`:''}</div>`;
+}
 let setupSecs=null;
 function setupOpen(){
   if(setupSecs) return setupSecs;
@@ -8879,20 +8915,24 @@ function setupSections(html){
   const parts=html.split('\u0000'), loose=parts[0];
   const by={};
   for(let i=1;i<parts.length;i+=2){ const k=parts[i]; (by[k]=by[k]||[]).push(parts[i+1]||'') }
-  const open=setupOpen();
-  let out=loose;
+  const open=setupOpen(), q=setupQ.trim().toLowerCase();
+  let out=loose, any=false;
   for(const [k,label] of SETUP_SECS){
-    const body=(by[k]||[]).join('');
+    let body=(by[k]||[]).join('');
+    if(q) body=cardsMatching(body,q);
     if(!body.trim()) continue;
+    any=true;
     const n=(body.match(/<h2>/g)||[]).length;
-    out+=`<details class="setup-sec"${open.has(k)?' open':''} data-sec="${k}"><summary><b>${esc(label)}</b><span class="small muted">${n} setting${n===1?'':'s'}</span></summary>${body}</details>`;
+    out+=`<details class="setup-sec"${q||open.has(k)?' open':''} data-sec="${k}"><summary><b>${esc(label)}</b><span class="small muted">${n} setting${n===1?'':'s'}${q?' found':''}</span></summary>${body}</details>`;
   }
+  if(q&&!any) out+=`<div class="card"><p class="note" style="margin:0">No setting mentions “${esc(setupQ.trim())}”. Try another word, or clear the search.</p></div>`;
   return out;
 }
 function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
   <p class="note" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
   <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
+  ${findBox('setup-find','data-setupfind',setupQ,'Find a setting')}
   ${SEC('program')}${lpOn()?lpCard():`<div class="card"><h2>Maxes</h2><p class="note" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k,todayStr()))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`}`;
@@ -9145,7 +9185,18 @@ async function loadBackups(){
   backups.loading=false; if(view==='setup') render();
 }
 
+// The Guide is a reference the length of a short book, in cards behind disclosures. A
+// query keeps the cards that mention it and opens every disclosure in them.
 function vGuide(){
+  const q=guideQ.trim().toLowerCase();
+  let body=vGuideHtml();
+  if(q){
+    body=cardsMatching(body,q).replace(/<details(?![^>]*\bopen\b)/g,'<details open');
+    if(!body) body=`<div class="card"><p class="note" style="margin:0">Nothing in the guide mentions “${esc(guideQ.trim())}”.</p></div>`;
+  }
+  return findBox('guide-find','data-guidefind',guideQ,'Find in the guide')+body;
+}
+function vGuideHtml(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
@@ -9865,6 +9916,9 @@ function copyOut(btn,text,label){
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
+  // The find boxes carry ids, so morph leaves the field alone while it is being typed in.
+  if(t.hasAttribute&&t.hasAttribute('data-setupfind')){ setupQ=t.value; render(); return; }
+  if(t.hasAttribute&&t.hasAttribute('data-guidefind')){ guideQ=t.value; render(); return; }
   if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
   // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
   // and the caret survive it.
@@ -9958,6 +10012,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // rather than an onclick attribute, which the page's CSP does not allow.
   if(e.target.hasAttribute&&e.target.hasAttribute('data-selectall')&&e.target.select){e.target.select();return}
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
+  if(a==='findclear'){ if(b.dataset.for==='data-setupfind') setupQ=''; else guideQ=''; render(); return }
   if(a==='progview'){enterArchive(b.dataset.id);return}
   if(a==='progexit'){exitArchive();return}
   // an archived program is read-only: only navigation works

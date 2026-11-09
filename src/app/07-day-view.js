@@ -46,7 +46,12 @@ function vToday(){
   h+=`</div>`;
   if(!wk){ return h+checkinCard(sel)+`<div class="card"><h3>Not started</h3><p class="muted">The program starts the week of ${fmtLong(plan.startMonday)}. Change the start date in Setup.</p></div>` }
   const wt=weekTitle(wk);
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost" style="margin-left:auto" data-act="move">Move…</button>`:''}</div>`;
+  // On a lifting day the first lift card is the ninth block down, after the week, the
+  // check-ins and the warm-up. Session mode is the screen you want once the bar is
+  // loaded, so it gets a button up here too; the full-width one below the lifts stays.
+  const startBtn=sel===todayStr()&&!viewing&&(dp.t==='lift'||dp.t==='rm5'||dp.t==='test')
+    ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
   if(moveOpen&&!viewing) h+=moveCard();
   h+=noteCard(sel);
   h+=aimsCard(sel);

@@ -465,6 +465,19 @@ const SEC=k=>'\u0000'+k+'\u0000';
    already learned that with the mobility panels (`openPx`): open state is state, not
    DOM. More than one section can be open at once, which is the whole point of
    remembering a set. */
+/* "Find a setting". Setup is twenty-nine sections and a hundred and sixty-odd fields;
+   the groups help, but finding Bands or the calendar feed still meant scrolling and
+   guessing which group. A query keeps only the cards whose text contains it, drops the
+   sections that end up empty, and opens the rest regardless of the remembered open set,
+   since the point of searching is to see the result. In memory only: a fresh open of
+   Setup starts unfiltered. The Guide uses the same box over its cards. */
+let setupQ='', guideQ='';
+function textOf(html){ return html.replace(/<[^>]+>/g,' ').replace(/&[a-z#0-9]+;/g,' ').toLowerCase() }
+// Top-level cards only: every card starts with this prefix and nothing nests one.
+function cardsMatching(html,q){ return html.split(/(?=<div class="card)/).filter(c=>textOf(c).includes(q)).join('') }
+function findBox(id,attr,q,ph){
+  return `<div class="find"><input type="search" id="${id}" ${attr} value="${esc(q)}" placeholder="${esc(ph)}" aria-label="${esc(ph)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${q?`<button class="btn sm ghost" data-act="findclear" data-for="${attr}">Clear</button>`:''}</div>`;
+}
 let setupSecs=null;
 function setupOpen(){
   if(setupSecs) return setupSecs;
@@ -490,20 +503,24 @@ function setupSections(html){
   const parts=html.split('\u0000'), loose=parts[0];
   const by={};
   for(let i=1;i<parts.length;i+=2){ const k=parts[i]; (by[k]=by[k]||[]).push(parts[i+1]||'') }
-  const open=setupOpen();
-  let out=loose;
+  const open=setupOpen(), q=setupQ.trim().toLowerCase();
+  let out=loose, any=false;
   for(const [k,label] of SETUP_SECS){
-    const body=(by[k]||[]).join('');
+    let body=(by[k]||[]).join('');
+    if(q) body=cardsMatching(body,q);
     if(!body.trim()) continue;
+    any=true;
     const n=(body.match(/<h2>/g)||[]).length;
-    out+=`<details class="setup-sec"${open.has(k)?' open':''} data-sec="${k}"><summary><b>${esc(label)}</b><span class="small muted">${n} setting${n===1?'':'s'}</span></summary>${body}</details>`;
+    out+=`<details class="setup-sec"${q||open.has(k)?' open':''} data-sec="${k}"><summary><b>${esc(label)}</b><span class="small muted">${n} setting${n===1?'':'s'}${q?' found':''}</span></summary>${body}</details>`;
   }
+  if(q&&!any) out+=`<div class="card"><p class="note" style="margin:0">No setting mentions “${esc(setupQ.trim())}”. Try another word, or clear the search.</p></div>`;
   return out;
 }
 function vSetup(){
   let h=`<div class="card" id="account"><h2>Account</h2><dl class="kv"><dt>Signed in</dt><dd>${esc(me||'Not signed in')}</dd></dl>
   <p class="note" style="margin:0">Sign-in goes through Cloudflare Access, and everything you log — plan, sessions, archived programs and backups — belongs to this address alone. Signing out leaves this phone’s copy in place; it syncs again the moment you sign back in.</p>
   <div class="row"><a class="btn" href="${signedOut?'/':'/cdn-cgi/access/logout'}">${signedOut?'Sign in':'Sign out'}</a><button class="btn ghost" data-act="view" data-view="guide">Guide</button></div></div>
+  ${findBox('setup-find','data-setupfind',setupQ,'Find a setting')}
   ${SEC('program')}${lpOn()?lpCard():`<div class="card"><h2>Maxes</h2><p class="note" style="margin:0">True 1RM for Cycle 1. Later cycles add the increment below unless a retest or a manual override replaces it.</p>
   <div class="grid4">${activeLifts().map(k=>`<label class="f">${esc(liftName(k,todayStr()))} 1RM${isBW(k)?' (added)':''}${pIn('maxes.'+k,plan.maxes[k])}</label>`).join('')}</div>
   <details class="plain"><summary>Have a 5RM instead?</summary><div class="stack" style="margin-top:8px"><p class="small muted" style="margin:0">Enter a clean 5RM. The 1RM is the 5RM ÷ 0.87, rounded down.</p><div class="grid4">${activeLifts().filter(k=>!isBW(k)).map(k=>`<label class="f">${esc(liftName(k))} 5RM<input type="number" inputmode="decimal" step="any" id="c5-${k}" data-calc="${k}" value="${calc5[k]??''}"><span class="mono small">${calc5[k]?'→ '+n(floorTo(calc5[k]/.87,plan.round[k])):''}</span></label>`).join('')}</div><div><button class="btn sm" data-act="calc5">Use these as maxes</button></div></div></details></div>`}`;
@@ -756,7 +773,18 @@ async function loadBackups(){
   backups.loading=false; if(view==='setup') render();
 }
 
+// The Guide is a reference the length of a short book, in cards behind disclosures. A
+// query keeps the cards that mention it and opens every disclosure in them.
 function vGuide(){
+  const q=guideQ.trim().toLowerCase();
+  let body=vGuideHtml();
+  if(q){
+    body=cardsMatching(body,q).replace(/<details(?![^>]*\bopen\b)/g,'<details open');
+    if(!body) body=`<div class="card"><p class="note" style="margin:0">Nothing in the guide mentions “${esc(guideQ.trim())}”.</p></div>`;
+  }
+  return findBox('guide-find','data-guidefind',guideQ,'Find in the guide')+body;
+}
+function vGuideHtml(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
   <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>

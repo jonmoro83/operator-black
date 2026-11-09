@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.71',date:'2026-11-08',title:"Find a setting, and a shorter Status",items:[
+    "Setup has a search box at the top. Type a word, say calendar or bands, and only the settings that mention it stay, with their section opened. Clear it and everything comes back. The Guide has the same box and opens every folded section that matches.",
+    "Status no longer spends a card each on things you haven't logged yet. Macros, bodyweight, energy, pull-ups and records fold into one short list of what's not tracking yet and where each gets its data. As soon as you log something, that card comes back on its own.",
+    "On a lifting day there's a Start session button at the top of Today, next to the week, so you don't scroll past the check-ins and warm-up to find it. The big one below the lifts is still there.",
+    "The smallest text in the app (day names, chart labels, chips) went up a size, and gym mode makes it bigger still. Small buttons are a little taller to hit."]},
   {v:'3.70',date:'2026-11-08',title:"Swiss bars, a shorter tab bar, and a review pass",items:[
     "Swiss bar bench and cambered Swiss bar bench are bench press variants now. The old neutral-grip bar entry is the Swiss bar, and the cambered one sits a little under it, since your hands travel past your chest. Pick either in Setup → Program or from the lift card, and give it its own max if the usual gap doesn't match yours.",
     "Coach has moved into the account menu, up by your initials, so the tab bar fits a phone without scrolling. Guide stays where it is.",

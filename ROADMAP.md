@@ -137,6 +137,30 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Find a setting, a shorter Status, Start session up top (2026-11-08, 3.71)**
+- From a UI pass measured in the DOM harness on a lifting day: Today was 12 cards and
+  159 buttons with the first lift ninth; Setup 29 sections, 165 inputs, 33,600 characters;
+  Status 10 cards of which 5 were empty-state prompts; 30 CSS rules at 11–12px.
+- **Find a setting.** A search box under the Account card. `setupSections` filters each
+  group's cards by their text (`cardsMatching`, split on the top-level card prefix), drops
+  groups left empty, opens the rest regardless of the remembered open set, and says "No
+  setting mentions …" when nothing matches. In memory only (`setupQ`). The Guide has the
+  same box (`guideQ`) over its cards and opens every disclosure inside a hit.
+- **Status folds its empty cards.** Macros, Bodyweight, Energy and composition, Pull-ups
+  and Personal records call `emptyCard(label, hint, html)` when they have nothing yet;
+  inside Status that collects into one "Not tracking yet" card listing where each gets
+  its data, and anywhere else (or once there is data) the card renders as before.
+  Bodyweight with one weigh-in keeps its own partial card; only zero folds.
+- **Start session on the week line** on today's lifting, 5RM and test days (`lsstart`,
+  the same action as the full-width button below the lifts, which stays). Not a collapse
+  of the cards above the lifts, which was declined 2026-10-20.
+- **Type floor and targets.** Every `font-size:11px` became 12px (14 rules: day strip,
+  chart axes, heat-map keys, chips' small text, the quiet tags); gym mode lifts those
+  classes to 13px. `.btn.sm` `min-height` 40 → 44px.
+- **`aria-labelledby`** was misspelled on the account and timer menus, so they had no
+  accessible name. Fixed; a test keeps the spelling.
+- `test/ui.test.js` covers all of it in the real DOM.
+
 **A review pass: pipeline, headers, payload, tests, tooling (2026-11-08, 3.70)**
 - From a full review of the app on 2026-11-08. Each item is its own commit.
 - **Deploy pipeline.** `npm run deploy` now applies D1 migrations before deploying, so

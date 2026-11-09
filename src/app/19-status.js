@@ -93,11 +93,27 @@ function bwSeries(t){
     .map(([d,L])=>({d,raw:+L.checkin.bw})).sort((a,b)=>a.d<b.d?-1:1);
   return xs.map(x=>{const a=bwAvg(x.d,7);return {d:x.d,v:a?a.avg:x.raw,raw:x.raw,n:a?a.n:1}});
 }
+/* A card with nothing to show yet used to take a whole card to say so, and on a new
+   account that was half of Status: five cards of "log this and it appears here". Inside
+   Status they report themselves here instead and one card lists them, each with where
+   the data comes from. Anywhere else these cards render as they always did. */
+let statusEmpties=null;
+function emptyCard(label,hint,html){
+  if(view!=='status'||!statusEmpties) return html;
+  statusEmpties.push({label,hint});
+  return '';
+}
+function emptiesCard(){
+  if(!statusEmpties||!statusEmpties.length) return '';
+  return `<div class="card"><div class="lift-h"><h3>Not tracking yet</h3><span class="small muted">Each fills in as you log</span></div>
+  <div class="stack small">${statusEmpties.map(e=>`<div><b>${esc(e.label)}</b> <span class="muted">· ${esc(e.hint)}</span></div>`).join('')}</div></div>`;
+}
 function bwCard(t){
   const xs=bwSeries(t), r=bwRange(), rate=bwRate(t,14);
   const seg=`<div class="restsel"><span>Range</span><div class="seg">${Object.entries(BWR).map(([k,l])=>`<button class="segb${k===r?' on':''}" data-act="bwrange" data-v="${k}" aria-pressed="${k===r}">${l}</button>`).join('')}</div></div>`;
   let h=`<div class="card"><div class="lift-h"><h3>Bodyweight</h3><span class="small muted">Every weigh-in, and the 7-day average</span></div>${seg}`;
-  if(xs.length<2) return h+`<div class="none">${xs.length?'One weigh-in in this range. The average needs a few days.':'Log your weight in the daily check-in and it charts here.'}</div></div>`;
+  if(!xs.length) return emptyCard('Bodyweight','your weight, in the daily check-in',h+`<div class="none">Log your weight in the daily check-in and it charts here.</div></div>`);
+  if(xs.length<2) return h+`<div class="none">One weigh-in in this range. The average needs a few days.</div></div>`;
   const first=xs[0], last=xs[xs.length-1];
   const k0=Math.min(7,Math.floor(xs.length/2)), mean=a0=>a0.reduce((x,y)=>x+y.raw,0)/a0.length;
   const ch=k0>=2?mean(xs.slice(-k0))-mean(xs.slice(0,k0)):last.raw-first.raw;
@@ -238,7 +254,7 @@ function macroCard(t){
   const tgt=macroTarget(t), got=macroMean(t,macroWinDays(t));
   const lb=bwLb(t);
   let h=`<div class="card"><div class="lift-h"><h3>Macros</h3>${tgt?`<span class="chip ${tgt.src==='tb3'?'light':''}">${tgt.src==='tb3'?'TB III':'Ours'}</span>`:''}</div>`;
-  if(!lb) return h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`;
+  if(!lb) return emptyCard('Macros','a bodyweight in the daily check-in sets the target',h+`<p class="small muted" style="margin:0">Log your bodyweight in the daily check-in and a target appears here.</p></div>`);
   if(!tgt) return h+`<p class="note" style="margin:0">A target for ${esc(macroGoal()==='lose'?'losing':'holding')} needs your daily burn first, which needs your height and age in Setup, or a few weeks of calories and weigh-ins.</p></div>`;
 
   h+=`<div class="seg wide">${MACRO_WINS.map(([v,l])=>`<button class="segb${macroWin===v?' on':''}" data-act="macrowin" data-v="${v}" aria-pressed="${macroWin===v}">${esc(l)}</button>`).join('')}</div>`;
@@ -272,7 +288,7 @@ function energyCard(t){
   const est=tdeeOn(t), pred=est&&est.predicted, meas=est&&est.measured, ts=tdeeSeries(t,12);
   const bf=bfSeries(t), last=bf[bf.length-1];
   const kc=[]; for(let i=27;i>=0;i--){const v=kcalOn(addDays(t,-i));if(v)kc.push(v)}
-  if(!meas&&!pred&&!bf.length) return `<div class="card"><h3>Energy and composition</h3><p class="note" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`;
+  if(!meas&&!pred&&!bf.length) return emptyCard('Energy and composition','calories in the check-in; height, sex and birth year in Setup; neck and waist weekly',`<div class="card"><h3>Energy and composition</h3><p class="note" style="margin:0">Log calories in the daily check-in, add your height, sex and birth year in Setup, and take neck and waist measurements weekly. Then this card estimates what you burn and what you are made of.</p></div>`);
   let h=`<div class="card"><div class="lift-h"><h3>Energy and composition</h3><span class="small muted">Estimates, not measurements</span></div>`;
   const ate=kc.length?Math.round(kc.reduce((a,b)=>a+b,0)/kc.length):null, kt=(macroTarget(t)||{}).kcal||null;
   const at=kt&&ate!=null?macroTone(kt,ate):null;
@@ -433,6 +449,7 @@ function vStatus(){
   if(!wk) return `<div class="card"><h2>Status</h2><p class="muted" style="margin:0">The program starts the week of ${fmtLong(plan.startMonday)}.</p></div>`;
   const list=weeks(), ci0=wk.idx;
   let h='';
+  statusEmpties=[];
   // The answer leads; the orientation and the evidence follow it.
   h+=verdictBlock(t);
   // The comparison the Progress line points at, while it is the thing to read.
@@ -526,6 +543,7 @@ function vStatus(){
   }
   h+=pullupCard(t);
   h+=prBoard();
+  h+=emptiesCard(); statusEmpties=null;
   h+=`<div class="row between" style="padding:0 2px"><span class="small muted">Readiness, jumps, maxes by cycle and every session you have logged.</span><button class="btn sm" data-act="view" data-view="history">Open History</button></div>`;
   return h;
 }

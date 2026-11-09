@@ -5914,7 +5914,9 @@ test("the app is written in American English", () => {
     // lookup alias so a mobility list edited before then still resolves. Never shown.
     .replace(/'knee to wall ankle mobilisation'/g, "''");
   const seen = [src, fs.readFileSync(path.join(__dirname, "..", "public", "releases.js"), "utf8"),
-    fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8")].join(" ");
+    fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8")].join(" ")
+    // ARIA's own spelling, which browsers read and nobody sees. Not ours to Americanize.
+    .replace(/aria-labelledby/g, "aria-x");
 
   const british = [
     [/\bprogramme/i, "programme"], [/\bcolour/i, "colour"], [/\bbehaviour/i, "behaviour"],

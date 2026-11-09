@@ -66,7 +66,7 @@ function pullupState(date){
 }
 function pullupCard(date){
   const p=pullupState(date);
-  if(!p.best&&!p.wpu) return `<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`;
+  if(!p.best&&!p.wpu) return emptyCard('Pull-ups','one all-out set on a test day, full hang to chin over bar',`<div class="card"><h3>Pull-ups</h3><p class="note" style="margin:0">Log one all-out set on a test day \u2014 full hang to chin over bar \u2014 and this maps out the road from there to a weighted pull-up.</p></div>`);
   let h=`<div class="card"><div class="lift-h"><h3>Pull-ups</h3><span class="chip ${p.stage>=3?'light':''}">${esc(p.st.name)}</span></div>`;
   // The best set measured against the next rung: the B shape exactly, reps over target.
   h+=`<div class="mbs">`;
@@ -85,7 +85,7 @@ function pullupCard(date){
 }
 function prBoard(){
   const rs=prList();
-  if(!rs.length) return `<div class="card"><h3>Personal records</h3><div class="empty">Nothing tested yet. Bests from test days, jumps, pull-ups and conditioning land here.</div></div>`;
+  if(!rs.length) return emptyCard('Personal records','bests from test days, jumps, pull-ups and conditioning',`<div class="card"><h3>Personal records</h3><div class="empty">Nothing tested yet. Bests from test days, jumps, pull-ups and conditioning land here.</div></div>`);
   return `<div class="card"><div class="lift-h"><h3>Personal records</h3><span class="small muted">All programs</span></div>
   <div class="tbl-wrap"><table><thead><tr><th>Record</th><th class="n">Best</th><th class="n">Set</th><th class="n">Gain</th></tr></thead><tbody>
   ${rs.map(r=>`<tr><td>${r.label}</td><td class="n"><b>${r.fmt(r.value)}</b> <span class="muted">${esc(r.unit)}</span></td><td class="n small">${fmtD(r.date,true)}</td><td class="n small">${r.prev!=null?`<span class="chip light">+${n(Math.round((r.value-r.prev)*10)/10)}</span>`:'<span class="muted">first</span>'}</td></tr>`).join('')}

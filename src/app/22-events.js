@@ -44,6 +44,9 @@ function copyOut(btn,text,label){
 function val(t){ if(t.type==='checkbox') return t.checked; if(t.dataset.type==='num'||t.type==='number') return t.value===''?null:+t.value; return t.value; }
 document.addEventListener('input',e=>{
   const t=e.target;
+  // The find boxes carry ids, so morph leaves the field alone while it is being typed in.
+  if(t.hasAttribute&&t.hasAttribute('data-setupfind')){ setupQ=t.value; render(); return; }
+  if(t.hasAttribute&&t.hasAttribute('data-guidefind')){ guideQ=t.value; render(); return; }
   if(t.hasAttribute&&t.hasAttribute('data-adminconfirm')){ admin.typed=t.value; render(); return; }
   // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
   // and the caret survive it.
@@ -137,6 +140,7 @@ document.getElementById('main').addEventListener('click',e=>{
   // rather than an onclick attribute, which the page's CSP does not allow.
   if(e.target.hasAttribute&&e.target.hasAttribute('data-selectall')&&e.target.select){e.target.select();return}
   const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
+  if(a==='findclear'){ if(b.dataset.for==='data-setupfind') setupQ=''; else guideQ=''; render(); return }
   if(a==='progview'){enterArchive(b.dataset.id);return}
   if(a==='progexit'){exitArchive();return}
   // an archived program is read-only: only navigation works
