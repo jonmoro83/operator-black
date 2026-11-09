@@ -1,7 +1,7 @@
 const { test } = require("node:test");
 const a = require("node:assert");
 const { loadApp } = require("./harness.js");
-const { kindName, clashes, crowds, orderIssues, orderCrowding, fobEvery, fobCount, fobMinOpts, fobRounds, ADJACENT_BAN, ADJACENT_SOFT } = require("./oracles.js");
+const { kindName, clashes, orderIssues, orderCrowding, fobEvery, fobCount, fobMinOpts, fobRounds } = require("./oracles.js");
 const fs = require("node:fs");
 const path = require("node:path");
 
