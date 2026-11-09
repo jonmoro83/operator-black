@@ -411,6 +411,12 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   against a fetch that answers like the Worker. Found on the way: migration 0008's
   comment says porter folds "recovering" into "recovery"; it does not (checked against
   SQLite), though "trained"/"training" and "deadlifts"/"deadlift" do meet.
+- **Swiss bar and cambered Swiss bar bench.** Asked for 2026-11-08. The neutral-grip
+  entry already described a Swiss bar; it is now named one (id still `neutral`, so a
+  plan running it keeps resolving) at .92 of flat. Cambered Swiss bar is new at .88:
+  the handles sit below the sleeves, so the hands travel past the chest. Not from a
+  book; both ratios are the usual gap and the note says to give it its own max if yours
+  differs, as the other variants do.
 
 **Fewer taps for the beep (2026-11-03, 3.69)**
 - See the rest-beeps entry under Open issues for the design. Four tests: a channel

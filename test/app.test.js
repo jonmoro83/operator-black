@@ -877,6 +877,23 @@ test("a derived max is not printed to two decimal places", () => {
   a.ok(Math.abs(x.rx(wk, "squat", mon).m.v - 300 / 0.85) < 1e-9, "the maths keeps full precision");
 });
 
+test("the Swiss bar and the cambered Swiss bar are bench variants, and the old neutral id still resolves", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.equal(x.VARS.bench.neutral.name, "Swiss bar bench", "the neutral-grip entry is the Swiss bar by name now");
+  a.equal(x.VARS.bench.neutral.r, 0.92);
+  a.equal(x.VARS.bench.cswiss.name, "Cambered Swiss bar bench");
+  a.equal(x.VARS.bench.cswiss.short, "Cambered Swiss");
+  a.ok(x.VARS.bench.cswiss.r < x.VARS.bench.neutral.r, "the camber adds range at the bottom, so it is the harder of the two");
+  a.equal(x.VARS.bench.cswiss.r, 0.88);
+  a.equal(x.varRef("bench"), "flat", "the straight bar stays the reference");
+  // A plan saved before the rename keeps working: same id, new name.
+  x.plan.liftVar = { bench: "neutral" }; x.bump();
+  a.equal(x.liftName("bench", "2026-10-19"), "Swiss bar bench");
+  x.plan.liftVar = { bench: "cswiss" }; x.bump();
+  a.equal(x.liftName("bench", "2026-10-19"), "Cambered Swiss bar bench");
+});
+
 test("you can define a lift variant the list does not have", () => {
   const x = app({ now: "2026-10-19" });
   x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();

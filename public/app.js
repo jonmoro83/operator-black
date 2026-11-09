@@ -1125,7 +1125,9 @@ const VARS={
     floor:{name:'Floor press',short:'Floor',r:.92,note:'Flat on the floor, upper arms stop on the way down. No leg drive and no stretch at the bottom, so it is lockout strength and it is kind to the shoulder.'},
     pause:{name:'Paused bench',short:'Paused',r:.93,note:'A dead stop on the chest, no bounce. The chest gives you a reference to settle against and start from, which is why this is the one that carries over to a competition bench.'},
     spoto:{name:'Spoto press',short:'Spoto',r:.9,note:'Stop an inch or two above the chest and hold it there \u2014 no contact at all. Nothing to settle against, in the worst leverage of the lift, so it is harder than a paused bench and it catches a bar that was quietly sinking into the chest.'},
-    neutral:{name:'Neutral-grip bar bench',short:'Neutral grip',r:.92,note:'Football or Swiss bar, palms facing. The one to run for a whole block when the shoulder will not tolerate a straight bar.'},
+    // The id stays `neutral` so a plan that already runs this lift keeps resolving.
+    neutral:{name:'Swiss bar bench',short:'Swiss bar',r:.92,note:'Multi-grip (football) bar, palms facing or angled in. The one to run for a whole block when the shoulder will not tolerate a straight bar. Usually a little under a straight-bar bench, and the handle you pick changes it.'},
+    cswiss:{name:'Cambered Swiss bar bench',short:'Cambered Swiss',r:.88,note:'A Swiss bar with the handles dropped below the sleeves, so the hands travel past the chest. Extra range at the bottom and a longer press out of it: harder than the flat Swiss bar, and the gap is personal — give it its own max if yours differs.'},
     pin:{name:'Pin or board press',short:'Pins',r:1.05,note:'Short range from pins or boards, overloading the top half. Easy to flatter yourself with \u2014 pick one height and keep it.'}
   },
   ohp:{
