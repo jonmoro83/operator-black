@@ -21,12 +21,19 @@ function waitingCount(){return Object.keys(outbox).length}
 // which, for scheduling a lock-screen alert, is the moment it matters.
 async function api(method,path,body,opt){
   const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',keepalive:!!(opt&&opt.keepalive),
-    headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+    headers:Object.assign(body?{'content-type':'application/json'}:{},opt&&opt.headers||{}),body:body?JSON.stringify(body):undefined});
   // An expired Access session answers with a redirect to the login page.
   if(r.type==='opaqueredirect'){const e=new Error('signed out');e.status=401;throw e}
+  // `full` hands back the status and ETag too, for the one caller that sends If-None-Match
+  // and has to tell a 304 from an answer.
+  if(opt&&opt.full&&r.status===304) return {status:304,etag:r.headers.get('etag'),data:null};
   if(!r.ok){const e=new Error('HTTP '+r.status);e.status=r.status;throw e}
-  return r.status===204?null:r.json();
+  const data=r.status===204?null:await r.json();
+  return opt&&opt.full?{status:r.status,etag:r.headers.get('etag'),data}:data;
 }
+// The ETag of the last full /api/state this page received. In memory only: a fresh page
+// always loads in full, and a 304 is only ever trusted against a copy this page holds.
+let stateTag=null;
 function errText(e){
   if(e&&(e.status===401||e.status===403)) return 'Signed out · tap to sign in';
   if(e&&e.status===413) return 'Entry too large to save';
@@ -176,7 +183,7 @@ function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.ke
 function switchUser(user){
   for(const w of Object.values(writers)) clearTimeout(w.timer);
   for(const k of Object.keys(writers)) delete writers[k];
-  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false; LS.set('ob.catalog',null); catalog=[];
+  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false; LS.set('ob.catalog',null); catalog=[]; stateTag=null;
   plan=clone(DEF); logs={}; programs={}; stash=null; viewing=null; planV++;
   rest=null; iv=null; showRest(); ivShow();
   me=user; LS.set('ob.user',user);
@@ -184,15 +191,21 @@ function switchUser(user){
 async function connect(){
   if(!loaded) setStatus('Loading…');
   try{
-    const st=await api('GET','/state'); signedOut=false;
-    // Remembered so the tab does not vanish on a cold or offline open. It is a hint for
-    // the page only: every admin route checks again, so a stale yes grants nothing.
-    amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
-    if(Array.isArray(st.catalog)){ catalog=st.catalog; LS.set('ob.catalog',catalog) }
-    if(st.user&&me&&st.user!==me) switchUser(st.user);
-    if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
-    loaded=true; applyState(st);
-    if(!st.plan&&!Object.keys(st.logs||{}).length&&!plan.onboarded&&!wz){wz=wzNew(false);plan.startMonday=nextMonday();planV++;render()}
+    const r=await api('GET','/state',null,{full:true,headers:stateTag?{'if-none-match':stateTag}:{}}); signedOut=false;
+    // A 304 means nothing on the server has changed since this page last read it in
+    // full, so there is nothing to apply. Everything after applyState still runs.
+    if(r.status!==304){
+      const st=r.data; stateTag=r.etag;
+      // Remembered so the tab does not vanish on a cold or offline open. It is a hint for
+      // the page only: every admin route checks again, so a stale yes grants nothing.
+      amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
+      if(Array.isArray(st.catalog)){ catalog=st.catalog; LS.set('ob.catalog',catalog) }
+      if(st.user&&me&&st.user!==me){ switchUser(st.user); stateTag=r.etag }
+      if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
+      loaded=true; applyState(st);
+      if(!st.plan&&!Object.keys(st.logs||{}).length&&!plan.onboarded&&!wz){wz=wzNew(false);plan.startMonday=nextMonday();planV++;render()}
+    }
+    loaded=true;
     if(!viewing&&freezePast()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
     // Then re-check what the server holds: after a restart mid-session the page has to

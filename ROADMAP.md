@@ -398,6 +398,19 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   DENY`, nosniff and a referrer policy. The one inline `onclick` (the calendar address
   selecting itself) became a delegated `data-selectall`. `test/worker.test.js` is new and
   covers the redirect, the stamp, the headers, and that no inline handler creeps back.
+- **`/api/state` answers 304 when nothing changed.** The page asks for the whole state on
+  every return to the foreground, and the answer was every log ever written, every time.
+  The route now sends an ETag (row count, newest write, total bytes, catalog's newest
+  change) and answers `304` to a matching `If-None-Match`. The page keeps the tag in
+  memory only, so a fresh open still loads in full. `claimLegacy` checks the owner list
+  before touching the database; it used to count the legacy rows on every request.
+- **The API tests run against real SQL.** `test/d1.js` is D1's surface over Node's
+  built-in SQLite with the real migrations applied; `test/db.test.js` runs the Worker's
+  own statements: the upsert, per-user isolation, the restore batch, FTS5 with porter,
+  the reports trim, the ETag and the legacy claim. `test/sync.test.js` drives `connect()`
+  against a fetch that answers like the Worker. Found on the way: migration 0008's
+  comment says porter folds "recovering" into "recovery"; it does not (checked against
+  SQLite), though "trained"/"training" and "deadlifts"/"deadlift" do meet.
 
 **Fewer taps for the beep (2026-11-03, 3.69)**
 - See the rest-beeps entry under Open issues for the design. Four tests: a channel

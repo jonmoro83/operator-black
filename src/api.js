@@ -59,8 +59,13 @@ export async function handleApi(request, env) {
   const route = new URL(request.url).pathname.replace(/^\/api\/?/, "");
 
   if (route === "state" && request.method === "GET") {
+    // The page asks for this every time it comes back to the foreground. With the tag it
+    // sent last time unchanged, the answer is a 304 rather than every log ever written.
+    const tag = await stateTag(env, user);
+    const h = { "cache-control": "no-store", ...(tag ? { etag: tag } : {}) };
+    if (tag && request.headers.get("if-none-match") === tag) return new Response(null, { status: 304, headers: h });
     // `admin` is decided here, not in the page: the client only uses it to show a link.
-    return json({ user, admin: isAdmin(env, user) || undefined, catalog: await readCatalog(env), ...(await readAll(env, user)) }, 200, { "cache-control": "no-store" });
+    return json({ user, admin: isAdmin(env, user) || undefined, catalog: await readCatalog(env), ...(await readAll(env, user)) }, 200, h);
   }
 
   if (route === "admin" || route.startsWith("admin/")) return handleAdmin(request, env, user, route.replace(/^admin\/?/, ""));
@@ -268,9 +273,11 @@ let legacyChecked = false;
 async function claimLegacy(env, user) {
   if (legacyChecked) return;
   const owners = (env.LEGACY_OWNERS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  // Only an owner can claim, so for everyone else there is nothing to look up. This
+  // used to count the legacy rows on every request from every user, forever.
+  if (!owners.includes(user)) return;
   const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM docs WHERE user = ?1").bind(LEGACY).first();
   if (!row || !row.n) return void (legacyChecked = true);
-  if (!owners.includes(user)) return;
   const mine = await env.DB.prepare("SELECT COUNT(*) AS n FROM docs WHERE user = ?1").bind(user).first();
   if (mine && mine.n) return; // already has data of their own; leave the legacy rows alone
   await env.DB.prepare("UPDATE docs SET user = ?1 WHERE user = ?2").bind(user, LEGACY).run();
@@ -488,6 +495,23 @@ export async function listBackups(env, user) {
     } while (cursor);
   }
   return [...seen.values()].sort((a, b) => ((b.at || b.name) > (a.at || a.name) ? 1 : -1));
+}
+
+/* A fingerprint of what /api/state would return, cheap enough to compute every time: the
+   row count, the newest write and the total size of the person's documents, plus the
+   catalog's newest change. Two edits in the same millisecond that leave the total size
+   unchanged would share a tag; the next write moves it, so a refresh is late rather than
+   lost. Null when it cannot be computed, and the route then answers in full. */
+async function stateTag(env, user) {
+  try {
+    const d = await env.DB.prepare(
+      "SELECT COUNT(*) AS n, COALESCE(MAX(updated_at), 0) AS m, COALESCE(SUM(LENGTH(data)), 0) AS b FROM docs WHERE user = ?1"
+    ).bind(user).first();
+    if (!d || typeof d.n !== "number") return null;
+    let c = 0;
+    try { c = (await env.DB.prepare("SELECT COALESCE(MAX(updated_at), 0) AS m FROM acc_catalog").first())?.m || 0 } catch {}
+    return `"${d.n}-${d.m}-${d.b}-${c}"`;
+  } catch { return null }
 }
 
 async function readAll(env, user) {

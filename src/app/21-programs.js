@@ -722,7 +722,7 @@ async function doRestore(path,body){
     for(const w of Object.values(writers)) clearTimeout(w.timer);
     for(const k of Object.keys(writers)) delete writers[k];
     outbox={}; saveOutbox();
-    const st=await api('GET','/state');
+    const r2=await api('GET','/state',null,{full:true}), st=r2.data; stateTag=r2.etag;
     if(stash){stash=null;viewing=null}
     plan=st.plan?deepMerge(clone(DEF),st.plan):clone(DEF); logs=st.logs||{}; programs=st.programs||{}; planV++; saveCache();
     restoreState.msg=`Restored ${r.restored.logs} logged day${r.restored.logs===1?'':'s'}${r.restored.programs?' and '+r.restored.programs+' archived program'+(r.restored.programs===1?'':'s'):''}${r.from?' from '+fmtLong(String(r.from).slice(0,10)):''}. Your previous data was saved as backup “${r.safetyBackup}”.`;
