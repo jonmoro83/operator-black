@@ -385,6 +385,14 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**A review pass: pipeline, headers, payload, tests, tooling (2026-11-08, 3.70)**
+- From a full review of the app on 2026-11-08. Each item is its own commit.
+- **Deploy pipeline.** `npm run deploy` now applies D1 migrations before deploying, so
+  `/api/report`'s create-the-table-if-the-migration-was-missed workaround is the last of
+  its kind. A `pre-push` hook (`npm run hooks`, opt in per clone) runs the suite locally,
+  because GitHub Actions minutes run out here and the gate has to hold without them. CI
+  cancels superseded runs and has an optional deploy job that skips without a token.
+
 **Fewer taps for the beep (2026-11-03, 3.69)**
 - See the rest-beeps entry under Open issues for the design. Four tests: a channel
   that still plays is left alone with no prompt; a dead one is reopened without a tap
@@ -681,9 +689,10 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   path somebody has learned to fix a tidiness complaint nobody made is a bad trade.
 
 **Settings done in Cloudflare**
-- Deploys: closed as not needed. Changes go live with `npm run deploy` (wrangler,
-  tagged with the commit). Pushing to GitHub does **not** deploy on its own; the
-  Workers Builds connection has never triggered (last checked 2026-09-29).
+- Deploys: changes go live with `npm run deploy` (tests, migrations, wrangler, tagged
+  with the commit). Pushing to GitHub does **not** deploy on its own; the Workers Builds
+  connection never triggered (last checked 2026-09-29). Since 3.70 the workflow has an
+  optional deploy job that runs only when a `CLOUDFLARE_API_TOKEN` secret is set.
 - Access session duration set to 1 month. To add a person: Zero Trust → Access →
   Applications → Operator Black → policy → add their email (details in README).
 

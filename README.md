@@ -74,17 +74,25 @@ the guided runner and CSV export.
 
 ## Deploys
 
-Deploy with `npm run deploy` (wrangler, tagged with the git commit). Pushing to `main`
-is meant to deploy through Workers Builds, but that connection doesn't trigger yet;
-see ROADMAP.md. `wrangler.toml` attaches **operatorblack.com** as a custom
-domain; `workers_dev` and preview URLs are off, so the only way in is through the
-Access login.
+Deploy with `npm run deploy`: it runs the tests, applies any new D1 migrations to the
+remote database, then deploys with wrangler, tagged with the git commit. Migrations are
+part of the deploy so a new file in `migrations/` cannot be forgotten.
+
+Pushing to `main` does not deploy on its own. The workflow has an optional deploy job
+that runs the same three steps when a `CLOUDFLARE_API_TOKEN` repository secret exists
+(and `CLOUDFLARE_ACCOUNT_ID` if the token spans more than one account); without the
+secret it skips. GitHub Actions minutes run out here, so the local path is the one that
+matters: run `npm run hooks` once per clone and every `git push` runs the suite first
+(`git push --no-verify` skips it once).
+
+`wrangler.toml` attaches **operatorblack.com** as a custom domain; `workers_dev` and
+preview URLs are off, so the only way in is through the Access login.
 
 ## First-time Cloudflare setup (done once)
 
 1. `npx wrangler login`
 2. `npx wrangler d1 create operator-black`, then paste the `database_id` into `wrangler.toml`
-3. `npm run db:migrate:remote`  (re-run this after any new file in `migrations/`)
+3. `npm run db:migrate:remote`  (`npm run deploy` re-runs this every time)
 4. Dashboard → Workers & Pages → Create → Import a repository → this repo
    (deploy command `npx wrangler deploy`)
 5. Zero Trust → Access → Applications → Add → Self-hosted, hostname `operatorblack.com`,
