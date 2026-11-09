@@ -96,11 +96,6 @@ function setSoundMode(v){
 // WebKit adds an 'interrupted' state of its own when another app takes the audio, so
 // "not running" is the question rather than "suspended" — checking only for suspended
 // left the context asleep whenever music had started since the last beep.
-function audioAwake(){
-  if(!audioCtx) return false;
-  if(audioCtx.state==='running') return true;
-  try{ audioCtx.resume(); return true }catch(e){ return false }
-}
 /* `voice:false` leaves the speech priming alone, for a caller that is about to make a
    tone. iOS wants the first utterance inside a tap, so this primes within the gesture
    -- but speaking parks the AudioContext, so doing it immediately before a beep hands

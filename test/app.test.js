@@ -1,6 +1,7 @@
 const { test } = require("node:test");
 const a = require("node:assert");
 const { loadApp } = require("./harness.js");
+const { kindName, clashes, crowds, orderIssues, orderCrowding, fobEvery, fobCount, fobMinOpts, fobRounds, ADJACENT_BAN, ADJACENT_SOFT } = require("./oracles.js");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -1689,14 +1690,14 @@ test("a FOBBIT is sized in minutes, and over thirty of them it stops being a HIC
   a.equal(x.fobIsE(31), true); a.equal(x.fobIsE(60), true);
 
   // Base-counted: the minutes are base, so rounds are minutes over the interval.
-  a.equal(x.fobRounds("kb", 20), 10); a.equal(x.fobRounds("kb", 30), 15);
+  a.equal(fobRounds(x, "kb", 20), 10); a.equal(fobRounds(x, "kb", 30), 15);
   // Total-counted: the bouts have to be paid for out of the same minutes, so fewer fit.
-  a.ok(x.fobRounds("maxstrength", 30) < Math.round(30 * 60 / 180), "the held sets cost time too");
-  a.ok(x.fobRounds("combat", 30) < Math.round(30 * 60 / 60), "and so do the drills");
+  a.ok(fobRounds(x, "maxstrength", 30) < Math.round(30 * 60 / 180), "the held sets cost time too");
+  a.ok(fobRounds(x, "combat", 30) < Math.round(30 * 60 / 60), "and so do the drills");
 
   // Each FOBBIT offers its own lengths: Mass Protocol refuses to go past twenty.
-  a.deepEqual(x.fobMinOpts("massfob"), [15, 20], "fifteen to twenty minutes, no longer");
-  a.ok(x.fobMinOpts("maxstrength").every((m) => m >= 30), "and Mod #1 starts where the others stop");
+  a.deepEqual(fobMinOpts(x, "massfob"), [15, 20], "fifteen to twenty minutes, no longer");
+  a.ok(fobMinOpts(x, "maxstrength").every((m) => m >= 30), "and Mod #1 starts where the others stop");
 
   // Picking a length is picking minutes, and the card says what that makes the session.
   x.seed({ [d]: { date: d, hic: { format: "fobbit", mod: "run", fob: "se" } } }); x.bump();
@@ -3641,11 +3642,11 @@ test("two strength-endurance circuits may be put together, and the app says so",
   const bad = [0, 3, 1, 2, 4, 5, 6];
   a.equal(x.sessKind(x.dayPlanSlot(bb.monday, bad[0])), "se");
   a.equal(x.sessKind(x.dayPlanSlot(bb.monday, bad[1])), "se", "now back to back");
-  a.deepEqual(x.orderIssues(bb.monday, bad), [], "which is not a clash");
+  a.deepEqual(orderIssues(x, bb.monday, bad), [], "which is not a clash");
   // It is still worth remarking on, which is a different thing from refusing it.
-  const near = x.orderCrowding(bb.monday, bad);
+  const near = orderCrowding(x, bb.monday, bad);
   a.ok(near.some((i) => i.kind === "se"), `reported as crowding: ${JSON.stringify(near)}`);
-  a.equal(x.kindName("se"), "strength-endurance", "and named in words");
+  a.equal(kindName("se"), "strength-endurance", "and named in words");
 });
 test("a retest splits the cluster across two days once it is bigger than a pair", () => {
   const x = app({ now: "2026-10-08" });
@@ -4352,7 +4353,7 @@ test("a week puts the lifting days where the book puts them, then fills around t
     const date = x.addDays("2026-10-19", d);
     return x.sessKind(x.dayPlanSlot(date, d));
   });
-  for (let i = 1; i < kinds.length; i++) a.equal(x.clashes(kinds[i], kinds[i - 1]), false,
+  for (let i = 1; i < kinds.length; i++) a.equal(clashes(x, kinds[i], kinds[i - 1]), false,
     `${kinds[i - 1]} then ${kinds[i]}`);
 });
 
@@ -4550,19 +4551,19 @@ test("Zulu's paired days are the template, not a clash", () => {
   // A and B work different lifts, so back to back is the point of the template.
   a.equal(x.sessKind(x.dayPlanSlot(mon, 0)), "strengthA");
   a.equal(x.sessKind(x.dayPlanSlot(x.addDays(mon, 1), 1)), "strengthB");
-  a.equal(x.clashes("strengthA", "strengthB"), false, "different halves may touch");
-  a.equal(x.clashes("strengthA", "strengthA"), true, "the same half may not");
-  a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], "so the week reads clean");
+  a.equal(clashes(x, "strengthA", "strengthB"), false, "different halves may touch");
+  a.equal(clashes(x, "strengthA", "strengthA"), true, "the same half may not");
+  a.deepEqual(orderIssues(x, mon, [0, 1, 2, 3, 4, 5, 6]), [], "so the week reads clean");
 
   // Moving a day so the same half lands twice running is still reported.
-  const bad = x.orderIssues(mon, [0, 3, 2, 1, 4, 5, 6]);
+  const bad = orderIssues(x, mon, [0, 3, 2, 1, 4, 5, 6]);
   a.ok(bad.length, "two A days in a row is a clash");
-  a.equal(x.kindName(bad[0].kind), "strength", "and is named in words, not as a code");
+  a.equal(kindName(bad[0].kind), "strength", "and is named in words, not as a code");
 
   // Operator is unaffected: its days are plain strength and still must not touch.
   x.plan.stempl = "operator"; x.bump();
   a.equal(x.sessKind(x.dayPlanSlot(mon, 0)), "strength");
-  a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), []);
+  a.deepEqual(orderIssues(x, mon, [0, 1, 2, 3, 4, 5, 6]), []);
 });
 
 test("the two halves can be rearranged, and neither can be emptied", () => {
@@ -4625,7 +4626,7 @@ test("Green is endurance-led: easy days, a circuit, and a hard one every other w
 
   // Two easy days may sit next to each other — Green's own template does exactly that.
   a.equal(x.sessKind(w[1]), "easy");
-  a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], "and that is not a clash");
+  a.deepEqual(orderIssues(x, mon, [0, 1, 2, 3, 4, 5, 6]), [], "and that is not a clash");
 
   // The hard session arrives on even weeks only.
   const odd = x.weeks().find((k) => k.kind === "cycle" && k.w % 2 === 1);
@@ -4966,7 +4967,7 @@ test("the Mass template's own layout does not read as a clash", () => {
   a.deepEqual(w.map((p) => p.half), ["a", "a", "a", "b"], "three main days and the deadlift day");
   for (const c of Object.keys(x.CPROTO)) {
     x.plan.cproto = c; x.bump();
-    a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], "mass + " + c);
+    a.deepEqual(orderIssues(x, mon, [0, 1, 2, 3, 4, 5, 6]), [], "mass + " + c);
   }
 });
 
@@ -5112,7 +5113,7 @@ test("a Specificity hypertrophy day is a session even though it lifts no barbell
   // Two training days back to back is the book's layout, so it must not read as a clash.
   for (const t of ["specalpha", "specbravo"]) {
     x.plan.stempl = t; x.bump();
-    a.deepEqual(x.orderIssues("2026-10-19", [0, 1, 2, 3, 4, 5, 6]), [], t + " has no clash");
+    a.deepEqual(orderIssues(x, "2026-10-19", [0, 1, 2, 3, 4, 5, 6]), [], t + " has no clash");
   }
 });
 
@@ -5153,7 +5154,7 @@ test("every template and protocol pairing gives a legal week", () => {
     const got = w.filter((p) => p.t === "hic" || p.t === "se" || p.ride).length;
     a.equal(got, want, `${tag} keeps all ${want} conditioning sessions`);
     // And nothing the Move tool would call a clash.
-    a.deepEqual(x.orderIssues(mon, [0, 1, 2, 3, 4, 5, 6]), [], `${tag} has no clash`);
+    a.deepEqual(orderIssues(x, mon, [0, 1, 2, 3, 4, 5, 6]), [], `${tag} has no clash`);
   }
 });
 
@@ -5516,13 +5517,6 @@ test("a context another app interrupted is woken, not left asleep", async () => 
   await settle();
   a.equal(x.audio.ctx.state, "running", "it comes back");
   a.equal(x.audio.tones.length, 3, "and the beep goes out");
-
-  // The same for the check that runs when the app returns to the foreground.
-  x.audio.ctx.state = "interrupted";
-  a.equal(x.audioAwake(), true);
-  await settle();
-  a.equal(x.audio.ctx.state, "running");
-  a.equal(x.audioAwake(), true, "and an already-running context is simply fine");
 });
 
 test("the Silent tag hands back the speaker-sharing mode, not the seizing one", () => {
@@ -5805,7 +5799,7 @@ test("Gladiator runs two pairs twice a week and peaks each lift once", () => {
   a.deepEqual(peaked, ["squat", "bench", "ohp", "dead"], "one each, in the book's order");
 
   // Its paired days are the template, as Zulu's are, so the week reads clean.
-  a.deepEqual(x.orderIssues(cyc[0].monday, [0, 1, 2, 3, 4, 5, 6]), []);
+  a.deepEqual(orderIssues(x, cyc[0].monday, [0, 1, 2, 3, 4, 5, 6]), []);
 
   // The deadlift is a programmed lift here, not Operator's one-to-three-set afterthought.
   a.equal(r(cyc[0], 1, "dead").s, 4);
@@ -6257,8 +6251,8 @@ test("FOBBITs are a catalog of whole sessions, not one hardcoded pair", () => {
     a.ok(F.name, `${k} has a name`);
     a.ok(x.FOB_SRC[F.src], `${k} says where it came from`);
     a.ok(F.mins.includes(F.def), `${k} defaults to one of its own lengths`);
-    a.ok(["base", "total"].includes(x.fobCount(k)), `${k} says what its minutes measure`);
-    a.ok(x.fobEvery(k) > 0, `${k} has a base interval`);
+    a.ok(["base", "total"].includes(fobCount(x, k)), `${k} says what its minutes measure`);
+    a.ok(fobEvery(x, k) > 0, `${k} has a base interval`);
     if (k === "other") { a.equal(F.mv, null, "the free-text one prescribes nothing"); continue }
     a.ok(F.gear, `${k} says what kit it needs`);
     a.ok(F.mv.length >= 1, `${k} has at least one movement`);
@@ -7525,16 +7519,6 @@ test("session mode names the routine's own length, not the one it used to assume
 /* ---------------- 3.25: the timer, taken apart again ----------------
    Each test here was written first and failed against 3.24, because each one is a way
    the timer actually went quiet. */
-
-// A context that has been running and then had something else take the audio --
-// speech, a call, another app. On iOS that is WebKit's 'interrupted' state.
-async function interrupted(x) {
-  x.unlockAudio(); await settle();
-  a.equal(x.audioState().ctx, "running", "starts running, as it is after a tap");
-  x.audio.interrupt();
-  a.equal(x.audioState().ctx, "interrupted");
-  x.audio.tones.length = 0;
-}
 
 test("REPRO: an interrupted channel is woken straight away, before any sound needs it", async () => {
   const x = app({ now: "2026-10-19" });
@@ -8936,7 +8920,7 @@ test("a subscription the push service has rejected is replaced, not handed back"
   try {
     window.Notification = { permission: "granted" }; global.Notification = window.Notification;
     localStorage.setItem("ob.push", JSON.stringify(dead));
-    let subscribed = null, unsubscribed = false;
+    let unsubscribed = false;
     navigator.serviceWorker = { ready: Promise.resolve({ pushManager: {
       getSubscription: () => Promise.resolve({ endpoint: dead, unsubscribe: () => (unsubscribed = true, Promise.resolve()) }),
       subscribe: () => Promise.resolve({ endpoint: "https://web.push.apple.com/FRESH",

@@ -271,7 +271,6 @@ function sessKind(dp){
   if(dp.t==='se') return 'se';
   return 'other';
 }
-function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'strength-endurance':'hard conditioning'}
 // Kinds that must not land on consecutive days. One list, used by the arranger and by
 // the warning it shows, because when those two disagree the arranger silently wins.
 /* What must not land on consecutive days.
@@ -287,37 +286,11 @@ function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'stren
    do two days in a row, or whatever. As long as you're hitting your weekly minimums."
    Spreading them out is still the better default, so `weekShape` and `bestOrder` go on
    preferring it -- but preferring is not refusing, and the app was refusing. */
-const ADJACENT_BAN=['strength','strengthA','strengthB'];
-function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
-// Worth avoiding when there is a choice, without being a reason to refuse an
-// arrangement the books allow.
-const ADJACENT_SOFT=['hic','se'];
-function crowds(a,b){return !!a&&a===b&&ADJACENT_SOFT.includes(a)}
-/* Whether a week's own layout puts two hard days of a kind together. Nothing refuses
-   on this any more -- moving a session is the person's call -- so what is left is a
-   check on the shape the templates and protocols generate, which is where it belongs:
-   a protocol that lays out a clashing week by default is a bug in the protocol. */
-function orderIssues(monday,ord){
-  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
-  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
-  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
-  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
-  const out=[];
-  for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
-  return out;
-}
-/* The same walk, for the arrangements that are allowed but not ideal. Kept separate
-   from `orderIssues` on purpose: one is a refusal and the other is a remark, and
-   collapsing them is how the app ended up refusing what the book permits. */
-function orderCrowding(monday,ord){
-  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
-  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
-  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
-  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
-  const out=[];
-  for(let i=1;i<K.length;i++) if(crowds(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
-  return out;
-}
+/* Whether a week's own layout puts two hard days of a kind together is checked by the
+   tests, not the app: nothing refuses on it any more, since moving a session is the
+   person's call. The check (`orderIssues` in test/oracles.js, with the lists of what
+   clashes and what merely crowds) runs over every template and protocol, because a
+   protocol that lays out a clashing week by default is a bug in the protocol. */
 // Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
 // baked into a slot: a slot belongs to the arrangement of the week and gets shuffled by
 // the Move tool, and plyos should not be shuffled with it. 0 = Monday.

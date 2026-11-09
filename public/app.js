@@ -84,7 +84,6 @@ function halvesOf(){
 function halfLifts(which,date){
   return halvesOf()[which].map(k=>k==='l3'?l3For(date):k);
 }
-function halfOfDay(dp){ return dp&&dp.half||null }
 /* What the day's supplementary work is prescribed at, when the template says.
 
    Operator's accessories are deliberately unprogramd — a couple of sets short of
@@ -818,10 +817,6 @@ function specRounds(F,mins){
 // Ranges read as [lo,hi]; the timer needs one number and takes the low end, which is the
 // one that gives the session its full count of bouts.
 function lo(v){ return Array.isArray(v)?v[0]:v }
-function fobEvery(id){ return specEvery(FOBBIT[id]) }
-function fobCount(id){ return specCount(FOBBIT[id]) }
-function fobMinOpts(id){ return specMinOpts(FOBBIT[id]) }
-function fobDefMins(id){ return specDefMins(FOBBIT[id]) }
 /* The rule from Part II, in those words: over 30 minutes it is an E, under it is a HIC.
    So a 60-minute Mod #1 is not a hard session and must not be counted as one. */
 function fobIsE(mins){ return +mins>30 }
@@ -853,7 +848,6 @@ function fobBouts(id,ease,what){ return specBouts(fobDef(id),ease,what) }
 // How many bouts fit. A base-counted FOBBIT divides the base by the interval; a
 // total-counted one has to pay for the bouts too, and a held set is assumed to cost
 // FOB_HELD seconds since nobody can know what it really takes.
-function fobRounds(id,mins){ return specRounds(fobDef(id)||FOBBIT[id],mins) }
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
 function setFob(date,v){
@@ -2316,14 +2310,12 @@ function suppAll(){
   for(const x of suppCustom()) out[x.id]={name:x.name,when:x.when==='pre'?'pre':'daily',mine:true};
   return out;
 }
-function suppName(id){ const s=suppAll()[id]; return s?s.name:id }
 // The ones you said you take, in catalogue order with your own after them.
 function suppOn(when){
   const taking=plan.supps||{}, all=suppAll();
   return Object.keys(all).filter(k=>taking[k]&&(!when||all[k].when===when));
 }
 function suppTook(date,id){ return !!((lg(date).supps||{})[id]) }
-function suppDoneCount(date,when){ const on=suppOn(when); return on.filter(k=>suppTook(date,k)).length }
 /* Creatine is the one the book ties to a streak rather than to a dose: "you won't know
    you're a non-responder unless you try it for at least a month or two without skipping
    doses." So the run of unbroken days is the number worth keeping, and today does not
@@ -2431,7 +2423,6 @@ function floorTo(x,inc){inc=+inc||5;return Math.floor(x/inc+1e-9)*inc}
 function n(x){if(x==null||x==='')return '—';const v=Math.round(x*100)/100;return String(v)}
 function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(const k of Object.keys(over)){const v=over[k];if(v&&typeof v==='object'&&!Array.isArray(v)&&base[k]&&typeof base[k]==='object'&&!Array.isArray(base[k]))base[k]=deepMerge(base[k],v);else base[k]=v}return base}
 function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
-function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k,date){
   if(VARS[k]) return varsOf(k)[varOf(k,date)].name;
   return k==='pull'?(plan.lift3Name||pullDefName()):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];
@@ -2808,7 +2799,6 @@ function sessKind(dp){
   if(dp.t==='se') return 'se';
   return 'other';
 }
-function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'strength-endurance':'hard conditioning'}
 // Kinds that must not land on consecutive days. One list, used by the arranger and by
 // the warning it shows, because when those two disagree the arranger silently wins.
 /* What must not land on consecutive days.
@@ -2824,37 +2814,11 @@ function kindName(k){return /^strength[AB]?$/.test(k)?'strength':k==='se'?'stren
    do two days in a row, or whatever. As long as you're hitting your weekly minimums."
    Spreading them out is still the better default, so `weekShape` and `bestOrder` go on
    preferring it -- but preferring is not refusing, and the app was refusing. */
-const ADJACENT_BAN=['strength','strengthA','strengthB'];
-function clashes(a,b){return !!a&&a===b&&ADJACENT_BAN.includes(a)}
-// Worth avoiding when there is a choice, without being a reason to refuse an
-// arrangement the books allow.
-const ADJACENT_SOFT=['hic','se'];
-function crowds(a,b){return !!a&&a===b&&ADJACENT_SOFT.includes(a)}
-/* Whether a week's own layout puts two hard days of a kind together. Nothing refuses
-   on this any more -- moving a session is the person's call -- so what is left is a
-   check on the shape the templates and protocols generate, which is where it belongs:
-   a protocol that lays out a clashing week by default is a bug in the protocol. */
-function orderIssues(monday,ord){
-  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
-  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
-  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
-  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
-  const out=[];
-  for(let i=1;i<K.length;i++) if(clashes(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
-  return out;
-}
-/* The same walk, for the arrangements that are allowed but not ideal. Kept separate
-   from `orderIssues` on purpose: one is a refusal and the other is a remark, and
-   collapsing them is how the app ended up refusing what the book permits. */
-function orderCrowding(monday,ord){
-  const K=[],N=[], prev=addDays(monday,-1), next=addDays(monday,7);
-  K.push(idxOf(prev)>=0?sessKind(dayPlan(prev)):'other'); N.push(DAYN[6]+' before');
-  for(let i=0;i<7;i++){K.push(sessKind(dayPlanSlot(addDays(monday,i),ord[i])));N.push(DAYN[i])}
-  K.push(weekOf(next)?sessKind(dayPlan(next)):'other'); N.push('next '+DAYN[0]);
-  const out=[];
-  for(let i=1;i<K.length;i++) if(crowds(K[i],K[i-1])) out.push({a:N[i-1],b:N[i],kind:K[i]});
-  return out;
-}
+/* Whether a week's own layout puts two hard days of a kind together is checked by the
+   tests, not the app: nothing refuses on it any more, since moving a session is the
+   person's call. The check (`orderIssues` in test/oracles.js, with the lists of what
+   clashes and what merely crowds) runs over every template and protocol, because a
+   protocol that lays out a clashing week by default is a bug in the protocol. */
 // Which weeks run plyos at all, and on which weekday. Attached in dayPlan rather than
 // baked into a slot: a slot belongs to the arrangement of the week and gets shuffled by
 // the Move tool, and plyos should not be shuffled with it. 0 = Monday.
@@ -3365,8 +3329,6 @@ function lpWeight(k,date){ return lpState(k,date).w }
    to say so rather than let somebody ride the same 10% up and down for ever. Ours: the
    published program keeps going and changes the set scheme instead. */
 function lpSpent(k,date){ return lpState(k,date).resets>=LP_END }
-function lpSpentLifts(date){ return activeLifts().filter(k=>LP_SETS[k]&&lpSpent(k,date)) }
-
 /* What to say on the lift card: where the weight came from, and what is about to
    happen to it. One line, because it is read mid-session. */
 function lpNote(k,date){
@@ -4438,11 +4400,6 @@ function measBefore(date){
   for(const [d,L] of Object.entries(logs)) if(d<date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
   return best;
 }
-function measOn(date){
-  let best=null;
-  for(const [d,L] of Object.entries(logs)) if(d<=date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
-  return best;
-}
 function navyBf(m,date){
   const ht=+plan.height, sex=plan.sex;
   if(!ht||!sex||!m||!m.waist||!m.neck) return null;
@@ -5369,11 +5326,6 @@ function setSoundMode(v){
 // WebKit adds an 'interrupted' state of its own when another app takes the audio, so
 // "not running" is the question rather than "suspended" — checking only for suspended
 // left the context asleep whenever music had started since the last beep.
-function audioAwake(){
-  if(!audioCtx) return false;
-  if(audioCtx.state==='running') return true;
-  try{ audioCtx.resume(); return true }catch(e){ return false }
-}
 /* `voice:false` leaves the speech priming alone, for a caller that is about to make a
    tone. iOS wants the first utterance inside a tap, so this primes within the gesture
    -- but speaking parks the AudioContext, so doing it immediately before a beep hands

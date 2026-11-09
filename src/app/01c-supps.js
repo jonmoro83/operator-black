@@ -79,14 +79,12 @@ function suppAll(){
   for(const x of suppCustom()) out[x.id]={name:x.name,when:x.when==='pre'?'pre':'daily',mine:true};
   return out;
 }
-function suppName(id){ const s=suppAll()[id]; return s?s.name:id }
 // The ones you said you take, in catalogue order with your own after them.
 function suppOn(when){
   const taking=plan.supps||{}, all=suppAll();
   return Object.keys(all).filter(k=>taking[k]&&(!when||all[k].when===when));
 }
 function suppTook(date,id){ return !!((lg(date).supps||{})[id]) }
-function suppDoneCount(date,when){ const on=suppOn(when); return on.filter(k=>suppTook(date,k)).length }
 /* Creatine is the one the book ties to a streak rather than to a dose: "you won't know
    you're a non-responder unless you try it for at least a month or two without skipping
    doses." So the run of unbroken days is the number worth keeping, and today does not

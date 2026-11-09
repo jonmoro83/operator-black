@@ -79,7 +79,6 @@ function halvesOf(){
 function halfLifts(which,date){
   return halvesOf()[which].map(k=>k==='l3'?l3For(date):k);
 }
-function halfOfDay(dp){ return dp&&dp.half||null }
 /* What the day's supplementary work is prescribed at, when the template says.
 
    Operator's accessories are deliberately unprogramd — a couple of sets short of

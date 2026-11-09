@@ -609,7 +609,7 @@ test("a restore takes a safety copy of what it is about to destroy", async () =>
 });
 
 test("a file that is not a backup is refused before anything is touched", async () => {
-  const k = await setupKeys(); const token = await mint(k.a);
+  const k = await setupKeys();
   for (const [body, status, why] of [
     ["not json at all", 400, "not JSON"],
     [JSON.stringify(null), 400, "null"],

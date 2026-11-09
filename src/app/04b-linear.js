@@ -117,8 +117,6 @@ function lpWeight(k,date){ return lpState(k,date).w }
    to say so rather than let somebody ride the same 10% up and down for ever. Ours: the
    published program keeps going and changes the set scheme instead. */
 function lpSpent(k,date){ return lpState(k,date).resets>=LP_END }
-function lpSpentLifts(date){ return activeLifts().filter(k=>LP_SETS[k]&&lpSpent(k,date)) }
-
 /* What to say on the lift card: where the weight came from, and what is about to
    happen to it. One line, because it is read mid-session. */
 function lpNote(k,date){

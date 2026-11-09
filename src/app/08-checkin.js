@@ -93,11 +93,6 @@ function measBefore(date){
   for(const [d,L] of Object.entries(logs)) if(d<date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
   return best;
 }
-function measOn(date){
-  let best=null;
-  for(const [d,L] of Object.entries(logs)) if(d<=date&&inProgram(d)&&L.meas&&L.meas.waist&&L.meas.neck&&(!best||d>best.d)) best={d,m:L.meas};
-  return best;
-}
 function navyBf(m,date){
   const ht=+plan.height, sex=plan.sex;
   if(!ht||!sex||!m||!m.waist||!m.neck) return null;

@@ -20,7 +20,6 @@ function floorTo(x,inc){inc=+inc||5;return Math.floor(x/inc+1e-9)*inc}
 function n(x){if(x==null||x==='')return '—';const v=Math.round(x*100)/100;return String(v)}
 function deepMerge(base,over){if(!over||typeof over!=='object')return base;for(const k of Object.keys(over)){const v=over[k];if(v&&typeof v==='object'&&!Array.isArray(v)&&base[k]&&typeof base[k]==='object'&&!Array.isArray(base[k]))base[k]=deepMerge(base[k],v);else base[k]=v}return base}
 function setPath(o,path,v){const ks=path.split('.');let c=o;for(let i=0;i<ks.length-1;i++){if(c[ks[i]]==null||typeof c[ks[i]]!=='object')c[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};c=c[ks[i]]}c[ks[ks.length-1]]=v}
-function getPath(o,path){return path.split('.').reduce((c,k)=>c==null?undefined:c[k],o)}
 function liftName(k,date){
   if(VARS[k]) return varsOf(k)[varOf(k,date)].name;
   return k==='pull'?(plan.lift3Name||pullDefName()):{bench:'Bench',dead:'Deadlift',ohp:'Overhead press',wpu:'Weighted pull-up'}[k];

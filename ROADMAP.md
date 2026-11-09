@@ -61,7 +61,8 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
   missed-set / heavy-week-RPE thresholds suggested sensible next maxes, and adjust
   `recommend()` if they did not.
-- **Zulu's A/B pairs and `orderIssues`.** Closed by 1.77's `strengthA`/`strengthB`, and
+- **Zulu's A/B pairs and the clash check** (`orderIssues`, since 3.70 a test oracle in
+  `test/oracles.js` rather than app code). Closed by 1.77's `strengthA`/`strengthB`, and
   most of what made the warnings noisy went with the adjacency rules in 3.3. Still
   worth a look once Zulu has actually been run, since a four-day template is where the
   remaining strength rule gets the most exercise.
@@ -194,6 +195,14 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - **Left alone on purpose:** an `If-Match` precondition on `PUT /api/doc`. It would turn
   "this phone's unsent edits win" into "the server wins" on a two-device conflict, which
   is a behavior decision rather than a fix. The local conflict note still records it.
+- **The lint warnings pruned to zero.** Seven functions with no caller and no test went
+  (`halfOfDay`, `fobDefMins`, `suppName`, `suppDoneCount`, `getPath`, `lpSpentLifts`,
+  `measOn`). The clash and crowding walks (`orderIssues`, `orderCrowding`, `kindName`,
+  `clashes`, `crowds`, the `ADJACENT_*` lists) and the `fob*` wrappers were only ever called by the suite, so they moved to
+  `test/oracles.js` and the matrix tests keep their check without the bundle carrying
+  it. `audioAwake` went with the two assertions that were its only callers; 3.69 had
+  already stopped calling it on return. The one `src` comment that pointed at
+  `orderIssues` now points at the oracle.
 
 **Fewer taps for the beep (2026-11-03, 3.69)**
 - See the rest-beeps entry under Open issues for the design. Four tests: a channel

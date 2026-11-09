@@ -157,10 +157,6 @@ function specRounds(F,mins){
 // Ranges read as [lo,hi]; the timer needs one number and takes the low end, which is the
 // one that gives the session its full count of bouts.
 function lo(v){ return Array.isArray(v)?v[0]:v }
-function fobEvery(id){ return specEvery(FOBBIT[id]) }
-function fobCount(id){ return specCount(FOBBIT[id]) }
-function fobMinOpts(id){ return specMinOpts(FOBBIT[id]) }
-function fobDefMins(id){ return specDefMins(FOBBIT[id]) }
 /* The rule from Part II, in those words: over 30 minutes it is an E, under it is a HIC.
    So a 60-minute Mod #1 is not a hard session and must not be counted as one. */
 function fobIsE(mins){ return +mins>30 }
@@ -192,7 +188,6 @@ function fobBouts(id,ease,what){ return specBouts(fobDef(id),ease,what) }
 // How many bouts fit. A base-counted FOBBIT divides the base by the interval; a
 // total-counted one has to pay for the bouts too, and a held set is assumed to cost
 // FOB_HELD seconds since nobody can know what it really takes.
-function fobRounds(id,mins){ return specRounds(fobDef(id)||FOBBIT[id],mins) }
 // Choosing one for a single session. Only a real difference from the default is worth
 // storing as a swap, the same rule the activity picker follows.
 function setFob(date,v){

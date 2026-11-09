@@ -14,7 +14,7 @@ const os = require("node:os");
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const root = path.join(__dirname, "..");
-const INK = "#131916", CHALK = "#e5ebe7", BLUE = "#7d9cff", BLUE_DK = "#1b45c2";
+const INK = "#131916", CHALK = "#e5ebe7", BLUE = "#7d9cff";
 
 /** The mark, on a 64x64 grid: OB over a loaded bar. */
 const mark = (fg, accent) => `
