@@ -137,6 +137,32 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The redesign, step one: type, palettes, bottom bar (2026-11-08, 3.72)**
+- The direction, settled 2026-11-08 after three mocks: **an instrument panel**. Session
+  first, bottom tabs, hairline grid cells on a dark ground, readouts with their labels in
+  the corner, lamps for state, segmented gauges for progress, explanations behind a tap.
+  Type is B612 (Airbus's cockpit-display face) for text and readouts, B612 Mono for labels,
+  Barlow Condensed for numerals. The tappable prototype the decision was made on is kept
+  at https://claude.ai/artifact/LoSyR3Np9G3pnaMXry1vmd; the palette comparison at
+  https://claude.ai/artifact/VaoHjipAVkkg5cJ7GykeEo. Two earlier mocks (a recolor of the
+  current layout; a sand-and-blaze restructure) were rejected as "the same design."
+- **Seven palettes**, all shipped by request: Graphite · ice (default), Graphite ·
+  phosphor, Olive · coyote, Night ops, Navy, Gunmetal · signal, Blackout. Each is one
+  token set in three blocks (light; dark under the system preference unless light was
+  chosen; dark by choice), generated from a table so the 21 blocks cannot drift. Tints
+  (`--accent-bg`, `--green-bg`, ...) derive with `color-mix`. The contrast-tier test now
+  checks all 21 blocks, and every palette passes: notes ≥ 7:1, captions ≥ 4.5:1, three
+  distinct tiers. New tokens for the components to come: `--line-2`, `--inv`, `--inv-ink`.
+- **Palette picker** in Setup → Appearance, beside Theme and Gym mode, per device
+  (`ob.palette`); `applyTheme` sets `data-palette` and paints the status bar from the
+  palette's ground. An unknown stored value falls back to graphite.
+- **Bottom tab bar** (`#nav`, fixed), six tabs with icons plus the hidden Admin; the
+  timer button moved to the brand row. The rest and interval bars, the mini interval
+  panel and the toast sit above it. Guide stays a tab (3.1 decision).
+- Type floor is 10px for the mono labels (was 12); 10 joined the type scale.
+- **Next, in order:** Today as session brief + single lift pane; the rows below it and
+  the ⓘ sheet; Status as a data sheet; Plan, History, Setup in the same language.
+
 **Find a setting, a shorter Status, Start session up top (2026-11-08, 3.71)**
 - From a UI pass measured in the DOM harness on a lifting day: Today was 12 cards and
   159 buttons with the first lift ninth; Setup 29 sections, 165 inputs, 33,600 characters;

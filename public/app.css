@@ -1,35 +1,141 @@
 /* Operator + Black — all styles. Loaded by index.html and cached by the service worker. */
 /* Layout: phone-first gym log. Sticky header with tabs, one column of session cards (max 760px).
    Intensity uses bumper-plate colors: green = light, yellow = medium, red = heavy. */
+/* Seven palettes, one token set. Each defines the light values on its own selector and
+   the dark values twice: under the system preference, guarded so an explicit light choice
+   wins, and under an explicit dark choice. Graphite is the default and sits on :root.
+   Generated from one table (see ROADMAP, 3.72); edit the table, not these blocks. The
+   tinted backgrounds (--accent-bg, --green-bg, ...) are derived below from these. */
 :root{
-  --bg:#e8ebe6; --surface:#f7f8f5; --sunk:#dde2db; --ink:#131916; --ink-2:#2f3934; --muted:#56625b; --line:#cad1c8;
-  --accent:#1b45c2; --accent-ink:#ffffff; --accent-bg:#dbe3f8;
-  --red:#b92f27; --red-bg:#f4dbd8; --yellow:#8f6a00; --yellow-bg:#f2e6bb; --green:#276f3d; --green-bg:#d6eadb;
-  --f-display:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  --r:10px;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"B612",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"B612 Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:6px;
+  --bg:#e7e9ec; --surface:#f5f6f8; --sunk:#d8dce1; --ink:#111417; --ink-2:#2d3339; --muted:#5f6a74; --line:rgba(17,20,23,.18); --line-2:rgba(17,20,23,.4);
+  --accent:#0b6fb8; --accent-ink:#f5f6f8; --inv:#111417; --inv-ink:#e7e9ec;
+  --green:#1f7a46; --yellow:#8a6400; --red:#b3261e; color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f1311; --surface:#181e1b; --sunk:#222a26; --ink:#e5ebe7; --ink-2:#c3cdc7; --muted:#96a39c; --line:#2c3531;
-  --accent:#7d9cff; --accent-ink:#0b1022; --accent-bg:#1e2947;
-  --red:#ff7a6e; --red-bg:#3a1f1c; --yellow:#efc350; --yellow-bg:#352c12; --green:#6fd08e; --green-bg:#17301f;
-  color-scheme:dark;
+  --bg:#101214; --surface:#171a1d; --sunk:#1f2428; --ink:#eceef0; --ink-2:#c4c9ce; --muted:#8a929b; --line:rgba(236,238,240,.15); --line-2:rgba(236,238,240,.34);
+  --accent:#8fd3ff; --accent-ink:#101214; --inv:#eceef0; --inv-ink:#101214;
+  --green:#62d08b; --yellow:#f0c24b; --red:#ff6b6b; color-scheme:dark;
 }}
 :root[data-theme="dark"]{
-  --bg:#0f1311; --surface:#181e1b; --sunk:#222a26; --ink:#e5ebe7; --ink-2:#c3cdc7; --muted:#96a39c; --line:#2c3531;
-  --accent:#7d9cff; --accent-ink:#0b1022; --accent-bg:#1e2947;
-  --red:#ff7a6e; --red-bg:#3a1f1c; --yellow:#efc350; --yellow-bg:#352c12; --green:#6fd08e; --green-bg:#17301f;
-  color-scheme:dark;
+  --bg:#101214; --surface:#171a1d; --sunk:#1f2428; --ink:#eceef0; --ink-2:#c4c9ce; --muted:#8a929b; --line:rgba(236,238,240,.15); --line-2:rgba(236,238,240,.34);
+  --accent:#8fd3ff; --accent-ink:#101214; --inv:#eceef0; --inv-ink:#101214;
+  --green:#62d08b; --yellow:#f0c24b; --red:#ff6b6b; color-scheme:dark;
+}
+/* Navy */
+:root[data-palette="navy"]{
+  --bg:#e4eaf3; --surface:#f4f7fb; --sunk:#d3dce8; --ink:#0a1a30; --ink-2:#2b3e5c; --muted:#5b6e8c; --line:rgba(10,26,48,.18); --line-2:rgba(10,26,48,.4);
+  --accent:#0b6fb8; --accent-ink:#f4f7fb; --inv:#0a1a30; --inv-ink:#e4eaf3;
+  --green:#1f7a46; --yellow:#8a6400; --red:#b3261e; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root[data-palette="navy"]:not([data-theme="light"]){
+  --bg:#071325; --surface:#0b1a30; --sunk:#122543; --ink:#eef3fa; --ink-2:#c3cfe0; --muted:#7f93b0; --line:rgba(238,243,250,.16); --line-2:rgba(238,243,250,.34);
+  --accent:#7fd6ff; --accent-ink:#071325; --inv:#eef3fa; --inv-ink:#071325;
+  --green:#5fd38a; --yellow:#f2c14e; --red:#ff6f6f; color-scheme:dark;
+}}
+:root[data-palette="navy"][data-theme="dark"]{
+  --bg:#071325; --surface:#0b1a30; --sunk:#122543; --ink:#eef3fa; --ink-2:#c3cfe0; --muted:#7f93b0; --line:rgba(238,243,250,.16); --line-2:rgba(238,243,250,.34);
+  --accent:#7fd6ff; --accent-ink:#071325; --inv:#eef3fa; --inv-ink:#071325;
+  --green:#5fd38a; --yellow:#f2c14e; --red:#ff6f6f; color-scheme:dark;
+}
+/* Olive · coyote */
+:root[data-palette="olive"]{
+  --bg:#e3e2d4; --surface:#f3f2e8; --sunk:#d3d1c0; --ink:#15170f; --ink-2:#2f3226; --muted:#646a58; --line:rgba(21,23,15,.18); --line-2:rgba(21,23,15,.4);
+  --accent:#7a5f24; --accent-ink:#f3f2e8; --inv:#15170f; --inv-ink:#e3e2d4;
+  --green:#3c6a38; --yellow:#86660f; --red:#a4362a; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root[data-palette="olive"]:not([data-theme="light"]){
+  --bg:#121510; --surface:#1a1e16; --sunk:#232921; --ink:#e9e6d6; --ink-2:#c9c6b4; --muted:#8d9280; --line:rgba(233,230,214,.16); --line-2:rgba(233,230,214,.36);
+  --accent:#d6c08a; --accent-ink:#121510; --inv:#e9e6d6; --inv-ink:#121510;
+  --green:#8fcf7d; --yellow:#e8c257; --red:#ff8068; color-scheme:dark;
+}}
+:root[data-palette="olive"][data-theme="dark"]{
+  --bg:#121510; --surface:#1a1e16; --sunk:#232921; --ink:#e9e6d6; --ink-2:#c9c6b4; --muted:#8d9280; --line:rgba(233,230,214,.16); --line-2:rgba(233,230,214,.36);
+  --accent:#d6c08a; --accent-ink:#121510; --inv:#e9e6d6; --inv-ink:#121510;
+  --green:#8fcf7d; --yellow:#e8c257; --red:#ff8068; color-scheme:dark;
+}
+/* Night ops */
+:root[data-palette="night"]{
+  --bg:#e2e7e2; --surface:#f2f5f2; --sunk:#d1d9d1; --ink:#0e130e; --ink-2:#2b352b; --muted:#5c6b5c; --line:rgba(14,19,14,.18); --line-2:rgba(14,19,14,.4);
+  --accent:#1f7a46; --accent-ink:#f2f5f2; --inv:#0e130e; --inv-ink:#e2e7e2;
+  --green:#1f7a46; --yellow:#8a6400; --red:#b3261e; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root[data-palette="night"]:not([data-theme="light"]){
+  --bg:#070907; --surface:#0e120e; --sunk:#161c16; --ink:#e4ece4; --ink-2:#b9c5b9; --muted:#7f8f7f; --line:rgba(228,236,228,.14); --line-2:rgba(228,236,228,.32);
+  --accent:#7dff9a; --accent-ink:#070907; --inv:#e4ece4; --inv-ink:#070907;
+  --green:#7dff9a; --yellow:#e8d25a; --red:#ff6a5c; color-scheme:dark;
+}}
+:root[data-palette="night"][data-theme="dark"]{
+  --bg:#070907; --surface:#0e120e; --sunk:#161c16; --ink:#e4ece4; --ink-2:#b9c5b9; --muted:#7f8f7f; --line:rgba(228,236,228,.14); --line-2:rgba(228,236,228,.32);
+  --accent:#7dff9a; --accent-ink:#070907; --inv:#e4ece4; --inv-ink:#070907;
+  --green:#7dff9a; --yellow:#e8d25a; --red:#ff6a5c; color-scheme:dark;
+}
+/* Gunmetal · signal */
+:root[data-palette="steel"]{
+  --bg:#e5e7ea; --surface:#f4f5f6; --sunk:#d5d9dd; --ink:#15181b; --ink-2:#30363c; --muted:#626b73; --line:rgba(21,24,27,.18); --line-2:rgba(21,24,27,.4);
+  --accent:#8a6400; --accent-ink:#f4f5f6; --inv:#15181b; --inv-ink:#e5e7ea;
+  --green:#1f7a46; --yellow:#8a6400; --red:#b3261e; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root[data-palette="steel"]:not([data-theme="light"]){
+  --bg:#15181b; --surface:#1c2024; --sunk:#252a2f; --ink:#f0f2f4; --ink-2:#c9cfd4; --muted:#8e979f; --line:rgba(240,242,244,.15); --line-2:rgba(240,242,244,.34);
+  --accent:#ffd23f; --accent-ink:#15181b; --inv:#f0f2f4; --inv-ink:#15181b;
+  --green:#63d38c; --yellow:#ffd23f; --red:#ff6b6b; color-scheme:dark;
+}}
+:root[data-palette="steel"][data-theme="dark"]{
+  --bg:#15181b; --surface:#1c2024; --sunk:#252a2f; --ink:#f0f2f4; --ink-2:#c9cfd4; --muted:#8e979f; --line:rgba(240,242,244,.15); --line-2:rgba(240,242,244,.34);
+  --accent:#ffd23f; --accent-ink:#15181b; --inv:#f0f2f4; --inv-ink:#15181b;
+  --green:#63d38c; --yellow:#ffd23f; --red:#ff6b6b; color-scheme:dark;
+}
+/* Blackout */
+:root[data-palette="blackout"]{
+  --bg:#e8e8e8; --surface:#f7f7f7; --sunk:#d8d8d8; --ink:#0a0a0a; --ink-2:#2c2c2c; --muted:#666666; --line:rgba(10,10,10,.18); --line-2:rgba(10,10,10,.42);
+  --accent:#0a0a0a; --accent-ink:#f7f7f7; --inv:#0a0a0a; --inv-ink:#e8e8e8;
+  --green:#3a3a3a; --yellow:#5a5a5a; --red:#b3261e; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root[data-palette="blackout"]:not([data-theme="light"]){
+  --bg:#050505; --surface:#0f0f0f; --sunk:#1a1a1a; --ink:#ececec; --ink-2:#c8c8c8; --muted:#8a8a8a; --line:rgba(236,236,236,.16); --line-2:rgba(236,236,236,.36);
+  --accent:#ffffff; --accent-ink:#050505; --inv:#ececec; --inv-ink:#050505;
+  --green:#d6d6d6; --yellow:#bdbdbd; --red:#ff5c5c; color-scheme:dark;
+}}
+:root[data-palette="blackout"][data-theme="dark"]{
+  --bg:#050505; --surface:#0f0f0f; --sunk:#1a1a1a; --ink:#ececec; --ink-2:#c8c8c8; --muted:#8a8a8a; --line:rgba(236,236,236,.16); --line-2:rgba(236,236,236,.36);
+  --accent:#ffffff; --accent-ink:#050505; --inv:#ececec; --inv-ink:#050505;
+  --green:#d6d6d6; --yellow:#bdbdbd; --red:#ff5c5c; color-scheme:dark;
+}
+/* Graphite · phosphor */
+:root[data-palette="phosphor"]{
+  --bg:#e6e8ea; --surface:#f4f5f6; --sunk:#d7dbdf; --ink:#111417; --ink-2:#2d3339; --muted:#5f6a74; --line:rgba(17,20,23,.18); --line-2:rgba(17,20,23,.4);
+  --accent:#1f8a4c; --accent-ink:#f4f5f6; --inv:#111417; --inv-ink:#e6e8ea;
+  --green:#4b5560; --yellow:#8a6400; --red:#b3261e; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root[data-palette="phosphor"]:not([data-theme="light"]){
+  --bg:#0e1011; --surface:#15181a; --sunk:#1e2225; --ink:#e9ecee; --ink-2:#c2c8cd; --muted:#848d95; --line:rgba(233,236,238,.15); --line-2:rgba(233,236,238,.34);
+  --accent:#86f29a; --accent-ink:#0e1011; --inv:#e9ecee; --inv-ink:#0e1011;
+  --green:#cfd6d4; --yellow:#e8d25a; --red:#ff6a5c; color-scheme:dark;
+}}
+:root[data-palette="phosphor"][data-theme="dark"]{
+  --bg:#0e1011; --surface:#15181a; --sunk:#1e2225; --ink:#e9ecee; --ink-2:#c2c8cd; --muted:#848d95; --line:rgba(233,236,238,.15); --line-2:rgba(233,236,238,.34);
+  --accent:#86f29a; --accent-ink:#0e1011; --inv:#e9ecee; --inv-ink:#0e1011;
+  --green:#cfd6d4; --yellow:#e8d25a; --red:#ff6a5c; color-scheme:dark;
+}
+/* Tints derive from the palette, so a banner or chip background follows whichever is set. */
+:root{
+  --accent-bg:color-mix(in srgb, var(--accent) 18%, transparent);
+  --green-bg:color-mix(in srgb, var(--green) 20%, transparent);
+  --yellow-bg:color-mix(in srgb, var(--yellow) 22%, transparent);
+  --red-bg:color-mix(in srgb, var(--red) 20%, transparent);
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 img{max-width:100%}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;margin:0}
-.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 64px}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;margin:0;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 calc(84px + env(safe-area-inset-bottom,0px))}
 header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
-.hd{position:relative;max-width:760px;margin:0 auto;padding-inline:16px;padding-block:12px 0;display:flex;flex-direction:column;gap:10px}
+.hd{position:relative;max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px;display:flex;flex-direction:column;gap:10px}
 .brand{display:flex;align-items:center;gap:9px}
 /* Account: initials in the header, tapping opens the menu below it. */
 .acct{position:relative;flex:0 0 auto;width:32px;height:32px;margin-left:8px;border-radius:50%;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font:600 12px/1 var(--f-body);letter-spacing:.03em;cursor:pointer;display:grid;place-items:center;padding:0}
@@ -67,14 +173,18 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .upd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--accent-bg);color:var(--ink);border-radius:8px;padding:8px 10px 8px 12px;font-size:14px;font-weight:600}
 #status.link{text-decoration:underline;cursor:pointer}
 #status.err{color:var(--red)}
-.navrow{display:flex;align-items:stretch;gap:4px;min-width:0}
-nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
-.tmr-b{all:unset;box-sizing:border-box;cursor:pointer;flex:0 0 auto;align-self:center;width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1}
+.tmr-b{all:unset;box-sizing:border-box;cursor:pointer;flex:0 0 auto;align-self:center;width:40px;height:40px;margin-left:8px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
 .tmr-b[aria-expanded="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .tmr-b.on{border-color:var(--accent);color:var(--accent)}
 .tmr-b:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-nav button{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:10px 12px;font-weight:650;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
-nav button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+/* Sections: a fixed bar at the bottom, under the thumb. An icon and a label in the
+   readout face; the current one is ink with a hairline indicator along the top. */
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:16;background:var(--surface);border-top:1px solid var(--line-2);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs-in{max-width:760px;margin:0 auto;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+nav button{all:unset;box-sizing:border-box;cursor:pointer;position:relative;height:58px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+nav button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:square;display:block}
+nav button[aria-current="page"]{color:var(--ink)}
+nav button[aria-current="page"]::before{content:"";position:absolute;top:-1px;left:22%;right:22%;height:2px;background:var(--ink)}
 nav button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 main{display:flex;flex-direction:column;gap:14px;padding-top:16px}
 h2{font-family:var(--f-display);font-stretch:112%;font-weight:800;font-size:20px;margin:0;text-wrap:balance}
@@ -195,7 +305,7 @@ svg.loader.big{max-width:420px}
 #iv-done{display:flex;flex-direction:column;gap:10px;width:min(100%,420px)}
 #iv-done[hidden]{display:none}
 /* minimized */
-#iv.mini{inset:auto 0 0 0;border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
+#iv.mini{inset:auto 0 calc(58px + env(safe-area-inset-bottom,0px)) 0;border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
 #iv.mini .iv-in{flex-direction:row;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;padding-block:10px;text-align:left}
 #iv.mini .iv-top{position:static;order:0;width:100%}
 #iv.mini #iv-phase{font-size:18px;order:1}
@@ -217,6 +327,7 @@ body.iv-mini .wrap{padding-bottom:190px}
 :root[data-gym="1"] .card{border-width:2px}
 :root[data-gym="1"] .muted{opacity:.92}
 :root[data-gym="1"] .small{font-size:14px}
+:root[data-gym="1"] nav button{font-size:11px}
 /* the 12px labels: day names, chips, chart keys, section sub-heads. 12 is the floor
    everywhere; in the gym they come up with everything else. */
 :root[data-gym="1"] .day .dn,:root[data-gym="1"] .day .dl,:root[data-gym="1"] .chip,:root[data-gym="1"] .wkdots div,:root[data-gym="1"] .heat-key,:root[data-gym="1"] .heat-d,:root[data-gym="1"] .heat-w,:root[data-gym="1"] .cal-h,:root[data-gym="1"] .cal-d .l,:root[data-gym="1"] .sub-h,:root[data-gym="1"] .mile .l,:root[data-gym="1"] .acct-st,:root[data-gym="1"] .quiet-tag,:root[data-gym="1"] .setb small,:root[data-gym="1"] .cyc div small{font-size:13px}
@@ -227,14 +338,14 @@ body.iv-mini .wrap{padding-bottom:190px}
 /* archived program: read-only */
 .ro input,.ro select,.ro textarea,.ro .setb,.ro .segb:not(.pv),.ro .wu-chk,.ro [data-act="ivstart"]{pointer-events:none;opacity:.7}
 /* undo toast */
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:22;background:var(--ink);color:var(--bg);border-radius:10px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:12px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgb(0 0 0 / .25)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 74px);z-index:22;background:var(--ink);color:var(--bg);border-radius:10px;padding:8px 8px 8px 14px;display:flex;align-items:center;gap:12px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgb(0 0 0 / .25)}
 #toast[hidden]{display:none}
 #toast .btn{background:transparent;border-color:rgb(255 255 255 / .35);color:var(--bg);font-weight:750}
 body.timing #toast,body.iv-mini #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}
 body.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
 body.timing.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 244px)}
 /* rest timer */
-#bars{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+#bars{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-direction:column}
 #rest{background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
 #gt{background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
 #gt.done{background:var(--green-bg)}
@@ -247,7 +358,7 @@ body.timing.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 244px)}
 .gt-btns .btn{flex:1}
 .tmr-m{min-width:min(320px,calc(100vw - 32px));display:flex;flex-direction:column;gap:10px;padding:12px}
 .gt-m-h{font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.tmr-m{top:88px}
+.tmr-m{top:52px}
 .rest-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:8px 12px;align-items:center}
 .rest-txt{grid-area:txt;display:flex;flex-direction:column;min-width:0}
 #rest-lbl{font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
@@ -600,3 +711,10 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .btn.wide{display:flex;width:100%}
 /* A disclosure that is a button, not a <details>: open state has to survive a render. */
 .linkb{all:unset;cursor:pointer;display:inline-flex;align-items:center;min-height:44px;font-size:13px;font-weight:650;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+/* Setup → Appearance: the palette swatches. The swatch colors are written inline from
+   the PALETTES table in the app, since a swatch shows a palette other than the current. */
+.pals{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.palb{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:9px;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;color:var(--ink)}
+.palb i{width:18px;height:18px;border-radius:4px;border:1px solid var(--line-2);flex:0 0 auto}
+.palb.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.palb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

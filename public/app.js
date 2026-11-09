@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.71", RELEASES_SRC="/releases.js?b=8a5c91e75a";
+const APP_VERSION="3.72", RELEASES_SRC="/releases.js?b=87626c4644";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -6988,17 +6988,35 @@ document.getElementById('toast-undo').addEventListener('click',doUndo);
 // Theme and gym mode are per device, so they live in localStorage rather than the plan.
 function themePref(){const t=LS.get('ob.theme');return t==='light'||t==='dark'?t:'auto'}
 function gymOn(){return !!LS.get('ob.gym')}
+/* The palettes. The colors themselves live in app.css as token blocks keyed by
+   `data-palette`; this table is the list the picker draws from, with each palette's
+   ground and live color so a swatch can show a palette other than the one in use, and
+   so the phone's status bar can be painted to match. Per device, like the theme. */
+const PALETTES=[
+  {id:'graphite',name:'Graphite · ice',    dark:['#101214','#8fd3ff'],light:['#e7e9ec','#0b6fb8']},
+  {id:'phosphor',name:'Graphite · phosphor',dark:['#0e1011','#86f29a'],light:['#e6e8ea','#1f8a4c']},
+  {id:'olive',   name:'Olive · coyote',    dark:['#121510','#d6c08a'],light:['#e3e2d4','#7a5f24']},
+  {id:'night',   name:'Night ops',              dark:['#070907','#7dff9a'],light:['#e2e7e2','#1f7a46']},
+  {id:'navy',    name:'Navy',                   dark:['#071325','#7fd6ff'],light:['#e4eaf3','#0b6fb8']},
+  {id:'steel',   name:'Gunmetal · signal', dark:['#15181b','#ffd23f'],light:['#e5e7ea','#8a6400']},
+  {id:'blackout',name:'Blackout',               dark:['#050505','#ffffff'],light:['#e8e8e8','#0a0a0a']},
+];
+function palettePref(){const p=LS.get('ob.palette');return PALETTES.some(x=>x.id===p)?p:'graphite'}
+function themeIsDark(){
+  const t=themePref(); if(t!=='auto') return t==='dark';
+  try{return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}catch(e){return false}
+}
 function applyTheme(){
   const t=themePref(), r=document.documentElement;
   if(t==='auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme',t);
   r.setAttribute('data-gym',gymOn()?'1':'0');
-  let dark=t==='dark';
-  if(t==='auto'){ try{dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches}catch(e){dark=false} }
+  r.setAttribute('data-palette',palettePref());
   // one meta we control, so an explicit choice also moves the phone's status bar
   document.querySelectorAll('meta[name="theme-color"][media]').forEach(m=>m.remove());
   let m=document.querySelector('meta[name="theme-color"]');
   if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}
-  m.content=dark?'#0f1311':'#e8ebe6';
+  const P=PALETTES.find(x=>x.id===palettePref());
+  m.content=(themeIsDark()?P.dark:P.light)[0];
 }
 try{ if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(themePref()==='auto')applyTheme()}) }catch(e){}
 
@@ -8940,6 +8958,9 @@ function vSetup(){
     const t=themePref();
     h+=SEC('app')+`<div class="card"><h2>Appearance</h2><p class="small muted" style="margin:0">Set per device, so your phone and laptop can differ.</p>
     <label class="f">Theme<div class="seg">${[['auto','Match device'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="segb${t===v?' on':''}" data-act="theme" data-v="${v}">${l}</button>`).join('')}</div></label>
+    <div class="f"><span>Palette</span><div class="pals" role="group" aria-label="Palette">${PALETTES.map(p=>{const on=p.id===palettePref(), [bg,live]=themeIsDark()?p.dark:p.light;
+      return `<button class="palb${on?' on':''}" data-act="palette" data-v="${p.id}" aria-pressed="${on}"><i style="background:linear-gradient(135deg,${bg} 55%,${live} 55%)" aria-hidden="true"></i>${esc(p.name)}</button>`}).join('')}</div>
+    <p class="note" style="margin:0">Seven color worlds for the same panel. The lamps keep their meaning in every one: green or bone for done, red for missed, the live color for now.</p></div>
     <label class="check"><input type="checkbox" id="p-gym" data-act="gym" ${gymOn()?'checked':''}> <span>Gym mode: bigger buttons and stronger contrast for sweaty hands</span></label></div>`;
   }
   h+=SEC('program')+programsCard();
@@ -10253,6 +10274,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week put back',snapPlan());resetWeekPlacement(mon);moveOpen=false;render();return}
   if(a==='guide'){gdStart(b.dataset.k);return}
   if(a==='theme'){LS.set('ob.theme',b.dataset.v);applyTheme();render();return}
+  if(a==='palette'){LS.set('ob.palette',b.dataset.v);applyTheme();render();return}
   if(a==='gym'){LS.set('ob.gym',!gymOn());applyTheme();render();return}
   if(a==='weekseen'){mutatePlan(p=>{p.weekSeen=mondayOf(todayStr())});return}
   if(a==='hold'){startHold(b.dataset.n,+b.dataset.s,+b.dataset.sides||1,1);render();return}

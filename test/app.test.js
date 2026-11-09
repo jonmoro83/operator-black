@@ -8307,7 +8307,9 @@ test("TB III's bridge week splits its two optional test days the same way", () =
 });
 
 // --- the grey wall and the type scale ---------------------------------------------------
-const SCALE = [11, 12, 13, 14, 15, 16, 18, 20, 22, 26, 34, 44, 52];
+// 10 joined in 3.72 for the readout labels (the tab bar, the panel eyebrows), set in
+// B612 Mono, which was drawn for legibility at that size on cockpit displays.
+const SCALE = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 26, 34, 44, 52];
 const appSrc = () => fs.readdirSync(path.join(__dirname, "..", "src", "app")).filter((f) => f.endsWith(".js"))
   .map((f) => [f, fs.readFileSync(path.join(__dirname, "..", "src", "app", f), "utf8")]);
 const css = () => fs.readFileSync(path.join(__dirname, "..", "public", "app.css"), "utf8");
@@ -8331,7 +8333,9 @@ test("explanations, captions and body text are three distinct tiers of contrast"
   const ratio = (x, y) => { const [h, l] = [lum(x), lum(y)].sort((p, q) => q - p); return (h + 0.05) / (l + 0.05) };
   // Every block that defines the palette: light, dark by preference, dark by choice.
   const blocks = [...s.matchAll(/--surface:(#[0-9a-f]{6});[^}]*?--ink:(#[0-9a-f]{6});\s*--ink-2:(#[0-9a-f]{6});\s*--muted:(#[0-9a-f]{6});/gi)];
-  a.equal(blocks.length, 3, "all three theme blocks carry ink-2");
+  // Seven palettes since 3.72: graphite's light on :root and its dark twice, then three
+  // blocks for each of the other six. Every one of them has to hold the three tiers.
+  a.equal(blocks.length, 21, `every palette block carries ink-2: ${blocks.length}`);
   for (const [, surf, ink, ink2, muted] of blocks) {
     const [r1, r2, r3] = [ratio(ink, surf), ratio(ink2, surf), ratio(muted, surf)];
     a.ok(r1 > r2 && r2 > r3, `ink ${r1.toFixed(1)} > note ${r2.toFixed(1)} > caption ${r3.toFixed(1)}`);

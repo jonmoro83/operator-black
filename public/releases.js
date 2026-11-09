@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.72',date:'2026-11-08',title:"A new look begins: palettes and a bottom bar",items:[
+    "The app is being redrawn as an instrument panel, and this is the foundation: new typefaces (B612, which was designed for cockpit displays, for text and readouts, and a condensed face for the big numbers), and seven color worlds to choose from under Setup → Appearance → Palette. Graphite is the default; try Night ops, Olive or Blackout. Your pick stays on this device, like the theme.",
+    "The tabs moved to the bottom of the screen, under your thumb, with an icon each. The timer button sits up by your initials. The rest and interval bars now sit just above the tabs.",
+    "Everything still works the way it did. The screens themselves are redrawn in the next releases, one tab at a time."]},
   {v:'3.71',date:'2026-11-08',title:"Find a setting, and a shorter Status",items:[
     "Setup has a search box at the top. Type a word, say calendar or bands, and only the settings that mention it stay, with their section opened. Clear it and everything comes back. The Guide has the same box and opens every folded section that matches.",
     "Status no longer spends a card each on things you haven't logged yet. Macros, bodyweight, energy, pull-ups and records fold into one short list of what's not tracking yet and where each gets its data. As soon as you log something, that card comes back on its own.",

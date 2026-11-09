@@ -88,17 +88,35 @@ document.getElementById('toast-undo').addEventListener('click',doUndo);
 // Theme and gym mode are per device, so they live in localStorage rather than the plan.
 function themePref(){const t=LS.get('ob.theme');return t==='light'||t==='dark'?t:'auto'}
 function gymOn(){return !!LS.get('ob.gym')}
+/* The palettes. The colors themselves live in app.css as token blocks keyed by
+   `data-palette`; this table is the list the picker draws from, with each palette's
+   ground and live color so a swatch can show a palette other than the one in use, and
+   so the phone's status bar can be painted to match. Per device, like the theme. */
+const PALETTES=[
+  {id:'graphite',name:'Graphite · ice',    dark:['#101214','#8fd3ff'],light:['#e7e9ec','#0b6fb8']},
+  {id:'phosphor',name:'Graphite · phosphor',dark:['#0e1011','#86f29a'],light:['#e6e8ea','#1f8a4c']},
+  {id:'olive',   name:'Olive · coyote',    dark:['#121510','#d6c08a'],light:['#e3e2d4','#7a5f24']},
+  {id:'night',   name:'Night ops',              dark:['#070907','#7dff9a'],light:['#e2e7e2','#1f7a46']},
+  {id:'navy',    name:'Navy',                   dark:['#071325','#7fd6ff'],light:['#e4eaf3','#0b6fb8']},
+  {id:'steel',   name:'Gunmetal · signal', dark:['#15181b','#ffd23f'],light:['#e5e7ea','#8a6400']},
+  {id:'blackout',name:'Blackout',               dark:['#050505','#ffffff'],light:['#e8e8e8','#0a0a0a']},
+];
+function palettePref(){const p=LS.get('ob.palette');return PALETTES.some(x=>x.id===p)?p:'graphite'}
+function themeIsDark(){
+  const t=themePref(); if(t!=='auto') return t==='dark';
+  try{return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)}catch(e){return false}
+}
 function applyTheme(){
   const t=themePref(), r=document.documentElement;
   if(t==='auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme',t);
   r.setAttribute('data-gym',gymOn()?'1':'0');
-  let dark=t==='dark';
-  if(t==='auto'){ try{dark=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches}catch(e){dark=false} }
+  r.setAttribute('data-palette',palettePref());
   // one meta we control, so an explicit choice also moves the phone's status bar
   document.querySelectorAll('meta[name="theme-color"][media]').forEach(m=>m.remove());
   let m=document.querySelector('meta[name="theme-color"]');
   if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}
-  m.content=dark?'#0f1311':'#e8ebe6';
+  const P=PALETTES.find(x=>x.id===palettePref());
+  m.content=(themeIsDark()?P.dark:P.light)[0];
 }
 try{ if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(themePref()==='auto')applyTheme()}) }catch(e){}
 

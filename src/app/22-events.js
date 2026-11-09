@@ -381,6 +381,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='ordreset'){const mon=mondayOf(sel);offerUndo('Week put back',snapPlan());resetWeekPlacement(mon);moveOpen=false;render();return}
   if(a==='guide'){gdStart(b.dataset.k);return}
   if(a==='theme'){LS.set('ob.theme',b.dataset.v);applyTheme();render();return}
+  if(a==='palette'){LS.set('ob.palette',b.dataset.v);applyTheme();render();return}
   if(a==='gym'){LS.set('ob.gym',!gymOn());applyTheme();render();return}
   if(a==='weekseen'){mutatePlan(p=>{p.weekSeen=mondayOf(todayStr())});return}
   if(a==='hold'){startHold(b.dataset.n,+b.dataset.s,+b.dataset.sides||1,1);render();return}

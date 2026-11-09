@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#e8ebe6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1311" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e7e9ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101214" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Operator">
@@ -28,8 +28,8 @@
 <title>Operator + Black</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/app.css?b=1fa78c1223">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/app.css?b=3896193dfb">
 
 </head>
 <body>
@@ -43,6 +43,7 @@
         <rect class="cap" x="53.5" y="38" width="5.5" height="14.5" rx="2"/>
       </svg>
       <h1>Operator <span>+</span> Black</h1><div id="status">Connecting…</div>
+      <button id="tmr-b" class="tmr-b" aria-haspopup="true" aria-expanded="false" aria-label="Timer"><span aria-hidden="true">⏱</span></button>
       <button id="acct" class="acct" aria-haspopup="true" aria-expanded="false" aria-label="Account and sync status"><span id="acct-i">•</span><i id="acct-dot" class="acct-dot"></i></button></div>
     <div id="tmr-m" class="acct-m tmr-m" hidden aria-labelledby="tmr-b"></div>
     <div id="acct-m" class="acct-m" hidden role="menu" aria-labelledby="acct">
@@ -54,24 +55,21 @@
       <a class="acct-b out" id="acct-out" href="/cdn-cgi/access/logout" role="menuitem">Sign out</a>
     </div>
     <div id="upd" class="upd" hidden><span>A new version of the app is ready.</span><span class="upd-b"><button class="btn sm" id="upd-what">What’s new</button><button class="btn sm primary" id="upd-go">Reload</button></span></div>
-    <div class="navrow">
-    <nav id="nav" aria-label="Sections">
-      <button data-view="today">Today</button>
-      <button data-view="status">Status</button>
-      <button data-view="plan">Plan</button>
-      <button data-view="history">History</button>
-      <button data-view="setup">Setup</button>
-      <!-- Coach is in the account menu (3.70): six tabs fit a phone where seven scrolled.
-           Guide stays a tab by request: it went to the menu in 3.1 and came back. -->
-      <button data-view="guide">Guide</button>
-      <!-- Shown only when the server says this address administers the app. -->
-      <button data-view="admin" hidden>Admin</button>
-    </nav>
-    <button id="tmr-b" class="tmr-b" aria-haspopup="true" aria-expanded="false" aria-label="Timer"><span aria-hidden="true">⏱</span></button>
-    </div>
   </div>
 </header>
 <div class="wrap"><main id="main"></main></div>
+<!-- The sections, as a bar fixed to the bottom of the screen (3.72). Coach is in the
+     account menu (3.70). Guide stays a tab by request: it went to the menu in 3.1 and
+     came back. Admin is shown only when the server says this address administers the app. -->
+<nav id="nav" aria-label="Sections"><div class="tabs-in">
+  <button data-view="today"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>Today</button>
+  <button data-view="status"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V11M10 19V5M16 19v-6M22 19H2"/></svg>Status</button>
+  <button data-view="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Plan</button>
+  <button data-view="history"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>History</button>
+  <button data-view="setup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.2"/><circle cx="15" cy="16" r="2.2"/></svg>Setup</button>
+  <button data-view="guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4zM20 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z"/></svg>Guide</button>
+  <button data-view="admin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Admin</button>
+</div></nav>
 <div id="tip" role="status" hidden></div>
 <div id="gd" hidden aria-live="polite"><div class="gd-in" id="gd-in"></div></div>
 <div id="ls" hidden aria-live="polite"><div class="ls-in" id="ls-in"></div></div>
@@ -126,6 +124,6 @@
 </div>
 </div>
 
-<script src="/app.js?b=1fa78c1223"></script>
+<script src="/app.js?b=3896193dfb"></script>
 </body>
 </html>

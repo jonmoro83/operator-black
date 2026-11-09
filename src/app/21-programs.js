@@ -528,6 +528,9 @@ function vSetup(){
     const t=themePref();
     h+=SEC('app')+`<div class="card"><h2>Appearance</h2><p class="small muted" style="margin:0">Set per device, so your phone and laptop can differ.</p>
     <label class="f">Theme<div class="seg">${[['auto','Match device'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button class="segb${t===v?' on':''}" data-act="theme" data-v="${v}">${l}</button>`).join('')}</div></label>
+    <div class="f"><span>Palette</span><div class="pals" role="group" aria-label="Palette">${PALETTES.map(p=>{const on=p.id===palettePref(), [bg,live]=themeIsDark()?p.dark:p.light;
+      return `<button class="palb${on?' on':''}" data-act="palette" data-v="${p.id}" aria-pressed="${on}"><i style="background:linear-gradient(135deg,${bg} 55%,${live} 55%)" aria-hidden="true"></i>${esc(p.name)}</button>`}).join('')}</div>
+    <p class="note" style="margin:0">Seven color worlds for the same panel. The lamps keep their meaning in every one: green or bone for done, red for missed, the live color for now.</p></div>
     <label class="check"><input type="checkbox" id="p-gym" data-act="gym" ${gymOn()?'checked':''}> <span>Gym mode: bigger buttons and stronger contrast for sweaty hands</span></label></div>`;
   }
   h+=SEC('program')+programsCard();

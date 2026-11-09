@@ -20,8 +20,11 @@ function ready({ now = "2026-10-19", maxes = true } = {}) {
 }
 const type = (x, el, v) => { el.value = v; x.fire(el, "input") };
 
-test("the stylesheet has no type under 12px, and small buttons reach 44px", () => {
-  a.equal((css.match(/font-size:\s*(\d+(\.\d+)?)px/g) || []).filter((m) => parseFloat(m.replace(/[^\d.]/g, "")) < 12).length, 0, "12px is the floor");
+test("the stylesheet has no type under 10px, and small buttons reach 44px", () => {
+  // The floor was 12px until 3.72. The instrument-panel labels are set in B612 Mono,
+  // a face designed for legibility at small sizes on cockpit displays, and sit at 10px;
+  // gym mode lifts them. Anything under 10px is still a mistake.
+  a.equal((css.match(/font-size:\s*(\d+(\.\d+)?)px/g) || []).filter((m) => parseFloat(m.replace(/[^\d.]/g, "")) < 10).length, 0, "10px is the floor");
   a.match(css, /^\.btn\.sm\{[^}]*min-height:44px/m, "the small button meets the 44pt target");
   a.match(css, /\[data-gym="1"\] \.day \.dn[^{]*\{font-size:13px\}/, "gym mode lifts the day-strip labels");
   a.match(css, /input\[type=search\]/, "the find box is styled with the other inputs");

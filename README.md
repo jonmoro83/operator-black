@@ -280,10 +280,18 @@ is hidden — the brand row cannot hold the wordmark, the status and the avatar 
 
 ## Appearance
 
-Theme (`ob.theme`: auto/light/dark) and gym mode (`ob.gym`) are per device in
-localStorage, applied by `applyTheme()` before the first render. It sets `data-theme`
-and `data-gym` on the root and manages a single `theme-color` meta so an explicit choice
-also moves the phone's status bar.
+Theme (`ob.theme`: auto/light/dark), gym mode (`ob.gym`) and palette (`ob.palette`) are
+per device in localStorage, applied by `applyTheme()` before the first render. It sets
+`data-theme`, `data-gym` and `data-palette` on the root and manages a single
+`theme-color` meta so an explicit choice also moves the phone's status bar.
+
+Seven palettes ship (the `PALETTES` table in `15-app-shell.js` lists them; the colors
+are token blocks in `app.css`, one per palette per theme, generated from a table so they
+cannot drift). Every palette defines the same tokens, and the suite checks all 21 blocks
+for the three contrast tiers. The visual language is an instrument panel: B612 and B612
+Mono for text and readouts, Barlow Condensed for numerals, hairline grids, lamps for
+state. The redesign lands tab by tab from 3.72; the prototype it follows is linked from
+ROADMAP.md.
 
 ## Energy and body composition
 
