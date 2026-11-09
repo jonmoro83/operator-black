@@ -1260,7 +1260,7 @@ async function wipeUser(env, who) {
   } catch {}
 
   try {
-    const r = await env.DB.prepare("DELETE FROM cal_feeds WHERE user = ?1").bind(who).run();
+    await env.DB.prepare("DELETE FROM cal_feeds WHERE user = ?1").bind(who).run();
     out.calendar = true;
   } catch {}
 

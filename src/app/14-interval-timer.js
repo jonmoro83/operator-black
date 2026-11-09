@@ -168,7 +168,7 @@ function ivShow(){
 }
 function ivRender(){
   if(!iv) return;
-  const el=document.getElementById('iv'), total=ivTotal(iv.segs), t=ivElapsed();
+  const el=document.getElementById('iv'), t=ivElapsed();
   if(t<0){ // 1.5 s lead-in
     el.className=(iv.mini?'mini ':'')+'easy';
     document.getElementById('iv-phase').textContent='Get ready';document.getElementById('iv-time').textContent=Math.ceil(-t);
@@ -216,7 +216,7 @@ function ivSpeech(seg){
 }
 function ivFinish(){
   if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();sfx('ivdone');vib([200,100,200,100,400]);
-    const works=iv.segs.filter(x=>x.round).length; if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
+    if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     // the session you actually did, not the one that was planned
     if((lg(iv.date).hic||{}).min==null||(lg(iv.date).hic||{}).min==='') setLog(iv.date,'hic.min',Math.max(1,Math.round(ivElapsed()/60)));

@@ -601,7 +601,7 @@ function weekTitle(wk){
   if(wk.kind==='deload'){const v=wkRx(wk);return {t:'Deload week',chip:v.s+'×'+v.r+' @ '+v.p+'%',cls:'light'}}
   if(wk.kind==='test') return {t:'Retest week',chip:'Heavy singles',cls:'heavy'};
   if(wk.kind==='bb'){
-    const r=bbRow(wk), se=r.filter(x=>x[0]==='se').length, ms=r.filter(x=>x[0]==='ms').length;
+    const r=bbRow(wk), ms=r.filter(x=>x[0]==='ms').length;
     return {t:'Base Building · Week '+wk.w+' of '+bbLen(wk.ver),chip:ms?'Strength + HIC':'SE + endurance',cls:ms?'mid':'light'};
   }
   if(wk.kind==='bridge') return {t:'Bridge week',chip:'Calibration',cls:'blue'};

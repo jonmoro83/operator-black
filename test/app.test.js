@@ -89,7 +89,7 @@ test("CSV export covers every program with its own plan", () => {
   a.match(rows[1], /Block 1/);
   a.match(rows[2], /Block 2/);
   a.equal(x.plan.programName, "Block 2", "the current plan is restored afterwards");
-  a.match(x.sessionsCsv().split("\r\n")[0], /^﻿?date,program,week,session/);
+  a.match(x.sessionsCsv().split("\r\n")[0], /^\uFEFF?date,program,week,session/);
 });
 
 test("undo puts back what a change overwrote", () => {
@@ -3170,9 +3170,11 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   // The Guide went to the account menu in 3.1 to get the tab bar under a thumb's
   // width, and came back by request: it is the reference for the programs and the
   // lifts, and a menu is not where anybody looks for that. The row scrolls instead.
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "coach", "guide", "admin"], "admin is last");
+  // Coach moved to the account menu in 3.70 so the row fits a phone without scrolling.
+  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "guide", "admin"], "admin is last");
   const acct = html.slice(html.indexOf('id="acct-m"'), html.indexOf('<nav id="nav"'));
   a.match(acct, /data-view="guide"/, "and the menu route is kept, since it has been there a week");
+  a.match(acct, /data-view="coach"/, "Coach is reached from the menu");
 
   // Every tab the nav offers has a view behind it.
   x.view = "admin"; x.amAdmin = true; x.loaded = true;
@@ -7134,6 +7136,7 @@ test("every extracted book is readable text, not something grep will skip", () =
   for (const f of books) {
     const text = fs.readFileSync(path.join(dir, f), "utf8");
     // Tab and newline are the only control characters that belong in extracted text.
+    // eslint-disable-next-line no-control-regex -- control characters are what is being counted
     const ctrl = (text.match(/[\x00-\x08\x0b-\x1f\x7f]/g) || []).length;
     if (ctrl) bad.push(`${f}: ${ctrl} control characters — run tools/tb1repair.py`);
     // A replacement character means the bytes were not the encoding we read them as.
@@ -9223,6 +9226,7 @@ test("the report shows what the server holds and how late each alert went out", 
       results: [{ host: "web.push.apple.com", status: 201 }] }] };
   const t = x.pushStatusText();
   a.match(t, /Server holds: rest ×1/);
+  // eslint-disable-next-line no-regex-spaces -- the report really has two spaces here
   a.match(t, /rest “Rest done”  1\.4 s late  → device: web\.push\.apple\.com 201/, "the one number that says whether alerts arrive on time");
 });
 
