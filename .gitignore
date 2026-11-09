@@ -16,6 +16,9 @@ library/
 # books ended up in it.
 *.pdf
 
+# Copies of Claude Code's session folder: chat transcripts, which can hold secrets.
+/-Users-*/
+
 # Editors
 .vscode/*
 !.vscode/extensions.json
