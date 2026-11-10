@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-11-08.
+Update it as things ship. Last updated 2026-11-10.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -23,8 +23,8 @@ investigation behind each is in [JOURNAL.md](JOURNAL.md).
   fixed in 3.38. **Owed:** one HIC session with the phone left alone; the log holds a
   whole session if it still stops.
 - **iPhone checks still owed at the gym:** offline launch, the screen staying awake for
-  a whole session, the interval timer on the bike, and that the rest beep (3.25) lands
-  on time and clearly louder. Confirmed already: install, Access login, update banner,
+  a whole session, the interval timer on the bike, that the rest beep (3.25) lands
+  on time and clearly louder, and that session mode no longer crops its left edge (3.74). Confirmed already: install, Access login, update banner,
   lock-screen alerts, spoken cues on AirPods, the rest beep in a real session with the
   ring switch off as well as on.
 - **Does the coach give good advice?** The gate for one-tap apply. "OK so far, still
@@ -137,6 +137,21 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**Session mode no longer crops its left edge (2026-11-10, 3.74)**
+- Reported 2026-11-10: "in session mode the left side of the screen is cut off
+  slightly." Headless Chrome in a 390 px frame shows no horizontal overflow on any step
+  (warm-up list, ramp, working set, the rest box, accessories, finish), so the layout
+  itself is sound. The cause that fits a phone and not the desktop: iOS Safari zooms the
+  page when a text control under 16 px takes focus and never zooms back out; inside a
+  fixed overlay that leaves the visual viewport shifted and the gutter gone on the left.
+  Session mode is where the accessory and test inputs get typed into at the gym.
+- Every text control is now 16 px (the global input/select/textarea rule, the table
+  inputs, the program picker's select), the size Safari leaves alone. `#ls` adds
+  `overflow-x:hidden` so the overlay can never be panned sideways on a narrower phone
+  even if a line does overflow.
+- **Owed:** confirmation on the phone. If it still crops, note whether it starts after
+  typing in a field (zoom) or is there from the first screen (layout).
 
 **The redesign, step two: Today opens on the session (2026-11-08, 3.73)**
 - `sessionHtml`'s lifting branch now draws `briefCard` (a bordered table: lift, rx,

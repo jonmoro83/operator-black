@@ -6,6 +6,8 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.74',date:'2026-11-10',title:"Session mode stays put",items:[
+    "On an iPhone, typing a number in session mode could leave the screen zoomed in a touch, with the left edge cut off. Every input is now the size Safari leaves alone, and the session screen can't slide sideways any more."]},
   {v:'3.73',date:'2026-11-08',title:"Today opens on the session",items:[
     "On a lifting day, Today now starts with the session: every lift with its sets, its weight and a small lamp per set, what conditioning follows, how long the whole thing should take, and the Start session button. Everything you need before the bar is loaded, in one block at the top.",
     "Below it, one lift at a time. A switcher names the lifts with their progress; the pane shows the one you're on with the weight large, the plates, the sets, the rest and the warm-up ramp. Tap another lift to switch. The first lift with sets left is the one that opens.",
