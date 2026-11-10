@@ -127,6 +127,12 @@
   --green-bg:color-mix(in srgb, var(--green) 20%, transparent);
   --yellow-bg:color-mix(in srgb, var(--yellow) 22%, transparent);
   --red-bg:color-mix(in srgb, var(--red) 20%, transparent);
+  /* Panels and bars that cover the app take the same tint mixed over the page color, so
+     they stay opaque: a transparent tint on the full-screen timer let the app show through. */
+  --accent-panel:color-mix(in srgb, var(--accent) 18%, var(--bg));
+  --green-panel:color-mix(in srgb, var(--green) 20%, var(--bg));
+  --yellow-panel:color-mix(in srgb, var(--yellow) 22%, var(--bg));
+  --red-panel:color-mix(in srgb, var(--red) 20%, var(--bg));
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -251,8 +257,8 @@ svg.loader.big{max-width:420px}
 .ramp span{background:var(--sunk);border-radius:6px;padding:2px 7px}
 /* guided warm-up and mobility */
 #gd{position:fixed;inset:0;z-index:29;background:var(--bg);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex}
-#gd.hold{background:var(--accent-bg)}
-#gd.rest{background:var(--green-bg)}
+#gd.hold{background:var(--accent-panel)}
+#gd.rest{background:var(--green-panel)}
 .gd-in{max-width:620px;width:100%;margin:0 auto;padding-inline:16px;padding-block:14px 20px;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center}
 .gd-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .gd-grp{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -286,9 +292,9 @@ svg.loader.big{max-width:420px}
 .ls-wrow{display:flex;gap:6px;align-items:stretch}.ls-wrow .btn.hold{flex:0 0 auto;padding:0 12px;font-size:18px}
 /* interval timer: full screen on the bike, or a bar at the bottom */
 #iv{position:fixed;inset:0;z-index:30;background:var(--sunk);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex}
-#iv.work{background:var(--red-bg)}
-#iv.easy{background:var(--green-bg)}
-#iv.paused{background:var(--yellow-bg)}
+#iv.work{background:var(--red-panel)}
+#iv.easy{background:var(--green-panel)}
+#iv.paused{background:var(--yellow-panel)}
 .iv-in{max-width:760px;width:100%;margin:0 auto;padding-inline:16px;padding-block:14px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
 .iv-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 #iv-phase{font-family:var(--f-display);font-stretch:125%;font-weight:900;font-size:clamp(28px,9vw,56px);letter-spacing:.04em;text-transform:uppercase}
@@ -349,7 +355,7 @@ body.timing.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 244px)}
 #bars{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:15;display:flex;flex-direction:column}
 #rest{background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
 #gt{background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 24px rgb(0 0 0 / .12)}
-#gt.done{background:var(--green-bg)}
+#gt.done{background:var(--green-panel)}
 #gt.done .gt-t{color:var(--green)}
 .gt-in{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:8px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"txt time" "btns btns";gap:6px 12px;align-items:center}
 .gt-txt{grid-area:txt;min-width:0}
@@ -369,7 +375,7 @@ body.timing.gt-on #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 244px)}
 .rest-btns .btn{flex:1}
 .rest-bar{height:4px;background:var(--sunk)}
 .rest-bar i{display:block;height:100%;width:0;background:var(--accent)}
-#rest.done{background:var(--green-bg)}
+#rest.done{background:var(--green-panel)}
 #rest.done .rest-time{color:var(--green)}
 #rest.done .rest-bar i{background:var(--green)}
 body.timing .wrap{padding-bottom:150px}

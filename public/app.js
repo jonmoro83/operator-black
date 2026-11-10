@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.75", RELEASES_SRC="/releases.js?b=577b589508";
+const APP_VERSION="3.76", RELEASES_SRC="/releases.js?b=b486650c20";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template

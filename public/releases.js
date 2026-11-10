@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.76',date:'2026-11-10',title:"The timer is solid again",items:[
+    "The interval timer had gone see-through: its red, green and yellow states were the same sheer tints the chips use, so the whole app showed through the numbers. The timer, the guided warm-up and the rest bars are opaque again in every state.",
+  ]},
   {v:'3.75',date:'2026-11-10',title:"All forty of the book's HIC sessions",items:[
     "Every named High Intensity Conditioning session from Tactical Barbell II is in the app now: Meat Eater, Apex Hills, 600 Meter Resets, Beat Your Face, all forty. Pick one from the format list on any conditioning day, under the usual formats in three groups, numbered the way the book numbers them.",
     "The day's card shows the session as the book gives it: the prescription, the basic and advanced versions, what you need, and a fold that says what the book says about it. The Guide has a new section with every session in full and the book's advice on choosing between them.",

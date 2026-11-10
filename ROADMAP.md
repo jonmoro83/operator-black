@@ -148,6 +148,17 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The timer is opaque again (2026-11-10, 3.76)**
+- Asked for: "the HIC timer needs to be fixed. It's basically translucent and you can see
+  the entire app through it." Cause: `#iv.work/.easy/.paused` used `--red-bg` and friends,
+  which 3.72 redefined as `color-mix(... 20%, transparent)` for chips and banners. On a
+  full-screen layer the tint is all there is, so the page underneath showed. `#gd.hold`,
+  `#gd.rest`, `#rest.done` and `#gt.done` had the same bug.
+- Fix: four `--*-panel` tokens in `public/app.css`, the same tint mixed over `--bg` instead
+  of transparent, and the covering layers use those. Chips and banners keep the sheer
+  tints, which are right over a surface. A test in `test/ui.test.js` walks every rule for
+  the four covering layers and fails on a `-bg` tint or the word transparent.
+
 **Tactical Barbell II's forty HIC sessions (2026-11-10, 3.75)**
 - Asked for: "Is Meat Eater II in our app? If not we should add all HIC workouts from the
   book", and then "a full explanation of these sessions in the guide or somewhere in the

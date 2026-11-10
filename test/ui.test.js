@@ -128,3 +128,23 @@ test("Start session is at the top of today's lifting day, on the brief, and only
   z.sel = "2026-10-21"; z.render();           // Wednesday, looked at from Monday
   a.equal(z.$('#main [data-act="lsstart"]'), null, "not for a day that is not today");
 });
+
+test("a panel or bar that covers the app is opaque in every state", () => {
+  // 3.76. The timer's work, easy and paused states borrowed the chip tints, which are
+  // the tone over transparent. On a full-screen panel that let the whole app show
+  // through: "basically translucent, very distracting". The covering layers take the
+  // same tint mixed over the page color instead. Chips and banners keep the sheer tint.
+  a.match(css, /--red-panel:color-mix\(in srgb, var\(--red\) \d+%, var\(--bg\)\)/, "the panel tints are mixed over the page background");
+  const covers = ["#iv", "#gd", "#rest", "#gt"];
+  for (const id of covers) {
+    const rules = css.match(new RegExp(`^${id.replace("#", "\\#")}(\\.[\\w-]+)?\\{[^}]*\\}`, "gm")) || [];
+    a.ok(rules.length, `${id} has rules`);
+    for (const r of rules) {
+      a.doesNotMatch(r, /var\(--(red|green|yellow|accent)-bg\)/, `${r} is a sheer tint over the app`);
+      a.doesNotMatch(r, /transparent/, `${r} is transparent`);
+    }
+  }
+  a.match(css, /^#iv\.work\{background:var\(--red-panel\)\}/m);
+  a.match(css, /^#iv\.paused\{background:var\(--yellow-panel\)\}/m);
+  a.match(css, /^#gd\.rest\{background:var\(--green-panel\)\}/m);
+});
