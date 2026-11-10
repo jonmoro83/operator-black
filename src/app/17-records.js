@@ -10,11 +10,11 @@ let prCache={v:null,list:null};
 function prList(){
   const ver=planV+':'+logsV;
   if(prCache.v===ver) return prCache.list;
-  const out=[], add=(key,label,unit,entries,fmt)=>{
+  const out=[], add=(key,label,unit,entries,fmt,lower)=>{
     const xs=entries.filter(e=>e.v!=null&&!Number.isNaN(e.v)&&e.v>0).sort((a,b)=>a.d<b.d?-1:1);
     if(!xs.length) return;
     let best=null, prev=null;
-    for(const e of xs){ if(!best||e.v>best.v){prev=best;best=e} }
+    for(const e of xs){ if(!best||(lower?e.v<best.v:e.v>best.v)){prev=best;best=e} }
     out.push({key,label,unit,value:best.v,date:best.d,prev:prev?prev.v:null,n:xs.length,fmt:fmt||(v=>n(v))});
   };
   // tested maxes, per lift
@@ -33,10 +33,11 @@ function prList(){
   }
   // conditioning: best per activity and format, hard sessions only
   const g={};
-  for(const x of hicSessions(true)){ if(x.f==='liss'||(HIC[x.f]||{}).noCompare||x.v==null) continue; (g[x.mod+'|'+x.f]=g[x.mod+'|'+x.f]||[]).push({d:x.d,v:x.v,u:x.u}) }
+  for(const x of hicSessions(true)){ if(x.f==='liss'||(HIC[x.f]||{}).noCompare||x.v==null) continue; const key=hicKey(x.mod,x.f); (g[key]=g[key]||[]).push({d:x.d,v:x.v,u:x.u}) }
   for(const key of Object.keys(g)){
-    const [m,f]=key.split('|');
-    add('hic:'+key,MOD[m].name+' · '+HIC[f].name,g[key][0].u,g[key]);
+    const [m,f]=key.split('|'), un=g[key][0].u;
+    // A session done for time is a record when it gets shorter.
+    add('hic:'+key,hicTitle(m,f),un,g[key],v=>resStr(v,un),hicLower(f));
   }
   prCache={v:ver,list:out};
   return out;

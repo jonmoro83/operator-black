@@ -54,8 +54,18 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 - **TB book coverage is otherwise done**, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
-  conditioning sessions. The only book content left out is AA's Base Building, declined
-  by request, and I/A's floating schedule. Whatever comes next is new ground.
+  conditioning sessions; and, since 3.75, all forty of TB II's named HIC sessions. The
+  only book content left out is AA's Base Building, declined by request, and I/A's
+  floating schedule. Still unbuilt from TB II: the core and grip sessions (Plank & Shank,
+  Full Core, Quarterdeck Core, Progressive Grip Circuit) and the challenge sessions, and
+  the E sessions are only LISS plus the SE circuits. Whatever comes next is new ground.
+- **`library/tb2.txt` loses words at every page break.** Found 2026-11-10 while building
+  the HIC sessions: the stored extract drops the first line after each page marker (BOO's
+  basic version, the SE ladder's advanced version, all of Kinetic Conditioning) and
+  splits words at ligatures. Running `tools/pdftext_cmap.py` on `~/Downloads/
+  TB2_Conditioning.pdf` gives a clean text with everything in it. Worth regenerating
+  `library/tb2.txt` and `tb2.sql` from it, which also helps the coach's recall; not done
+  in 3.75 because it changes the library migration and deserves its own deploy.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -137,6 +147,56 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**Tactical Barbell II's forty HIC sessions (2026-11-10, 3.75)**
+- Asked for: "Is Meat Eater II in our app? If not we should add all HIC workouts from the
+  book", and then "a full explanation of these sessions in the guide or somewhere in the
+  app." It was not: the HIC catalog had four generic shapes, the FOBBIT (HIC #9) and
+  TB III's four. Now all forty of Part II's numbered sessions are formats, in
+  `src/app/01d-hic-book.js`: `HIC_BOOK` carries each one's prescription, basic and
+  advanced versions, alternative, gear, the book's reasoning (paraphrased) and its
+  measure; a loop adds them to `HIC` with `book` on the entry, `lower` for the ones done
+  for time and `noMetric` for the ones the book does not score. `HIC.fobbit.book` is
+  `{n:9}` so the numbering is complete without a second FOBBIT.
+- **Picked on the day, not scheduled.** The book leaves the choice of HIC to you, so
+  Black's week still says MAP / Anaerobic / Threshold and the format select on the card
+  (and the add-on's Kind select, and Setup's benchmark picker) now has `<optgroup>`s:
+  the app's formats, then the book's three groups by number, via `hicOptions`.
+- **The timer runs them as written.** `IV_BOOK` in `14-interval-timer.js` gives each one a
+  `seq` of segments per round: timed ones on the clock, reps and distances as `hold`
+  segments the timer waits at until Done, with `est` as our guess at their length for
+  sizing only. `seq` can be a function of the round for the ladders (Connaught, GC 2);
+  `pre` and `post` run once (GC 12's run, the finishers). Pepper Potting is a `lead`
+  shape like Predator, capped at 30 min so it stays a HIC. `bookRound`/`bookOnce` build
+  the segments; `ivParts` keeps `est` holds in the length and counts rounds once each;
+  `ivBaseLeft` too. A held bout no longer renders as "Paused": the phase is the bout and
+  a book hold shows a stopwatch. `iv.t0`/`iv.t1` mark the wall clock from the first
+  round to the cool-down, which is what "for time" means, and `ivWall` prefills the
+  result. Speech and alerts name the bout and say "tap done" instead of reading an
+  estimate aloud.
+- **Scored the book's way.** `metricFor` returns a book session's own measure whatever
+  the activity: `['time','mm:ss']`, `['amrap','rounds']` or `['reps','burpees']`. A
+  time is typed as m:ss (`hic.time`, a text input; `toSecs` parses, `metricVal` reads
+  any metric as a number, `resStr`/`resLine` print one). `hicBetter`/`hicBest` and a
+  `lower` argument on `prList`'s `add` rank a time with the fastest as best, and the
+  reports, Status and History use them. A book session compares against itself on any
+  tool: `hicKey` keys it `book|fmt`, `hicTitle` drops the activity, `lastHic`,
+  `benchmarkState` and `hicRut` ignore `mod` for it.
+- **The card and the Guide.** `hicBookBlock` prints the prescription, versions, a
+  folded "What the book says", the source line and how it is scored; no activity picker,
+  a rounds field, and the loads (Power Complex at 60 to 70%, Transition at 85%) through
+  `fobLoadLine`. `guideHicBook` is a Guide card with the book's own guidance on choosing
+  (1 to 10 mixed, 11 to 24 anaerobic, GC not alone, power sprinkled; the author's
+  cluster of 600 m Resets, Apex Hills and LSS; hills above all) and every session as a
+  `details.px` entry with the lot.
+- **Sources.** Every number and version was read against a fresh CMap extract of
+  `~/Downloads/TB2_Conditioning.pdf`, because `library/tb2.txt` loses the first line
+  after every page break (see Next up). Buffalo Laps' header says rest 45 to 60 s and
+  its prose says no rest; the timer follows the header and the card says so.
+- Four tests: the forty are numbered 1 to 40 with #9 the FOBBIT and each in the Guide in
+  full; Meat Eater II's segments, the ladders, pre/post, Pepper Potting, the easy-week
+  halving and the speech; for-time ranking across tools in last/best, records, the
+  benchmark, Status and History, and the rut check; the card and the pickers.
 
 **Session mode no longer crops its left edge (2026-11-10, 3.74)**
 - Reported 2026-11-10: "in session mode the left side of the screen is cut off

@@ -110,9 +110,9 @@ function addonCard(date){
       const M=MOD[a.mod]||MOD[defMod()], met=metricFor(a.mod,a.fmt);
       h+=`<div class="grid2">
         <label class="f">Activity<select id="in-addon-mod-${i}" data-bind="addons.${i}.mod">${Object.entries(MOD).map(([k,x])=>`<option value="${k}"${k===a.mod?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
-        <label class="f">Kind<select id="in-addon-fmt-${i}" data-bind="addons.${i}.fmt">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===a.fmt?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+        <label class="f">Kind<select id="in-addon-fmt-${i}" data-bind="addons.${i}.fmt">${hicOptions(a.fmt)}</select></label></div>
       <div class="grid2"><label class="f">Minutes${numIn('addons.'+i+'.min',a.min)}</label>
-        ${met?`<label class="f">${esc(metricLabel(met))}${numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
+        ${met?`<label class="f">${esc(metricLabel(met))}${met[0]==='time'?`<input type="text" inputmode="numeric" id="in-addon-val-${i}" data-bind="addons.${i}.val" value="${esc(a.val??'')}" placeholder="m:ss">`:numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
       ${M&&M.elev?`<label class="f">Elevation gain (${esc(elevUnit())})${numIn('addons.'+i+'.elev',a.elev)}</label>`:''}
       ${met&&a.mod==='other'?`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`:''}`;
     } else {
@@ -181,8 +181,8 @@ function finishCard(date,dp){
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
   if(dp.t==='hic'||dp.cardio){
-    const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
-    if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
+    const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?metricVal(met,(L.hic||{})[met[0]]):null;
+    if(v!=null) bits.push(`${hicTitle(mod,f).replace(' · ',' ')} ${resLine(v,met[1])}`); else gaps.push('conditioning result not logged');
   }
   if(dp.plyo||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
   if(dp.t==='travel'){
@@ -248,7 +248,7 @@ function briefCard(wk,dp){
     const rxl=r.top?'best '+r.r:r.lp?`${r.s} × ${r.r}`:`${r.s}${r.sMax>r.s?'–'+r.sMax:''} × ${r.r}${r.p?' @ '+r.p+'%':''}`;
     rows+=`<tr><td class="l">${esc(liftShort(k))}</td><td class="rx">${esc(rxl)}</td><td class="w">${has?`${fmtLoad(k,T)}<small>${esc(isBW(k)?(T>0?'+'+u():'bw'):u())}</small>`:'<small>no max</small>'}</td><td class="d">${liftLamps(wk,k)}</td></tr>`;
   }
-  const cond=dp.ride==='se'?'SE circuit':(dp.cardio||dp.ride)?`${MOD[modOf(sel)].name} · ${HIC[effFmt(sel)].name}`:'';
+  const cond=dp.ride==='se'?'SE circuit':(dp.cardio||dp.ride)?hicTitle(modOf(sel),effFmt(sel)):'';
   rows+=`<tr class="cond"><td class="l">Conditioning</td><td class="rx">${cond?'after':'—'}</td><td class="w"><small>${esc(cond||'rest')}</small></td><td class="d"></td></tr>`;
   const W=lg(sel).warmup||[], items=warmItems(), wdone=items.filter((x,i)=>W[i]).length, dn=prog.filter(Boolean).length;
   let h=`<section class="brief" aria-label="Session"><div class="hd"><span class="eyebrow">Session</span><span class="segbar" role="img" aria-label="${dn} of ${prog.length} sets done">${prog.map(s=>`<i${s?' class="on"':''}></i>`).join('')}</span></div>

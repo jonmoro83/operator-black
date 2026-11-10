@@ -18,6 +18,72 @@ const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds
      of the length, and unlike the book formats the last easy period is kept, so 15
      minutes of 15 s / 45 s is fifteen rounds and fifteen minutes on the clock. */
   free:{work:15,rest:45,mins:15,free:true}};
+/* Tactical Barbell II's named sessions as timer shapes. `seq` is one round: a timed
+   segment has `s`, a bout of reps or distance has `hold` and the timer waits at it until
+   you tap Done, with `est` as our guess at its length for sizing the session. A function
+   gets the round number and the count, for the ladders. `pre` runs once before the
+   rounds and `post` once after; the last round's trailing rest is dropped, as it is for
+   every other format. The book's rest ranges take the low end, like everywhere else. */
+const BK_W=(l,s)=>({k:'work',l,s}), BK_R=(s,l)=>({k:'easy',l:l||'Rest',s}), BK_H=(l,est,k)=>({k:k||'work',l,hold:true,est});
+const BK_WALK=(est)=>BK_H('Walk back',est||60,'easy');
+const BK_PS=(()=>{const x=[];for(let j=0;j<3;j++){for(let i=0;i<3;i++){x.push(BK_W('Plank',30),BK_W('Shank',30))}if(j<2)x.push(BK_R(45))}return x})();
+const IV_BOOK={
+  connaught:{rounds:[5,10],def:10,seq:(i,n)=>[BK_H(`${n-i+1} burpees`,4*(n-i+1)),BK_H('Sprint 100 m',20)]},
+  fast5:{rounds:[1,1],def:1,seq:[BK_H('Tempo run 5 km',1500)]},
+  resets600:{rounds:[4,10],def:6,seq:[BK_H('Sprint 600 m',120),BK_R(180)]},
+  bagresets:{rounds:[4,10],def:5,seq:[BK_W('Heavy bag',90),BK_R(120)]},
+  indoorpower:{rounds:[3,5],def:5,seq:[BK_W('Max effort',120),BK_R(180)]},
+  sledgedrill:{rounds:[3,5],def:5,seq:[BK_W('Sledge',60),BK_W('Jump rope',60),BK_W('Sledge',30),BK_W('Jump rope',30),BK_R(120)]},
+  boo:{rounds:[3,5],def:5,seq:[BK_W('Kettlebell swings',60),BK_H('Run 800 m',210),BK_R(120)]},
+  boo2:{rounds:[2,5],def:3,seq:[BK_H('10 burpees',40),BK_H('Run 800 m',210),BK_H('5 burpees',20),BK_H('Run 400 m, max effort',90),BK_R(120)]},
+  shorthills:{rounds:[5,20],def:10,seq:[BK_H('Hill sprint',15),BK_H('Walk down',45,'easy')]},
+  oxygendebt:{rounds:[2,4],def:3,seq:[BK_H('Sprint 200 m',35),BK_R(30),BK_H('Sprint 200 m',35),BK_R(30),BK_H('Sprint 200 m',35),BK_R(180)]},
+  seladder:{rounds:[1,3],def:1,seq:[BK_H('Sprint 400 m',70),BK_R(40),BK_H('Sprint 300 m',50),BK_R(30),BK_H('Sprint 200 m',35),BK_R(20),BK_H('Sprint 100 m',18),BK_R(10),
+    BK_H('Sprint 100 m',18),BK_R(20),BK_H('Sprint 200 m',35),BK_R(30),BK_H('Sprint 300 m',50),BK_R(40),BK_H('Sprint 400 m',70),BK_R(120)]},
+  meateater:{rounds:[5,15],def:10,seq:[BK_H('Sprint 100 m',18),BK_H('20 swings',40),BK_WALK(60)]},
+  meateater2:{rounds:[5,10],def:10,seq:[BK_H('10 swings',20),BK_H('10 burpees',40),BK_R(60)]},
+  disarmed:{rounds:[3,5],def:3,seq:[BK_H('10 burpees',40),BK_W('Heavy bag',120),BK_R(60)],post:[BK_R(90,'Rest before the finisher')].concat(BK_PS)},
+  stdhills:{rounds:[3,10],def:5,seq:[BK_H('Hill sprint',40),BK_H('Walk down',60,'easy'),BK_R(60)]},
+  apex:{rounds:[3,15],def:5,seq:[BK_H('Hill sprint',40),BK_H('10 swings',20),BK_H('Walk down',60,'easy'),BK_R(60)]},
+  bloodylungs:{rounds:[5,10],def:5,seq:[BK_H('10 plank push-ups',40),BK_H('Hill sprint',40),BK_H('10 burpees',40),BK_H('Walk down',60,'easy')]},
+  bloodylungs2:{rounds:[5,12],def:5,seq:[BK_H('10 burpees',40),BK_H('Hill sprint',40),BK_H('5 snatches per arm',30),BK_H('Walk down',60,'easy'),BK_R(60)]},
+  anaerobiccap:{rounds:[1,1],def:1,seq:[BK_H('Jog 800 m',270,'easy'),BK_H('Sprint 400 m',75),BK_H('Jog 800 m',270,'easy'),BK_H('Sprint 400 m',75),BK_H('Jog 400 m',135,'easy'),BK_H('Sprint 200 m',35),BK_H('Jog 400 m',135,'easy'),BK_H('Sprint 200 m',35)],
+    post:[BK_H('50 plank push-ups',180)]},
+  /* Pepper Potting is a base-first shape like a FOBBIT: an easy ruck, broken every five
+     minutes by a bout. Over 30 minutes it would read as an E, so the choices stop at 30. */
+  pepperpot:{work:45,rest:300,lead:true,every:300,count:'total',mins:[20,25,30],def:30,mv:[['Pepper-pot 100 m',{s:45}]]},
+  buffalo:{rounds:[4,6],def:4,seq:[BK_H('10 burpees',40),BK_H('Run 400 m',90),BK_H('10 swings',20),BK_R(45)]},
+  meateater3:{rounds:[4,8],def:4,seq:[BK_H('10 double KB clean and press',45),BK_H('Sprint 300 m',55),BK_H('Lunge 100 m back',120)]},
+  trinity:{rounds:[2,5],def:5,seq:[BK_W('Swings',60),BK_W('Burpees',60),BK_W('Heavy bag',60),BK_R(60)]},
+  gc1:{rounds:[1,3],def:1,seq:[BK_W('Burpees',180),BK_R(180),BK_W('Burpees',120),BK_R(120),BK_W('Burpees',60),BK_R(60)]},
+  gc2:{rounds:[5,10],def:10,seq:(i,n)=>{const r=n-i+1;return [BK_H(`${r} pull-ups`,3*r),BK_H(`${r} burpees`,4*r),BK_H(`${r} squat jumps`,2*r),BK_H(`${r} plyo push-ups`,2*r)]}},
+  gc3:{rounds:[3,5],def:3,seq:[BK_W('Burpees',30),BK_W('Dips',30),BK_W('Burpees',30),BK_W('Squats',30),BK_W('Burpees',30),BK_W('Back extensions',30),BK_R(60)]},
+  gc4:{rounds:[1,2],def:1,seq:[BK_H('100 pull-ups',300),BK_H('Run 400 m',110),BK_H('100 push-ups',240),BK_H('Run 400 m',110),BK_H('100 swings',200),BK_H('Run 400 m',110)]},
+  gc5:{rounds:[3,3],def:3,seq:[BK_W('Max dips',60),BK_R(90),BK_W('Max push-ups',60),BK_R(90)],
+    post:[BK_R(120,'Rest before B'),BK_H('5 pull-ups',15),BK_H('10 burpees',40),BK_H('5 pull-ups',15),BK_H('10 burpees',40),BK_H('5 pull-ups',15),BK_H('10 burpees',40)]},
+  gc6:{rounds:[3,5],def:3,seq:[BK_W('AMRAP: 10 sledge, 5 burpees, 10 squats',300),BK_R(60)]},
+  gc7:{rounds:[1,5],def:3,seq:[BK_H('50 burpees',200),BK_H('50 squats',90),BK_H('50 diamond push-ups',120),BK_H('Run 800 m',210)]},
+  gc8:{rounds:[2,4],def:4,seq:[BK_H('10 snatches per arm',50),BK_H('25 box jumps',60),BK_H('25 knees to elbows',60),BK_H('25 dips',60),BK_H('5 burpees',20)],
+    post:[BK_R(120,'Rest before B'),BK_W('Handstand hold',60),BK_R(120),BK_W('Handstand hold',60),BK_R(120),BK_W('Handstand hold',60)]},
+  gc9:{rounds:[1,1],def:1,seq:[BK_W('AMRAP: 3 pull-ups, 5 burpees, 10 squats',600)],
+    post:[BK_R(120,'Rest before B')].concat(...Array.from({length:10},(_,i)=>[BK_H(`Sprint 100 m (${i+1} of 10)`,18),BK_WALK(50)]))},
+  gc10:{rounds:[4,4],def:4,seq:[BK_W('Jog',120),BK_H('25 burpees',90)]},
+  gc11:{rounds:[5,5],def:5,seq:[BK_H('Sprint 100 m',18),BK_H('Bear crawl 50 m',60)],post:[BK_H('100 sledge strikes',240)]},
+  gc12:{rounds:[1,3],def:3,pre:[BK_H('Run 1.5 miles',720),BK_R(120,'Rest before B')],seq:[BK_H('20 push presses',60),BK_H('20 back extensions',60),BK_H('20 pull-ups',60)]},
+  bwplyo:{rounds:[2,3],def:3,seq:[BK_H('10 plyo push-ups',20),BK_R(90),BK_H('10 jump squats',20),BK_R(90),BK_H('5 to 10 plyo pull-ups',20),BK_R(120)],
+    post:[].concat(...Array.from({length:5},(_,i)=>[BK_H(`Sprint 50 m (${i+1} of 5)`,10),BK_WALK(40)]))},
+  powercomplex:{rounds:[2,3],def:3,seq:[BK_H('Push press × 5',20),BK_R(90),BK_H('10 KB squat jumps',20),BK_R(90),BK_H('Snatch × 5 per arm',30),BK_R(90),BK_H('5 plyo pull-ups',15),BK_R(90)]},
+  kinetic:{rounds:[2,3],def:3,seq:[BK_H('Sprint 50 m, 5 plyo push-ups',25),BK_R(120),BK_H('Sprint 50 m, 5 squat jumps',25),BK_R(120)]},
+  transition:{rounds:[2,3],def:2,seq:[BK_H('Front squat × 3',20),BK_H('10 squat jumps',20),BK_R(120),BK_H('Overhead press × 3',20),BK_H('10 plyo push-ups',20),BK_R(120),BK_H('Weighted pull-ups × 3',20),BK_H('10 med ball slams',20),BK_R(120)]},
+};
+for(const [k,v] of Object.entries(IV_BOOK)){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
+// One round of a book session as segments. The sub-label names the round, and the
+// trailing rest of the last round is dropped, as it is for every other format.
+function bookRound(r,i,n){
+  const items=typeof r.seq==='function'?r.seq(i,n):r.seq;
+  return items.map(x=>({k:x.k,l:x.l,sub:'Round '+i+' of '+n,s:x.hold?x.est:x.s,round:i,hold:!!x.hold,est:!!x.hold,reps:x.hold?'':undefined}));
+}
+function bookOnce(items,lead){ return (items||[]).map(x=>({k:x.k,l:x.l,sub:lead?'Before the rounds':'After the rounds',s:x.hold?x.est:x.s,hold:!!x.hold,est:!!x.hold,reps:x.hold?'':undefined,lead:!!lead,post:!lead})) }
 const FREE_PRESETS=[[15,45,15],[20,40,20],[30,30,20],[10,50,10],[20,10,4]];
 const FREE_MAX_ROUNDS=100;
 // The shape a freeform day used, from what it logged, then what you last ran, then the default.
@@ -99,6 +165,15 @@ function ivSegments(fmt,o){
         seg.push({k:'work',l:b.name,sub:doseLabel(b),s:b.secs||FOB_HELD,round:i,hold:!!b.hold,reps:b.reps});
       }
     }
+    else if(r.seq){
+      seg.push(...bookOnce(r.pre,true));
+      for(let i=1;i<=o.rounds;i++){
+        const rd=bookRound(r,i,o.rounds);
+        if(i===o.rounds&&rd.length>1&&rd[rd.length-1].k==='easy'&&!rd[rd.length-1].hold) rd.pop();
+        seg.push(...rd);
+      }
+      seg.push(...bookOnce(r.post,false));
+    }
     else {const w=r.free?o.work:wk, e=r.free?o.rest:r.rest;
       for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:w,round:i});if(i<o.rounds||r.free)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:e,round:i})}}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
@@ -114,8 +189,10 @@ function ivParts(segs){
   const hasCool=segs.length&&segs[segs.length-1].l==='Cool-down';
   const cool=hasCool?segs[segs.length-1].s:0;
   const warm=i<0?0:segs.slice(0,i).reduce((a,x)=>a+x.s,0);
-  const held=segs.reduce((a0,x)=>a0+(x.hold?x.s:0),0);   // rep bursts are not on the clock
-  return {warm,work:ivTotal(segs)-warm-cool-held,cool,rounds:segs.filter(x=>x.round&&x.k==='work').length};
+  // Rep bursts are not on the clock. A book session's held bouts carry an estimate and
+  // are part of its length, so those stay in.
+  const held=segs.reduce((a0,x)=>a0+(x.hold&&!x.est?x.s:0),0);
+  return {warm,work:ivTotal(segs)-warm-cool-held,cool,rounds:new Set(segs.filter(x=>x.round&&x.k==='work').map(x=>x.round)).size};
 }
 function ivPartsLabel(f,o){
   const segs=ivSegments(f,o), p=ivParts(segs), m=s0=>Math.round(s0/60), bits=[];
@@ -128,7 +205,9 @@ function ivPartsLabel(f,o){
 }
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
 // A held burst is not part of the session's length, so the countdown reports base only.
-function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
+function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold&&!g.est)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
+// Wall-clock time since the first round began: what a session done "for time" scores.
+function ivWall(){ if(!iv||!iv.t0) return 0; return Math.max(0,Math.round(((iv.t1||Date.now())-iv.t0)/1000)) }
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
 // tone() lived here: the second audio path, with none of beep()'s fixes. See sfx().
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
@@ -150,7 +229,8 @@ function ivAlerts(){
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
     // Worded to be read aloud (Siri Announce Notifications): no symbols or clock times.
-    if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
+    if(nx&&nx.est) list.push({at,title:nx.l,body:(nx.sub?nx.sub+'. ':'')+'Tap done when finished.'});
+    else if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?(nx.l&&nx.l!=='Hard'?nx.l:'Go hard'):nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
   return list;
@@ -161,7 +241,7 @@ function ivShow(){
   if(!iv){el.hidden=true;document.body.classList.remove('iv-mini');clearInterval(ivTick);ivTick=null;return}
   el.hidden=false; el.classList.toggle('mini',!!iv.mini); document.body.classList.toggle('iv-mini',!!iv.mini);
   document.getElementById('iv-size').textContent=iv.mini?'Expand':'Minimize';
-  document.getElementById('iv-title').textContent=MOD[iv.mod].name+' · '+HIC[iv.fmt].name;
+  document.getElementById('iv-title').textContent=hicTitle(iv.mod,iv.fmt);
   if(!ivTick) ivTick=setInterval(ivRender,200);
   showWake();
   ivRender();
@@ -177,12 +257,18 @@ function ivRender(){
   const p=ivPos(t);
   if(p.i>=iv.segs.length){ ivFinish(); return; }
   const seg=iv.segs[p.i], nx=iv.segs[p.i+1], left=Math.ceil(p.left);
-  el.className=(iv.mini?'mini ':'')+(iv.paused?'paused':seg.k);
-  document.getElementById('iv-phase').textContent=iv.paused?'Paused':seg.l;
+  // The clock for a session done for time starts at the first round and stops at the
+  // cool-down; the holds pause the segment clock but not the wall clock, which is the point.
+  if(!iv.t0&&(seg.round||seg.lead)){ iv.t0=Date.now(); LS.set('ob.iv',iv); }
+  if(iv.t0&&!iv.t1&&seg.l==='Cool-down'){ iv.t1=Date.now(); LS.set('ob.iv',iv); }
   if(seg.hold&&!iv.paused&&!iv.done){ iv.paused=Date.now(); LS.set('ob.iv',iv); }
-  document.getElementById('iv-time').textContent=seg.hold?seg.reps:mmss(left);
+  // A held bout is not a pause: it shows what to do, and for a book session a stopwatch.
+  el.className=(iv.mini?'mini ':'')+(iv.paused&&!seg.hold?'paused':seg.k);
+  document.getElementById('iv-phase').textContent=iv.paused&&!seg.hold?'Paused':seg.l;
+  document.getElementById('iv-time').textContent=seg.hold?(seg.est&&iv.paused?mmss((Date.now()-iv.paused)/1000):seg.reps):mmss(left);
   document.getElementById('iv-sub').textContent=(seg.sub||'')+(iv.paused?'':'');
-  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+(nx.hold?' '+nx.reps:' '+mmss(nx.s))+' · ':'Last one · ')+mmss(ivBaseLeft(p,t))+' of base left';
+  const isBook=!!(IV[iv.fmt]&&IV[iv.fmt].seq);
+  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+(nx.hold?(nx.reps?' '+nx.reps:''):' '+mmss(nx.s))+' · ':'Last one · ')+(isBook?'Elapsed '+mmss(ivWall()):mmss(ivBaseLeft(p,t))+' of base left');
   document.getElementById('iv-fill').style.width=(seg.hold?0:100*p.into/seg.s)+'%';
   document.getElementById('iv-pause').textContent=seg.hold?'Done':iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
@@ -208,14 +294,15 @@ function durText(t){const m=Math.floor(t/60),sec=t%60,mins=m+(m===1?' minute':' 
 function ivSpeech(seg){
   const dur=durText(seg.s);
   if(seg.l==='Pickup') return 'Pickup. '+dur+'.';
-  if(seg.k==='work') return (seg.sub?seg.sub+'. ':'')+'Go hard. '+dur+'.';
+  if(seg.est) return (seg.sub?seg.sub+'. ':'')+seg.l+'. Tap done when finished.';
+  if(seg.k==='work') return (seg.sub?seg.sub+'. ':'')+(seg.l&&seg.l!=='Hard'?seg.l+'. ':'Go hard. ')+dur+'.';
   if(seg.l==='Warm-up') return 'Warm up. Easy for '+dur+'.';
   if(seg.l==='Cool-down') return 'Cool down. '+dur+' easy.';
   if(seg.l==='Steady') return 'Steady pace for '+dur+'.';
   return 'Easy. '+dur+'.';
 }
 function ivFinish(){
-  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();sfx('ivdone');vib([200,100,200,100,400]);
+  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;if(iv.t0&&!iv.t1)iv.t1=Date.now();LS.set('ob.iv',iv);syncScreen();sfx('ivdone');vib([200,100,200,100,400]);
     if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     // the session you actually did, not the one that was planned
@@ -229,7 +316,11 @@ function ivFinish(){
   const met=metricFor(iv.mod,iv.fmt), box=document.getElementById('iv-done');
   if(box.hidden){ box.hidden=false; document.getElementById('iv-btns').hidden=true;
     const cur=met?((lg(iv.date).hic||{})[met[0]]):null;
-    box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result"></label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
+    // A session done for time gets the wall clock from the first round to the end,
+    // ready to save; change it if the watch says otherwise.
+    const inp=met&&met[0]==='time'?`<input type="text" inputmode="numeric" id="iv-result" value="${esc(cur||(iv.t0?mmss(ivWall()):''))}" placeholder="m:ss">`
+      :`<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result">`;
+    box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}${inp}</label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
   }
 }
 function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();alarmSync();render()}
@@ -245,6 +336,6 @@ document.getElementById('iv').addEventListener('click',e=>{
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
-  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
+  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],met[0]==='time'?String(inp.value).trim():+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });

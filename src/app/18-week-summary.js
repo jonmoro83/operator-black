@@ -70,7 +70,7 @@ function weekSummaryCard(){
   ${r.avg!=null?bRow({label:'Readiness',value:r.avg,of:100,pct:r.avg,tone:readyTone(r.avg).tone,word:readyTone(r.avg).word,aria:`Readiness ${r.avg} of 100`})
     :bRow({label:'Readiness',value:'—',sub:'No check-ins'})}
   ${bRow({label:'Bests set',value:r.prs.length,sub:r.prs.length?esc(r.prs.map(x=>x.label).join(', ')):'None last week'})}</div>`;
-  if(r.hics.length) h+=`<div class="small muted">Conditioning: ${r.hics.map(x=>`${MOD[x.mod].name} ${HIC[x.f].name} ${n(x.v)} ${esc(x.u)}`).join(' · ')}</div>`;
+  if(r.hics.length) h+=`<div class="small muted">Conditioning: ${r.hics.map(x=>`${hicTitle(x.mod,x.f).replace(' · ',' ')} ${esc(resLine(x.v,x.u))}`).join(' · ')}</div>`;
   h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><b>This week</b>${wt?` · ${esc(wt.t)} <span class="chip ${wt.cls}">${esc(wt.chip)}</span>`:''}</div>`;
   if(ahead.length) h+=`<ul class="tight small">${ahead.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
   h+=`<div class="small muted">${esc(nd)} ${esc(nt)}</div></div>`;

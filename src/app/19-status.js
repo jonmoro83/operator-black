@@ -533,9 +533,10 @@ function vStatus(){
       const bm=benchmarkState(t);
       if(bm&&bm.xs.length){
         const dir=bm.xs.length>1?bm.last.v-bm.first.v:null;
-        h+=`<div class="sm"><div class="sm-h"><b>Benchmark · ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
-        h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
-        h+=`<div class="note">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
+        const tm=bm.last.u==='mm:ss';
+        h+=`<div class="sm"><div class="sm-h"><b>Benchmark · ${hicTitle(bm.mod,bm.fmt).replace(' · ',' ')}</b><span class="v">${resStr(bm.best,bm.last.u)}<small>${tm?'':esc(bm.last.u)+' '}best</small></span></div>`;
+        h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${resLine(x.v,x.u)}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
+        h+=`<div class="note">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same ${hicBook(bm.fmt)?'session':'activity and format'} to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?resLine(Math.abs(dir),bm.last.u):''} since ${fmtD(bm.first.d)}${dir&&tm?(hicBetter(bm.fmt,bm.last.v,bm.first.v)?', which is faster':', which is slower'):''}.`:''}</div></div>`;
       }
     }
     h+=`<div class="small muted">Every activity you have logged, charted and tabled, is in History.</div>`;

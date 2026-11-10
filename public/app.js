@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.74", RELEASES_SRC="/releases.js?b=dc90a67959";
+const APP_VERSION="3.75", RELEASES_SRC="/releases.js?b=577b589508";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -2380,6 +2380,290 @@ function suppCard(date,when){
   return h+`</div>`;
 }
 
+/* ---------------- Tactical Barbell II's named HIC sessions ----------------
+The book gives forty numbered High Intensity Conditioning sessions in Part II, in three
+groups: 1 to 24 aerobic/anaerobic, 25 to 36 general conditioning, 37 to 40 power. Black
+asks for two or three HICs a week and leaves the choice to you, so these are formats you
+pick on the day, like any other, rather than something a protocol schedules. #9 is the
+FOBBIT, which already exists under its own machinery, so it is only numbered here.
+
+Each one carries, in the book's own order: the prescription (`lines`), the basic and
+advanced versions and any alternative (`basic`, `advanced`, `alt`), and the book's
+reasoning (`why`), paraphrased. `sess` is the one-line form for the calendar and the day
+card. `measure` is what the session is scored by when the book scores it: a time for the
+ones done "for time" (lower is better, hence `lower`), rounds for an AMRAP, reps for
+Beat Your Face. A session the book does not score has no measure and is logged by
+minutes and rounds, like a FOBBIT.
+
+The timer shape lives in IV (14-interval-timer.js) as `seq`: the segments of one round,
+timed where the book times them and held until you tap Done where it counts reps or
+distance. `est` is our guess at how long a held bout takes, used only to size the session
+in minutes before you run it; nothing in the book depends on it. */
+const HIC_CAT={aa:'Aerobic / anaerobic',gc:'General conditioning',power:'Power development'};
+const HIC_BOOK={
+  connaught:{n:1,cat:'aa',name:'Connaught Range 10 to 1s',sys:'Aerobic / anaerobic',gear:'100 m of running room',measure:['time','mm:ss'],lower:true,
+    sess:'10 burpees, 100 m sprint, 9 burpees, sprint back … down to 1, for time',
+    lines:['10 burpees, sprint 100 m','9 burpees, sprint back','8 burpees, sprint 100 m … down to 1 burpee','Shuttle-run style, as quickly as you can'],
+    basic:'Start with 5 to 1 and work up to 10. And/or cut the run to 50 m.',
+    advanced:'Sprint the full 100 m. And/or add 10 squats at each stop, so burpees and squats both count down.',
+    why:'Find a football field or a track, anywhere with 100 m of running room. The session comes from a member of the RCMP’s federal Emergency Response Team, where 10-to-1 burpees in this fashion were a regular part of morning PT for candidates. Your goal is to complete it as quickly as possible, so log the time and chase it.'},
+  fast5:{n:2,cat:'aa',name:'Fast 5 Tempo Run',sys:'Aerobic power',gear:'Somewhere to run 5 km',measure:['time','mm:ss'],lower:true,
+    sess:'5 km / 3 mi at 80 to 85% of max heart rate',
+    lines:['Run 5 km (3 miles)','80 to 85% of maximum heart rate'],
+    basic:'Start with half the distance if you need to, and work up to the full distance.',
+    advanced:'Pick up the pace, and/or run 4 to 5 miles.',
+    why:'Faster than your LSS work: fast enough that you cannot hold a conversation easily. Get a little outside your comfort zone. It is still one continuous effort, so it trains the aerobic engine at the top of its range rather than the anaerobic systems.'},
+  resets600:{n:3,cat:'aa',name:'600 Meter Resets',sys:'Max aerobic power',gear:'A track, or 600 m of running room',
+    sess:'Sprint 600 m flat out, rest 3 to 5 min, × 6',
+    lines:['Sprint 600 m, maximum effort','Rest 3 to 5 minutes','× 6'],
+    basic:'4 reps.',advanced:'10 reps.',
+    why:'The long rest is the point. The benefit comes from a maximum effort made from a rested state: you do yourself no favors sprinting the next rep while still exhausted, and that kind of training is elsewhere in the book for a different purpose. Think of it as strength training for the heart: it develops the strength of cardiac contraction and builds mitochondria. Jog 5 to 10 minutes first. Each 600 is all out, then rest until you are relatively well recovered.'},
+  bagresets:{n:4,cat:'aa',name:'Heavy Bag Resets',sys:'Max aerobic power',gear:'A heavy bag',
+    sess:'Heavy bag 90 s all out, rest 2 to 5 min, × 5',
+    lines:['Heavy bag strikes 90 s, maximum effort','Rest 2 to 5 minutes','× 5'],
+    basic:'4 rounds, and/or 60 s of striking instead of 90.',
+    advanced:'Up to 10 rounds, and/or 2 minutes of striking.',
+    why:'The same principle as the resets: intense work springing from a well-rested state. Any striking you like, punches, kicks, knees, elbows, combos, as long as it is an all-out effort for the full 90 seconds. Your power will fade part way through; that is where the training happens, so keep pushing with whatever you have until the alarm. Light skipping or stretching between rounds is fine. A good one to tack on after a strength session when you are already in the gym, or run alone with a core or grip finisher.'},
+  indoorpower:{n:5,cat:'aa',name:'Indoor Power Intervals',sys:'Max aerobic power',gear:'A treadmill, Airdyne or rower',
+    sess:'2 min max effort indoors, rest 3 to 5 min, × 5',
+    lines:['Treadmill run, Airdyne or row 2 minutes, max effort','Rest 3 to 5 minutes','× 5'],
+    why:'The 600 m resets for people who cannot get to a track or are dealing with the weather. It is not an all-out sprint for two minutes but it should not be far behind: roughly 80 to 90% of max heart rate, a pace you can hold for the length of the interval. On a treadmill, something like 80% of your 100 m sprint speed, with the incline if the belt cannot go fast enough. Then slow to a walk and rest the full 3 to 5 minutes. Most training works you hard for 20 to 60 seconds; a sustained two-minute maximum takes your game somewhere else.'},
+  sledgedrill:{n:6,cat:'aa',name:'Sledge Drill',sys:'Anaerobic threshold',gear:'A sledgehammer, a tire and a jump rope',
+    sess:'Sledge 1 min, rope 1 min, sledge 30 s, rope 30 s, rest 2 to 3 min, × 5',
+    lines:['Sledgehammer on tire 1 minute','Jump rope 1 minute','Sledgehammer 30 seconds','Jump rope 30 seconds','Rest 2 to 3 minutes','× 5'],
+    basic:'3 rounds.',advanced:'1 minute for each of the four, 5 rounds.',
+    alt:'Dumbbell or barbell push press in place of the sledge and tire.',
+    why:'Switch hands and grip now and then. You want powerful, consistent blows you can keep up, not an all-out frenzy: a sustained effort for the duration. It is an anaerobic-threshold session, built to lengthen how long you can work near your maximum, with strength-endurance, power-endurance and work capacity thrown in.'},
+  boo:{n:7,cat:'aa',name:'Black on Oxygen',sys:'Aerobic / anaerobic',gear:'A kettlebell and a track',
+    sess:'Swings 60 s, run 800 m, rest 2 to 3 min, × 5',
+    lines:['Kettlebell swings 60 seconds (or 30 swings)','Run 800 m','Rest 2 to 3 minutes','× 5'],
+    basic:'3 rounds.',advanced:'A heavier bell, or the same bell swung for 2 minutes instead of 1.',
+    why:'Learned from a former US Army Ranger: the solo version of a partner drill where one swings while the other runs two laps, then they switch, continuously. Take the bell to the track: 16 to 32 kg for men with 24 about the mean, 8 to 24 kg for women. The aim is continuous higher-intensity work for several minutes. Swing at a steady, comfortable pace and switch hands halfway; if you have to set it down before the minute is up, rest briefly and carry on. Then drop it and run the 800 as quickly as you can. Stick to 2 to 3 minutes of rest; you do not have to be fully recovered today.'},
+  boo2:{n:8,cat:'aa',name:'BOO II',sys:'Aerobic / anaerobic',gear:'A track',
+    sess:'10 burpees, 800 m, 5 burpees, 400 m flat out, rest 2 to 3 min, × 3',
+    lines:['10 burpees','Run 800 m','5 burpees','Run 400 m, maximum effort','Rest 2 to 3 minutes','× 3'],
+    basic:'5 burpees, 400 m, 5 burpees, 400 m max effort, rest 2 to 3 min, × 2.',
+    advanced:'20 burpees, 800 m, 10 burpees, 400 m max effort, rest 2 min, × 3 to 5.',
+    why:'Each round as quickly as you can. The 800 is not a sprint but it is faster than a jog; drop straight into the burpees, then give the final 400 everything. You do not have to be fully rested between rounds, so try not to run over the rest.'},
+  shorthills:{n:10,cat:'aa',name:'Short Hills',sys:'Aerobic / anaerobic',gear:'A hill of 10 to 15 seconds',
+    sess:'Sprint a 10 to 15 s hill, walk down, × 10',
+    lines:['Hill sprint, 10 to 15 seconds up','Walk back down as the rest (30 to 60 s)','× 10'],
+    basic:'× 5, work up to 10.',advanced:'× 15 to 20, and/or a 10 to 20 lb weight vest.',
+    why:'For this one you want a shorter hill, roughly 10 to 15 seconds to sprint up, nothing longer or higher. The walk down is the rest; at the bottom, go again. If the author could keep one conditioning exercise for life it would be hill sprints: nothing builds legs, heart, lungs and willpower like them, and after Block I he recommends making them a staple.'},
+  oxygendebt:{n:11,cat:'aa',name:'Oxygen Debt 101',sys:'Glycolytic',gear:'A track',
+    sess:'3 × 200 m flat out with 30 s between, rest 3 min, × 3 to 4',
+    lines:['Sprint 200 m, maximum effort, × 3 with 30 seconds between','Rest 3 minutes','× 3 to 4'],
+    basic:'2 rounds, work up to 4 over time.',advanced:'All 4 rounds.',
+    why:'From a nationally ranked runner and former police academy instructor. It is built to work the lactic system and raise your tolerance for pain: three maximum 200s with only 30 seconds between them make one round, and the three minutes between rounds is not enough to clear it.'},
+  seladder:{n:12,cat:'aa',name:'Speed-Endurance Ladders',sys:'Speed-endurance',gear:'A track',
+    sess:'400, 300, 200, 100 m and back up, flat out, short rests',
+    lines:['400 m, rest 40 s','300 m, rest 30 s','200 m, rest 20 s','100 m, rest 10 s','Then back up: 100 m, rest 20 s, 200 m, rest 30 s, 300 m, rest 40 s, 400 m','All running at maximum effort'],
+    basic:'Down the ladder only. Rest a full 2 minutes at the bottom before coming back up.',
+    advanced:'Down and back up is one round. Keep going for as many rounds as you can, with a 2-minute rest at the bottom between some rounds if you need it.',
+    why:'Every rung is a maximum effort and the rests shrink as the distances do, which is what makes it speed-endurance rather than speed. Work down from the 400, rest ten seconds after the 100, and climb straight back.'},
+  meateater:{n:13,cat:'aa',name:'Meat Eater',sys:'Aerobic / anaerobic',gear:'A kettlebell and 100 m of track',measure:['time','mm:ss'],lower:true,
+    sess:'Sprint 100 m, 20 swings, walk back, × 10',
+    lines:['Sprint 100 m','20 Russian kettlebell swings (24 to 48 kg)','Walk back to the start','× 10'],
+    basic:'× 5, with a lighter bell if you need one.',
+    advanced:'For time, as quickly as possible: jog back instead of walking. And/or a heavier bell.',
+    alt:'A dumbbell for the swings.',
+    why:'Use a moderate to medium-heavy bell and leave it on the track 100 m away, near the finish line. Sprint flat out to it, pick it up and swing, then turn around and walk back. Two-handed swings are the author’s preference, but one-handed works. The time is only scored in the advanced version; the standard one is paced by the walk.'},
+  meateater2:{n:14,cat:'aa',name:'Meat Eater II',sys:'Glycolytic',gear:'One kettlebell',measure:['time','mm:ss'],lower:true,
+    sess:'10 swings, 10 burpees, rest 60 s, × 10, for time',
+    lines:['10 Russian kettlebell swings','10 burpees','Rest 60 seconds','× 10, for time'],
+    basic:'× 5, with a lighter bell if you need one.',
+    advanced:'A heavier bell, one you can barely swing for the full 10. Leave a swing or two in the bank to keep your form.',
+    why:'Deceptively simple, highly effective. A medium to heavy bell for you, two-handed Russian swings. If you only have light bells, swing one-handed and do 10 per arm. It does not matter whether you start with the burpees or the swings. The clock runs through the rests, so the whole thing is one time.'},
+  disarmed:{n:15,cat:'aa',name:'Disarmed',sys:'Aerobic / anaerobic',gear:'A heavy bag',
+    sess:'10 burpees, heavy bag 2 min, rest 60 s, × 3 to 5, then Plank & Shank',
+    lines:['10 burpees','Heavy bag strikes 2 minutes','Rest 60 seconds','× 3 to 5','Finisher: Plank & Shank, 3 minutes × 3'],
+    basic:'Bag 1 minute instead of 2.',advanced:'Bag 3 minutes.',
+    why:'Work hard on the bag: steady strikes, with combos approaching maximum effort and speed. After the rounds, rest a minute or two and move to the finisher: 30 seconds of plank, 30 seconds of shank, until three minutes is up, with 30 to 60 seconds of rest after each pair if you need it, three times over. The shank is a static back extension held at the top.'},
+  stdhills:{n:16,cat:'aa',name:'Standard Issue Hills',sys:'Aerobic / anaerobic',gear:'A hill of 30 to 45 seconds',
+    sess:'5 to 10 hill sprints, 1 to 2 min rest at the bottom',
+    lines:['Hill sprint, maximum effort','Walk or jog down','Rest 1 to 2 minutes at the bottom','× 5 to 10'],
+    basic:'3 to 4 rounds, working up to 5 to 10 over time. Stretch the rests to 3 minutes.',
+    advanced:'Jog down and take no rest at the bottom.',
+    why:'The basic hill session, and do not let its simplicity fool you: it will probably do more for your conditioning than a complicated session with ten exercises and twenty toys. Aim for a hill that takes 30 to 45 seconds to sprint up; if all you have is a short one of 10 to 15 seconds, double the reps. Maximum effort and speed up, the rest starts at the bottom. Hills are to conditioning what barbells are to strength.'},
+  apex:{n:17,cat:'aa',name:'Apex Hills',sys:'Aerobic / anaerobic',gear:'A kettlebell and a hill',
+    sess:'Hill sprint, 10 swings at the top, walk down, rest 1 to 2 min, × 5 to 10',
+    lines:['Hill sprint','10 Russian kettlebell swings at the top','Walk down','Rest 1 to 2 minutes','× 5 to 10'],
+    basic:'3 to 4 rounds, working up to 10. And/or a lighter bell.',
+    advanced:'Jog down and drop the rest: the jog is the recovery. And/or a heavier bell, or double kettlebell swings. Operators work up to the 48 kg Beast for 15 or more rounds.',
+    why:'One of the simplest and most effective sessions in the book, the author’s personal favorite and a staple of his own conditioning. Simple, scalable, flexible, and it will turn you into a machine. A heavy bell with two-handed swings adds a power and strength element. Set the bell at the top, sprint to it flat out, bang out ten crisp swings, walk down; the rest starts at the bottom. No hill you can drive to? Hike out to one with the bell in a pack, and make sure the pack is comfortable, because you will be tired on the way back.'},
+  bloodylungs:{n:18,cat:'aa',name:'Bloody Lungs',sys:'Aerobic / anaerobic',gear:'A hill',
+    sess:'10 plank push-ups, hill sprint, 10 burpees at the top, walk down, × 5',
+    lines:['10 plank push-ups at the bottom','Hill sprint','10 burpees at the top','Walk down','× 5'],
+    basic:'An extra 1 to 2 minutes of rest at the bottom after the walk down. And/or 5 plank push-ups and burpees instead of 10.',
+    advanced:'× 10, and/or jog down instead of walking. Operators: a 10 to 20 lb weight vest.',
+    why:'The plank push-up: start in the plank, push up onto one hand and then the other, do one full push-up from there, then go back down to the elbows one at a time. That is one rep. Ten of those, then sprint the hill with maximum effort, ten burpees at the top, and the walk down is your rest.'},
+  bloodylungs2:{n:19,cat:'aa',name:'Bloody Lungs II',sys:'Aerobic / anaerobic',gear:'A kettlebell or dumbbell and a hill',
+    sess:'10 burpees, hill sprint, 5 snatches per arm at the top, walk down, rest, × 5 to 10',
+    lines:['10 burpees','Hill sprint','5 kettlebell or dumbbell snatches per arm at the top','Walk down','Rest 1 to 2 minutes','× 5 to 10'],
+    basic:'× 5, working up to 10. A lighter bell to start. And/or 10 swings instead of snatches, and/or 5 burpees.',
+    advanced:'× 10 or more. And/or 10 snatches per arm, and/or jog down, and/or no rest between rounds. Operators: a 10 to 15 lb vest.',
+    alt:'Push presses or swings in place of the snatches.',
+    why:'The harder Bloody Lungs: the bell waits at the top. Burpees at the bottom, sprint straight up, snatch, walk down and rest.'},
+  anaerobiccap:{n:20,cat:'aa',name:'Anaerobic Capacity',sys:'Glycolytic',gear:'A track',
+    sess:'Jog 800, sprint 400, jog 800, sprint 400, jog 400, sprint 200, jog 400, sprint 200, then 50 plank push-ups',
+    lines:['Jog 800 m, sprint 400 m','Jog 800 m, sprint 400 m','Jog 400 m, sprint 200 m','Jog 400 m, sprint 200 m','Finisher: 50 plank push-ups'],
+    basic:'25 plank push-ups.',advanced:'A 5 to 10 lb weight vest.',
+    why:'Best done at a track. The sprints are roughly 90 to 95% of maximum, and the whole sequence runs continuously with no rest: the jogs are the recovery. Then the finisher.'},
+  pepperpot:{n:21,cat:'aa',name:'Pepper Potting',sys:'Aerobic / anaerobic, under load',gear:'A 30 to 50 lb ruck or vest and a route',
+    sess:'Ruck a 1.5 mile route; every 5 min, pepper-pot 100 m',
+    lines:['Rucksack, pack or weight vest, 30 to 50 lb','A 1.5 mile route, or a 30-minute hike','Pepper-pot 100 m every 5 minutes'],
+    why:'A specialist drill, for people preparing for bootcamp or infantry training: it is patterned on fire and movement, and the author would not recommend it unless you are starting a military contract. It also happens to build aerobic and anaerobic capacity, strength-endurance and load bearing. Set a timer for every 5 minutes. When it goes, break into a run, and every fourth or fifth footfall drop to one knee, knee touching the ground, for two seconds, then up as fast as you can for another short bound. “Up, he sees me, down.” Keep the bounds short: as people tire they get longer, or the kneel turns into a rest, and that is exactly when to cut them short. Across the 100 m as fast as humanly possible, then the 5 minutes restart. The longer the route takes, the more pepper-potting you do.'},
+  buffalo:{n:22,cat:'aa',name:'Buffalo Laps',sys:'Aerobic / anaerobic',gear:'A kettlebell and a track',measure:['time','mm:ss'],lower:true,
+    sess:'10 burpees, 400 m, 10 swings, rest 45 to 60 s, × 4, for time',
+    lines:['10 burpees','Run 400 m','10 two-handed kettlebell swings (20 if one-handed)','Rest 45 to 60 seconds','× 4, for time'],
+    basic:'Rest 60 seconds between rounds.',advanced:'Double kettlebell swings.',
+    alt:'No kettlebell: one-handed dumbbell swings, 5 per side.',
+    why:'Submitted by a member of the RCMP who used it to bring his PARE time down from 3:15 to 2:54. The PARE is the force’s fitness test: a circuit of obstacles and stairs ending in a push-pull machine, built to simulate chasing, wrestling with and arresting a suspect, and anything in the two-minute range is the top percentile. The book’s header gives 45 to 60 seconds of rest and its prose says four rounds as fast as possible with none; the timer here follows the header, and you can skip the rest segment for the harder version.'},
+  meateater3:{n:23,cat:'aa',name:'Meat Eater III',sys:'Strength, power and anaerobic',gear:'Two kettlebells and a track',
+    sess:'10 double KB clean and press, sprint 300 m, lunge 100 m back, × 4 to 6',
+    lines:['10 double kettlebell clean and press','Sprint 300 m','Lunge 100 m back to the start','× 4 to 6'],
+    basic:'5 clean and presses instead of 10. Skip the lunges and walk the 100 m back as the rest.',
+    advanced:'Heavier bells, and/or 6 rounds or more.',
+    alt:'One bell: 10 swings per arm, then 10 presses per arm.',
+    why:'This one is about strength, power and the anaerobic system. Two bells of equal weight at the start line, moderate to begin with, roughly 16 to 32 kg. Press, drop them, sprint 300 m, and if you are on a track lunge the last 100 m of the lap back to your bells.'},
+  trinity:{n:24,cat:'aa',name:'Devil’s Trinity',sys:'Combat conditioning',gear:'A kettlebell and a heavy bag',
+    sess:'Swings 1 min, burpees 1 min, bag 1 min, rest 1 min, × 5',
+    lines:['Kettlebell swings 1 minute','Burpees 1 minute','Heavy bag, sparring or shadow boxing 1 minute','Rest 1 minute','× 5'],
+    basic:'2 to 3 rounds.',advanced:'All 5 rounds without the rest. And/or double kettlebell swings.',
+    alt:'With a partner, light sparring in place of the bag.',
+    why:'Deceptively simple and very challenging, from a British paratrooper; the partner version had the two of them spar instead of hitting the bag. Set one-minute rounds. As many swings as you can in the minute, 12 to 24 kg for men and 8 to 16 kg for women, straight into burpees, then maximum effort on the bag with punches, knees, kicks and elbows.'},
+  gc1:{n:25,cat:'gc',name:'GC 1: Beat Your Face',sys:'Work capacity',gear:'A floor',measure:['reps','burpees'],
+    sess:'Burpees 3 min, rest 3, burpees 2 min, rest 2, burpees 1 min, rest 1',
+    lines:['Burpees 3 minutes, rest 3 minutes','Burpees 2 minutes, rest 2 minutes','Burpees 1 minute, rest 1 minute','× 1 to 3'],
+    basic:'One round, and work up over time.',
+    advanced:'Burpees 5 minutes, rest 2 minutes, × 3 to 4. And/or a 5 to 15 lb weight vest.',
+    why:'Instead of push-ups, you beat your face with burpees. How many you can do in a set time is a great indicator of general conditioning, so do as many as you can in each block, record the total, and compare it over time. That total is what the app scores.'},
+  gc2:{n:26,cat:'gc',name:'GC 2',sys:'Work capacity',gear:'A pull-up bar',measure:['time','mm:ss'],lower:true,
+    sess:'10 pull-ups, burpees, squat jumps, plyo push-ups, then 9, 8 … 1, for time',
+    lines:['10 pull-ups, 10 burpees, 10 squat jumps, 10 plyometric push-ups','Then 9 of each, 8 of each … down to 1','For time'],
+    why:'A descending ladder: finish the round of ten, then do the whole set again with nine, and keep going until you reach one. The pull-ups are what make it long, so scale them to what you have.'},
+  gc3:{n:27,cat:'gc',name:'GC 3: Brig Rat',sys:'Work capacity',gear:'A dip station',
+    sess:'Burpees and dips, burpees and squats, burpees and back extensions, 30 s each, rest 1 min, × 3 to 5',
+    lines:['Burpees 30 s, dips 30 s','Burpees 30 s, squats 30 s','Burpees 30 s, back extensions 30 s','Rest 1 minute','× 3 to 5'],
+    advanced:'A 10 to 15 lb weight vest.',
+    alt:'A plank in place of the back extensions, every round or every other round.',
+    why:'The squats are bodyweight. Three minutes of work on the clock, every other block burpees, then a minute to breathe.'},
+  gc4:{n:28,cat:'gc',name:'GC 4',sys:'Work capacity',gear:'A pull-up bar, a kettlebell and 400 m',measure:['time','mm:ss'],lower:true,
+    sess:'100 pull-ups, 400 m, 100 push-ups, 400 m, 100 swings, 400 m, for time',
+    lines:['100 pull-ups, run 400 m','100 push-ups, run 400 m','100 kettlebell or dumbbell swings, run 400 m','1 round, for time'],
+    basic:'50 reps of each exercise.',
+    advanced:'A heavy bell, 48 kg or more, or double bells. And/or 2 rounds.',
+    why:'It can be done indoors with a treadmill or rower for the 400s, or step out of the gym, run roughly 400 m and come back in for the next exercise. Break the hundreds into whatever sets you need; the clock is the score.'},
+  gc5:{n:29,cat:'gc',name:'GC 5',sys:'Work capacity',gear:'A dip station and a pull-up bar',
+    sess:'A: max dips and push-ups, 1 min each, × 3. B: 5 pull-ups, 10 burpees, × 3',
+    lines:['A: max dips 1 minute, rest 90 s, max push-ups 1 minute, rest 90 s, × 3','Rest 2 minutes','B: 5 pull-ups, 10 burpees, × 3'],
+    basic:'Dips and push-ups for 30 seconds instead of a minute.',
+    advanced:'A weight vest for the dips, push-ups, pull-ups and/or burpees.',
+    why:'Dips at a station or on rings. Complete all of A, rest two minutes, then B.'},
+  gc6:{n:30,cat:'gc',name:'GC 6',sys:'Work capacity',gear:'A sledgehammer and a tire',measure:['amrap','rounds'],
+    sess:'10 sledge strikes, 5 burpees, 10 squats, AMRAP 5 min, rest 60 to 90 s, × 3',
+    lines:['10 sledgehammer strikes on the tire','5 burpees','10 squats','As many rounds as possible in 5 minutes','Rest 60 to 90 seconds','× 3'],
+    advanced:'10 burpees instead of 5. 5 rounds or more. And/or a 5 to 15 lb weight vest.',
+    alt:'Kettlebell or dumbbell swings in place of the sledge.',
+    why:'Cycle through the three movements as many times as you can in five minutes, rest, and repeat for three rounds. Log the rounds you got through across all three blocks.'},
+  gc7:{n:31,cat:'gc',name:'GC 7',sys:'Work capacity',gear:'800 m of running room',measure:['time','mm:ss'],lower:true,
+    sess:'50 burpees, 50 squats, 50 diamond push-ups, run 800 m, × 3, for time',
+    lines:['50 burpees','50 squats','50 diamond push-ups','Run 800 m','× 3, for time'],
+    basic:'1 to 2 rounds.',advanced:'100 reps of each exercise, × 3 to 5.',
+    why:'Three big rounds of bodyweight work with a run on the end of each. The book gives nothing but the numbers; the time is the whole story.'},
+  gc8:{n:32,cat:'gc',name:'GC 8',sys:'Work capacity',gear:'A kettlebell, a box, a bar and dip station',measure:['time','mm:ss'],lower:true,
+    sess:'A: snatches, box jumps, knees to elbows, dips, burpees, 4 rounds for time. B: handstand holds',
+    lines:['A: 10 kettlebell or dumbbell snatches per arm, 25 box jumps, 25 hanging knees to elbows, 25 dips, 5 burpees','4 rounds, for time','B: handstand hold 60 seconds, rest 2 to 3 minutes, × 3'],
+    basic:'2 rounds of A, 1 round of B.',
+    why:'All of A before moving on to B. You can support yourself against a wall for the handstand holds. The time is for A.'},
+  gc9:{n:33,cat:'gc',name:'GC 9',sys:'Work capacity',gear:'A pull-up bar and 100 m',measure:['amrap','rounds'],
+    sess:'A: 3 pull-ups, 5 burpees, 10 squats, AMRAP 10 min. B: 10 × 100 m sprints',
+    lines:['A: 3 pull-ups, 5 burpees, 10 squats, as many rounds as possible in 10 minutes','B: 10 × 100 m sprints'],
+    basic:'5 × 100 m sprints instead of 10.',advanced:'Muscle-ups instead of pull-ups.',
+    why:'All of A before B, and aim for continuous work in A. The rounds you complete in the ten minutes are the score.'},
+  gc10:{n:34,cat:'gc',name:'GC 10',sys:'Work capacity',gear:'Somewhere to jog',
+    sess:'Jog 2 min, 25 burpees, × 4, then a core or grip finisher',
+    lines:['A: jog 2 minutes, 25 burpees, × 4','B: a core or grip finisher of your choice'],
+    basic:'15 burpees.',advanced:'50 burpees. And/or a 5 to 20 lb weight vest.',
+    why:'Indoors, a treadmill or rowing machine does the jogging. Treat the jog as active recovery and do the burpees as quickly as possible.'},
+  gc11:{n:35,cat:'gc',name:'GC 11: Outside the Wire',sys:'Work capacity',gear:'100 m, a sledgehammer and a tire',measure:['time','mm:ss'],lower:true,
+    sess:'Sprint 100 m, bear crawl 50 m, × 5, then 100 sledge strikes, for time',
+    lines:['A: sprint 100 m, bear crawl 50 m, × 5, for time','B: 100 sledgehammer strikes on the tire, for time'],
+    advanced:'A 5 to 20 lb weight vest.',
+    alt:'10 muscle-ups for time, or 50 pull-ups for time, in place of the sledge.',
+    why:'Get through A and B as quickly as you can. In A there is no rest between the sprint and the crawl: transition immediately.'},
+  gc12:{n:36,cat:'gc',name:'GC 12',sys:'Work capacity',gear:'A barbell, a back extension and a bar',measure:['time','mm:ss'],lower:true,
+    sess:'A: 1.5 mile run for time. B: 20 push presses, 20 back extensions, 20 pull-ups, × 3, for time',
+    lines:['A: run 1.5 miles, for time','B: 20 barbell push presses, 20 back extensions, 20 pull-ups','× 3, for time'],
+    basic:'1 to 2 rounds of B.',
+    why:'Light on the push press, roughly 15 to 30% of your estimated one-rep max; no need to calculate, guess and err on the side of lighter. Two clocks: the run, and the circuit.'},
+  bwplyo:{n:37,cat:'power',name:'BW Plyometric Power',sys:'Power',gear:'A pull-up bar and 50 m',
+    sess:'Plyo push-ups, jump squats, plyo pull-ups with long rests, × 3, then 5 × 50 m',
+    lines:['A: 10 explosive plyometric push-ups, rest 90 s','10 explosive jump squats, rest 90 s','5 to 10 plyometric pull-ups, rest 2 minutes','× 3','B: 5 × 50 m sprints'],
+    basic:'2 rounds. And/or 5 plyometric pull-ups.',
+    why:'Every rep explosive and crisp. Power sessions should not make up the bulk of your HIC work: pick most of it from sessions 1 to 36 and sprinkle these in.'},
+  powercomplex:{n:38,cat:'power',name:'Power Complex',sys:'Power',gear:'A barbell, two kettlebells and a bar',
+    sess:'Push press at 60 to 70%, double KB squat jumps, snatches, plyo pull-ups, long rests, × 3',
+    lines:['Barbell push press × 5 at 60 to 70% of 1RM, rest 1 to 2 minutes','10 double kettlebell or dumbbell squat jumps, 8 to 24 kg, rest 1 to 2 minutes','Kettlebell or dumbbell snatch × 5 per arm, 8 to 24 kg, rest 1 to 2 minutes','5 plyometric pull-ups, rest 1 to 2 minutes','× 3'],
+    basic:'2 rounds, working up to 3. The lighter end of the weights. 3 plyo pull-ups instead of 5, and bodyweight jump squats if you like.',
+    load:[{lift:'ohp',pct:[60,70]}],
+    why:'Everything with maximum speed and explosiveness, but under control with good form at all times. The push press is fast on the way up and slower, controlled, on the way down; 60 to 70% is the weight you can still move with speed. Same principle for the squat jumps, onto a box if it helps. For the pull-ups, pull as forcefully and quickly as you can to the bar, then let go and drop: no need to lower yourself under control, this is power, not maximum strength.'},
+  kinetic:{n:39,cat:'power',name:'Kinetic Conditioning',sys:'Power and speed',gear:'50 m of running room',
+    sess:'Sprint 50 m + 5 plyo push-ups, rest 2 min, sprint 50 m + 5 squat jumps, rest 2 min, × 3',
+    lines:['Sprint 50 m, then 5 explosive plyometric push-ups','Rest 2 minutes','Sprint 50 m, then 5 explosive squat jumps','Rest 2 minutes','× 3'],
+    basic:'2 rounds.',
+    why:'Built to increase power, speed and explosiveness, and the trick is to do every exercise at maximum intensity: as explosively, powerfully and quickly as you can. The two-minute rest is deliberate, so that you are fully rested before each maximum effort; you only get the benefit by going all out every rep. Take more than two minutes if you need it. Err on the side of more rest.'},
+  transition:{n:40,cat:'power',name:'Transition Complex',sys:'Strength to power',gear:'A rack, a barbell, a belt and a medicine ball',
+    sess:'Heavy front squat then squat jumps, heavy press then plyo push-ups, weighted pull-ups then slams, × 2 to 3',
+    lines:['Front squat × 3 at 85% of 1RM, then 10 squat jumps, rest 2 minutes','Standing overhead press × 3 at 85%, then 10 plyometric push-ups, rest 2 minutes','Weighted pull-ups × 3 (+10 to 50 lb), then 10 medicine ball slams','× 2 to 3'],
+    basic:'Bodyweight pull-ups instead of weighted.',
+    advanced:'Muscle-ups in place of the pull-ups. Plyo pull-ups in place of the slams.',
+    alt:'10 plyometric or kipping pull-ups instead of the medicine ball slams.',
+    load:[{lift:'ohp',pct:[85,85]}],
+    why:'Heavy standard lifting primes the system for power work. Finish the set of front squats, rack the bar at once, step back and do ten powerful, explosive bodyweight squat jumps. Rest a couple of minutes and move on. Estimate the one-rep maxes if you need to, there is no need to be exact; just make sure the front squat, the press and the pull-ups are heavy.'},
+};
+// The book's number and group on the formats that come from it. #9 is the FOBBIT.
+for(const [k,x] of Object.entries(HIC_BOOK)){
+  HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower};
+  if(!x.measure) HIC[k].noMetric=true;
+}
+HIC.fobbit.book={n:9,cat:'aa'};
+function hicBook(f){ return !!(HIC[f]&&HIC[f].book&&HIC[f].book.lines) }
+function hicLower(f){ return !!(HIC[f]&&HIC[f].lower) }
+// Which of two results is better for a format: lower for the ones done for time.
+function hicBetter(f,a,b){ return hicLower(f)?a<b:a>b }
+// A book session is the same session whatever you ran it on, so the activity drops out
+// of its key and its title. Everything else compares within activity and format.
+function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
+function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
+function hicSrcLabel(f){ const b=(HIC[f]||{}).book; return b?`Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`:'' }
+// A result as the person reads it: a time as m:ss, anything else as the number.
+function resStr(v,un){ if(v==null||v===''||Number.isNaN(+v)) return '—'; return un==='mm:ss'?mmss(+v):n(v) }
+// "8:20" or "8.5" or "500" to seconds. Minutes and seconds the way people type them.
+function toSecs(s){
+  if(s==null||s==='') return null;
+  if(typeof s==='number') return s;
+  const t=String(s).trim(); if(!t) return null;
+  const m=t.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if(m) return m[3]!=null?(+m[1]*3600+ +m[2]*60+ +m[3]):(+m[1]*60+ +m[2]);
+  const v=+t; return Number.isNaN(v)?null:v;
+}
+// A result with its unit, for a line of prose: "151 cal", "8:20".
+function resLine(v,un){ const s=resStr(v,un); return un==='mm:ss'||s==='—'?s:s+' '+un }
+// The format picker's options: the app's formats first, then the book's sessions by
+// group and number. `keep` filters, so Setup can offer only what makes a benchmark.
+function hicOptions(cur,keep){
+  const ok=([k,x])=>!keep||keep(k,x);
+  const opt=([k,x])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(x.book&&x.book.n?'#'+x.book.n+' ':'')}${esc(x.name)}</option>`;
+  const own=Object.entries(HIC).filter(([k])=>!hicBook(k)).filter(ok).map(opt).join('');
+  let h=`<optgroup label="Formats">${own}</optgroup>`;
+  for(const [c,label] of Object.entries(HIC_CAT)){
+    const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>a[1].book.n-b[1].book.n).filter(ok).map(opt).join('');
+    if(xs) h+=`<optgroup label="Tactical Barbell II: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
+  }
+  return h;
+}
+
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
 // Bumped whenever a log changes. Every other path that replaces `logs` wholesale already
@@ -3124,6 +3408,8 @@ function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
 // Sessions logged before activities existed have calories but no activity: they were on the Echo bike.
 function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
 function metricFor(mod,fmt){
+  // A book session is scored the way the book scores it, whatever it was run on.
+  if(hicBook(fmt)) return HIC[fmt].book.measure?HIC[fmt].book.measure.slice():null;
   if(HIC[fmt]&&HIC[fmt].noMetric)return null;
   const M=MOD[mod], m=M&&M[fmt==='liss'?'liss':'hic'];
   if(!m)return null;
@@ -3137,7 +3423,9 @@ function metricFor(mod,fmt){
   }
   return [m[0],un];
 }
-function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':met[0]==='floors'?'Floors':'Distance ('+met[1]+')'}
+function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':met[0]==='floors'?'Floors':met[0]==='time'?'Time (m:ss)':met[0]==='amrap'?'Rounds completed':met[0]==='reps'?'Total '+met[1]:'Distance ('+met[1]+')'}
+// What was logged against a metric, as a number: a time typed as m:ss becomes seconds.
+function metricVal(met,raw){ if(raw==null||raw==='') return null; const v=met&&met[0]==='time'?toSecs(raw):+raw; return v==null||Number.isNaN(v)?null:v }
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
 // Distance plus what the climbing was worth, for sessions logged in miles or km.
@@ -3155,15 +3443,15 @@ function hicSessions(all){
   for(const [d,L] of Object.entries(logs)){
     if(!all&&!inProgram(d)) continue;
     if(L.hic){ const f=effFmt(d);
-      if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-        if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev,shape:(IV[f]||{}).free?freeLabel(freeShape(d)):null}); } }
+      if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?metricVal(met,L.hic[met[0]]):null;
+        if(v!=null||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev,shape:(IV[f]||{}).free?freeLabel(freeShape(d)):null}); } }
     // Sessions you did on top of the program count as training. They are the same
     // shape, carry `extra` so adherence can leave them alone, and otherwise feed the
     // minutes, the records and the benchmark like any other session.
     for(const a of addonsOf(d)){
       if(a.kind!=='cond'||!HIC[a.fmt]||!MOD[a.mod]) continue;
-      const met=metricFor(a.mod,a.fmt), v=met?a.val:null;
-      if((v!=null&&v!=='')||a.min) out.push({d,f:a.fmt,mod:a.mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:a.min,what:a.what,load:a.load,elev:a.elev,extra:true});
+      const met=metricFor(a.mod,a.fmt), v=met?metricVal(met,a.val):null;
+      if(v!=null||a.min) out.push({d,f:a.fmt,mod:a.mod,v,u:met?met[1]:'',min:a.min,what:a.what,load:a.load,elev:a.elev,extra:true});
     }
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);
@@ -3964,9 +4252,9 @@ function addonCard(date){
       const M=MOD[a.mod]||MOD[defMod()], met=metricFor(a.mod,a.fmt);
       h+=`<div class="grid2">
         <label class="f">Activity<select id="in-addon-mod-${i}" data-bind="addons.${i}.mod">${Object.entries(MOD).map(([k,x])=>`<option value="${k}"${k===a.mod?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
-        <label class="f">Kind<select id="in-addon-fmt-${i}" data-bind="addons.${i}.fmt">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===a.fmt?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label></div>
+        <label class="f">Kind<select id="in-addon-fmt-${i}" data-bind="addons.${i}.fmt">${hicOptions(a.fmt)}</select></label></div>
       <div class="grid2"><label class="f">Minutes${numIn('addons.'+i+'.min',a.min)}</label>
-        ${met?`<label class="f">${esc(metricLabel(met))}${numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
+        ${met?`<label class="f">${esc(metricLabel(met))}${met[0]==='time'?`<input type="text" inputmode="numeric" id="in-addon-val-${i}" data-bind="addons.${i}.val" value="${esc(a.val??'')}" placeholder="m:ss">`:numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
       ${M&&M.elev?`<label class="f">Elevation gain (${esc(elevUnit())})${numIn('addons.'+i+'.elev',a.elev)}</label>`:''}
       ${met&&a.mod==='other'?`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`:''}`;
     } else {
@@ -4035,8 +4323,8 @@ function finishCard(date,dp){
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
   if(dp.t==='hic'||dp.cardio){
-    const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?(L.hic||{})[met[0]]:null;
-    if(v!=null&&v!=='') bits.push(`${MOD[mod].name} ${HIC[f].name} ${n(v)} ${met[1]}`); else gaps.push('conditioning result not logged');
+    const f=effFmt(date), mod=modOf(date), met=metricFor(mod,f), v=met?metricVal(met,(L.hic||{})[met[0]]):null;
+    if(v!=null) bits.push(`${hicTitle(mod,f).replace(' · ',' ')} ${resLine(v,met[1])}`); else gaps.push('conditioning result not logged');
   }
   if(dp.plyo||dp.t==='plyobase'){const c=(L.plyo||{}).contacts; if(c) bits.push(`${c} contacts`); if((L.plyo||{}).best||(L.plyo||{}).mark) bits.push(`broad jump ${r1((L.plyo||{}).best||(L.plyo||{}).mark)} in`)}
   if(dp.t==='travel'){
@@ -4102,7 +4390,7 @@ function briefCard(wk,dp){
     const rxl=r.top?'best '+r.r:r.lp?`${r.s} × ${r.r}`:`${r.s}${r.sMax>r.s?'–'+r.sMax:''} × ${r.r}${r.p?' @ '+r.p+'%':''}`;
     rows+=`<tr><td class="l">${esc(liftShort(k))}</td><td class="rx">${esc(rxl)}</td><td class="w">${has?`${fmtLoad(k,T)}<small>${esc(isBW(k)?(T>0?'+'+u():'bw'):u())}</small>`:'<small>no max</small>'}</td><td class="d">${liftLamps(wk,k)}</td></tr>`;
   }
-  const cond=dp.ride==='se'?'SE circuit':(dp.cardio||dp.ride)?`${MOD[modOf(sel)].name} · ${HIC[effFmt(sel)].name}`:'';
+  const cond=dp.ride==='se'?'SE circuit':(dp.cardio||dp.ride)?hicTitle(modOf(sel),effFmt(sel)):'';
   rows+=`<tr class="cond"><td class="l">Conditioning</td><td class="rx">${cond?'after':'—'}</td><td class="w"><small>${esc(cond||'rest')}</small></td><td class="d"></td></tr>`;
   const W=lg(sel).warmup||[], items=warmItems(), wdone=items.filter((x,i)=>W[i]).length, dn=prog.filter(Boolean).length;
   let h=`<section class="brief" aria-label="Session"><div class="hd"><span class="eyebrow">Session</span><span class="segbar" role="img" aria-label="${dn} of ${prog.length} sets done">${prog.map(s=>`<i${s?' class="on"':''}></i>`).join('')}</span></div>
@@ -4512,7 +4800,9 @@ function hicRut(date,n0){
   const xs=hicSessions().filter(x=>x.d<=date&&hicWasHard(x)).slice(-(n0||6));
   if(xs.length<(n0||6)) return null;
   const f=xs[0].f, mod=xs[0].mod;
-  const sameF=f!=='free'&&xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod);
+  // A book session has no tool to be stuck on, so a run that includes one is only ever
+  // a rut on the format.
+  const sameF=f!=='free'&&xs.every(x=>x.f===f), sameM=xs.every(x=>x.mod===mod&&!hicBook(x.f));
   if(!sameF&&!sameM) return null;
   return {n:xs.length,f:sameF?f:null,mod:sameM?mod:null,since:xs[0].d};
 }
@@ -4524,19 +4814,21 @@ function benchmark(){
   if(b&&MOD[b.mod]&&HIC[b.fmt]&&!HIC[b.fmt].noMetric&&!HIC[b.fmt].noCompare) return b;
   // not chosen yet: the hard pairing you have done most
   const tally={};
-  for(const x of hicSessions()) if(x.f!=='liss'&&!(HIC[x.f]||{}).noCompare&&x.v!=null) tally[x.mod+'|'+x.f]=(tally[x.mod+'|'+x.f]||0)+1;
+  for(const x of hicSessions()) if(x.f!=='liss'&&!(HIC[x.f]||{}).noCompare&&x.v!=null) tally[hicKey(x.mod,x.f)]=(tally[hicKey(x.mod,x.f)]||0)+1;
   const top=Object.keys(tally).sort((a0,b0)=>tally[b0]-tally[a0])[0];
   if(!top) return null;
   const [mod,fmt]=top.split('|');
-  return {mod,fmt,auto:true};
+  return {mod:mod==='book'?defMod():mod,fmt,auto:true};
 }
+// The best of a set of results for a format: the lowest for one done for time.
+function hicBest(f,xs){ return xs.reduce((a0,x)=>a0==null||hicBetter(f,x.v,a0)?x.v:a0,null) }
 function benchmarkState(date){
   const b=benchmark(); if(!b) return null;
-  const xs=hicSessions().filter(x=>x.d<=date&&x.mod===b.mod&&x.f===b.fmt&&x.v!=null);
+  const xs=hicSessions().filter(x=>x.d<=date&&(hicBook(b.fmt)||x.mod===b.mod)&&x.f===b.fmt&&x.v!=null);
   const last=xs[xs.length-1]||null, first=xs[0]||null;
   const days=last?Math.round((D(date)-D(last.d))/864e5):null;
   const every=+plan.benchEvery||35;
-  return {...b,xs,last,first,days,every,due:!last||days>=every,best:xs.reduce((a0,x)=>Math.max(a0,x.v),0)};
+  return {...b,xs,last,first,days,every,due:!last||days>=every,best:hicBest(b.fmt,xs)};
 }
 function suggestions(date){
   const c=ci(date), sc=readiness(c), lv=rLevel(sc), wk=weekOf(date), dp=dayPlan(date), out=[];
@@ -4555,7 +4847,7 @@ function suggestions(date){
   if(hicFmt&&hicFmt!=='liss'){
     const low={map:'8 rounds instead of 10',anaerobic:'6 rounds instead of 8',threshold:'3 rounds instead of 4',long:'4 rounds instead of 5'}[hicFmt];
     const hm=modOf(date), last=lastHic(hicFmt,hm,date).last;
-    if(lv.k==='go') add('go','Push the conditioning',last?`Last ${HIC[hicFmt].name} (${MOD[hm].name}): ${n(last.v)} ${last.u}. Try to beat it.`:`Go hard and record your result as a baseline.`);
+    if(lv.k==='go') add('go','Push the conditioning',last?`Last ${HIC[hicFmt].name}${hicBook(hicFmt)?'':' ('+MOD[hm].name+')'}: ${resLine(last.v,last.u)}. Try to beat it.`:`Go hard and record your result as a baseline.`);
     else if(lv.k==='care') add('care','Conditioning: low end of the range',`Do ${low}. Hold the same pace, just fewer rounds.`);
     else add('stop','Swap today’s HIC to LISS','30–45 min conversational. Change the format in the conditioning card so your history stays clean.');
   }
@@ -4582,7 +4874,7 @@ function suggestions(date){
     const rut=hicRut(date,6);
     if(rut) add('care','Rotate your conditioning',`Your last ${rut.n} hard sessions were all ${rut.f?HIC[rut.f].name:''}${rut.f&&rut.mod?' on the ':''}${rut.mod?MOD[rut.mod].name.toLowerCase():''}. Black rotates formats and tools on purpose \u2014 pick a different one today and the adaptation stays broad.`);
     const bm=benchmarkState(date);
-    if(bm&&bm.due&&bm.last) add('go','Benchmark due',`It has been ${bm.days} days since your ${MOD[bm.mod].name} ${HIC[bm.fmt].name} benchmark (best ${n(bm.best)}). Run that one today and you get a number that compares straight back.`);
+    if(bm&&bm.due&&bm.last) add('go','Benchmark due',`It has been ${bm.days} days since your ${hicTitle(bm.mod,bm.fmt).replace(' · ',' ')} benchmark (best ${resStr(bm.best,bm.last.u)}). Run that one today and you get a number that compares straight back.`);
   }
   if(c.alcohol==='lots') add('care','After a big night','Expect lower HIC numbers and don’t chase a PR. Extra water and a solid breakfast.');
   // trends
@@ -4716,8 +5008,8 @@ function isBWAcc(id){ return ['abtriad','chinup','dip','pu_prog','pu_band','pu_n
 
 function lastHic(fmt,mod,before,shape){
   let best=null,last=null;
-  for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||x.mod!==mod||x.v==null||(shape&&x.shape!==shape)) continue;
-    if(!last||x.d>last.d) last=x; if(!best||hicValue(x)>hicValue(best)) best=x; }
+  for(const x of hicSessions(true)){ if(x.d>=before||x.f!==fmt||(x.mod!==mod&&!hicBook(fmt))||x.v==null||(shape&&x.shape!==shape)) continue;
+    if(!last||x.d>last.d) last=x; if(!best||hicBetter(fmt,hicValue(x),hicValue(best))) best=x; }
   return {best,last};
 }
 /* Mod #1 prescribes a percentage of a 1RM rather than a rep count. If there is a max on
@@ -4734,13 +5026,33 @@ function fobLoadLine(bouts){
   }
   return out.length?`<div class="small muted">${out.join(' ')}</div>`:'';
 }
+/* One of Tactical Barbell II's sessions on the day card: what to do, the book's easier
+   and harder versions, and its reasoning folded away. The same entry, in full, is in
+   the Guide. */
+function hicBookBlock(f){
+  const H=HIC[f], b=H.book; if(!b) return '';
+  let h=`<ul class="tight" style="margin:6px 0 2px">${b.lines.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+  const vs=[];
+  if(b.basic) vs.push(`<b>Basic:</b> ${esc(b.basic)}`);
+  if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
+  if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
+  if(vs.length) h+=`<div class="small">${vs.join('<br>')}</div>`;
+  if(b.load) h+=fobLoadLine(b.load.map(x=>({pct:x.pct,lift:x.lift,reps:''})));
+  h+=`<details class="plain" data-px="bkwhy"${openPx.has('bkwhy')?' open':''}><summary>What the book says</summary><div class="small muted" style="margin-top:6px">${esc(b.why)}</div></details>`;
+  h+=`<div class="small muted">${esc(hicSrcLabel(f))}.${b.gear?' Needs: '+esc(b.gear.toLowerCase())+'.':''}${b.measure?' Scored by '+(b.measure[0]==='time'?'time, so lower is better':b.measure[0]==='amrap'?'rounds completed':'total '+esc(b.measure[1]))+'.':' Not scored by the book: log the rounds and the minutes.'}</div>`;
+  return h;
+}
 function hicCard(dp,note){
-  const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f);
-  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}</span><span class="chip">${H.sys}</span></div>`;
-  const lead0=(IV[f]||{}).lead?ivOpts(sel,f):null, free0=(IV[f]||{}).free?freeShape(sel):null;
+  const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f), bk=hicBook(f)?H.book:null;
+  let h=`<div class="card"><div class="lift-h"><span class="lift-name">${bk?esc(H.name):`${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}`}</span><span class="chip">${H.sys}</span></div>`;
+  const lead0=(IV[f]||{}).lead&&!bk?ivOpts(sel,f):null, free0=(IV[f]||{}).free?freeShape(sel):null;
   h+=`<div style="font-size:18px;font-weight:700">${lead0?`${lead0.rounds} bouts \u00b7 ${esc(secsLabel(lead0.every))} of base between`:free0?`${free0.rounds} \u00d7 ${esc(freeLabel(free0))}`:H.sess}</div>${note}`;
-  h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
-  if((IV[f]||{}).lead){
+  // The book's session, as the book gives it: the prescription, its versions, and the
+  // reasoning folded away. The activity does not apply: the session says what you do.
+  if(bk) h+=hicBookBlock(f);
+  else h+=`<div class="restsel"><span>Activity</span><div class="seg">${Object.entries(MOD).map(([k,x])=>`<button class="segb${k===mod?' on':''}" data-act="mod" data-v="${k}" aria-pressed="${k===mod}">${x.name}</button>`).join('')}</div></div>`;
+  if(bk){ if(f!=='liss') h+=`<div class="note">Warm-up: 5 to 10 min easy, a jog or a spin, then a few pickups. The book has you warmed up before the first rep.</div>` }
+  else if((IV[f]||{}).lead){
     // What a FOBBIT is, and nothing about which one. Every number that varies between
     // them is read from the selection, so this cannot go stale when you change it.
     const fo=ivOpts(sel,f), held=(fo.bouts||[]).some(b=>b.hold);
@@ -4748,10 +5060,10 @@ function hicCard(dp,note){
     if(held) h+=`<div class="small muted"><b>A bout of reps is not on the clock.</b> ${fo.count==='total'?'The timer holds at each one until you tap Done, so the wall clock reads longer than the session.':'Only the base counts toward the session, so the timer holds at each set until you tap Done, and the wall clock will read a good deal longer than the session length.'}</div>`;
   }
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
-  if(M.tip&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
-  if(dp.plyo&&mod==='run'&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
-  h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${Object.entries(HIC).map(([k,x])=>`<option value="${k}"${k===f?' selected':''}>${x.name}</option>`).join('')}</select></label>`;
-  if(mod==='other'&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
+  if(M.tip&&!bk&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
+  if(dp.plyo&&(mod==='run'||bk)&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
+  h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${hicOptions(f)}</select></label>`;
+  if(mod==='other'&&!bk&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((IV[f]||{}).fob){
     const fb=fobOf(sel), F=FOBBIT[fb];
     h+=`<label class="f">Which one<select data-act-fob="1" aria-label="Which FOBBIT">${Object.entries(FOBBIT).map(([k,x])=>`<option value="${esc(k)}"${k===fb?' selected':''}>${esc(x.name)}${x.gear?' \u00b7 '+esc(x.gear):''}</option>`).join('')}</select></label>`;
@@ -4767,15 +5079,16 @@ function hicCard(dp,note){
     if(!fobDef(fb)) h+=`<label class="f">Movements<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. sandbag clean / push-up"></label>`;
     h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,String(o.rounds))}</label>`;
   }
-  else if((HIC[f]||{}).noMetric){
+  else if(bk||(HIC[f]||{}).noMetric){
     const o=ivOpts(sel,f);
-    h+=`<label class="f">Bouts done${numIn('hic.rounds',L.rounds,String(o.rounds))}</label>`;
+    h+=`<label class="f">${bk&&!(IV[f]||{}).lead?'Rounds done':'Bouts done'}${numIn('hic.rounds',L.rounds,String(o.rounds))}</label>`;
   }
   {
     const plan0=ivPartsLabel(f,ivOpts(sel,f)).total;
     h+=`<label class="f">Minutes${numIn('hic.min',L.min,String(plan0))}</label>`;
   }
-  if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
+  if(met&&met[0]==='time') h+=`<label class="f">${metricLabel(met)}<input type="text" inputmode="numeric" id="in-hic-time" data-bind="hic.time" value="${esc(L.time||'')}" placeholder="e.g. 8:20"></label>`;
+  else if(met) h+=`<label class="f">${metricLabel(met)}${f==='liss'?' <span style="font-weight:500">(optional)</span>':''}${numIn('hic.'+met[0],L[met[0]],'')}</label>`;
   if(M.load) h+=`<label class="f">Ruck load (${u()})${numIn('hic.load',L.load,'')}</label>`;
   if(M.elev) h+=`<label class="f">Elevation gain (${elevUnit()})${numIn('hic.elev',L.elev,'')}</label>`;
   h+=`</div>`;
@@ -4806,8 +5119,8 @@ function hicCard(dp,note){
     if(plan.quietTimer) h+=`<div class="note">Silent: the timer vibrates and counts down on screen, and never opens an audio channel, so whatever you are listening to keeps playing. Turn rest alerts on in Setup if you want a notification at each change.</div>`;
     h+=`<div><button class="btn primary" data-act="ivstart" data-f="${f}" ${running||sel!==todayStr()?'disabled':''}>${running?'Timer running':'Start intervals'}</button>${sel!==todayStr()?' <span class="small muted">Available on the day.</span>':''}</div></div>`;
   }
-  if(f!=='liss'&&met){const shape=free0?freeLabel(free0):null, hist=lastHic(f,mod,sel,shape), nm=H.name+(shape?' '+shape:'');
-    h+= hist.last?`<div class="small muted">Last ${M.name} ${esc(nm)}: <span class="mono">${n(hist.last.v)}</span> ${met[1]}${flatEquiv(hist.last)!=null?` (<span class="mono">${n(flatEquiv(hist.last))}</span> ${met[1]} flat)`:''} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${n(hicValue(hist.best))}</span>${flatEquiv(hist.best)!=null?' flat':''}</div>`:`<div class="small muted">First logged ${M.name} ${esc(nm)} session. Results only compare against the same activity and format${shape?', and for Freeform the same hard and easy times':''}.</div>`}
+  if(f!=='liss'&&met){const shape=free0?freeLabel(free0):null, hist=lastHic(f,mod,sel,shape), nm=(bk?'':M.name+' ')+H.name+(shape?' '+shape:''), tm=met[1]==='mm:ss';
+    h+= hist.last?`<div class="small muted">Last ${esc(nm)}: <span class="mono">${resStr(hist.last.v,met[1])}</span>${tm?'':' '+met[1]}${flatEquiv(hist.last)!=null?` (<span class="mono">${n(flatEquiv(hist.last))}</span> ${met[1]} flat)`:''} on ${fmtD(hist.last.d,true)} · Best <span class="mono">${resStr(hicValue(hist.best),met[1])}</span>${flatEquiv(hist.best)!=null?' flat':''}${tm?' (fastest)':''}</div>`:`<div class="small muted">First logged ${esc(nm)} session. Results only compare against the same ${bk?'session':'activity and format'}${shape?', and for Freeform the same hard and easy times':''}.</div>`}
   return h+`</div>`;
 }
 const openPx=new Set();
@@ -6720,6 +7033,72 @@ const IV={map:{work:60,rest:60,rounds:[8,10]},anaerobic:{work:30,rest:120,rounds
      of the length, and unlike the book formats the last easy period is kept, so 15
      minutes of 15 s / 45 s is fifteen rounds and fifteen minutes on the clock. */
   free:{work:15,rest:45,mins:15,free:true}};
+/* Tactical Barbell II's named sessions as timer shapes. `seq` is one round: a timed
+   segment has `s`, a bout of reps or distance has `hold` and the timer waits at it until
+   you tap Done, with `est` as our guess at its length for sizing the session. A function
+   gets the round number and the count, for the ladders. `pre` runs once before the
+   rounds and `post` once after; the last round's trailing rest is dropped, as it is for
+   every other format. The book's rest ranges take the low end, like everywhere else. */
+const BK_W=(l,s)=>({k:'work',l,s}), BK_R=(s,l)=>({k:'easy',l:l||'Rest',s}), BK_H=(l,est,k)=>({k:k||'work',l,hold:true,est});
+const BK_WALK=(est)=>BK_H('Walk back',est||60,'easy');
+const BK_PS=(()=>{const x=[];for(let j=0;j<3;j++){for(let i=0;i<3;i++){x.push(BK_W('Plank',30),BK_W('Shank',30))}if(j<2)x.push(BK_R(45))}return x})();
+const IV_BOOK={
+  connaught:{rounds:[5,10],def:10,seq:(i,n)=>[BK_H(`${n-i+1} burpees`,4*(n-i+1)),BK_H('Sprint 100 m',20)]},
+  fast5:{rounds:[1,1],def:1,seq:[BK_H('Tempo run 5 km',1500)]},
+  resets600:{rounds:[4,10],def:6,seq:[BK_H('Sprint 600 m',120),BK_R(180)]},
+  bagresets:{rounds:[4,10],def:5,seq:[BK_W('Heavy bag',90),BK_R(120)]},
+  indoorpower:{rounds:[3,5],def:5,seq:[BK_W('Max effort',120),BK_R(180)]},
+  sledgedrill:{rounds:[3,5],def:5,seq:[BK_W('Sledge',60),BK_W('Jump rope',60),BK_W('Sledge',30),BK_W('Jump rope',30),BK_R(120)]},
+  boo:{rounds:[3,5],def:5,seq:[BK_W('Kettlebell swings',60),BK_H('Run 800 m',210),BK_R(120)]},
+  boo2:{rounds:[2,5],def:3,seq:[BK_H('10 burpees',40),BK_H('Run 800 m',210),BK_H('5 burpees',20),BK_H('Run 400 m, max effort',90),BK_R(120)]},
+  shorthills:{rounds:[5,20],def:10,seq:[BK_H('Hill sprint',15),BK_H('Walk down',45,'easy')]},
+  oxygendebt:{rounds:[2,4],def:3,seq:[BK_H('Sprint 200 m',35),BK_R(30),BK_H('Sprint 200 m',35),BK_R(30),BK_H('Sprint 200 m',35),BK_R(180)]},
+  seladder:{rounds:[1,3],def:1,seq:[BK_H('Sprint 400 m',70),BK_R(40),BK_H('Sprint 300 m',50),BK_R(30),BK_H('Sprint 200 m',35),BK_R(20),BK_H('Sprint 100 m',18),BK_R(10),
+    BK_H('Sprint 100 m',18),BK_R(20),BK_H('Sprint 200 m',35),BK_R(30),BK_H('Sprint 300 m',50),BK_R(40),BK_H('Sprint 400 m',70),BK_R(120)]},
+  meateater:{rounds:[5,15],def:10,seq:[BK_H('Sprint 100 m',18),BK_H('20 swings',40),BK_WALK(60)]},
+  meateater2:{rounds:[5,10],def:10,seq:[BK_H('10 swings',20),BK_H('10 burpees',40),BK_R(60)]},
+  disarmed:{rounds:[3,5],def:3,seq:[BK_H('10 burpees',40),BK_W('Heavy bag',120),BK_R(60)],post:[BK_R(90,'Rest before the finisher')].concat(BK_PS)},
+  stdhills:{rounds:[3,10],def:5,seq:[BK_H('Hill sprint',40),BK_H('Walk down',60,'easy'),BK_R(60)]},
+  apex:{rounds:[3,15],def:5,seq:[BK_H('Hill sprint',40),BK_H('10 swings',20),BK_H('Walk down',60,'easy'),BK_R(60)]},
+  bloodylungs:{rounds:[5,10],def:5,seq:[BK_H('10 plank push-ups',40),BK_H('Hill sprint',40),BK_H('10 burpees',40),BK_H('Walk down',60,'easy')]},
+  bloodylungs2:{rounds:[5,12],def:5,seq:[BK_H('10 burpees',40),BK_H('Hill sprint',40),BK_H('5 snatches per arm',30),BK_H('Walk down',60,'easy'),BK_R(60)]},
+  anaerobiccap:{rounds:[1,1],def:1,seq:[BK_H('Jog 800 m',270,'easy'),BK_H('Sprint 400 m',75),BK_H('Jog 800 m',270,'easy'),BK_H('Sprint 400 m',75),BK_H('Jog 400 m',135,'easy'),BK_H('Sprint 200 m',35),BK_H('Jog 400 m',135,'easy'),BK_H('Sprint 200 m',35)],
+    post:[BK_H('50 plank push-ups',180)]},
+  /* Pepper Potting is a base-first shape like a FOBBIT: an easy ruck, broken every five
+     minutes by a bout. Over 30 minutes it would read as an E, so the choices stop at 30. */
+  pepperpot:{work:45,rest:300,lead:true,every:300,count:'total',mins:[20,25,30],def:30,mv:[['Pepper-pot 100 m',{s:45}]]},
+  buffalo:{rounds:[4,6],def:4,seq:[BK_H('10 burpees',40),BK_H('Run 400 m',90),BK_H('10 swings',20),BK_R(45)]},
+  meateater3:{rounds:[4,8],def:4,seq:[BK_H('10 double KB clean and press',45),BK_H('Sprint 300 m',55),BK_H('Lunge 100 m back',120)]},
+  trinity:{rounds:[2,5],def:5,seq:[BK_W('Swings',60),BK_W('Burpees',60),BK_W('Heavy bag',60),BK_R(60)]},
+  gc1:{rounds:[1,3],def:1,seq:[BK_W('Burpees',180),BK_R(180),BK_W('Burpees',120),BK_R(120),BK_W('Burpees',60),BK_R(60)]},
+  gc2:{rounds:[5,10],def:10,seq:(i,n)=>{const r=n-i+1;return [BK_H(`${r} pull-ups`,3*r),BK_H(`${r} burpees`,4*r),BK_H(`${r} squat jumps`,2*r),BK_H(`${r} plyo push-ups`,2*r)]}},
+  gc3:{rounds:[3,5],def:3,seq:[BK_W('Burpees',30),BK_W('Dips',30),BK_W('Burpees',30),BK_W('Squats',30),BK_W('Burpees',30),BK_W('Back extensions',30),BK_R(60)]},
+  gc4:{rounds:[1,2],def:1,seq:[BK_H('100 pull-ups',300),BK_H('Run 400 m',110),BK_H('100 push-ups',240),BK_H('Run 400 m',110),BK_H('100 swings',200),BK_H('Run 400 m',110)]},
+  gc5:{rounds:[3,3],def:3,seq:[BK_W('Max dips',60),BK_R(90),BK_W('Max push-ups',60),BK_R(90)],
+    post:[BK_R(120,'Rest before B'),BK_H('5 pull-ups',15),BK_H('10 burpees',40),BK_H('5 pull-ups',15),BK_H('10 burpees',40),BK_H('5 pull-ups',15),BK_H('10 burpees',40)]},
+  gc6:{rounds:[3,5],def:3,seq:[BK_W('AMRAP: 10 sledge, 5 burpees, 10 squats',300),BK_R(60)]},
+  gc7:{rounds:[1,5],def:3,seq:[BK_H('50 burpees',200),BK_H('50 squats',90),BK_H('50 diamond push-ups',120),BK_H('Run 800 m',210)]},
+  gc8:{rounds:[2,4],def:4,seq:[BK_H('10 snatches per arm',50),BK_H('25 box jumps',60),BK_H('25 knees to elbows',60),BK_H('25 dips',60),BK_H('5 burpees',20)],
+    post:[BK_R(120,'Rest before B'),BK_W('Handstand hold',60),BK_R(120),BK_W('Handstand hold',60),BK_R(120),BK_W('Handstand hold',60)]},
+  gc9:{rounds:[1,1],def:1,seq:[BK_W('AMRAP: 3 pull-ups, 5 burpees, 10 squats',600)],
+    post:[BK_R(120,'Rest before B')].concat(...Array.from({length:10},(_,i)=>[BK_H(`Sprint 100 m (${i+1} of 10)`,18),BK_WALK(50)]))},
+  gc10:{rounds:[4,4],def:4,seq:[BK_W('Jog',120),BK_H('25 burpees',90)]},
+  gc11:{rounds:[5,5],def:5,seq:[BK_H('Sprint 100 m',18),BK_H('Bear crawl 50 m',60)],post:[BK_H('100 sledge strikes',240)]},
+  gc12:{rounds:[1,3],def:3,pre:[BK_H('Run 1.5 miles',720),BK_R(120,'Rest before B')],seq:[BK_H('20 push presses',60),BK_H('20 back extensions',60),BK_H('20 pull-ups',60)]},
+  bwplyo:{rounds:[2,3],def:3,seq:[BK_H('10 plyo push-ups',20),BK_R(90),BK_H('10 jump squats',20),BK_R(90),BK_H('5 to 10 plyo pull-ups',20),BK_R(120)],
+    post:[].concat(...Array.from({length:5},(_,i)=>[BK_H(`Sprint 50 m (${i+1} of 5)`,10),BK_WALK(40)]))},
+  powercomplex:{rounds:[2,3],def:3,seq:[BK_H('Push press × 5',20),BK_R(90),BK_H('10 KB squat jumps',20),BK_R(90),BK_H('Snatch × 5 per arm',30),BK_R(90),BK_H('5 plyo pull-ups',15),BK_R(90)]},
+  kinetic:{rounds:[2,3],def:3,seq:[BK_H('Sprint 50 m, 5 plyo push-ups',25),BK_R(120),BK_H('Sprint 50 m, 5 squat jumps',25),BK_R(120)]},
+  transition:{rounds:[2,3],def:2,seq:[BK_H('Front squat × 3',20),BK_H('10 squat jumps',20),BK_R(120),BK_H('Overhead press × 3',20),BK_H('10 plyo push-ups',20),BK_R(120),BK_H('Weighted pull-ups × 3',20),BK_H('10 med ball slams',20),BK_R(120)]},
+};
+for(const [k,v] of Object.entries(IV_BOOK)){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
+// One round of a book session as segments. The sub-label names the round, and the
+// trailing rest of the last round is dropped, as it is for every other format.
+function bookRound(r,i,n){
+  const items=typeof r.seq==='function'?r.seq(i,n):r.seq;
+  return items.map(x=>({k:x.k,l:x.l,sub:'Round '+i+' of '+n,s:x.hold?x.est:x.s,round:i,hold:!!x.hold,est:!!x.hold,reps:x.hold?'':undefined}));
+}
+function bookOnce(items,lead){ return (items||[]).map(x=>({k:x.k,l:x.l,sub:lead?'Before the rounds':'After the rounds',s:x.hold?x.est:x.s,hold:!!x.hold,est:!!x.hold,reps:x.hold?'':undefined,lead:!!lead,post:!lead})) }
 const FREE_PRESETS=[[15,45,15],[20,40,20],[30,30,20],[10,50,10],[20,10,4]];
 const FREE_MAX_ROUNDS=100;
 // The shape a freeform day used, from what it logged, then what you last ran, then the default.
@@ -6801,6 +7180,15 @@ function ivSegments(fmt,o){
         seg.push({k:'work',l:b.name,sub:doseLabel(b),s:b.secs||FOB_HELD,round:i,hold:!!b.hold,reps:b.reps});
       }
     }
+    else if(r.seq){
+      seg.push(...bookOnce(r.pre,true));
+      for(let i=1;i<=o.rounds;i++){
+        const rd=bookRound(r,i,o.rounds);
+        if(i===o.rounds&&rd.length>1&&rd[rd.length-1].k==='easy'&&!rd[rd.length-1].hold) rd.pop();
+        seg.push(...rd);
+      }
+      seg.push(...bookOnce(r.post,false));
+    }
     else {const w=r.free?o.work:wk, e=r.free?o.rest:r.rest;
       for(let i=1;i<=o.rounds;i++){seg.push({k:'work',l:'Hard',sub:'Round '+i+' of '+o.rounds,s:w,round:i});if(i<o.rounds||r.free)seg.push({k:'easy',l:'Easy',sub:'Round '+i+' of '+o.rounds+' done',s:e,round:i})}}}
   if(o.cool) seg.push({k:'easy',l:'Cool-down',sub:'Easy spin-down',s:300});
@@ -6816,8 +7204,10 @@ function ivParts(segs){
   const hasCool=segs.length&&segs[segs.length-1].l==='Cool-down';
   const cool=hasCool?segs[segs.length-1].s:0;
   const warm=i<0?0:segs.slice(0,i).reduce((a,x)=>a+x.s,0);
-  const held=segs.reduce((a0,x)=>a0+(x.hold?x.s:0),0);   // rep bursts are not on the clock
-  return {warm,work:ivTotal(segs)-warm-cool-held,cool,rounds:segs.filter(x=>x.round&&x.k==='work').length};
+  // Rep bursts are not on the clock. A book session's held bouts carry an estimate and
+  // are part of its length, so those stay in.
+  const held=segs.reduce((a0,x)=>a0+(x.hold&&!x.est?x.s:0),0);
+  return {warm,work:ivTotal(segs)-warm-cool-held,cool,rounds:new Set(segs.filter(x=>x.round&&x.k==='work').map(x=>x.round)).size};
 }
 function ivPartsLabel(f,o){
   const segs=ivSegments(f,o), p=ivParts(segs), m=s0=>Math.round(s0/60), bits=[];
@@ -6830,7 +7220,9 @@ function ivPartsLabel(f,o){
 }
 function ivElapsed(){if(!iv)return 0;return ((iv.paused||Date.now())-iv.start-iv.pausedMs)/1000}
 // A held burst is not part of the session's length, so the countdown reports base only.
-function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
+function ivBaseLeft(p,t){let acc=0;for(let i=p.i;i<iv.segs.length;i++){const g=iv.segs[i];if(g.hold&&!g.est)continue;acc+=i===p.i?p.left:g.s}return Math.max(0,Math.round(acc))}
+// Wall-clock time since the first round began: what a session done "for time" scores.
+function ivWall(){ if(!iv||!iv.t0) return 0; return Math.max(0,Math.round(((iv.t1||Date.now())-iv.t0)/1000)) }
 function ivPos(el){let acc=0;for(let i=0;i<iv.segs.length;i++){if(el<acc+iv.segs[i].s)return {i,left:acc+iv.segs[i].s-el,into:el-acc};acc+=iv.segs[i].s}return {i:iv.segs.length,left:0,into:0}}
 // tone() lived here: the second audio path, with none of beep()'s fixes. See sfx().
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
@@ -6852,7 +7244,8 @@ function ivAlerts(){
   iv.segs.forEach((x,i)=>{acc+=x.s; const at=iv.start+iv.pausedMs+acc*1000; if(at<=now+1000) return;
     const nx=iv.segs[i+1];
     // Worded to be read aloud (Siri Announce Notifications): no symbols or clock times.
-    if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?'Go hard':nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
+    if(nx&&nx.est) list.push({at,title:nx.l,body:(nx.sub?nx.sub+'. ':'')+'Tap done when finished.'});
+    else if(nx) list.push({at,title:nx.l==='Pickup'?'Pickup':nx.k==='work'?(nx.l&&nx.l!=='Hard'?nx.l:'Go hard'):nx.l,body:nx.l==='Pickup'?durText(nx.s)+'.':nx.k==='work'?(nx.sub?nx.sub+', ':'')+durText(nx.s)+'.':durText(nx.s)+(nx.sub&&nx.l==='Easy'&&/done$/.test(nx.sub)?'. '+nx.sub+'.':'.')});
     else list.push({at,title:'Intervals done',body:'Log your result in the app.'});
   });
   return list;
@@ -6863,7 +7256,7 @@ function ivShow(){
   if(!iv){el.hidden=true;document.body.classList.remove('iv-mini');clearInterval(ivTick);ivTick=null;return}
   el.hidden=false; el.classList.toggle('mini',!!iv.mini); document.body.classList.toggle('iv-mini',!!iv.mini);
   document.getElementById('iv-size').textContent=iv.mini?'Expand':'Minimize';
-  document.getElementById('iv-title').textContent=MOD[iv.mod].name+' · '+HIC[iv.fmt].name;
+  document.getElementById('iv-title').textContent=hicTitle(iv.mod,iv.fmt);
   if(!ivTick) ivTick=setInterval(ivRender,200);
   showWake();
   ivRender();
@@ -6879,12 +7272,18 @@ function ivRender(){
   const p=ivPos(t);
   if(p.i>=iv.segs.length){ ivFinish(); return; }
   const seg=iv.segs[p.i], nx=iv.segs[p.i+1], left=Math.ceil(p.left);
-  el.className=(iv.mini?'mini ':'')+(iv.paused?'paused':seg.k);
-  document.getElementById('iv-phase').textContent=iv.paused?'Paused':seg.l;
+  // The clock for a session done for time starts at the first round and stops at the
+  // cool-down; the holds pause the segment clock but not the wall clock, which is the point.
+  if(!iv.t0&&(seg.round||seg.lead)){ iv.t0=Date.now(); LS.set('ob.iv',iv); }
+  if(iv.t0&&!iv.t1&&seg.l==='Cool-down'){ iv.t1=Date.now(); LS.set('ob.iv',iv); }
   if(seg.hold&&!iv.paused&&!iv.done){ iv.paused=Date.now(); LS.set('ob.iv',iv); }
-  document.getElementById('iv-time').textContent=seg.hold?seg.reps:mmss(left);
+  // A held bout is not a pause: it shows what to do, and for a book session a stopwatch.
+  el.className=(iv.mini?'mini ':'')+(iv.paused&&!seg.hold?'paused':seg.k);
+  document.getElementById('iv-phase').textContent=iv.paused&&!seg.hold?'Paused':seg.l;
+  document.getElementById('iv-time').textContent=seg.hold?(seg.est&&iv.paused?mmss((Date.now()-iv.paused)/1000):seg.reps):mmss(left);
   document.getElementById('iv-sub').textContent=(seg.sub||'')+(iv.paused?'':'');
-  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+(nx.hold?' '+nx.reps:' '+mmss(nx.s))+' · ':'Last one · ')+mmss(ivBaseLeft(p,t))+' of base left';
+  const isBook=!!(IV[iv.fmt]&&IV[iv.fmt].seq);
+  document.getElementById('iv-next').textContent=(nx?'Next: '+nx.l+(nx.hold?(nx.reps?' '+nx.reps:''):' '+mmss(nx.s))+' · ':'Last one · ')+(isBook?'Elapsed '+mmss(ivWall()):mmss(ivBaseLeft(p,t))+' of base left');
   document.getElementById('iv-fill').style.width=(seg.hold?0:100*p.into/seg.s)+'%';
   document.getElementById('iv-pause').textContent=seg.hold?'Done':iv.paused?'Resume':'Pause';
   document.getElementById('iv-done').hidden=true; document.getElementById('iv-btns').hidden=false;
@@ -6910,14 +7309,15 @@ function durText(t){const m=Math.floor(t/60),sec=t%60,mins=m+(m===1?' minute':' 
 function ivSpeech(seg){
   const dur=durText(seg.s);
   if(seg.l==='Pickup') return 'Pickup. '+dur+'.';
-  if(seg.k==='work') return (seg.sub?seg.sub+'. ':'')+'Go hard. '+dur+'.';
+  if(seg.est) return (seg.sub?seg.sub+'. ':'')+seg.l+'. Tap done when finished.';
+  if(seg.k==='work') return (seg.sub?seg.sub+'. ':'')+(seg.l&&seg.l!=='Hard'?seg.l+'. ':'Go hard. ')+dur+'.';
   if(seg.l==='Warm-up') return 'Warm up. Easy for '+dur+'.';
   if(seg.l==='Cool-down') return 'Cool down. '+dur+' easy.';
   if(seg.l==='Steady') return 'Steady pace for '+dur+'.';
   return 'Easy. '+dur+'.';
 }
 function ivFinish(){
-  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;LS.set('ob.iv',iv);syncScreen();sfx('ivdone');vib([200,100,200,100,400]);
+  if(!iv.done){setTimeout(()=>say('Intervals done. Nice work. Log your result.'),900);iv.done=true;if(iv.t0&&!iv.t1)iv.t1=Date.now();LS.set('ob.iv',iv);syncScreen();sfx('ivdone');vib([200,100,200,100,400]);
     if(IV[iv.fmt]) setLog(iv.date,'hic.rounds',iv.rounds);
     if(!(lg(iv.date).hic||{}).format&&iv.fmt!==dayPlan(iv.date).fmt) setLog(iv.date,'hic.format',iv.fmt);
     // the session you actually did, not the one that was planned
@@ -6931,7 +7331,11 @@ function ivFinish(){
   const met=metricFor(iv.mod,iv.fmt), box=document.getElementById('iv-done');
   if(box.hidden){ box.hidden=false; document.getElementById('iv-btns').hidden=true;
     const cur=met?((lg(iv.date).hic||{})[met[0]]):null;
-    box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result"></label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
+    // A session done for time gets the wall clock from the first round to the end,
+    // ready to save; change it if the watch says otherwise.
+    const inp=met&&met[0]==='time'?`<input type="text" inputmode="numeric" id="iv-result" value="${esc(cur||(iv.t0?mmss(ivWall()):''))}" placeholder="m:ss">`
+      :`<input type="number" inputmode="decimal" step="any" id="iv-result" value="${cur??''}" placeholder="Enter your result">`;
+    box.innerHTML=(met?`<label class="f" style="text-align:left">${metricLabel(met)}${inp}</label>`:'')+`<button class="btn primary" data-iv="save">${met?'Save and close':'Close'}</button>`;
   }
 }
 function ivClose(){iv=null;LS.set('ob.iv',null);syncScreen();ivShow();alarmSync();render()}
@@ -6947,7 +7351,7 @@ document.getElementById('iv').addEventListener('click',e=>{
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
-  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],+inp.value); } ivClose(); }
+  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],met[0]==='time'?String(inp.value).trim():+inp.value); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });
 
@@ -7544,11 +7948,11 @@ let prCache={v:null,list:null};
 function prList(){
   const ver=planV+':'+logsV;
   if(prCache.v===ver) return prCache.list;
-  const out=[], add=(key,label,unit,entries,fmt)=>{
+  const out=[], add=(key,label,unit,entries,fmt,lower)=>{
     const xs=entries.filter(e=>e.v!=null&&!Number.isNaN(e.v)&&e.v>0).sort((a,b)=>a.d<b.d?-1:1);
     if(!xs.length) return;
     let best=null, prev=null;
-    for(const e of xs){ if(!best||e.v>best.v){prev=best;best=e} }
+    for(const e of xs){ if(!best||(lower?e.v<best.v:e.v>best.v)){prev=best;best=e} }
     out.push({key,label,unit,value:best.v,date:best.d,prev:prev?prev.v:null,n:xs.length,fmt:fmt||(v=>n(v))});
   };
   // tested maxes, per lift
@@ -7567,10 +7971,11 @@ function prList(){
   }
   // conditioning: best per activity and format, hard sessions only
   const g={};
-  for(const x of hicSessions(true)){ if(x.f==='liss'||(HIC[x.f]||{}).noCompare||x.v==null) continue; (g[x.mod+'|'+x.f]=g[x.mod+'|'+x.f]||[]).push({d:x.d,v:x.v,u:x.u}) }
+  for(const x of hicSessions(true)){ if(x.f==='liss'||(HIC[x.f]||{}).noCompare||x.v==null) continue; const key=hicKey(x.mod,x.f); (g[key]=g[key]||[]).push({d:x.d,v:x.v,u:x.u}) }
   for(const key of Object.keys(g)){
-    const [m,f]=key.split('|');
-    add('hic:'+key,MOD[m].name+' · '+HIC[f].name,g[key][0].u,g[key]);
+    const [m,f]=key.split('|'), un=g[key][0].u;
+    // A session done for time is a record when it gets shorter.
+    add('hic:'+key,hicTitle(m,f),un,g[key],v=>resStr(v,un),hicLower(f));
   }
   prCache={v:ver,list:out};
   return out;
@@ -7698,7 +8103,7 @@ function weekSummaryCard(){
   ${r.avg!=null?bRow({label:'Readiness',value:r.avg,of:100,pct:r.avg,tone:readyTone(r.avg).tone,word:readyTone(r.avg).word,aria:`Readiness ${r.avg} of 100`})
     :bRow({label:'Readiness',value:'—',sub:'No check-ins'})}
   ${bRow({label:'Bests set',value:r.prs.length,sub:r.prs.length?esc(r.prs.map(x=>x.label).join(', ')):'None last week'})}</div>`;
-  if(r.hics.length) h+=`<div class="small muted">Conditioning: ${r.hics.map(x=>`${MOD[x.mod].name} ${HIC[x.f].name} ${n(x.v)} ${esc(x.u)}`).join(' · ')}</div>`;
+  if(r.hics.length) h+=`<div class="small muted">Conditioning: ${r.hics.map(x=>`${hicTitle(x.mod,x.f).replace(' · ',' ')} ${esc(resLine(x.v,x.u))}`).join(' · ')}</div>`;
   h+=`<div style="border-top:1px solid var(--line);padding-top:10px"><b>This week</b>${wt?` · ${esc(wt.t)} <span class="chip ${wt.cls}">${esc(wt.chip)}</span>`:''}</div>`;
   if(ahead.length) h+=`<ul class="tight small">${ahead.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
   h+=`<div class="small muted">${esc(nd)} ${esc(nt)}</div></div>`;
@@ -8240,9 +8645,10 @@ function vStatus(){
       const bm=benchmarkState(t);
       if(bm&&bm.xs.length){
         const dir=bm.xs.length>1?bm.last.v-bm.first.v:null;
-        h+=`<div class="sm"><div class="sm-h"><b>Benchmark · ${MOD[bm.mod].name} ${HIC[bm.fmt].name}</b><span class="v">${n(bm.best)}<small>${esc(bm.last.u)} best</small></span></div>`;
-        h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
-        h+=`<div class="note">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same activity and format to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?n(Math.abs(dir))+' '+bm.last.u:''} since ${fmtD(bm.first.d)}.`:''}</div></div>`;
+        const tm=bm.last.u==='mm:ss';
+        h+=`<div class="sm"><div class="sm-h"><b>Benchmark · ${hicTitle(bm.mod,bm.fmt).replace(' · ',' ')}</b><span class="v">${resStr(bm.best,bm.last.u)}<small>${tm?'':esc(bm.last.u)+' '}best</small></span></div>`;
+        h+=bm.xs.length>=2?lineChart(bm.xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${resLine(x.v,x.u)}`})),{label:'Benchmark session',minStep:1}):'<div class="none">One so far. Repeat it and this becomes the line worth watching.</div>';
+        h+=`<div class="note">${bm.auto?'Picked automatically as the hard session you repeat most. ':''}${bm.due?`<b>Due:</b> ${bm.days==null?'never run':bm.days+' days since the last one'}. Run the same ${hicBook(bm.fmt)?'session':'activity and format'} to compare like with like.`:`Last run ${fmtD(bm.last.d,true)}, ${bm.days} days ago. Due again around day ${bm.every}.`}${dir!=null?` ${dir>0?'Up':dir<0?'Down':'Level'} ${dir?resLine(Math.abs(dir),bm.last.u):''} since ${fmtD(bm.first.d)}${dir&&tm?(hicBetter(bm.fmt,bm.last.v,bm.first.v)?', which is faster':', which is slower'):''}.`:''}</div></div>`;
       }
     }
     h+=`<div class="small muted">Every activity you have logged, charted and tabled, is in History.</div>`;
@@ -8293,7 +8699,7 @@ function periodSummary(from,to){
     kcal:mean(kc)==null?null:Math.round(mean(kc)),kcalN:kc.length,
     protein:mean(pr)==null?null:Math.round(mean(pr)),proteinN:pr.length,
     cond:{n:hs.length,min:hs.reduce((a,x)=>a+hicMinutes(x).m,0)},
-    bench:bm&&bms.length?{name:`${MOD[bm.mod].name} ${HIC[bm.fmt].name}`,first:bms[0],last:bms[bms.length-1],u:bms[bms.length-1].u}:null,
+    bench:bm&&bms.length?{name:hicTitle(bm.mod,bm.fmt).replace(' · ',' '),first:bms[0],last:bms[bms.length-1],u:bms[bms.length-1].u}:null,
     eff};
 }
 // A cycle's first Monday to its last Sunday, from the plan as it actually ran.
@@ -8403,9 +8809,9 @@ function sixMonthCard(t){
     h+=bRow({label:'Body fat',value:r1(b0.bf),unit:'%',tone:bt.tone,word:`${bt.word} · ${db>0?'+':''}${r1(db)} since ${fmtD(a0.d)}`,sub:`Then ${r1(a0.bf)}%`}) }
   h+=`</div><h4 class="sub-h">Engine</h4><div class="mbs">`;
   const bm=benchmarkState(t);
-  if(bm&&bm.xs.length>1){ const f=bm.xs[0], l=bm.xs[bm.xs.length-1], d=l.v-f.v;
-    h+=bRow({label:`${MOD[bm.mod].name} ${HIC[bm.fmt].name}`,value:n(l.v),unit:l.u,tone:d>0?'ok':d<0?'off':'muted',
-      word:`${d>0?'+':''}${n(d)} since ${fmtD(f.d)}`,sub:`Then ${n(f.v)} · your benchmark session`}) }
+  if(bm&&bm.xs.length>1){ const f=bm.xs[0], l=bm.xs[bm.xs.length-1], d=l.v-f.v, better=d&&hicBetter(bm.fmt,l.v,f.v), tm=l.u==='mm:ss';
+    h+=bRow({label:hicTitle(bm.mod,bm.fmt).replace(' · ',' '),value:resStr(l.v,l.u),unit:tm?'':l.u,tone:!d?'muted':better?'ok':'off',
+      word:`${d>0?'+':d<0?'−':''}${resStr(Math.abs(d),l.u)} since ${fmtD(f.d)}`,sub:`Then ${resStr(f.v,l.u)} · your benchmark session`}) }
   const mT=Math.round(wkRate(then)), mN=Math.round(wkRate(now));
   // Nothing logged at either end is nothing to compare, not "about the same".
   if(mT||mN) h+=bRow({label:'Conditioning a week',value:mN,unit:'min',tone:mN>mT?'ok':'muted',word:mN===mT?'About the same':`${mN>mT?'Up':'Down'} from ${mT}`,sub:`Then ${mT} min a week`});
@@ -8799,17 +9205,18 @@ function vHistory(){
   h+=`<div class="card"><h2>Conditioning</h2>`;
   if(!hic.length) h+=`<div class="empty">No conditioning logged yet. Results you enter on HIC and LISS days show up here.</div>`;
   else{
-    const groups={};for(const x of hic) if(x.f!=='liss'&&!(HIC[x.f]||{}).noCompare&&x.v!=null)(groups[x.mod+'|'+x.f]=groups[x.mod+'|'+x.f]||[]).push(x);
+    const groups={};for(const x of hic) if(x.f!=='liss'&&!(HIC[x.f]||{}).noCompare&&x.v!=null){const key=hicKey(x.mod,x.f);(groups[key]=groups[key]||[]).push(x)}
+    const unitSmall=un=>un==='mm:ss'?'':`<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(un)}</small>`;
     const top=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,4);
-    if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=xs.reduce((a,x)=>Math.max(a,x.v),0);return `<div class="stack" style="gap:2px"><span class="small muted">${MOD[m].name} · ${HIC[f].name}</span><span class="big" style="font-size:34px">${n(b)}<small style="font-size:13px;color:var(--muted);margin-left:3px">${esc(xs[0].u)}</small></span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
+    if(top.length) h+=`<div class="grid4">${top.map(key=>{const xs=groups[key],[m,f]=key.split('|'),b=hicBest(f,xs);return `<div class="stack" style="gap:2px"><span class="small muted">${hicTitle(m,f)}</span><span class="big" style="font-size:34px">${resStr(b,xs[0].u)}${unitSmall(xs[0].u)}</span><span class="small muted">best · ${xs.length} logged</span></div>`}).join('')}</div>`;
     {
       const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length).slice(0,6);
-      const g=keys.map(key=>{const xs=groups[key].slice().reverse().slice(-24),[m,f]=key.split('|'),best=xs.reduce((a,x)=>Math.max(a,x.v),0),un=xs[xs.length-1].u;
+      const g=keys.map(key=>{const xs=groups[key].slice().reverse().slice(-24),[m,f]=key.split('|'),best=hicBest(f,xs),un=xs[xs.length-1].u;
         if(xs.length<2) return '';
-        return `<div class="sm"><div class="sm-h"><b>${MOD[m].name} \u00b7 ${HIC[f].name}</b><span class="v">${n(best)}<small>${esc(un)} best</small></span></div>${lineChart(xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${n(x.v)} ${x.u}`})),{label:MOD[m].name+' '+HIC[f].name,minStep:1})}</div>`}).filter(Boolean).join('');
+        return `<div class="sm"><div class="sm-h"><b>${hicTitle(m,f)}</b><span class="v">${resStr(best,un)}<small>${un==='mm:ss'?'':esc(un)+' '}best</small></span></div>${lineChart(xs.map(x=>({y:x.v,xl:fmtD(x.d),tip:`${fmtD(x.d,true)}: ${resLine(x.v,x.u)}`})),{label:hicTitle(m,f).replace(' \u00b7 ',' '),minStep:1})}</div>`}).filter(Boolean).join('');
       if(g) h+=`<div class="sm-grid" style="margin:16px 0">${g}</div>`;
     }
-    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}${x.shape?` <span class="small muted">${esc(x.shape)}</span>`:''}</td><td>${esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?n(x.v)+' '+x.u:'',x.min?x.min+' min':'',x.elev?'↑'+n(x.elev)+' '+elevUnit():'',flatEquiv(x)!=null?'≈ '+n(flatEquiv(x))+' '+x.u+' flat':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
+    h+=`<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Format</th><th>Activity</th><th class="n">Result</th></tr></thead><tbody>${hic.slice(0,20).map(x=>`<tr><td>${fmtD(x.d,true)}</td><td>${HIC[x.f].name}${x.shape?` <span class="small muted">${esc(x.shape)}</span>`:''}</td><td>${hicBook(x.f)?'<span class="small muted">TB II</span>':esc(x.mod==='other'&&x.what?x.what:MOD[x.mod].name)}${x.load?` <span class="small muted">(${n(x.load)} ${u()})</span>`:''}</td><td class="n">${[x.v!=null?resLine(x.v,x.u):'',x.min?x.min+' min':'',x.elev?'↑'+n(x.elev)+' '+elevUnit():'',flatEquiv(x)!=null?'≈ '+n(flatEquiv(x))+' '+x.u+' flat':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
   }
   h+=`</div>`;
   // Jumps
@@ -9129,9 +9536,9 @@ function vSetup(){
   <div class="small muted">${esc(fobLine(defFob())||'You type the movements on the day.')}${fobDef(defFob())?' \u00b7 '+esc(fobEveryLabel(defFob()))+' of base \u00b7 '+esc(fobSrcLabel(defFob())):''} Swap it on any single session from that day's card.</div>
   <label class="f" style="max-width:260px">Default activity<select id="p-cardio" data-pbind="cardio.def">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${defMod()===k?' selected':''}>${x.name}</option>`).join('')}</select></label>
   ${(()=>{const b=benchmark()||{};return `<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px"><div class="small muted" style="font-weight:650">Benchmark session</div>
-  <p class="note" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
+  <p class="note" style="margin:4px 0 0">One hard session you repeat to compare against itself. Results only compare within an activity and a format, so if the rest of your conditioning moves around, this is the line worth watching. One of the book’s sessions compares on its own, whatever you ran it on, so the activity does not matter for those.${b.auto?' Picked for you from what you repeat most — choosing here pins it.':''}</p>
   <div class="grid3"><label class="f">Activity<select id="p-bmod" data-pbind="benchmark.mod">${Object.entries(MOD).filter(([k])=>k!=='other').map(([k,x])=>`<option value="${k}"${b.mod===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
-  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${Object.entries(HIC).filter(([k,x])=>k!=='liss'&&!x.noMetric&&!x.noCompare).map(([k,x])=>`<option value="${k}"${b.fmt===k?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+  <label class="f">Format<select id="p-bfmt" data-pbind="benchmark.fmt">${hicOptions(b.fmt,(k,x)=>k!=='liss'&&!x.noMetric&&!x.noCompare)}</select></label>
   <label class="f">Repeat every (days)${pIn('benchEvery',plan.benchEvery)}</label></div></div>`})()}</div>`;
   const ptS=proteinTarget(todayStr());
   {
@@ -9261,6 +9668,34 @@ async function loadBackups(){
 
 // The Guide is a reference the length of a short book, in cards behind disclosures. A
 // query keeps the cards that mention it and opens every disclosure in them.
+/* The book's forty HIC sessions, in full: what the book says about choosing them, then
+   every session with its prescription, its versions and its reasoning. Grouped the way
+   the book groups them and numbered the way it numbers them, so a reader with the book
+   open finds the same thing in both. */
+function guideHicBook(){
+  const entry=(k)=>{const x=HIC[k], b=x.book;
+    if(!b.lines) return `<details class="px"><summary><span>#${b.n} FOBBIT Intervals</span><span class="mono small">20 min</span></summary><div class="note" style="margin:4px 0 6px">The book\u2019s ninth session is the FOBBIT: two minutes of easy base, twenty swings, two minutes, ten snatches an arm, until the treadmill reads twenty minutes. It has its own section above, with the Mass Protocol and Mod variations, and its own picker on the day.</div></details>`;
+    const vs=[];
+    if(b.basic) vs.push(`<b>Basic:</b> ${esc(b.basic)}`);
+    if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
+    if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
+    const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):'Not scored by the book: the app logs rounds and minutes.';
+    return `<details class="px"><summary><span>#${b.n} ${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
+      <ul class="tight" style="margin:6px 0">${b.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
+      ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
+      <div class="small muted" style="margin:4px 0 6px">${esc(b.why)}</div>
+      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`};
+  const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
+    return `<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(HIC_CAT[cat])} \u00b7 #${HIC[ks[0]].book.n} to #${HIC[ks[ks.length-1]].book.n}</h4><p class="note" style="margin:0">${intro}</p>${ks.map(entry).join('')}</div>`};
+  return `<div class="card guide"><h3>Conditioning: the book\u2019s HIC sessions</h3>
+  <p>Tactical Barbell II gives forty named High Intensity Conditioning sessions in Part II, and Black leaves the choice of which ones to you: two or three a week, on any day, and the book asks that you <b>rotate them</b> rather than settle on one. Every one of the forty is a format here. Pick it from the format list on a conditioning day, in the <b>Tactical Barbell II</b> groups under the app\u2019s own shapes, or set a session of your own on any day. The day\u2019s card prints the prescription, the easier and harder versions, and what the book says about it; the timer runs each round, on the clock where the book times it and held until you tap Done where it counts reps or distance.</p>
+  <p><b>What gets scored.</b> Where the book says \u201cfor time\u201d the app asks for the time, prefilled from the timer\u2019s wall clock, and ranks it with the fastest as the best; an AMRAP is scored by rounds, Beat Your Face by burpees. Everything else is logged by rounds and minutes, as a FOBBIT is. A book session compares against itself whatever you ran it on, so it is a sound benchmark. The easy week every third week halves the rounds, the way it does for every format.</p>
+  <p><b>Choosing.</b> The book\u2019s own words: sessions 1 to 10 mix aerobic and anaerobic work and 11 to 24 lean anaerobic; do not make the general conditioning sessions your only HIC work; and power development should never be the bulk of it. The author\u2019s own favorite cluster is 600 Meter Resets, Apex Hills and LSS running. If he could keep one conditioning exercise for life it would be hill sprints, and he recommends making them a staple after Block I.</p>
+  ${group('aa','Sessions 1 to 10 are a mix of aerobic and anaerobic work: maximum-effort intervals, hills, burpees and sledgehammer work that build the heart, the mitochondria and lactate tolerance. Sessions 11 to 24 primarily develop the anaerobic systems, with repeated near-maximal efforts and rests that are over before you have recovered. The book says not to worry about the difference: you get a mix of both here.')}
+  ${group('gc','Work capacity and general physical fitness: the ability to do more in less time, and to recover from it, which is what everything else in your training rests on. Most are done for time and bring several energy systems and strength qualities together in one session. Mix them with sessions 1 to 24; do not make them your only HIC work.')}
+  ${group('power','Power, power-endurance and explosiveness. These should not make up the bulk of your HIC training: barring a specific goal, choose most of your sessions from 1 to 36 and sprinkle these in occasionally.')}
+  <p class="note">Numbers, versions and reasoning are the book\u2019s. Where a rest is given as a range the timer takes the low end, and the length it predicts for a bout of reps is the app\u2019s estimate, used only to size the session before you start.</p></div>`;
+}
 function vGuide(){
   const q=guideQ.trim().toLowerCase();
   let body=vGuideHtml();
@@ -9288,7 +9723,7 @@ function vGuideHtml(){
   <p>The one accessory the app programs rather than just lists, because it is the one that takes years and responds to being told what to do next. Wednesday's card prints the prescription for whichever rung your best logged set puts you on, and moves you up on its own.</p>
   <div class="tbl-wrap"><table><thead><tr><th class="n">Best set</th><th>Rung</th><th>The work</th><th>Moves you up</th></tr></thead><tbody>${PULLUP.map(r=>`<tr><td class="n small">${r.at?r.at+'+':'0'}</td><td><b>${esc(r.name)}</b><div class="small muted">${esc(r.why)}</div></td><td class="small">${esc(r.work)}</td><td class="small">${esc(r.next)}</td></tr>`).join('')}</tbody></table></div>
   <p><b>Weighted pull-ups as Lift 3.</b> Once you are on the last rung they can be a cluster lift like any other, and the percentages apply to <b>bodyweight plus the added weight</b> — so the app works out what to hang off the belt from your seven-day average bodyweight, not from the number on the plate. A rung is read from your history at the date you are looking at, so a day last spring shows the rung you were on then.</p></div>
-  <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.values(HIC).map(x=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day, from the list below.</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. Plyos come first on whichever day they land, so keep sprint volume low that day.</li></ul>
+  <div class="card guide"><h3>Conditioning: Black</h3><div class="tbl-wrap"><table><thead><tr><th>Format</th><th>Session</th><th>System</th></tr></thead><tbody>${Object.entries(HIC).filter(([k])=>!hicBook(k)).map(([k,x])=>`<tr><td><b>${x.name}</b></td><td>${x.sess}</td><td class="small muted">${x.sys}</td></tr>`).join('')}</tbody></table></div><p class="note">These are the shapes. Tactical Barbell II\u2019s forty named sessions, Meat Eater and Apex Hills among them, are below under <b>Conditioning: the book\u2019s HIC sessions</b>, and in the same format list on the day.</p><ul class="tight"><li>Black sets the dose, not the tool. The ${MOD[defMod()].name.toLowerCase()} is your default; switch activity on any HIC or LISS day, from the list below.</li><li>Keep the format and activity fixed to track progress. Results only compare within the same activity.</li><li>If most sessions are on a bike, watch hip flexors and saddle position: it compounds with squats and deadlifts.</li><li>Running and rucking add impact and back load. Plyos come first on whichever day they land, so keep sprint volume low that day.</li></ul>
   <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Activity</th><th>Hard sessions measured in</th><th>Steady measured in</th></tr></thead><tbody>${Object.values(MOD).map(m=>`<tr><td><b>${esc(m.name)}</b>${m.elev?' <span class="small muted">\u00b7 climbs</span>':''}</td><td class="small">${m.hic?esc(metricLabel(m.hic)):'\u2014'}</td><td class="small">${m.liss?esc(metricLabel(m.liss)):'\u2014'}</td></tr>`).join('')}</tbody></table></div>
   <p class="note">Each has its own warm-up and its own advice, printed on the day. Results only ever compare within the same activity and format, so switching tools does not corrupt your history \u2014 it just starts another thread of it.</p>
   <p><b>Climbing counts as distance.</b> Trail runs, hikes and rucks ask for elevation gain, and the app turns it into flat-equivalent distance at ${plan.unit==='kg'?((plan.elevPer||{}).kg||190)+' m per kilometre':((plan.elevPer||{}).lb||1000)+' ft per mile'} \u2014 so five miles with 3,000 feet of climbing reads as eight miles flat. The raw numbers stay on screen next to it. That equivalent is what \u201clast\u201d and \u201cbest\u201d compare, so a brutal climbing day stops looking worse than an easy flat one, and Status keeps a climbing total for the week and the last four. Change the factor in Setup if a thousand feet is not your mile. Nothing else in the programming reads it: it is there to compare sessions, not to move your deloads around.</p>
@@ -9308,6 +9743,7 @@ function vGuideHtml(){
   <div class="tbl-wrap"><table><thead><tr><th>FOBBIT</th><th>Kit</th><th>Base</th><th>The rotation</th><th>Source</th></tr></thead><tbody>${Object.entries(FOBBIT).filter(([k])=>fobDef(k)).map(([k,x])=>`<tr><td><b>${esc(x.name)}</b></td><td class="small">${esc(x.gear)}</td><td class="small">${esc(fobEveryLabel(k))}</td><td class="small">${esc(fobLine(k))}</td><td class="small">${esc(fobSrcLabel(k))}</td></tr>`).join('')}</tbody></table></div>
   <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
+  ${guideHicBook()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>

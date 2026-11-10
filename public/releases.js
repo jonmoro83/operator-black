@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.75',date:'2026-11-10',title:"All forty of the book's HIC sessions",items:[
+    "Every named High Intensity Conditioning session from Tactical Barbell II is in the app now: Meat Eater, Apex Hills, 600 Meter Resets, Beat Your Face, all forty. Pick one from the format list on any conditioning day, under the usual formats in three groups, numbered the way the book numbers them.",
+    "The day's card shows the session as the book gives it: the prescription, the basic and advanced versions, what you need, and a fold that says what the book says about it. The Guide has a new section with every session in full and the book's advice on choosing between them.",
+    "The timer walks you through each round. Timed parts run on the clock. Swings, burpees and sprints wait until you tap Done, with a stopwatch running, and the whole session's time is ready to save at the end.",
+    "Sessions the book does for time are scored by time, and the fastest is your best. AMRAPs are scored by rounds and Beat Your Face by burpees. A book session compares against itself whatever you ran it on, so it works as a benchmark too."]},
   {v:'3.74',date:'2026-11-10',title:"Session mode stays put",items:[
     "On an iPhone, typing a number in session mode could leave the screen zoomed in a touch, with the left edge cut off. Every input is now the size Safari leaves alone, and the session screen can't slide sideways any more."]},
   {v:'3.73',date:'2026-11-08',title:"Today opens on the session",items:[

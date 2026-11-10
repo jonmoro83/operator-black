@@ -596,6 +596,8 @@ function defMod(){const m=(plan.cardio||{}).def;return MOD[m]?m:'echo'}
 // Sessions logged before activities existed have calories but no activity: they were on the Echo bike.
 function modOf(date){const H=(logs[date]||{}).hic;if(H&&MOD[H.mod])return H.mod;if(H&&H.cal!=null&&H.cal!=='')return 'echo';return defMod()}
 function metricFor(mod,fmt){
+  // A book session is scored the way the book scores it, whatever it was run on.
+  if(hicBook(fmt)) return HIC[fmt].book.measure?HIC[fmt].book.measure.slice():null;
   if(HIC[fmt]&&HIC[fmt].noMetric)return null;
   const M=MOD[mod], m=M&&M[fmt==='liss'?'liss':'hic'];
   if(!m)return null;
@@ -609,7 +611,9 @@ function metricFor(mod,fmt){
   }
   return [m[0],un];
 }
-function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':met[0]==='floors'?'Floors':'Distance ('+met[1]+')'}
+function metricLabel(met){return met[0]==='cal'?'Total calories':met[0]==='watts'?'Average watts':met[0]==='floors'?'Floors':met[0]==='time'?'Time (m:ss)':met[0]==='amrap'?'Rounds completed':met[0]==='reps'?'Total '+met[1]:'Distance ('+met[1]+')'}
+// What was logged against a metric, as a number: a time typed as m:ss becomes seconds.
+function metricVal(met,raw){ if(raw==null||raw==='') return null; const v=met&&met[0]==='time'?toSecs(raw):+raw; return v==null||Number.isNaN(v)?null:v }
 // Conditioning results. `all` spans every program (for "last/best" comparisons);
 // otherwise only the program on screen.
 // Distance plus what the climbing was worth, for sessions logged in miles or km.
@@ -627,15 +631,15 @@ function hicSessions(all){
   for(const [d,L] of Object.entries(logs)){
     if(!all&&!inProgram(d)) continue;
     if(L.hic){ const f=effFmt(d);
-      if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?L.hic[met[0]]:null;
-        if((v!=null&&v!=='')||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev,shape:(IV[f]||{}).free?freeLabel(freeShape(d)):null}); } }
+      if(f){ const mod=modOf(d), met=metricFor(mod,f), v=met?metricVal(met,L.hic[met[0]]):null;
+        if(v!=null||(f==='liss'&&L.hic.min)||((HIC[f]||{}).noMetric&&(L.hic.min||L.hic.rounds))||(mod==='other'&&L.hic.what)) out.push({d,f,mod,v,u:met?met[1]:'',min:L.hic.min,what:L.hic.what,load:L.hic.load,elev:L.hic.elev,shape:(IV[f]||{}).free?freeLabel(freeShape(d)):null}); } }
     // Sessions you did on top of the program count as training. They are the same
     // shape, carry `extra` so adherence can leave them alone, and otherwise feed the
     // minutes, the records and the benchmark like any other session.
     for(const a of addonsOf(d)){
       if(a.kind!=='cond'||!HIC[a.fmt]||!MOD[a.mod]) continue;
-      const met=metricFor(a.mod,a.fmt), v=met?a.val:null;
-      if((v!=null&&v!=='')||a.min) out.push({d,f:a.fmt,mod:a.mod,v:v!=null&&v!==''?+v:null,u:met?met[1]:'',min:a.min,what:a.what,load:a.load,elev:a.elev,extra:true});
+      const met=metricFor(a.mod,a.fmt), v=met?metricVal(met,a.val):null;
+      if(v!=null||a.min) out.push({d,f:a.fmt,mod:a.mod,v,u:met?met[1]:'',min:a.min,what:a.what,load:a.load,elev:a.elev,extra:true});
     }
   }
   return out.sort((a,b)=>a.d<b.d?-1:1);

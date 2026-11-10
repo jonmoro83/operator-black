@@ -36,7 +36,7 @@ function periodSummary(from,to){
     kcal:mean(kc)==null?null:Math.round(mean(kc)),kcalN:kc.length,
     protein:mean(pr)==null?null:Math.round(mean(pr)),proteinN:pr.length,
     cond:{n:hs.length,min:hs.reduce((a,x)=>a+hicMinutes(x).m,0)},
-    bench:bm&&bms.length?{name:`${MOD[bm.mod].name} ${HIC[bm.fmt].name}`,first:bms[0],last:bms[bms.length-1],u:bms[bms.length-1].u}:null,
+    bench:bm&&bms.length?{name:hicTitle(bm.mod,bm.fmt).replace(' · ',' '),first:bms[0],last:bms[bms.length-1],u:bms[bms.length-1].u}:null,
     eff};
 }
 // A cycle's first Monday to its last Sunday, from the plan as it actually ran.
@@ -146,9 +146,9 @@ function sixMonthCard(t){
     h+=bRow({label:'Body fat',value:r1(b0.bf),unit:'%',tone:bt.tone,word:`${bt.word} · ${db>0?'+':''}${r1(db)} since ${fmtD(a0.d)}`,sub:`Then ${r1(a0.bf)}%`}) }
   h+=`</div><h4 class="sub-h">Engine</h4><div class="mbs">`;
   const bm=benchmarkState(t);
-  if(bm&&bm.xs.length>1){ const f=bm.xs[0], l=bm.xs[bm.xs.length-1], d=l.v-f.v;
-    h+=bRow({label:`${MOD[bm.mod].name} ${HIC[bm.fmt].name}`,value:n(l.v),unit:l.u,tone:d>0?'ok':d<0?'off':'muted',
-      word:`${d>0?'+':''}${n(d)} since ${fmtD(f.d)}`,sub:`Then ${n(f.v)} · your benchmark session`}) }
+  if(bm&&bm.xs.length>1){ const f=bm.xs[0], l=bm.xs[bm.xs.length-1], d=l.v-f.v, better=d&&hicBetter(bm.fmt,l.v,f.v), tm=l.u==='mm:ss';
+    h+=bRow({label:hicTitle(bm.mod,bm.fmt).replace(' · ',' '),value:resStr(l.v,l.u),unit:tm?'':l.u,tone:!d?'muted':better?'ok':'off',
+      word:`${d>0?'+':d<0?'−':''}${resStr(Math.abs(d),l.u)} since ${fmtD(f.d)}`,sub:`Then ${resStr(f.v,l.u)} · your benchmark session`}) }
   const mT=Math.round(wkRate(then)), mN=Math.round(wkRate(now));
   // Nothing logged at either end is nothing to compare, not "about the same".
   if(mT||mN) h+=bRow({label:'Conditioning a week',value:mN,unit:'min',tone:mN>mT?'ok':'muted',word:mN===mT?'About the same':`${mN>mT?'Up':'Down'} from ${mT}`,sub:`Then ${mT} min a week`});

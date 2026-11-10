@@ -9776,3 +9776,170 @@ test("the setup wizard on StrongLifts shows its fixed lifts, not a Lift 3 choice
   y.wz = y.wzNew(false); y.wz.step = 2;
   a.match(y.vWelcome(), /data-act="wzl3" data-v="wpu"/);
 });
+
+// --- Tactical Barbell II's forty HIC sessions ------------------------------------------
+test("the book's forty HIC sessions are formats, numbered the way the book numbers them", () => {
+  const x = app({ now: "2026-10-20" });
+  const book = Object.entries(x.HIC).filter(([, f]) => f.book);
+  const nums = book.map(([, f]) => f.book.n).sort((p, q) => p - q);
+  a.deepEqual(nums, Array.from({ length: 40 }, (_, i) => i + 1), "1 to 40, each once");
+  a.equal(x.HIC.fobbit.book.n, 9, "#9 is the FOBBIT, which already exists");
+  for (const [k, f] of book) {
+    if (k === "fobbit") continue;
+    const b = f.book;
+    a.ok(f.name && f.sess && f.sys, k + " has a name, a one-line session and a system");
+    a.ok(b.lines.length >= 1 && b.why.length > 60, k + " carries the prescription and the book's reasoning");
+    a.ok(x.IV[k] && (x.IV[k].seq || x.IV[k].lead), k + " can be run on the timer");
+    a.equal(x.hicBook(k), true);
+    // Scored the book's way or not at all: a session without a measure logs by rounds.
+    if (b.measure) a.deepEqual(x.metricFor("echo", k), b.measure, k + " keeps its own measure on any tool");
+    else a.equal(f.noMetric, true, k + " has no number to compare");
+  }
+  a.equal(x.HIC.meateater2.book.n, 14);
+  a.equal(x.HIC.meateater2.lower, true, "for time: lower is better");
+  a.equal(x.HIC.gc1.book.measure[0], "reps", "Beat Your Face counts burpees");
+  a.equal(x.HIC.gc9.book.measure[0], "amrap", "GC 9 counts rounds");
+  a.equal(x.hicSrcLabel("apex"), "Tactical Barbell II, HIC #17, aerobic / anaerobic");
+
+  // Every one is in the Guide in full, not just by name.
+  const g = x.vGuide();
+  a.match(g, /Conditioning: the book’s HIC sessions/);
+  for (const [k, f] of book) if (k !== "fobbit") {
+    a.ok(g.includes(`#${f.book.n} ${f.name.replace(/’/g, "’")}`) || g.includes(`#${f.book.n} ${f.name.replace(/'/g, "&#39;")}`), f.name + " is a Guide entry");
+  }
+  a.match(g, /Deceptively simple, highly effective/, "with the book's reasoning");
+  a.match(g, /Basic:<\/b> × 5, with a lighter bell/, "and its versions");
+  a.match(g, /Kinetic Conditioning/, "#39, which the old extract lost at a page break");
+});
+
+test("a book session runs on the timer as the book writes it: reps held, rests on the clock", () => {
+  const x = app({ now: "2026-10-20" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+  const d = "2026-10-20";
+  const o = x.ivOpts(d, "meateater2");
+  a.equal(o.rounds, 10, "the book's ten rounds");
+  const segs = x.ivSegments("meateater2", { ...o, warm: false, cool: false });
+  a.equal(segs.length, 29, "ten rounds of three, minus the last rest");
+  a.deepEqual(segs.slice(0, 3).map((s) => [s.k, s.l, s.s, !!s.hold]), [["work", "10 swings", 20, true], ["work", "10 burpees", 40, true], ["easy", "Rest", 60, false]]);
+  a.equal(segs[segs.length - 1].l, "10 burpees", "ends on work, not on a rest");
+  a.ok(segs.every((s) => !s.hold || s.est), "held bouts carry an estimate, so they count in the length");
+  const p = x.ivPartsLabel("meateater2", { ...o, warm: false, cool: false });
+  a.equal(p.rounds, 10, "rounds are counted once each, not once per work segment");
+  a.equal(p.total, 19, "ten minutes of estimated bouts and nine of rest");
+
+  // The ladders change with the round.
+  const c = x.ivSegments("connaught", { ...x.ivOpts(d, "connaught"), warm: false, cool: false });
+  a.equal(c[0].l, "10 burpees"); a.equal(c[c.length - 2].l, "1 burpees"); a.equal(c[c.length - 1].l, "Sprint 100 m");
+  // A part done once before or after the rounds.
+  const g12 = x.ivSegments("gc12", { ...x.ivOpts(d, "gc12"), warm: false, cool: false });
+  a.equal(g12[0].l, "Run 1.5 miles"); a.equal(g12[0].lead, true, "the run comes first and is not warm-up");
+  const g5 = x.ivSegments("gc5", { ...x.ivOpts(d, "gc5"), warm: false, cool: false });
+  a.equal(g5[g5.length - 1].l, "10 burpees"); a.equal(g5[g5.length - 1].post, true, "B follows A");
+  // Pepper Potting is a base-first shape and stops short of being an E.
+  const pp = x.ivOpts(d, "pepperpot");
+  a.equal(pp.every, 300); a.equal(pp.mins, 30); a.equal(pp.isE, false, "thirty minutes is still a HIC");
+  // The easy week halves the rounds, like every other format.
+  a.equal(x.easeRounds(x.IV.meateater2, "meateater2", false, true), 5);
+  // Speech names the bout and tells you to tap, rather than reading out an estimate.
+  a.equal(x.ivSpeech(segs[0]), "Round 1 of 10. 10 swings. Tap done when finished.");
+  a.equal(x.ivSpeech(segs[2]), "Easy. 1 minute.");
+});
+
+test("a session done for time ranks fastest as best, on any tool, everywhere a result shows", () => {
+  const x = app({ now: "2026-11-30" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  a.equal(x.toSecs("8:20"), 500); a.equal(x.toSecs("1:02:03"), 3723); a.equal(x.toSecs("500"), 500); a.equal(x.toSecs(""), null);
+  a.equal(x.resStr(500, "mm:ss"), "8:20"); a.equal(x.resLine(500, "mm:ss"), "8:20"); a.equal(x.resLine(151, "cal"), "151 cal");
+  const hard = [];
+  for (const w of x.weeks()) for (let i = 0; i < 7; i++) {
+    const d = x.addDays(w.monday, i);
+    if (d > "2026-11-30") continue;
+    if (x.dayPlan(d).t === "hic" && x.dayPlan(d).fmt !== "liss") hard.push(d);
+  }
+  const [d1, d2, d3, d4] = hard.slice(-4);
+  x.seed({
+    [d1]: { date: d1, done: true, hic: { format: "meateater2", mod: "echo", time: "9:10", min: 18, rounds: 10 } },
+    [d2]: { date: d2, done: true, hic: { format: "meateater2", mod: "run", time: "8:20", min: 17, rounds: 10 } },
+    [d3]: { date: d3, done: true, hic: { format: "resets600", mod: "run", min: 24, rounds: 6 } },
+    [d4]: { date: d4, done: true, hic: { format: "gc1", mod: "run", reps: 112, min: 12 } },
+  });
+  x.bump();
+  const hs = x.hicSessions(true);
+  const me = hs.filter((h) => h.f === "meateater2");
+  a.deepEqual(me.map((h) => h.v), [550, 500], "a time logged as m:ss is kept in seconds");
+  a.equal(me[0].u, "mm:ss");
+  a.ok(hs.some((h) => h.f === "resets600" && h.v == null), "an unscored session still counts as a session");
+  a.equal(hs.find((h) => h.f === "gc1").v, 112);
+
+  // Last and best ignore the tool and read the clock the right way round.
+  const h = x.lastHic("meateater2", "stair", "2026-12-01");
+  a.equal(h.last.v, 500); a.equal(h.best.v, 500, "8:20 beats 9:10");
+  const by = Object.fromEntries(x.prList().map((r) => [r.key, r]));
+  a.ok(by["hic:book|meateater2"], "one record for the session, not one per tool");
+  a.equal(by["hic:book|meateater2"].value, 500); a.equal(by["hic:book|meateater2"].prev, 550);
+  a.equal(by["hic:book|meateater2"].fmt(500), "8:20");
+  a.equal(by["hic:book|meateater2"].label, "Meat Eater II");
+  a.equal(x.prsOn(d2).map((r) => r.key).includes("hic:book|meateater2"), true, "and the faster day is the day it was set");
+  a.equal(by["hic:book|gc1"].value, 112);
+
+  // The benchmark: picked across tools, best is the fastest, and the status says so.
+  const b = x.benchmark();
+  a.equal(b.fmt, "meateater2");
+  const st = x.benchmarkState("2026-11-30");
+  a.equal(st.xs.length, 2); a.equal(st.best, 500);
+  a.match(x.vStatus(), /Benchmark · Meat Eater II/);
+  a.match(x.vStatus(), /8:20/);
+  a.match(x.vStatus(), /which is faster/);
+  x.plan.benchmark = { mod: "echo", fmt: "meateater2" }; x.bump();
+  a.equal(x.benchmarkState("2026-11-30").xs.length, 2, "a pinned book benchmark still finds the session on the other tool");
+
+  // History groups it once and prints the time.
+  const prog = x.vPrograms ? x.vPrograms() : x.vHistory();
+  a.match(prog, /Meat Eater II/); a.match(prog, /8:20/);
+  a.doesNotMatch(prog, /Echo bike · Meat Eater II/, "no tool in the title of a book session");
+
+  // Six book sessions on different formats is no rut; six of the same is one on the format alone.
+  const six = hard.slice(-6);
+  const fmts = ["connaught", "apex", "gc2", "bagresets", "meateater2", "trinity"];
+  six.forEach((d, i) => x.seed({ [d]: { date: d, done: true, hic: { format: fmts[i], mod: "echo", min: 20, rounds: 5 } } }));
+  x.bump();
+  a.equal(x.hicRut("2026-11-30", 6), null, "rotating the book's sessions is the opposite of a rut");
+  six.forEach((d) => x.seed({ [d]: { date: d, done: true, hic: { format: "apex", mod: "echo", min: 20, rounds: 5 } } }));
+  x.bump();
+  const rut = x.hicRut("2026-11-30", 6);
+  a.ok(rut && rut.f === "apex" && rut.mod === null, "the tool does not come into it");
+});
+
+test("the day card shows a book session as the book gives it, and offers the whole list", () => {
+  const x = app({ now: "2026-10-20" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+  const d = "2026-10-20"; x.sel = d;
+  x.seed({ [d]: { date: d, hic: { format: "meateater2", mod: "echo" } } }); x.bump();
+  const card = x.hicCard({ t: "hic", fmt: "meateater2" }, "");
+  a.match(card, /<span class="lift-name">Meat Eater II<\/span>/, "titled by the session, not the tool");
+  a.match(card, /<li>10 Russian kettlebell swings<\/li>/, "the prescription");
+  a.match(card, /<b>Basic:<\/b> × 5/); a.match(card, /<b>Advanced:<\/b> A heavier bell/);
+  a.match(card, /What the book says/, "the reasoning, folded");
+  a.match(card, /HIC #14/, "and where it comes from");
+  a.doesNotMatch(card, /data-act="mod"/, "no activity to pick: the session says what you do");
+  a.match(card, /id="in-hic-time"[^>]*data-bind="hic.time"/, "a time field, typed as m:ss");
+  a.match(card, /Rounds done/);
+  a.match(card, /<optgroup label="Formats">/); a.match(card, /<optgroup label="Tactical Barbell II: aerobic \/ anaerobic">/);
+  a.match(card, /<option value="meateater2" selected>#14 Meat Eater II<\/option>/);
+  a.match(card, /Rounds<\/span>/, "the book's range of rounds is on offer");
+  a.match(card, /First logged Meat Eater II session\. Results only compare against the same session/);
+
+  // A session the book does not score asks for rounds and minutes, nothing else.
+  x.seed({ [d]: { date: d, hic: { format: "resets600", mod: "run" } } }); x.bump();
+  const c2 = x.hicCard({ t: "hic", fmt: "resets600" }, "");
+  a.doesNotMatch(c2, /in-hic-time/); a.match(c2, /Rounds done/); a.match(c2, /Not scored by the book/);
+  // The generic formats are untouched.
+  x.seed({ [d]: { date: d, hic: { format: "map", mod: "echo" } } }); x.bump();
+  const c3 = x.hicCard({ t: "hic", fmt: "map" }, "");
+  a.match(c3, /data-act="mod"/); a.doesNotMatch(c3, /What the book says/);
+  // Setup offers the scored ones as benchmarks, grouped, and not the unscored ones.
+  const setup = x.vSetup();
+  const opts = (setup.match(/data-pbind="benchmark\.fmt">([\s\S]*?)<\/select>/) || [])[1] || "";
+  a.ok(opts.includes('value="meateater2"')); a.ok(!opts.includes('value="resets600"'));
+  a.match(opts, /<optgroup label="Tactical Barbell II: general conditioning">/);
+});
