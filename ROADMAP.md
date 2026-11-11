@@ -59,13 +59,6 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   floating schedule. Still unbuilt from TB II: the core and grip sessions (Plank & Shank,
   Full Core, Quarterdeck Core, Progressive Grip Circuit) and the challenge sessions, and
   the E sessions are only LISS plus the SE circuits. Whatever comes next is new ground.
-- **`library/tb2.txt` loses words at every page break.** Found 2026-11-10 while building
-  the HIC sessions: the stored extract drops the first line after each page marker (BOO's
-  basic version, the SE ladder's advanced version, all of Kinetic Conditioning) and
-  splits words at ligatures. Running `tools/pdftext_cmap.py` on `~/Downloads/
-  TB2_Conditioning.pdf` gives a clean text with everything in it. Worth regenerating
-  `library/tb2.txt` and `tb2.sql` from it, which also helps the coach's recall; not done
-  in 3.75 because it changes the library migration and deserves its own deploy.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -147,6 +140,32 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The coach reads the Guide and searches the books itself (2026-11-11, 3.77)**
+- Asked for: "How can we give the chat agent access to the TB books and the app's guide?"
+  It had the books, narrowly: one FTS query on the question's own words, eight chunks.
+  It had no Guide at all.
+- The Guide: `build.js` renders `vGuideHtml()` through the test harness (which now takes
+  a `root`, so the build-test sandbox works) and flattens it to headed text in
+  `src/guide-text.js`, an ES module the Worker imports. About 126k chars, 31k tokens. It
+  goes in the first system block with the brief, `cache_control` ephemeral at a one-hour
+  TTL; the state block follows uncached. The debrief shares the block, so Monday's cron
+  reads from the same cache. Cache writes cost twice the input price at 1h; reads a tenth.
+- The books: `search_library` is a strict custom tool next to web search. `askCoach` loops
+  up to `COACH_SEARCHES` (3) rounds: the model's whole reply goes back as the assistant
+  turn (thinking blocks included), each search's passages come back as a `tool_result`,
+  and the last allowed round is sent with `tool_choice: none` so it ends in an answer.
+  Nothing found is a result, not an error. `pause_turn` from a long web search continues
+  the same way. Citations are the question's own passages plus everything searched, in
+  reading order, capped at twelve; tokens are summed across rounds; one question is still
+  one call against the cap. The response carries `searches`.
+- Web search moved to `web_search_20260209`, the variant Sonnet 5.5 takes.
+- TB2 reloaded. `tools/pdftext_cmap.py` only saw `Td` line moves; TB2 sets a `Tm` per
+  line and uses the `'` operator, so lines ran together ("100m sprint9 Burpees") and the
+  older extract had dropped the first line after each page. Both handled now; TB3's output
+  is byte-identical. `library/tb2.txt` and `tb2.sql` regenerated (162 chunks), loaded with
+  `wrangler d1 execute --remote`.
+- Tests read the system prompt through `sysText()` now that it is blocks.
 
 **The timer is opaque again (2026-11-10, 3.76)**
 - Asked for: "the HIC timer needs to be fixed. It's basically translucent and you can see

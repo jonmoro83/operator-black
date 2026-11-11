@@ -33,13 +33,22 @@ for num,(head,raw) in objs.items():
     body=inflate(head,raw)
     if not body or b'Tj' not in body: continue
     imgs=[n.decode() for n in re.findall(rb'/(\w+)\s+Do',body)]
-    buf=[]
-    for g in re.finditer(rb'<([0-9A-Fa-f]+)>\s*Tj|(-?[\d.]+)\s+(-?[\d.]+)\s+Td',body):
+    buf=[]; y=None
+    # Three ways a book moves to the next line: Td with a vertical component (TB_MP),
+    # a fresh Tm whose y differs from the last (TB2 sets one per line), and the '
+    # operator, which is "next line, then show" (TB2 again). Missing the last two ran
+    # TB2's lines together -- "100m sprint9 Burpees" -- which FTS cannot tokenize.
+    for g in re.finditer(rb"<([0-9A-Fa-f]+)>\s*(Tj|')|(-?[\d.]+)\s+(-?[\d.]+)\s+Td|(?:-?[\d.]+\s+){4}(-?[\d.]+)\s+(-?[\d.]+)\s+Tm",body):
         if g.group(1):
+            if g.group(2)==b"'": buf.append('\n')
             h=g.group(1)
             buf.append(''.join(merged.get(int(h[i:i+4],16),'') for i in range(0,len(h),4)))
-        elif g.group(3) and abs(float(g.group(3)))>2:    # a real line move, not an advance
+        elif g.group(4) and abs(float(g.group(4)))>2:    # a real line move, not an advance
             buf.append('\n')
+        elif g.group(6):
+            ny=float(g.group(6))
+            if y is not None and abs(ny-y)>2: buf.append('\n')
+            y=ny
     txt=re.sub(r'[ \t]+',' ',''.join(buf))
     txt=re.sub(r'\n +','\n',txt).strip()
     if txt: blocks.append((num,imgs,txt))

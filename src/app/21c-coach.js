@@ -5,7 +5,7 @@
    one-tap actions later is a change to this file, not to the contract with the
    server. */
 let coach={q:'',busy:false,err:null,last:null,turns:null,thread:null,loaded:false};
-const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete'};
+const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete',guide:'Guide'};
 
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
@@ -66,7 +66,7 @@ function vCoach(){
   coachLoad();
   const turns=coach.turns;
   let h=`<div class="card"><div class="lift-h"><h2>Coach</h2>${coach.cap?`<span class="small muted">${coach.used||0} of ${coach.cap} this month</span>`:''}</div>
-  <p class="note" style="margin:0">It can read your plan, your last four weeks and your copies of the four books, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
+  <p class="note" style="margin:0">It can read your plan, your last four weeks, this app\u2019s Guide and your copies of the four books, which it searches itself, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`</div>`;
 

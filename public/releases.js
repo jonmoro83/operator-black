@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.77',date:'2026-11-11',title:"The coach reads the Guide and searches the books itself",items:[
+    "The coach now has this app's whole Guide in front of it for every question, so it can explain what the app does, why a timer waits, what a setting means, and what each conditioning session asks of you.",
+    "It searches the books for itself. Before, each question got eight passages picked by its own words, so a follow-up like \"what about the advanced version?\" found nothing. Now it writes its own searches, up to three a question, and reads what comes back before answering. The citations under an answer are everything it read.",
+    "Tactical Barbell II's text was reloaded from a cleaner read of the book. The old copy lost the first line after every page break, which took the basic version of most sessions with it.",
+  ]},
   {v:'3.76',date:'2026-11-10',title:"The timer is solid again",items:[
     "The interval timer had gone see-through: its red, green and yellow states were the same sheer tints the chips use, so the whole app showed through the numbers. The timer, the guided warm-up and the rest bars are opaque again in every state.",
   ]},

@@ -137,17 +137,19 @@ function exposeTail(src) {
 }
 
 /** Load the app. `now` fixes "today" (YYYY-MM-DD). Returns every function plus live state. */
-function loadApp({ now = "2026-10-19" } = {}) {
+function loadApp({ now = "2026-10-19", root = path.join(__dirname, "..") } = {}) {
   const dom = stubDom();
   // public/app.js is built from src/app/*.js by build.js; npm test builds first.
-  const bundlePath = path.join(__dirname, "..", "public", "app.js");
+  // `root` is for build.js, which renders the Guide out of the bundle it just wrote,
+  // possibly in a sandbox copy of the tree.
+  const bundlePath = path.join(root, "public", "app.js");
   if (!fs.existsSync(bundlePath)) throw new Error("public/app.js is missing — run `node build.js`");
   let src = fs.readFileSync(bundlePath, "utf8");
 
   // releases.js is a separate script the page loads first; evaluate it into the same
   // realm so RELEASES is in scope for the app.
   // a top-level const in an eval does not persist the way a <script> one does, so pin it
-  (0, eval)(fs.readFileSync(path.join(__dirname, "..", "public", "releases.js"), "utf8") +
+  (0, eval)(fs.readFileSync(path.join(root, "public", "releases.js"), "utf8") +
     ";globalThis.RELEASES=RELEASES;");
 
   // replace the boot sequence at the end of the IIFE

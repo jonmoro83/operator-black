@@ -1247,6 +1247,26 @@ function fakeAnthropic(reply, status = 200) {
   fn.calls = calls;
   return fn;
 }
+// The system prompt is blocks now (the cached brief and Guide, then the state), so a
+// test reads it as one string.
+const sysText = (body) => Array.isArray(body.system) ? body.system.map((b) => b.text).join("\n") : body.system;
+// A model that answers over several calls: a search first, then the reply.
+function fakeAnthropicSeq(replies) {
+  const calls = [];
+  const real = globalThis.fetch;
+  const fn = async (url, init) => {
+    if (!String(url).startsWith("https://api.anthropic.com/")) return real(url, init);
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, status: 200, json: async () => replies[Math.min(calls.length - 1, replies.length - 1)] };
+  };
+  fn.calls = calls;
+  return fn;
+}
+const searchReply = (query, id = "tu1") => ({
+  model: "claude-sonnet-5-5", stop_reason: "tool_use",
+  content: [{ type: "thinking", thinking: "", signature: "sig" }, { type: "tool_use", id, name: "search_library", input: { query } }],
+  usage: { input_tokens: 500, output_tokens: 40 },
+});
 const coachReply = (answer, suggestions = []) => ({
   model: "claude-sonnet-5-5",
   content: [{ type: "text", text: JSON.stringify({ answer, suggestions }) }],
@@ -1283,7 +1303,7 @@ test("the coach is grounded in the plan and the books before it answers", async 
     a.match(prompt, /x 1\.3 for grams of protein/, "the macro passage was retrieved");
     // The plan goes in the system block, where it is sent once however long the
     // conversation gets, rather than once per turn of history.
-    const sys = sent.body.system;
+    const sys = sysText(sent.body);
     a.match(sys, /"bodyweight":185/);
     a.match(sys, /"template":"operator"/);
     a.match(sys, /grinder/, "and what actually happened in the log");
@@ -1291,13 +1311,91 @@ test("the coach is grounded in the plan and the books before it answers", async 
     a.ok(!/<state>/.test(prompt), "and not repeated in the message");
     // The system prompt has to rank the books above the model's own view, or the
     // whole point of the library is lost.
-    a.match(sent.body.system, /THE BOOKS/);
-    a.match(sent.body.system, /books don't address this/);
-    a.match(sent.body.system, /Never say you have adjusted/, "and it must not claim to have acted");
+    a.match(sysText(sent.body), /THE BOOKS/);
+    a.match(sysText(sent.body), /books don't address this/);
+    a.match(sysText(sent.body), /Never say you have adjusted/, "and it must not claim to have acted");
     // Always offered and never asked for: the model decides per question, which is a
     // judgement the person could not make before seeing the answer.
-    a.equal(sent.body.tools[0].name, "web_search", "the tool is always on the table");
-    a.match(sent.body.system, /Do not reach for it when the books answer the question/);
+    a.deepEqual(sent.body.tools.map((t) => t.name), ["search_library", "web_search"], "both tools are always on the table");
+    a.match(sysText(sent.body), /Do not reach for it when the books answer the question/);
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach is handed the app's Guide, cached, and the books as a tool it can search itself", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "why does the timer wait on the swings" }) }, tok);
+    const body = globalThis.fetch.calls[0].body;
+    // Two blocks: the brief with the whole Guide, the same for everyone and cached for an
+    // hour, then the state, which changes per person and per day and sits after it.
+    a.equal(body.system.length, 2);
+    a.deepEqual(body.system[0].cache_control, { type: "ephemeral", ttl: "1h" });
+    a.match(body.system[0].text, /<guide>\n# How the week works/, "the Guide, rendered to text");
+    a.match(body.system[0].text, /### #14 Meat Eater II/, "every HIC session with it");
+    a.ok(!/<(div|p|details|h3)\b/.test(body.system[0].text), "and no markup");
+    a.ok(!body.system[0].text.includes("<state>"), "nothing per-person in the cached block");
+    a.ok(!body.system[1].cache_control);
+    a.match(body.system[1].text, /^<state>/);
+    a.match(body.system[0].text, /2\. THE APP\./, "and the brief says what the Guide is for");
+    a.match(body.system[0].text, /call search_library/);
+    const lib = body.tools.find((t) => t.name === "search_library");
+    a.equal(lib.strict, true);
+    a.deepEqual(lib.input_schema.required, ["query"]);
+    a.ok(!body.tool_choice, "the model decides whether to search");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach searches the books itself, reads what it found, and cites it", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropicSeq([searchReply("fobbit intervals kettlebell"), coachReply("Fobbits, twenty minutes.")]);
+  try {
+    const res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "what should I do on Tuesday" }) }, tok);
+    a.equal(res.status, 200);
+    const body = await res.json();
+    a.equal(body.answer, "Fobbits, twenty minutes.");
+    a.equal(body.searches, 1);
+    a.equal(globalThis.fetch.calls.length, 2, "one search, then the answer");
+    const second = globalThis.fetch.calls[1].body;
+    const msgs = second.messages;
+    // The model's whole reply goes back as its turn, thinking block and all, then the
+    // passages as the tool's result.
+    a.equal(msgs[msgs.length - 2].role, "assistant");
+    a.equal(msgs[msgs.length - 2].content[0].type, "thinking");
+    a.equal(msgs[msgs.length - 1].role, "user");
+    const result = msgs[msgs.length - 1].content[0];
+    a.equal(result.type, "tool_result"); a.equal(result.tool_use_id, "tu1");
+    a.match(result.content, /<p doc="tb3" ref="p63">9\. FOBBIT INTERVALS/, "what the search found, with the page to cite");
+    a.ok(!second.tool_choice, "not the last round, so it may search again");
+    // The citations are what was read: the question's own passages first, then the search's.
+    a.ok(body.cites.some((c) => c.doc === "tb3" && c.ref === "p63"));
+    a.equal(new Set(body.cites.map((c) => c.doc + c.ref)).size, body.cites.length, "no duplicates");
+    const row = env.DB.coachRows[0];
+    a.equal(row.tokens_in, 1400, "both calls are counted");
+    a.equal(row.tokens_out, 160);
+    a.equal(body.used, 1, "but it is one question against the cap");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the search loop ends: after three rounds the model is told to answer", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropicSeq([searchReply("a", "t1"), searchReply("nothing here zzqx", "t2"), searchReply("c", "t3"), coachReply("Done looking.")]);
+  try {
+    const res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "search forever" }) }, tok);
+    a.equal(res.status, 200);
+    const calls = globalThis.fetch.calls;
+    a.equal(calls.length, 4, "three searches, then the answer");
+    a.ok(!calls[2].body.tool_choice);
+    a.deepEqual(calls[3].body.tool_choice, { type: "none" }, "the last call has tools off, so it answers");
+    const miss = calls[2].body.messages.at(-1).content[0];
+    a.match(miss.content, /Nothing in the books matched/, "a search that finds nothing is told so, not an error");
+    a.equal((await res.json()).searches, 3);
   } finally { globalThis.fetch = orig }
 });
 
@@ -1381,8 +1479,10 @@ test("web search is the model's call, and the question is bounded", async () => 
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "latest research on plyometrics" }) }, tok);
     const tools = globalThis.fetch.calls[0].body.tools;
-    a.equal(tools[0].name, "web_search", "offered without being asked for");
-    a.ok(tools[0].max_uses <= 3, "and bounded, so one question cannot run up a bill");
+    const web = tools.find((t) => t.name === "web_search");
+    a.ok(web, "offered without being asked for");
+    a.equal(web.type, "web_search_20260209", "the variant this model takes");
+    a.ok(web.max_uses <= 3, "and bounded, so one question cannot run up a bill");
 
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "x".repeat(5000) }) }, tok);
     const q = globalThis.fetch.calls[1].body.messages[0].content;
@@ -1416,7 +1516,7 @@ test("the coach is told the bodyweight and calories that are actually logged", a
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(globalThis.fetch.calls[0].body).match(/<state>(.*?)<\/state>/s)[1]);
 
     // The bug: the summary read checkin.weight, which does not exist, so the coach was
     // told there was no bodyweight while five days of it sat in the log.
@@ -1461,7 +1561,7 @@ test("the coach is told what the person is training for", async () => {
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "bench is stuck" }) }, tok);
     const sent = globalThis.fetch.calls[0].body;
-    const state = JSON.parse(sent.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(sent).match(/<state>(.*?)<\/state>/s)[1]);
 
     a.equal(state.goals.aim, "315 squat without losing my mile time");
     a.equal(state.goals.by, "2027-03-01");
@@ -1472,11 +1572,11 @@ test("the coach is told what the person is training for", async () => {
     // A suggestion is only useful if it names something the app can actually turn on.
     a.ok(state.accessorySlots.includes("triceps"), "the real slots go with it");
     a.ok(state.accessorySlots.includes("pchain"));
-    a.match(sent.system, /accessorySlots/, "and the prompt says to use them");
-    a.match(sent.system, /goals\.stalls says where a lift slows down/, "and what to do about a stall");
-    a.match(sent.system, /name the slot it goes in/, "naming a slot they can switch on");
-    a.match(sent.system, /Do not invent movements the app does not offer/);
-    a.match(sent.system, /goals\.by is a date/);
+    a.match(sysText(sent), /accessorySlots/, "and the prompt says to use them");
+    a.match(sysText(sent), /goals\.stalls says where a lift slows down/, "and what to do about a stall");
+    a.match(sysText(sent), /name the slot it goes in/, "naming a slot they can switch on");
+    a.match(sysText(sent), /Do not invent movements the app does not offer/);
+    a.match(sysText(sent), /goals\.by is a date/);
   } finally { globalThis.fetch = orig }
 });
 
@@ -1491,7 +1591,7 @@ test("goals that were never filled in are absent, not empty", async () => {
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(globalThis.fetch.calls[0].body).match(/<state>(.*?)<\/state>/s)[1]);
     // An object of nulls reads as "asked and left blank"; absent reads as "not asked".
     a.equal(state.goals, null);
   } finally { globalThis.fetch = orig }
@@ -1631,7 +1731,7 @@ test("the coach sees the macros that were logged, and the target for them", asyn
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "am I eating enough" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(globalThis.fetch.calls[0].body).match(/<state>(.*?)<\/state>/s)[1]);
 
     // Grams follow the calories: logged the morning after, counted to the day before.
     const byDay = Object.fromEntries(state.recentDays.map((x) => [x.d, x.checkin && x.checkin.grams]));
@@ -1690,7 +1790,7 @@ test("the coach sees what you take and how often you actually take it", async ()
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "should I keep taking creatine" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(globalThis.fetch.calls[0].body).match(/<state>(.*?)<\/state>/s)[1]);
     const by = Object.fromEntries(state.supplements.map((s) => [s.name, s]));
 
     a.deepEqual(Object.keys(by).sort(), ["caffeine", "creatine monohydrate", "Fish oil"].sort(),
@@ -1720,7 +1820,7 @@ test("a coach state with no supplements ticked does not mention them", async () 
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "hi" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(globalThis.fetch.calls[0].body).match(/<state>(.*?)<\/state>/s)[1]);
     a.equal(state.supplements, null, "nothing invented for someone who takes none");
   } finally { globalThis.fetch = orig }
 });
@@ -1738,7 +1838,7 @@ test("the coach sees how each set moved, not only how many were done", async () 
   globalThis.fetch = fakeAnthropic(coachReply("ok"));
   try {
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how was my squat" }) }, tok);
-    const state = JSON.parse(globalThis.fetch.calls[0].body.system.match(/<state>(.*?)<\/state>/s)[1]);
+    const state = JSON.parse(sysText(globalThis.fetch.calls[0].body).match(/<state>(.*?)<\/state>/s)[1]);
     const day = state.recentDays.find((x) => x.d === "2026-10-14");
     a.equal(day.lifts.squat, "3 (fast, solid, ground)", "set by set");
     a.equal(day.lifts.bench, "3 (grinder)", "and an old whole-lift grinder still reads as one");
@@ -1766,9 +1866,10 @@ test("Monday's cron writes one debrief a week, from the log and the books, witho
     const call = globalThis.fetch.calls[0].body;
     a.equal(call.model, "claude-sonnet-5-5", "the same coach as the questions");
     a.ok(!call.tools, "no web search: a review of their own log is what the books and the log cover");
+    a.match(call.system[0].text, /<guide>/, "the same brief and Guide as a question, from the same cache");
     a.match(call.messages[0].content, /week of 2026-10-12 to 2026-10-18/);
     a.match(call.messages[0].content, /<library><p doc="tb3"/, "the books go with it");
-    a.match(call.system, /<state>.*"d":"2026-10-14"/, "and the log");
+    a.match(sysText(call), /<state>.*"d":"2026-10-14"/, "and the log");
     const row = env.DB.debriefs[0];
     a.equal(row.answer, "A solid week.");
     a.deepEqual(JSON.parse(row.suggestions), [{ title: "Sleep more", detail: "x" }]);

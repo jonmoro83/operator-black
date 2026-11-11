@@ -143,6 +143,24 @@ test("the bundle carries the newest release's version and where to fetch the not
   } finally { drop(dir) }
 });
 
+test("the build renders the Guide to text for the coach, and the text is the Guide", () => {
+  // 3.77. The coach reads the same Guide the person does, as a text module the Worker
+  // imports. It is rendered from the bundle just built, so it cannot lag the Guide.
+  const dir = sandbox();
+  const r = build(dir);
+  const mod = fs.readFileSync(path.join(dir, "src", "guide-text.js"), "utf8");
+  a.match(mod, /^export const GUIDE_TEXT = "/m);
+  const text = JSON.parse(mod.match(/GUIDE_TEXT = (".*");/)[1]);
+  a.equal(text.length, r.guide);
+  a.match(text, /^# How the week works\n/, "headings keep their level");
+  a.match(text, /\n## Strength rules\n/);
+  a.match(text, /\n### #14 Meat Eater II \(Glycolytic\)\n/, "folds are headings, chips are bracketed");
+  a.match(text, /\n- 10 burpees\n/, "lists are lines");
+  a.ok(!/<[a-z]/.test(text), "no markup survives");
+  a.ok(!/&[a-z#]+;/.test(text), "no entities either");
+  a.ok(text.length > 100000, "and it is the whole Guide");
+});
+
 test("releaseStamp refuses a notes file it cannot read a version from", () => {
   a.throws(() => releaseStamp("const RELEASES=[];"), /no \{v:'x\.y'\} entry/);
   a.deepEqual(releaseStamp("const RELEASES=[\n  {v:'3.70',date:'2026-11-08',title:\"t\",items:[]}];").version, "3.70");

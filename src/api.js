@@ -37,6 +37,7 @@
 // or dev@local).
 
 import { vapidPublicKey } from "./webpush.js";
+import { GUIDE_TEXT } from "./guide-text.js";
 
 const DOC_PATH = /^(plan\/main|logs\/\d{4}-\d{2}-\d{2}|programs\/[a-z0-9-]{1,40})$/;
 // The shape of a date is not the same as a date. 2026-02-31 and 2026-13-99 both match the
@@ -623,11 +624,12 @@ const COACH_SYSTEM = `You are a strength and conditioning coach for one person, 
 This is a conversation, not a series of lookups. Earlier turns are above; refer back to them, do not re-introduce yourself or repeat advice you have already given. A short reply to a short follow-up is the right length.
 
 GROUNDING, in order of authority:
-1. THE BOOKS. Passages from the person's own copies are supplied under <library>. When they answer the question, follow them and cite them as [tb1 p12] using the doc and ref given. Tactical Barbell III and Mass Protocol are the same book.
-2. THE PLAN. The state block below is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
-3. YOUR OWN REASONING, last. If the books do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's.
+1. THE BOOKS. Passages from the person's own copies that match the question's words are supplied under <library>. When they answer the question, follow them and cite them as [tb1 p12] using the doc and ref given. If they do not answer it, or you need the rest of a passage, a named session, or a different part of a book, call search_library with your own short query in the words the book would use ("meat eater burpees", "operator deload week"). Three searches at most, then answer with what you have. Tactical Barbell III and Mass Protocol are the same book.
+2. THE APP. The person trains inside Operator Black, and its Guide is supplied under <guide>: how it schedules weeks, picks weights, runs its timers, scores conditioning, and what each setting means. Answer questions about the app from the Guide, and do not describe a feature it does not list.
+3. THE PLAN. The state block below is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
+4. YOUR OWN REASONING, last. If the books do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's.
 
-WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
+WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Search the books before the web. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
 
 When you do use it, name the source in the sentence that relies on it, and say that it is not from the books. A forum post does not carry the weight of a book and must not be written as though it does.
 
@@ -650,6 +652,35 @@ Keep the answer under about 250 words. It has a hard length limit and an answer 
 Reply with JSON only, no other text:
 {"answer": "markdown, a few short paragraphs", "suggestions": [{"title": "short imperative", "detail": "one or two sentences"}]}
 Leave suggestions empty if you have none worth acting on. Never pad it.`;
+
+/* The books as a tool: the model phrases its own query, which is what a follow-up turn
+   needs ("what about the advanced version?" shares no words with the passage) and what
+   a question in the person's words rather than the book's needs. Bounded per question. */
+const LIB_TOOL = {
+  name: "search_library",
+  description: "Full-text search of the person's own copies of the four Tactical Barbell books (tb1, tb2 Conditioning, tb3 Mass Protocol, aa Ageless Athlete). Returns the best-matching passages with the book and page to cite. Use short queries in the words the book would use.",
+  input_schema: {
+    type: "object",
+    properties: { query: { type: "string", description: "Two to six words, e.g. \"meat eater burpees\" or \"operator deload week\"." } },
+    required: ["query"],
+    additionalProperties: false,
+  },
+  strict: true,
+};
+const WEB_TOOL = { type: "web_search_20260209", name: "web_search", max_uses: 3 };
+const COACH_SEARCHES = 3;       // rounds of search_library per question, then it answers
+
+/* The system prompt in two blocks. The first -- the brief and the whole Guide, about
+   30k tokens -- is the same for everyone and every question, so it is cached for an
+   hour. The state block changes per person and per day and sits after it, where it
+   cannot disturb the cached prefix. */
+function coachSystem(state) {
+  return [
+    { type: "text", text: `${COACH_SYSTEM}\n\n<guide>\n${GUIDE_TEXT}\n</guide>`, cache_control: { type: "ephemeral", ttl: "1h" } },
+    { type: "text", text: `<state>${JSON.stringify(state)}</state>` },
+  ];
+}
+const passageOf = (h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`;
 
 /* What the coach is told about the person. Deliberately a summary rather than the raw
    log: the whole history is far more than the question needs, costs more to send, and
@@ -847,7 +878,7 @@ async function askCoach(request, env, user) {
     coachState(env, user),
     libSearch(env, ftsQuery(q), 8),
   ]);
-  const passages = (lib.hits || []).map((h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`).join("\n");
+  const passages = (lib.hits || []).map(passageOf).join("\n");
 
   // Earlier turns carry only what was said. The state goes in the system block, where
   // it is sent once rather than once per turn of history, and the passages go with the
@@ -865,37 +896,71 @@ async function askCoach(request, env, user) {
   const payload = {
     model: COACH_MODEL,
     max_tokens: 2600,
-    system: `${COACH_SYSTEM}\n\n<state>${JSON.stringify(state)}</state>`,
+    system: coachSystem(state),
     messages,
+    // Both always offered, never asked for. The books are the authority and the model
+    // is told to search them itself when the passages that came with the question do
+    // not answer it, and to reach for the web only when the books do not cover it --
+    // judgements it can make per question and the person could not make in advance.
+    tools: [LIB_TOOL, WEB_TOOL],
   };
-  // Always offered, never asked for. The books are the authority and the model is told
-  // to reach for the web only when they do not cover the question -- which is a
-  // judgement it can make per question and the person could not make in advance.
-  payload.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
 
   const id = crypto.randomUUID();
-  let res, data;
-  try {
-    res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(payload),
-    });
-    data = await res.json();
-  } catch (e) {
-    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0, thread });
-    return json({ error: "Could not reach the coach. Try again." }, 502);
-  }
-  if (!res.ok) {
-    await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: 0, to: 0, ok: 0, thread });
-    // The upstream message can carry the key's own details, so it is logged, not returned.
-    return json({ error: data && data.error && data.error.type === "rate_limit_error"
-      ? "The coach is rate limited just now. Try again in a minute."
-      : "The coach could not answer that one." }, 502);
+  // The citations are our own retrieval, not the model's claim: what came with the
+  // question, then whatever its searches turned up, in the order they were read.
+  const cites = (lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }));
+  const usage = { input_tokens: 0, output_tokens: 0 };
+  let data, stop, searches = 0;
+  // One call, or a few: each round the model may search the books and get the
+  // passages back as a tool result. The last allowed round is sent with tools off, so
+  // the loop always ends in an answer rather than another question.
+  for (let round = 0; ; round++) {
+    let res;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(payload),
+      });
+      data = await res.json();
+    } catch (e) {
+      await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: usage.input_tokens, to: usage.output_tokens, ok: 0, thread });
+      return json({ error: "Could not reach the coach. Try again." }, 502);
+    }
+    if (!res.ok) {
+      await logCoach(env, { id, user, q, answer: "", cites: [], model: COACH_MODEL, ti: usage.input_tokens, to: usage.output_tokens, ok: 0, thread });
+      // The upstream message can carry the key's own details, so it is logged, not returned.
+      return json({ error: data && data.error && data.error.type === "rate_limit_error"
+        ? "The coach is rate limited just now. Try again in a minute."
+        : "The coach could not answer that one." }, 502);
+    }
+    const u = data.usage || {};
+    usage.input_tokens += u.input_tokens || 0; usage.output_tokens += u.output_tokens || 0;
+    stop = data.stop_reason || "";
+    const asks = (data.content || []).filter((c) => c.type === "tool_use" && c.name === LIB_TOOL.name);
+    if (stop === "tool_use" && asks.length && round < COACH_SEARCHES) {
+      // The whole reply goes back as the assistant turn, thinking blocks included,
+      // then one result per search. Nothing found is an answer too, not an error.
+      messages.push({ role: "assistant", content: data.content });
+      const results = [];
+      for (const t of asks) {
+        const r = await libSearch(env, ftsQuery(String((t.input || {}).query || "")), 6);
+        searches++;
+        for (const h of r.hits || []) if (!cites.some((c) => c.doc === h.doc && c.ref === h.ref)) cites.push({ doc: h.doc, ref: h.ref });
+        results.push({ type: "tool_result", tool_use_id: t.id,
+          content: (r.hits || []).length ? r.hits.map(passageOf).join("\n") : "Nothing in the books matched those words. Try others, or answer from what you have." });
+      }
+      messages.push({ role: "user", content: results });
+      if (round === COACH_SEARCHES - 1) payload.tool_choice = { type: "none" };
+      continue;
+    }
+    // A web search that ran long: the API hands the turn back to be continued.
+    if (stop === "pause_turn" && round < COACH_SEARCHES) { messages.push({ role: "assistant", content: data.content }); continue; }
+    break;
   }
 
   const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
@@ -909,25 +974,24 @@ async function askCoach(request, env, user) {
   // answer is worse than admitting nothing came back.
   const looksJson = /^\s*[`{]/.test(text);
   const answer = String(parsed.answer || "").trim() || (looksJson ? "" : text);
-  const cites = (lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }));
-  const usage = data.usage || {};
-  const stop = data.stop_reason || "";
+  cites.splice(12);
 
   if (!answer) {
     await logCoach(env, { id, user, q, answer: "", cites, model: data.model || COACH_MODEL,
-      ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 0, stop, thread });
+      ti: usage.input_tokens, to: usage.output_tokens, ok: 0, stop, thread });
     return json({ error: stop === "max_tokens"
       ? "The answer ran past its length limit before any of it came back. Ask for something narrower and it will fit."
       : "The coach replied with nothing. Ask again \u2014 that one is on us, and it has not been counted." }, 502);
   }
 
   await logCoach(env, { id, user, q, answer, cites, model: data.model || COACH_MODEL,
-    ti: usage.input_tokens || 0, to: usage.output_tokens || 0, ok: 1, stop, thread });
+    ti: usage.input_tokens, to: usage.output_tokens, ok: 1, stop, thread });
 
   return json({
     id,
     thread,
     answer,
+    searches,
     // A truncated answer is still worth reading, but say so rather than letting it
     // trail off mid-sentence as though that were the whole thought.
     truncated: stop === "max_tokens" || undefined,
@@ -1048,7 +1112,7 @@ async function debriefFor(env, user, now) {
     coachState(env, user),
     libSearch(env, ftsQuery(`recovery fatigue progression ${lifts.join(" ")}`), 6),
   ]);
-  const passages = (lib.hits || []).map((h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`).join("\n");
+  const passages = (lib.hits || []).map(passageOf).join("\n");
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -1060,7 +1124,7 @@ async function debriefFor(env, user, now) {
     body: JSON.stringify({
       model: COACH_MODEL,
       max_tokens: 2000,
-      system: `${COACH_SYSTEM}\n\n<state>${JSON.stringify(state)}</state>`,
+      system: coachSystem(state),
       messages: [{ role: "user", content: `<library>${passages || "(nothing in the books matched)"}</library>\n\n${DEBRIEF_ASK(wk.from, wk.to)}` }],
     }),
   });
