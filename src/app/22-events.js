@@ -393,6 +393,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
   if(a==='addon'){ addonAdd(sel,b.dataset.kind); render(); return }
+  if(a==='fintimer'){ gtStart('down',+b.dataset.v); return }
   if(a==='addondel'){ offerUndo('Session removed',snapLog(sel)); addonDel(sel,+b.dataset.i); render(); return }
   if(a==='addonsetadd'){ addonSetAdd(sel,+b.dataset.i); render(); return }
   if(a==='addonsetdel'){ addonSetDel(sel,+b.dataset.i,+b.dataset.j); render(); return }

@@ -57,9 +57,9 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
   conditioning sessions; and, since 3.75, all forty of TB II's named HIC sessions. The
   only book content left out is AA's Base Building, declined by request, and I/A's
-  floating schedule. Still unbuilt from TB II: the core and grip sessions (Plank & Shank,
-  Full Core, Quarterdeck Core, Progressive Grip Circuit) and the challenge sessions, and
-  the E sessions are only LISS plus the SE circuits. Whatever comes next is new ground.
+  floating schedule. TB II's core and grip sessions and its five challenge sessions went
+  in with 3.80. Still unbuilt from TB II: the E sessions are only LISS plus the SE
+  circuits. Whatever comes next is new ground.
 - **Tune the end-of-cycle review after Cycle 1.** Blocked until there is a finished
   cycle. On the current plan (bridge from 2026-09-28) cycle 1 runs 2026-10-05 to
   **2026-11-15**, and cycle 2 begins 11-16. Then check whether the grinder /
@@ -148,6 +148,31 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**TB II's core, grip and challenge sessions (2026-11-12, 3.80)**
+- Asked for with the rest of the 2026-11-12 list. Placement was the user's choice from
+  two previews: **finishers are added to any day**, not picked instead of a session.
+- The book (pp. 170 to 185): Core + Grip is four sessions, three of them "finishers that
+  can be tacked on after your main training sessions"; Full Core "isn't a finisher".
+  Then five challenge sessions, "not meant to be a part of your regular conditioning
+  protocol".
+- Finishers are a third kind of add-on (`kind:'fin'`) in **Anything else today**:
+  `FINISHERS` in `src/app/01e-finishers.js`, drawn by `finBlock`. Nothing is scored and
+  they feed no minutes or records. `finLast`/`finLastLine` look back across programs;
+  for the grip circuit the line is the book's progression (unbroken lap: +5 to 10 lb a
+  dumbbell, shown as +2.5 to 5 in kg, which is ours). Hold buttons start the generic
+  timer (`fintimer`).
+- Full Core and the challenges are `HIC_BOOK` entries with `cat:'core'|'challenge'` and
+  `no` (their place in their own list) instead of a HIC number `n`; `hicOrd` sorts
+  either. Challenges are `noCompare`, so never the benchmark, automatic or pinned.
+  `resStr` prints h:mm:ss past the hour.
+- Timer shapes in `IV_BOOK`. Beasting is `March` 600 s on the clock then the bell work
+  held, which is the book's "timer stops while you do it".
+- **Ours, and labeled so:** Burpees for the Mentally Disturbed is scored by the two sets
+  added together (the book only asks that the second beat the first). Full Core's
+  "20 to 30% of 1RM" names no lift, so no weight is computed.
+- Known: an interval timer older than three hours is dropped at boot, and Triska or
+  Snake-Eater can run longer. The session and the time field still log by hand.
 
 **Three fixes left over from the review (2026-11-12, 3.79)**
 - `askCoach`: `pause_turn` shared the search-round counter, so a paused web search plus

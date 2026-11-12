@@ -658,6 +658,7 @@ function addonAdd(date,kind){
   if(readOnly()) return null;
   const list=addonsOf(date).slice();
   const a=kind==='lift'?{kind:'lift',what:'',sets:[]}
+         :kind==='fin'?{kind:'fin',id:'plankshank',rounds:''}
                        :{kind:'cond',mod:defMod(),fmt:'liss',what:'',min:'',val:''};
   list.push(a); setLog(date,'addons',list);
   return list.length-1;
@@ -682,6 +683,7 @@ function addonSetDel(date,i,j){
 }
 function addonLabel(a){
   if(a.kind==='lift') return a.what||'Extra lifting';
+  if(a.kind==='fin') return finOf(a).name;
   const m=MOD[a.mod], f=HIC[a.fmt];
   return (a.what||(m?m.name:'Cardio'))+(f?' · '+f.name:'');
 }

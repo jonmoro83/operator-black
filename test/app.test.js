@@ -9781,7 +9781,9 @@ test("the setup wizard on StrongLifts shows its fixed lifts, not a Lift 3 choice
 // --- Tactical Barbell II's forty HIC sessions ------------------------------------------
 test("the book's forty HIC sessions are formats, numbered the way the book numbers them", () => {
   const x = app({ now: "2026-10-20" });
-  const book = Object.entries(x.HIC).filter(([, f]) => f.book);
+  // The forty carry a HIC number. Full Core and the challenge sessions are book formats
+  // too, from their own lists, and have their own test below.
+  const book = Object.entries(x.HIC).filter(([, f]) => f.book && f.book.n);
   const nums = book.map(([, f]) => f.book.n).sort((p, q) => p - q);
   a.deepEqual(nums, Array.from({ length: 40 }, (_, i) => i + 1), "1 to 40, each once");
   a.equal(x.HIC.fobbit.book.n, 9, "#9 is the FOBBIT, which already exists");
@@ -9943,4 +9945,118 @@ test("the day card shows a book session as the book gives it, and offers the who
   const opts = (setup.match(/data-pbind="benchmark\.fmt">([\s\S]*?)<\/select>/) || [])[1] || "";
   a.ok(opts.includes('value="meateater2"')); a.ok(!opts.includes('value="resets600"'));
   a.match(opts, /<optgroup label="Tactical Barbell II: general conditioning">/);
+});
+
+// --- Tactical Barbell II's core, grip and challenge sessions (3.80) ---------------------
+test("Full Core and the five challenge sessions are formats, in their own groups, as the book lists them", () => {
+  const x = app({ now: "2026-10-20" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+  const d = "2026-10-20"; x.sel = d;
+  const ch = Object.entries(x.HIC).filter(([, f]) => f.book && f.book.cat === "challenge").sort((p, q) => p[1].book.no - q[1].book.no);
+  a.deepEqual(ch.map(([k]) => k), ["dukuduku", "burpeesmd", "triska", "beasting", "snakeeater"], "five, in the book's order");
+  a.equal(x.HIC.fullcore.book.cat, "core");
+  for (const [k, f] of ch.concat([["fullcore", x.HIC.fullcore]])) {
+    a.equal(f.book.n, undefined, k + " has no HIC number: the forty are the forty");
+    a.ok(f.book.lines.length >= 3 && f.book.why.length > 60 && f.sess, k + " carries the prescription and the reasoning");
+    a.ok(x.IV[k] && x.IV[k].seq, k + " runs on the timer");
+    a.equal(x.hicBook(k), true);
+  }
+  a.equal(x.hicSrcLabel("beasting"), "Tactical Barbell II, challenge session 4");
+  a.equal(x.hicSrcLabel("fullcore"), "Tactical Barbell II, core and grip, session 2");
+
+  // The format list offers them under the forty, without a # they do not have.
+  const opts = x.hicOptions("triska");
+  a.match(opts, /<optgroup label="Tactical Barbell II: core"><option value="fullcore">Full Core<\/option><\/optgroup>/);
+  a.match(opts, /<optgroup label="Tactical Barbell II: challenge sessions"><option value="dukuduku">Duku-Duku/);
+  a.match(opts, /<option value="triska" selected>Triska-Deka-Phobia<\/option>/);
+
+  // The book: optional, not routine, every couple of months. Never the benchmark.
+  for (const [k, f] of ch) a.equal(f.noCompare, true, k);
+  const setup = x.vSetup();
+  const bench = (setup.match(/data-pbind="benchmark\.fmt">([\s\S]*?)<\/select>/) || [])[1] || "";
+  a.ok(!bench.includes('value="triska"') && !bench.includes('value="burpeesmd"'), "not offered as one in Setup");
+
+  // Scored the book's way: three for time, the burpees by count, Duku-Duku by rounds.
+  a.deepEqual(x.metricFor("run", "triska"), ["time", "mm:ss"]);
+  a.equal(x.HIC.triska.lower, true);
+  a.deepEqual(x.metricFor("run", "burpeesmd"), ["reps", "burpees"]);
+  a.equal(x.HIC.dukuduku.noMetric, true);
+  a.equal(x.resStr(11260, "mm:ss"), "3:07:40", "a time past the hour reads as hours");
+  a.equal(x.resStr(500, "mm:ss"), "8:20");
+
+  // Beasting's clock is the one the book describes: the ten minutes run, the bell work waits.
+  const o = x.ivOpts(d, "beasting");
+  const segs = x.ivSegments("beasting", { ...o, warm: false, cool: false });
+  a.deepEqual(segs.slice(0, 2).map((s) => [s.l, s.s, !!s.hold]), [["March", 600, false], ["100 swings, or 100 squats", 300, true]]);
+  // Full Core ends on its own finisher, 60 s plank and 45 s shank, three times.
+  const fc = x.ivSegments("fullcore", { ...x.ivOpts(d, "fullcore"), warm: false, cool: false });
+  a.equal(fc[0].l, "100 Romanian deadlifts");
+  a.deepEqual(fc.slice(-6).map((s) => [s.l, s.s]), [["Plank", 60], ["Shank", 45], ["Plank", 60], ["Shank", 45], ["Plank", 60], ["Shank", 45]]);
+
+  // The day card prints one like any book session, and says where it is from.
+  x.seed({ [d]: { date: d, hic: { format: "dukuduku", mod: "run" } } }); x.bump();
+  const card = x.hicCard({ t: "hic", fmt: "dukuduku" }, "");
+  a.match(card, /The kettlebell cannot touch the ground for the whole session/);
+  a.match(card, /challenge session 1/);
+  a.match(card, /<b>Advanced:<\/b> 10 rounds/);
+
+  // And the Guide has all of it, with the book's warning.
+  const g = x.vGuide();
+  a.match(g, /Conditioning: core, grip and the challenge sessions/);
+  for (const name of ["Full Core", "Duku-Duku", "Burpees for the Mentally Disturbed", "Triska-Deka-Phobia", "Beasting", "Plank &amp; Shank", "Quarterdeck Core", "Progressive Grip Circuit"])
+    a.ok(g.includes(name), name + " is in the Guide");
+  a.match(g, /not meant to be a part of your regular conditioning protocol/);
+  a.match(g, /cleared by your physician/);
+});
+
+test("a finisher is added to any day, under the session, and is not a conditioning session", () => {
+  const x = app({ now: "2026-10-20" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+  const d = "2026-10-20"; x.sel = d;
+  a.deepEqual(Object.keys(x.FINISHERS), ["plankshank", "quarterdeck", "grip"], "the three the book calls finishers");
+  a.match(x.addonCard(d), /data-act="addon" data-kind="fin">Add a finisher/);
+
+  const i = x.addonAdd(d, "fin");
+  a.equal(x.addonLabel(x.addonsOf(d)[i]), "Plank & Shank");
+  let card = x.addonCard(d);
+  a.match(card, /<option value="plankshank" selected>Plank &amp; Shank \u00b7 1 to 3 rounds<\/option>/);
+  a.match(card, /<li>Shank 1 to 5 minutes<\/li>/, "the prescription, as the book writes it");
+  a.match(card, /<b>Basic:<\/b> Shorter holds to start/);
+  a.match(card, /What the book says/);
+  a.match(card, /data-act="fintimer" data-v="60">1:00/, "a hold can be timed");
+  a.match(card, /data-bind="addons\.0\.plank"/); a.match(card, /data-bind="addons\.0\.shank"/);
+  a.match(card, /core and grip, session 1/);
+  x.setLog(d, "addons.0.rounds", 2); x.setLog(d, "addons.0.plank", 60);
+
+  // It sits outside the program like everything else in that card: no minutes, no records.
+  a.deepEqual(x.hicSessions(true).filter((h) => h.d === d), []);
+
+  // Switching the finisher switches the card.
+  x.setLog(d, "addons.0.id", "quarterdeck");
+  card = x.addonCard(d);
+  a.match(card, /<li>V-ups \u00d7 10<\/li>/); a.doesNotMatch(card, /fintimer/, "nothing in it is a hold");
+  a.equal(x.addonLabel(x.addonsOf(d)[0]), "Quarterdeck Core");
+});
+
+test("the grip circuit carries the book's progression from one session to the next", () => {
+  const x = app({ now: "2026-10-27" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+  const first = "2026-10-20", next = "2026-10-27"; x.sel = next;
+  x.seed({ [first]: { date: first, addons: [{ kind: "fin", id: "grip", rounds: 2, w: 35, unbroken: true }] } }); x.bump();
+  x.addonAdd(next, "fin"); x.setLog(next, "addons.0.id", "grip");
+  let card = x.addonCard(next);
+  a.match(card, /Each dumbbell \(lb\)/); a.match(card, /All the way round without putting them down/);
+  a.match(card, /data-v="90">1:30/, "the gym version's 90 second hold");
+  a.match(card, /Last time, Tue 10\/20: 2 laps, 35 lb a dumbbell\./);
+  a.match(card, /go up: <b>40 to 45 lb<\/b> a dumbbell/, "all the way round means 5 to 10 lb more");
+
+  // Had to put them down: the book says stay and link the segments.
+  x.logs[first].addons[0].unbroken = false; x.bump();
+  card = x.addonCard(next);
+  a.match(card, /stay at that weight and link more of the segments together/);
+  a.doesNotMatch(card, /go up: <b>/);
+
+  // Nothing before it: nothing to say. And it only ever looks back.
+  a.equal(x.finLastLine(first, "grip"), "");
+  a.equal(x.finLast(next, "plankshank"), null, "one finisher's history is not another's");
 });

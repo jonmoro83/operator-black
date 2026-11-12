@@ -17,7 +17,10 @@ The timer shape lives in IV (14-interval-timer.js) as `seq`: the segments of one
 timed where the book times them and held until you tap Done where it counts reps or
 distance. `est` is our guess at how long a held bout takes, used only to size the session
 in minutes before you run it; nothing in the book depends on it. */
-const HIC_CAT={aa:'Aerobic / anaerobic',gc:'General conditioning',power:'Power development'};
+const HIC_CAT={aa:'Aerobic / anaerobic',gc:'General conditioning',power:'Power development',core:'Core',challenge:'Challenge sessions'};
+// The forty are numbered 1 to 40 (`n`). Full Core and the challenge sessions come from
+// their own short lists later in the book, so they carry their place in those (`no`)
+// and no HIC number. The three finishers are not formats at all: see 01e-finishers.js.
 const HIC_BOOK={
   connaught:{n:1,cat:'aa',name:'Connaught Range 10 to 1s',sys:'Aerobic / anaerobic',gear:'100 m of running room',measure:['time','mm:ss'],lower:true,
     sess:'10 burpees, 100 m sprint, 9 burpees, sprint back … down to 1, for time',
@@ -239,11 +242,54 @@ const HIC_BOOK={
     alt:'10 plyometric or kipping pull-ups instead of the medicine ball slams.',
     load:[{lift:'ohp',pct:[85,85]}],
     why:'Heavy standard lifting primes the system for power work. Finish the set of front squats, rack the bar at once, step back and do ten powerful, explosive bodyweight squat jumps. Rest a couple of minutes and move on. Estimate the one-rep maxes if you need to, there is no need to be exact; just make sure the front squat, the press and the pull-ups are heavy.'},
+  /* Core + Grip, session 2. The other three in that list are finishers; this one the
+     book calls "a complete core focused session in and of itself". */
+  fullcore:{no:2,cat:'core',name:'Full Core',sys:'Core',gear:'A barbell, a pull-up bar and a back extension',
+    sess:'100 Romanian deadlifts at 20 to 30%, rest, 100 hanging knees to elbows, then Plank & Shank × 3',
+    lines:['A: Romanian deadlifts × 100, at 20 to 30% of 1RM','Rest 3 to 5 minutes','Hanging knees to elbows, or hanging leg raises, × 100','B, the finisher: Plank & Shank × 3 (60 s plank, 45 s shank)'],
+    basic:'50 deadlifts and 50 leg raises instead of 100.',
+    advanced:'A weight vest for the plank and shank. And/or hold a weight when shanking.',
+    why:'Not a finisher: a whole session on its own. Simple, minimalist and highly effective. Do the deadlifts and the leg raises in sets of 3, 5, 10, 20 or more, and rest as you need to. The author would rather pick the fewest highly effective movements and hit them hard than do ten kinds of sit-up. The book says 20 to 30% of 1RM without saying which lift; the app does not hold a Romanian deadlift max, so this is left for you to set, and lighter is the safer guess.'},
+  /* The challenge sessions. Optional, "not meant to be a part of your regular
+     conditioning protocol", once every couple of months when fully rested -- so they are
+     on offer and never scheduled, and they are kept out of the benchmark. */
+  dukuduku:{no:1,cat:'challenge',name:'Duku-Duku (Pretorian Hills)',sys:'Challenge',gear:'A hill and a 24 kg kettlebell (12 kg for women)',
+    sess:'5 goblet squats, run the hill with the bell, 10 swings, walk down, × 5, and the bell never touches the ground',
+    lines:['Kettlebell goblet squats × 5 (24 kg for men, 12 kg for women)','Run up the hill, carrying the kettlebell','Kettlebell swings × 10 at the top','Walk down, still carrying it','× 5','The kettlebell cannot touch the ground for the whole session'],
+    basic:'A light kettlebell. Put it down and rest 2 to 3 minutes after every round, at the bottom of the hill.',
+    advanced:'10 rounds. 10 goblet squats instead of 5. A 32 kg bell, working up to the 48 kg.',
+    why:'Loosely based on a South African military selection exercise, where a candidate who put his load down was done. Carry the bell any way you like as long as it stays off the ground; a dumbbell works, a backpack does not. Even in great shape you may not finish all five, so work up: two rounds without putting it down, a break, then three. Pick a hill that takes 35 to 45 seconds to sprint up empty-handed, or a longer one run slower; with a short hill, do more rounds.'},
+  burpeesmd:{no:2,cat:'challenge',name:'Burpees for the Mentally Disturbed',sys:'Challenge',gear:'A floor',measure:['reps','burpees'],
+    sess:'Burpees for 10 minutes, rest 3, burpees for 10 minutes and beat the first set',
+    lines:['Burpees for 10 minutes, as many as possible','Record the number','Rest 3 minutes','Burpees for 10 minutes, as many as possible: more than the first set'],
+    basic:'5 minute rounds.',
+    advanced:'A weight vest, 5 to 15 lb.',
+    why:'On the second set, try to do more than you did on the first, and do not cheat the first by pacing yourself. The book asks only that the second beat the first; the app logs the two added together so there is one number to compare next time, and that total is the app\u2019s choice.'},
+  triska:{no:3,cat:'challenge',name:'Triska-Deka-Phobia',sys:'Challenge',gear:'A ruck with 50 lb',measure:['time','mm:ss'],lower:true,
+    sess:'Ruck 13 miles with 50 lb, then run 13 miles, for time',
+    lines:['Ruck march 13 miles, 50 lb load','Run 13 miles','For time'],
+    basic:'6 miles of each.',
+    advanced:'An 80 to 100 lb ruck.',
+    why:'Unlucky thirteen. Drop the ruck for the run. One clock for the whole of it.'},
+  beasting:{no:4,cat:'challenge',name:'Beasting',sys:'Challenge',gear:'A ruck and a 48 kg kettlebell',measure:['time','mm:ss'],lower:true,
+    sess:'3 mile march with a 48 kg bell in the ruck; every 10 minutes, 100 swings or 100 weighted squats; for time',
+    lines:['Carry a 48 kg kettlebell, or the same in a dumbbell, in your ruck','March or hike 3 miles','Every 10 minutes: 100 Russian swings, or 100 weighted squats, alternating','For time'],
+    basic:'A 24 or 32 kg kettlebell, and 2 miles.',
+    advanced:'Both the swings and the squats at every stop. And/or 6 miles instead of 3.',
+    why:'Pad the ruck extremely well. Drop it for the swings; leave it on, bell inside, for the squats. The ten-minute timer stops while you do the kettlebell work and starts again when you ruck up and walk, which is how the timer here runs it. The longer you take, the more swings and squats you owe.'},
+  snakeeater:{no:5,cat:'challenge',name:'Snake-Eater\u2019s Delight',sys:'Challenge',gear:'A ruck with 50 lb, and two days',measure:['time','mm:ss'],lower:true,
+    sess:'10 km ruck with 50 lb and a 10 km run for time, a night with no sleep, then the same again',
+    lines:['Day 1: ruck march 10 km with 50 lb, then run 10 km, for time','That night: stay awake. No sleep, no catnaps','Day 2, any time after 5 AM: the same ruck and run, and match or beat day 1'],
+    basic:'Sleep 2 to 3 hours before day 2: bed at 2 AM, up at 5.',
+    advanced:'Two nights without sleep between the two.',
+    why:'A taste of what selection adds to physical work: sleep deprivation is the great equalizer, and how someone performs at their breaking point is what selection is looking for. The book is plain that there is no benefit to this beyond testing your limits, and that going without sleep is unhealthy. Pick it on each of the two days and log that day\u2019s time.'},
 };
 // The book's number and group on the formats that come from it. #9 is the FOBBIT.
 for(const [k,x] of Object.entries(HIC_BOOK)){
   HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower};
   if(!x.measure) HIC[k].noMetric=true;
+  // Not a session to repeat until it is a habit, so never the benchmark.
+  if(x.cat==='challenge') HIC[k].noCompare=true;
 }
 HIC.fobbit.book={n:9,cat:'aa'};
 function hicBook(f){ return !!(HIC[f]&&HIC[f].book&&HIC[f].book.lines) }
@@ -254,9 +300,21 @@ function hicBetter(f,a,b){ return hicLower(f)?a<b:a>b }
 // of its key and its title. Everything else compares within activity and format.
 function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
 function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
-function hicSrcLabel(f){ const b=(HIC[f]||{}).book; return b?`Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`:'' }
+function hicSrcLabel(f){
+  const b=(HIC[f]||{}).book; if(!b) return '';
+  if(b.n) return `Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`;
+  return b.cat==='challenge'?`Tactical Barbell II, challenge session ${b.no}`:`Tactical Barbell II, core and grip, session ${b.no}`;
+}
+// Where a book format sits in its own list: the HIC number, or its place among the
+// core sessions or the challenges.
+function hicOrd(x){ return (x.book&&(x.book.n||x.book.no))||0 }
 // A result as the person reads it: a time as m:ss, anything else as the number.
-function resStr(v,un){ if(v==null||v===''||Number.isNaN(+v)) return '—'; return un==='mm:ss'?mmss(+v):n(v) }
+// Past the hour it reads h:mm:ss: a challenge session's "187:40" is not a time anyone says.
+function resStr(v,un){
+  if(v==null||v===''||Number.isNaN(+v)) return '—';
+  if(un!=='mm:ss') return n(v);
+  const t=Math.round(+v); return t>=3600?Math.floor(t/3600)+':'+pad(Math.floor(t%3600/60))+':'+pad(t%60):mmss(t);
+}
 // "8:20" or "8.5" or "500" to seconds. Minutes and seconds the way people type them.
 function toSecs(s){
   if(s==null||s==='') return null;
@@ -276,7 +334,7 @@ function hicOptions(cur,keep){
   const own=Object.entries(HIC).filter(([k])=>!hicBook(k)).filter(ok).map(opt).join('');
   let h=`<optgroup label="Formats">${own}</optgroup>`;
   for(const [c,label] of Object.entries(HIC_CAT)){
-    const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>a[1].book.n-b[1].book.n).filter(ok).map(opt).join('');
+    const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>hicOrd(a[1])-hicOrd(b[1])).filter(ok).map(opt).join('');
     if(xs) h+=`<optgroup label="Tactical Barbell II: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
   }
   return h;

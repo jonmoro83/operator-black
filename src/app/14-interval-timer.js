@@ -75,6 +75,16 @@ const IV_BOOK={
   powercomplex:{rounds:[2,3],def:3,seq:[BK_H('Push press × 5',20),BK_R(90),BK_H('10 KB squat jumps',20),BK_R(90),BK_H('Snatch × 5 per arm',30),BK_R(90),BK_H('5 plyo pull-ups',15),BK_R(90)]},
   kinetic:{rounds:[2,3],def:3,seq:[BK_H('Sprint 50 m, 5 plyo push-ups',25),BK_R(120),BK_H('Sprint 50 m, 5 squat jumps',25),BK_R(120)]},
   transition:{rounds:[2,3],def:2,seq:[BK_H('Front squat × 3',20),BK_H('10 squat jumps',20),BK_R(120),BK_H('Overhead press × 3',20),BK_H('10 plyo push-ups',20),BK_R(120),BK_H('Weighted pull-ups × 3',20),BK_H('10 med ball slams',20),BK_R(120)]},
+  /* Full Core and the challenge sessions. Beasting is the one whose clock the book
+     describes: ten minutes of marching on the timer, then the kettlebell work held
+     until you tap Done, which is the book's "the timer stops while you do it". */
+  fullcore:{rounds:[1,1],def:1,seq:[BK_H('100 Romanian deadlifts',600),BK_R(180),BK_H('100 hanging knees to elbows',600)],
+    post:[BK_R(120,'Rest before the finisher'),BK_W('Plank',60),BK_W('Shank',45),BK_W('Plank',60),BK_W('Shank',45),BK_W('Plank',60),BK_W('Shank',45)]},
+  dukuduku:{rounds:[2,10],def:5,seq:[BK_H('5 goblet squats',20),BK_H('Run up the hill with the bell',45),BK_H('10 swings',25),BK_H('Walk down, bell off the ground',90,'easy')]},
+  burpeesmd:{rounds:[1,1],def:1,seq:[BK_W('Burpees, as many as you can',600),BK_R(180),BK_W('Burpees, beat the first set',600)]},
+  triska:{rounds:[1,1],def:1,seq:[BK_H('Ruck 13 miles',14040),BK_H('Run 13 miles',7800)]},
+  beasting:{rounds:[4,12],def:6,seq:[BK_W('March',600),BK_H('100 swings, or 100 squats',300)]},
+  snakeeater:{rounds:[1,1],def:1,seq:[BK_H('Ruck 10 km',6000),BK_H('Run 10 km',3600)]},
 };
 for(const [k,v] of Object.entries(IV_BOOK)){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
 // One round of a book session as segments. The sub-label names the round, and the

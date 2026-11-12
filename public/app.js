@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.79", RELEASES_SRC="/releases.js?b=7a4013e4b3";
+const APP_VERSION="3.80", RELEASES_SRC="/releases.js?b=dfebf2b6df";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -2399,7 +2399,10 @@ The timer shape lives in IV (14-interval-timer.js) as `seq`: the segments of one
 timed where the book times them and held until you tap Done where it counts reps or
 distance. `est` is our guess at how long a held bout takes, used only to size the session
 in minutes before you run it; nothing in the book depends on it. */
-const HIC_CAT={aa:'Aerobic / anaerobic',gc:'General conditioning',power:'Power development'};
+const HIC_CAT={aa:'Aerobic / anaerobic',gc:'General conditioning',power:'Power development',core:'Core',challenge:'Challenge sessions'};
+// The forty are numbered 1 to 40 (`n`). Full Core and the challenge sessions come from
+// their own short lists later in the book, so they carry their place in those (`no`)
+// and no HIC number. The three finishers are not formats at all: see 01e-finishers.js.
 const HIC_BOOK={
   connaught:{n:1,cat:'aa',name:'Connaught Range 10 to 1s',sys:'Aerobic / anaerobic',gear:'100 m of running room',measure:['time','mm:ss'],lower:true,
     sess:'10 burpees, 100 m sprint, 9 burpees, sprint back … down to 1, for time',
@@ -2621,11 +2624,54 @@ const HIC_BOOK={
     alt:'10 plyometric or kipping pull-ups instead of the medicine ball slams.',
     load:[{lift:'ohp',pct:[85,85]}],
     why:'Heavy standard lifting primes the system for power work. Finish the set of front squats, rack the bar at once, step back and do ten powerful, explosive bodyweight squat jumps. Rest a couple of minutes and move on. Estimate the one-rep maxes if you need to, there is no need to be exact; just make sure the front squat, the press and the pull-ups are heavy.'},
+  /* Core + Grip, session 2. The other three in that list are finishers; this one the
+     book calls "a complete core focused session in and of itself". */
+  fullcore:{no:2,cat:'core',name:'Full Core',sys:'Core',gear:'A barbell, a pull-up bar and a back extension',
+    sess:'100 Romanian deadlifts at 20 to 30%, rest, 100 hanging knees to elbows, then Plank & Shank × 3',
+    lines:['A: Romanian deadlifts × 100, at 20 to 30% of 1RM','Rest 3 to 5 minutes','Hanging knees to elbows, or hanging leg raises, × 100','B, the finisher: Plank & Shank × 3 (60 s plank, 45 s shank)'],
+    basic:'50 deadlifts and 50 leg raises instead of 100.',
+    advanced:'A weight vest for the plank and shank. And/or hold a weight when shanking.',
+    why:'Not a finisher: a whole session on its own. Simple, minimalist and highly effective. Do the deadlifts and the leg raises in sets of 3, 5, 10, 20 or more, and rest as you need to. The author would rather pick the fewest highly effective movements and hit them hard than do ten kinds of sit-up. The book says 20 to 30% of 1RM without saying which lift; the app does not hold a Romanian deadlift max, so this is left for you to set, and lighter is the safer guess.'},
+  /* The challenge sessions. Optional, "not meant to be a part of your regular
+     conditioning protocol", once every couple of months when fully rested -- so they are
+     on offer and never scheduled, and they are kept out of the benchmark. */
+  dukuduku:{no:1,cat:'challenge',name:'Duku-Duku (Pretorian Hills)',sys:'Challenge',gear:'A hill and a 24 kg kettlebell (12 kg for women)',
+    sess:'5 goblet squats, run the hill with the bell, 10 swings, walk down, × 5, and the bell never touches the ground',
+    lines:['Kettlebell goblet squats × 5 (24 kg for men, 12 kg for women)','Run up the hill, carrying the kettlebell','Kettlebell swings × 10 at the top','Walk down, still carrying it','× 5','The kettlebell cannot touch the ground for the whole session'],
+    basic:'A light kettlebell. Put it down and rest 2 to 3 minutes after every round, at the bottom of the hill.',
+    advanced:'10 rounds. 10 goblet squats instead of 5. A 32 kg bell, working up to the 48 kg.',
+    why:'Loosely based on a South African military selection exercise, where a candidate who put his load down was done. Carry the bell any way you like as long as it stays off the ground; a dumbbell works, a backpack does not. Even in great shape you may not finish all five, so work up: two rounds without putting it down, a break, then three. Pick a hill that takes 35 to 45 seconds to sprint up empty-handed, or a longer one run slower; with a short hill, do more rounds.'},
+  burpeesmd:{no:2,cat:'challenge',name:'Burpees for the Mentally Disturbed',sys:'Challenge',gear:'A floor',measure:['reps','burpees'],
+    sess:'Burpees for 10 minutes, rest 3, burpees for 10 minutes and beat the first set',
+    lines:['Burpees for 10 minutes, as many as possible','Record the number','Rest 3 minutes','Burpees for 10 minutes, as many as possible: more than the first set'],
+    basic:'5 minute rounds.',
+    advanced:'A weight vest, 5 to 15 lb.',
+    why:'On the second set, try to do more than you did on the first, and do not cheat the first by pacing yourself. The book asks only that the second beat the first; the app logs the two added together so there is one number to compare next time, and that total is the app\u2019s choice.'},
+  triska:{no:3,cat:'challenge',name:'Triska-Deka-Phobia',sys:'Challenge',gear:'A ruck with 50 lb',measure:['time','mm:ss'],lower:true,
+    sess:'Ruck 13 miles with 50 lb, then run 13 miles, for time',
+    lines:['Ruck march 13 miles, 50 lb load','Run 13 miles','For time'],
+    basic:'6 miles of each.',
+    advanced:'An 80 to 100 lb ruck.',
+    why:'Unlucky thirteen. Drop the ruck for the run. One clock for the whole of it.'},
+  beasting:{no:4,cat:'challenge',name:'Beasting',sys:'Challenge',gear:'A ruck and a 48 kg kettlebell',measure:['time','mm:ss'],lower:true,
+    sess:'3 mile march with a 48 kg bell in the ruck; every 10 minutes, 100 swings or 100 weighted squats; for time',
+    lines:['Carry a 48 kg kettlebell, or the same in a dumbbell, in your ruck','March or hike 3 miles','Every 10 minutes: 100 Russian swings, or 100 weighted squats, alternating','For time'],
+    basic:'A 24 or 32 kg kettlebell, and 2 miles.',
+    advanced:'Both the swings and the squats at every stop. And/or 6 miles instead of 3.',
+    why:'Pad the ruck extremely well. Drop it for the swings; leave it on, bell inside, for the squats. The ten-minute timer stops while you do the kettlebell work and starts again when you ruck up and walk, which is how the timer here runs it. The longer you take, the more swings and squats you owe.'},
+  snakeeater:{no:5,cat:'challenge',name:'Snake-Eater\u2019s Delight',sys:'Challenge',gear:'A ruck with 50 lb, and two days',measure:['time','mm:ss'],lower:true,
+    sess:'10 km ruck with 50 lb and a 10 km run for time, a night with no sleep, then the same again',
+    lines:['Day 1: ruck march 10 km with 50 lb, then run 10 km, for time','That night: stay awake. No sleep, no catnaps','Day 2, any time after 5 AM: the same ruck and run, and match or beat day 1'],
+    basic:'Sleep 2 to 3 hours before day 2: bed at 2 AM, up at 5.',
+    advanced:'Two nights without sleep between the two.',
+    why:'A taste of what selection adds to physical work: sleep deprivation is the great equalizer, and how someone performs at their breaking point is what selection is looking for. The book is plain that there is no benefit to this beyond testing your limits, and that going without sleep is unhealthy. Pick it on each of the two days and log that day\u2019s time.'},
 };
 // The book's number and group on the formats that come from it. #9 is the FOBBIT.
 for(const [k,x] of Object.entries(HIC_BOOK)){
   HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower};
   if(!x.measure) HIC[k].noMetric=true;
+  // Not a session to repeat until it is a habit, so never the benchmark.
+  if(x.cat==='challenge') HIC[k].noCompare=true;
 }
 HIC.fobbit.book={n:9,cat:'aa'};
 function hicBook(f){ return !!(HIC[f]&&HIC[f].book&&HIC[f].book.lines) }
@@ -2636,9 +2682,21 @@ function hicBetter(f,a,b){ return hicLower(f)?a<b:a>b }
 // of its key and its title. Everything else compares within activity and format.
 function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
 function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
-function hicSrcLabel(f){ const b=(HIC[f]||{}).book; return b?`Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`:'' }
+function hicSrcLabel(f){
+  const b=(HIC[f]||{}).book; if(!b) return '';
+  if(b.n) return `Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`;
+  return b.cat==='challenge'?`Tactical Barbell II, challenge session ${b.no}`:`Tactical Barbell II, core and grip, session ${b.no}`;
+}
+// Where a book format sits in its own list: the HIC number, or its place among the
+// core sessions or the challenges.
+function hicOrd(x){ return (x.book&&(x.book.n||x.book.no))||0 }
 // A result as the person reads it: a time as m:ss, anything else as the number.
-function resStr(v,un){ if(v==null||v===''||Number.isNaN(+v)) return '—'; return un==='mm:ss'?mmss(+v):n(v) }
+// Past the hour it reads h:mm:ss: a challenge session's "187:40" is not a time anyone says.
+function resStr(v,un){
+  if(v==null||v===''||Number.isNaN(+v)) return '—';
+  if(un!=='mm:ss') return n(v);
+  const t=Math.round(+v); return t>=3600?Math.floor(t/3600)+':'+pad(Math.floor(t%3600/60))+':'+pad(t%60):mmss(t);
+}
 // "8:20" or "8.5" or "500" to seconds. Minutes and seconds the way people type them.
 function toSecs(s){
   if(s==null||s==='') return null;
@@ -2658,9 +2716,86 @@ function hicOptions(cur,keep){
   const own=Object.entries(HIC).filter(([k])=>!hicBook(k)).filter(ok).map(opt).join('');
   let h=`<optgroup label="Formats">${own}</optgroup>`;
   for(const [c,label] of Object.entries(HIC_CAT)){
-    const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>a[1].book.n-b[1].book.n).filter(ok).map(opt).join('');
+    const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>hicOrd(a[1])-hicOrd(b[1])).filter(ok).map(opt).join('');
     if(xs) h+=`<optgroup label="Tactical Barbell II: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
   }
+  return h;
+}
+
+/* ---------------- Tactical Barbell II's core and grip finishers ----------------
+The book's Core + Grip list has four sessions. Full Core is a session in its own right
+and lives with the formats (01d-hic-book.js). The other three the book calls finishers,
+"tacked on after your main training sessions ... every once in a while", so they are
+not something a conditioning day is spent on: they are added to whatever day you like,
+under the session, in the same card as anything else you did on top of the program.
+
+Each carries the prescription, the book's basic and advanced versions and its reasoning,
+paraphrased, in the same shape as a book HIC session. Nothing here is scored or
+scheduled, and a finisher counts toward nothing but itself: what is kept is what you did
+last time, because for the grip circuit that is the whole of the book's progression. */
+const FINISHERS={
+  plankshank:{no:1,name:'Plank & Shank',dose:'1 to 3 rounds',gear:'A back extension bench',unit:'rounds',
+    lines:['Plank 1 to 5 minutes','Shank 1 to 5 minutes','Rest 1 to 2 minutes','\u00d7 1 to 3'],
+    basic:'Shorter holds to start, roughly 30 to 60 seconds each, and work up.',
+    advanced:'Hold a weight when shanking, or wear a weight vest for both. Holds of 2 minutes or more. And/or drop the rest and keep moving from one hold to the next.',
+    why:'A quick all-in-one core session and a good finisher. The shank is a static back extension: hold the top position of a back extension, spine fairly straight, no reps up and down, like a reverse plank for the back. It is harder than it sounds even for a strong deadlifter, and a good way to strengthen weak links in the posterior chain. Plank then shank with a break between, or superset them, or hold one longer than the other.',
+    holds:[30,60,120]},
+  quarterdeck:{no:3,name:'Quarterdeck Core',dose:'5 to 10 rounds',gear:'A back extension and an ab wheel or a barbell',unit:'rounds',
+    lines:['Plank push-ups \u00d7 10','Back extensions \u00d7 10','V-ups \u00d7 10','Ab wheel or rollout \u00d7 5 to 10','\u00d7 5 to 10, resting as necessary'],
+    basic:'5 sets.',
+    advanced:'A weighted vest, 10 to 20 lb.',
+    why:'A core finisher with the weight on the abdominal muscles. Squats, deadlifts and overhead presses work the core, but mostly the rear of it, and less of the abs than you think, so every so often it is worth some direct work. The posterior chain is kept light here because the rest of your training already covers it, which makes this a good one to add after a posterior-chain-heavy session. The rollouts can be done with a barbell.'},
+  grip:{no:4,name:'Progressive Grip Circuit',dose:'1 to 3 laps',gear:'One pair of dumbbells and 100 m, or a gym',unit:'laps',weight:true,
+    lines:['Farmer\u2019s walk 100 m, then 10 dumbbell overhead presses','Farmer\u2019s walk 100 m, then 10 dumbbell reverse curls','Farmer\u2019s walk 100 m, then 10 dumbbell shrugs','Farmer\u2019s walk 100 m, then 10 dumbbell hammer curls','Rest 2 to 3 minutes','\u00d7 1 to 3'],
+    alt:'In a gym: hold the dumbbells at your sides for 90 seconds in place of each 100 m walk.',
+    why:'The same pair of dumbbells for the whole session, both arms at once, and the goal is to get all the way round without putting them down. Start conservatively: the book suggests 20 to 50 lb a dumbbell for men and 5 to 30 lb for women. When you can get all the way round without putting them down, go up 5 to 10 lb a dumbbell. When you cannot, break it into its four segments with a brief rest after each, and work up to two in a row, then three, then all four. There are no basic or advanced versions of this one.',
+    holds:[90]},
+};
+function finOf(a){ return FINISHERS[a&&a.id]||FINISHERS.plankshank }
+/* The last time this finisher was logged before `date`, across every program: a finisher
+   belongs to no program, and the grip circuit's weight only means something against the
+   last one. */
+function finLast(date,id){
+  let best=null;
+  for(const [d,L] of Object.entries(logs)){
+    if(d>=date||!Array.isArray(L.addons)) continue;
+    for(const a of L.addons) if(a&&a.kind==='fin'&&(a.id||'plankshank')===id&&(a.rounds||a.w||a.plank||a.shank)) if(!best||d>best.d) best={d,a};
+  }
+  return best;
+}
+// What last time says about today. For the grip circuit this is the book's rule, not
+// ours: all the way round without putting them down means 5 to 10 lb more a dumbbell.
+function finLastLine(date,id){
+  const x=finLast(date,id); if(!x) return '';
+  const a=x.a, F=FINISHERS[id], bits=[];
+  if(a.rounds) bits.push(`${n(a.rounds)} ${+a.rounds===1?F.unit.replace(/s$/,''):F.unit}`);
+  if(F.weight&&a.w) bits.push(`${n(a.w)} ${u()} a dumbbell`);
+  if(id==='plankshank'&&(a.plank||a.shank)) bits.push(`${a.plank?mmss(+a.plank)+' plank':''}${a.plank&&a.shank?', ':''}${a.shank?mmss(+a.shank)+' shank':''}`);
+  let h=`Last time, ${fmtD(x.d,true)}: ${bits.join(', ')||'done'}.`;
+  if(F.weight&&a.w) h+=a.unbroken?` You got all the way round without putting them down, so the book says go up: <b>${n(+a.w+(u()==='kg'?2.5:5))} to ${n(+a.w+(u()==='kg'?5:10))} ${u()}</b> a dumbbell.`
+    :' You had to put them down, so the book says stay at that weight and link more of the segments together.';
+  return h;
+}
+function finBlock(date,a,i){
+  const F=finOf(a), id=FINISHERS[a.id]?a.id:'plankshank';
+  const vs=[];
+  if(F.basic) vs.push(`<b>Basic:</b> ${esc(F.basic)}`);
+  if(F.advanced) vs.push(`<b>Advanced:</b> ${esc(F.advanced)}`);
+  if(F.alt) vs.push(`<b>Alternative:</b> ${esc(F.alt)}`);
+  const last=finLastLine(date,id);
+  let h=`<label class="f">Finisher<select id="in-addon-fin-${i}" data-bind="addons.${i}.id">${Object.entries(FINISHERS).map(([k,x])=>`<option value="${k}"${k===id?' selected':''}>${esc(x.name)} \u00b7 ${esc(x.dose)}</option>`).join('')}</select></label>
+    <ul class="tight" style="margin:2px 0">${F.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
+    ${vs.length?`<div class="small">${vs.join('<br>')}</div>`:''}
+    <details class="plain" data-px="finwhy${i}"${openPx.has('finwhy'+i)?' open':''}><summary>What the book says</summary><div class="small muted" style="margin-top:6px">${esc(F.why)}</div></details>
+    ${last?`<div class="note">${last}</div>`:''}`;
+  if(F.holds) h+=`<div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><span class="small muted">Time a hold</span>${F.holds.map(s=>`<button class="btn sm" data-act="fintimer" data-v="${s}">${mmss(s)}</button>`).join('')}</div>`;
+  h+=`<div class="grid2"><label class="f">${F.unit==='laps'?'Laps':'Rounds'} done${numIn('addons.'+i+'.rounds',a.rounds)}</label>`;
+  if(F.weight) h+=`<label class="f">Each dumbbell (${u()})${numIn('addons.'+i+'.w',a.w)}</label></div>
+    <label class="check"><input type="checkbox" id="in-addon-unb-${i}" data-bind="addons.${i}.unbroken" ${a.unbroken?'checked':''}> All the way round without putting them down</label>`;
+  else if(id==='plankshank') h+=`<label class="f">Plank hold (s)${numIn('addons.'+i+'.plank',a.plank)}</label></div>
+    <label class="f">Shank hold (s)${numIn('addons.'+i+'.shank',a.shank)}</label>`;
+  else h+=`</div>`;
+  h+=`<div class="small muted">Tactical Barbell II, core and grip, session ${F.no}. Needs: ${esc(F.gear.toLowerCase())}.</div>`;
   return h;
 }
 
@@ -3470,6 +3605,7 @@ function addonAdd(date,kind){
   if(readOnly()) return null;
   const list=addonsOf(date).slice();
   const a=kind==='lift'?{kind:'lift',what:'',sets:[]}
+         :kind==='fin'?{kind:'fin',id:'plankshank',rounds:''}
                        :{kind:'cond',mod:defMod(),fmt:'liss',what:'',min:'',val:''};
   list.push(a); setLog(date,'addons',list);
   return list.length-1;
@@ -3494,6 +3630,7 @@ function addonSetDel(date,i,j){
 }
 function addonLabel(a){
   if(a.kind==='lift') return a.what||'Extra lifting';
+  if(a.kind==='fin') return finOf(a).name;
   const m=MOD[a.mod], f=HIC[a.fmt];
   return (a.what||(m?m.name:'Cardio'))+(f?' · '+f.name:'');
 }
@@ -4344,6 +4481,8 @@ function addonCard(date){
         ${met?`<label class="f">${esc(metricLabel(met))}${met[0]==='time'?`<input type="text" inputmode="numeric" id="in-addon-val-${i}" data-bind="addons.${i}.val" value="${esc(a.val??'')}" placeholder="m:ss">`:numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
       ${M&&M.elev?`<label class="f">Elevation gain (${esc(elevUnit())})${numIn('addons.'+i+'.elev',a.elev)}</label>`:''}
       ${met&&a.mod==='other'?`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`:''}`;
+    } else if(a.kind==='fin'){
+      h+=finBlock(date,a,i);
     } else {
       const sets=addonSets(a);
       h+=`<label class="f">Exercise<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. Incline bench, or Upper body"></label>
@@ -4352,7 +4491,7 @@ function addonCard(date){
     }
     h+=`<label class="f">Notes<input type="text" id="in-addon-note-${i}" data-bind="addons.${i}.note" value="${esc(a.note||'')}" placeholder="How it went"></label></div>`;
   });
-  h+=`<div class="row" style="gap:6px;margin-top:12px"><button class="btn" data-act="addon" data-kind="cond">Add cardio</button><button class="btn" data-act="addon" data-kind="lift">Add a lifting session</button></div>`;
+  h+=`<div class="row" style="gap:6px;margin-top:12px"><button class="btn" data-act="addon" data-kind="cond">Add cardio</button><button class="btn" data-act="addon" data-kind="lift">Add a lifting session</button><button class="btn" data-act="addon" data-kind="fin">Add a finisher</button></div>`;
   if(list.length) h+=`<div class="note">These sit outside the program. They feed your conditioning minutes, your records and the climbing total; they do not change your maxes, the end-of-cycle review, or whether the program counts as followed.</div>`;
   return h+`</div>`;
 }
@@ -7177,6 +7316,16 @@ const IV_BOOK={
   powercomplex:{rounds:[2,3],def:3,seq:[BK_H('Push press × 5',20),BK_R(90),BK_H('10 KB squat jumps',20),BK_R(90),BK_H('Snatch × 5 per arm',30),BK_R(90),BK_H('5 plyo pull-ups',15),BK_R(90)]},
   kinetic:{rounds:[2,3],def:3,seq:[BK_H('Sprint 50 m, 5 plyo push-ups',25),BK_R(120),BK_H('Sprint 50 m, 5 squat jumps',25),BK_R(120)]},
   transition:{rounds:[2,3],def:2,seq:[BK_H('Front squat × 3',20),BK_H('10 squat jumps',20),BK_R(120),BK_H('Overhead press × 3',20),BK_H('10 plyo push-ups',20),BK_R(120),BK_H('Weighted pull-ups × 3',20),BK_H('10 med ball slams',20),BK_R(120)]},
+  /* Full Core and the challenge sessions. Beasting is the one whose clock the book
+     describes: ten minutes of marching on the timer, then the kettlebell work held
+     until you tap Done, which is the book's "the timer stops while you do it". */
+  fullcore:{rounds:[1,1],def:1,seq:[BK_H('100 Romanian deadlifts',600),BK_R(180),BK_H('100 hanging knees to elbows',600)],
+    post:[BK_R(120,'Rest before the finisher'),BK_W('Plank',60),BK_W('Shank',45),BK_W('Plank',60),BK_W('Shank',45),BK_W('Plank',60),BK_W('Shank',45)]},
+  dukuduku:{rounds:[2,10],def:5,seq:[BK_H('5 goblet squats',20),BK_H('Run up the hill with the bell',45),BK_H('10 swings',25),BK_H('Walk down, bell off the ground',90,'easy')]},
+  burpeesmd:{rounds:[1,1],def:1,seq:[BK_W('Burpees, as many as you can',600),BK_R(180),BK_W('Burpees, beat the first set',600)]},
+  triska:{rounds:[1,1],def:1,seq:[BK_H('Ruck 13 miles',14040),BK_H('Run 13 miles',7800)]},
+  beasting:{rounds:[4,12],def:6,seq:[BK_W('March',600),BK_H('100 swings, or 100 squats',300)]},
+  snakeeater:{rounds:[1,1],def:1,seq:[BK_H('Ruck 10 km',6000),BK_H('Run 10 km',3600)]},
 };
 for(const [k,v] of Object.entries(IV_BOOK)){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
 // One round of a book session as segments. The sub-label names the round, and the
@@ -9759,19 +9908,48 @@ async function loadBackups(){
    every session with its prescription, its versions and its reasoning. Grouped the way
    the book groups them and numbered the way it numbers them, so a reader with the book
    open finds the same thing in both. */
-function guideHicBook(){
-  const entry=(k)=>{const x=HIC[k], b=x.book;
+// One book session in the Guide, in full. Shared by the forty and by the core and
+// challenge sessions, which have a place in their own lists instead of a HIC number.
+function guideBookEntry(k){
+  const x=HIC[k], b=x.book, tag=b.n?'#'+b.n+' ':'';
     if(!b.lines) return `<details class="px"><summary><span>#${b.n} FOBBIT Intervals</span><span class="mono small">20 min</span></summary><div class="note" style="margin:4px 0 6px">The book\u2019s ninth session is the FOBBIT: two minutes of easy base, twenty swings, two minutes, ten snatches an arm, until the treadmill reads twenty minutes. It has its own section above, with the Mass Protocol and Mod variations, and its own picker on the day.</div></details>`;
     const vs=[];
     if(b.basic) vs.push(`<b>Basic:</b> ${esc(b.basic)}`);
     if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
     if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
     const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):'Not scored by the book: the app logs rounds and minutes.';
-    return `<details class="px"><summary><span>#${b.n} ${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
+    return `<details class="px"><summary><span>${tag}${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
       <ul class="tight" style="margin:6px 0">${b.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
       ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
       <div class="small muted" style="margin:4px 0 6px">${esc(b.why)}</div>
-      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`};
+      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`;
+}
+function guideFinisher(k){
+  const F=FINISHERS[k], vs=[];
+  if(F.basic) vs.push(`<b>Basic:</b> ${esc(F.basic)}`);
+  if(F.advanced) vs.push(`<b>Advanced:</b> ${esc(F.advanced)}`);
+  if(F.alt) vs.push(`<b>Alternative:</b> ${esc(F.alt)}`);
+  return `<details class="px"><summary><span>${esc(F.name)}</span><span class="mono small">${esc(F.dose)}</span></summary>
+    <ul class="tight" style="margin:6px 0">${F.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
+    ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
+    <div class="small muted" style="margin:4px 0 6px">${esc(F.why)}</div>
+    <div class="small muted">Needs: ${esc(F.gear.toLowerCase())}.</div></details>`;
+}
+function guideCoreGrip(){
+  const of=(cat)=>Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>hicOrd(HIC[a0])-hicOrd(HIC[b0])).map(guideBookEntry).join('');
+  return `<div class="card guide"><h3>Conditioning: core, grip and the challenge sessions</h3>
+  <p>Tactical Barbell II closes its training vault with two short lists. <b>Core + Grip</b> is four sessions: heavy strength work gives you some of both, the book says, \u201cbut every once in a while add in one of these finishers to take your abilities higher\u201d. Three of them are finishers, tacked on after a main session, so here they are added to any day rather than picked instead of one: <b>Today \u2192 Anything else today \u2192 Add a finisher</b>. The fourth, Full Core, is a whole session and sits in the format list on a conditioning day.</p>
+  <div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Finishers</h4>
+  <p class="note" style="margin:0">Nothing is scored. The card remembers what you did last time, and for the grip circuit it applies the book\u2019s rule: all the way round without putting the dumbbells down means 5 to 10 lb more a dumbbell next time. The hold buttons start the app\u2019s ordinary timer.</p>
+  ${Object.keys(FINISHERS).map(guideFinisher).join('')}</div>
+  <div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Core session</h4>${of('core')}</div>
+  <div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Challenge sessions</h4>
+  <p class="note" style="margin:0">Five, and the book is blunt about them: very difficult, optional, \u201cnot meant to be a part of your regular conditioning protocol\u201d and not very healthy in a conventional sense. They are there to test your edges. Not until your conditioning is above average, once every couple of months, when fully rested, and get cleared by your physician first. So the app never schedules one and never makes one the benchmark; they are in the format list for the day you decide to.</p>
+  ${of('challenge')}</div>
+  <p class="note">Prescriptions, versions and reasoning are the book\u2019s. Scoring Burpees for the Mentally Disturbed by the two sets added together is the app\u2019s choice, and the timer\u2019s length for a bout of reps or distance is the app\u2019s estimate.</p></div>`;
+}
+function guideHicBook(){
+  const entry=guideBookEntry;
   const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
     return `<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(HIC_CAT[cat])} \u00b7 #${HIC[ks[0]].book.n} to #${HIC[ks[ks.length-1]].book.n}</h4><p class="note" style="margin:0">${intro}</p>${ks.map(entry).join('')}</div>`};
   return `<div class="card guide"><h3>Conditioning: the book\u2019s HIC sessions</h3>
@@ -9831,6 +10009,7 @@ function vGuideHtml(){
   <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   ${guideHicBook()}
+  ${guideCoreGrip()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>
@@ -10862,6 +11041,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='plyoupper'){mutatePlan(p=>{p.plyoUpper=!p.plyoUpper});return}
   if(a==='plyoday'){setPlyoDay(mondayOf(sel),b.dataset.d);return}
   if(a==='addon'){ addonAdd(sel,b.dataset.kind); render(); return }
+  if(a==='fintimer'){ gtStart('down',+b.dataset.v); return }
   if(a==='addondel'){ offerUndo('Session removed',snapLog(sel)); addonDel(sel,+b.dataset.i); render(); return }
   if(a==='addonsetadd'){ addonSetAdd(sel,+b.dataset.i); render(); return }
   if(a==='addonsetdel'){ addonSetDel(sel,+b.dataset.i,+b.dataset.j); render(); return }

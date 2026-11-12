@@ -115,6 +115,8 @@ function addonCard(date){
         ${met?`<label class="f">${esc(metricLabel(met))}${met[0]==='time'?`<input type="text" inputmode="numeric" id="in-addon-val-${i}" data-bind="addons.${i}.val" value="${esc(a.val??'')}" placeholder="m:ss">`:numIn('addons.'+i+'.val',a.val)}</label>`:`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`}</div>
       ${M&&M.elev?`<label class="f">Elevation gain (${esc(elevUnit())})${numIn('addons.'+i+'.elev',a.elev)}</label>`:''}
       ${met&&a.mod==='other'?`<label class="f">What it was<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. five-a-side"></label>`:''}`;
+    } else if(a.kind==='fin'){
+      h+=finBlock(date,a,i);
     } else {
       const sets=addonSets(a);
       h+=`<label class="f">Exercise<input type="text" id="in-addon-what-${i}" data-bind="addons.${i}.what" value="${esc(a.what||'')}" placeholder="e.g. Incline bench, or Upper body"></label>
@@ -123,7 +125,7 @@ function addonCard(date){
     }
     h+=`<label class="f">Notes<input type="text" id="in-addon-note-${i}" data-bind="addons.${i}.note" value="${esc(a.note||'')}" placeholder="How it went"></label></div>`;
   });
-  h+=`<div class="row" style="gap:6px;margin-top:12px"><button class="btn" data-act="addon" data-kind="cond">Add cardio</button><button class="btn" data-act="addon" data-kind="lift">Add a lifting session</button></div>`;
+  h+=`<div class="row" style="gap:6px;margin-top:12px"><button class="btn" data-act="addon" data-kind="cond">Add cardio</button><button class="btn" data-act="addon" data-kind="lift">Add a lifting session</button><button class="btn" data-act="addon" data-kind="fin">Add a finisher</button></div>`;
   if(list.length) h+=`<div class="note">These sit outside the program. They feed your conditioning minutes, your records and the climbing total; they do not change your maxes, the end-of-cycle review, or whether the program counts as followed.</div>`;
   return h+`</div>`;
 }

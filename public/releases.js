@@ -6,6 +6,14 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.80',date:'2026-11-12',title:"The book's core, grip and challenge sessions",items:[
+    "Tactical Barbell II's three finishers are in: Plank & Shank, Quarterdeck Core and the Progressive Grip Circuit. The book tacks them on after a main session, so that's where they go. On any day, open Anything else today and tap Add a finisher.",
+    "Each finisher shows the book's prescription, its basic and advanced versions and what the book says about it. Plank & Shank and the gym version of the grip circuit have buttons that time a hold.",
+    "The grip circuit remembers your last session and applies the book's rule: get all the way round without putting the dumbbells down and it tells you to go up 5 to 10 lb next time. If you had to put them down, it tells you to stay and link more of it together.",
+    "Full Core, the one core session the book calls a workout in itself, is in the format list on a conditioning day.",
+    "So are the five challenge sessions: Duku-Duku, Burpees for the Mentally Disturbed, Triska-Deka-Phobia, Beasting and Snake-Eater's Delight. The book says they're optional, not for regular use and to get cleared by a physician first, so the app never schedules one and never uses one as your benchmark.",
+    "The Guide has a new section with all nine in full.",
+  ]},
   {v:'3.79',date:'2026-11-12',title:"Three small fixes",items:[
     "The coach could come back with \"replied with nothing\" when it had searched both the web and the books for one question. It answers now.",
     "Restoring from a file that has no plan in it, like a logs-only export, used to wipe your maxes and settings back to defaults. Now it replaces your days and leaves your plan alone, and tells you it did.",

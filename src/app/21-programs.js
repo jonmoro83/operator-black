@@ -783,19 +783,48 @@ async function loadBackups(){
    every session with its prescription, its versions and its reasoning. Grouped the way
    the book groups them and numbered the way it numbers them, so a reader with the book
    open finds the same thing in both. */
-function guideHicBook(){
-  const entry=(k)=>{const x=HIC[k], b=x.book;
+// One book session in the Guide, in full. Shared by the forty and by the core and
+// challenge sessions, which have a place in their own lists instead of a HIC number.
+function guideBookEntry(k){
+  const x=HIC[k], b=x.book, tag=b.n?'#'+b.n+' ':'';
     if(!b.lines) return `<details class="px"><summary><span>#${b.n} FOBBIT Intervals</span><span class="mono small">20 min</span></summary><div class="note" style="margin:4px 0 6px">The book\u2019s ninth session is the FOBBIT: two minutes of easy base, twenty swings, two minutes, ten snatches an arm, until the treadmill reads twenty minutes. It has its own section above, with the Mass Protocol and Mod variations, and its own picker on the day.</div></details>`;
     const vs=[];
     if(b.basic) vs.push(`<b>Basic:</b> ${esc(b.basic)}`);
     if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
     if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
     const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):'Not scored by the book: the app logs rounds and minutes.';
-    return `<details class="px"><summary><span>#${b.n} ${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
+    return `<details class="px"><summary><span>${tag}${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
       <ul class="tight" style="margin:6px 0">${b.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
       ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
       <div class="small muted" style="margin:4px 0 6px">${esc(b.why)}</div>
-      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`};
+      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`;
+}
+function guideFinisher(k){
+  const F=FINISHERS[k], vs=[];
+  if(F.basic) vs.push(`<b>Basic:</b> ${esc(F.basic)}`);
+  if(F.advanced) vs.push(`<b>Advanced:</b> ${esc(F.advanced)}`);
+  if(F.alt) vs.push(`<b>Alternative:</b> ${esc(F.alt)}`);
+  return `<details class="px"><summary><span>${esc(F.name)}</span><span class="mono small">${esc(F.dose)}</span></summary>
+    <ul class="tight" style="margin:6px 0">${F.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
+    ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
+    <div class="small muted" style="margin:4px 0 6px">${esc(F.why)}</div>
+    <div class="small muted">Needs: ${esc(F.gear.toLowerCase())}.</div></details>`;
+}
+function guideCoreGrip(){
+  const of=(cat)=>Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>hicOrd(HIC[a0])-hicOrd(HIC[b0])).map(guideBookEntry).join('');
+  return `<div class="card guide"><h3>Conditioning: core, grip and the challenge sessions</h3>
+  <p>Tactical Barbell II closes its training vault with two short lists. <b>Core + Grip</b> is four sessions: heavy strength work gives you some of both, the book says, \u201cbut every once in a while add in one of these finishers to take your abilities higher\u201d. Three of them are finishers, tacked on after a main session, so here they are added to any day rather than picked instead of one: <b>Today \u2192 Anything else today \u2192 Add a finisher</b>. The fourth, Full Core, is a whole session and sits in the format list on a conditioning day.</p>
+  <div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Finishers</h4>
+  <p class="note" style="margin:0">Nothing is scored. The card remembers what you did last time, and for the grip circuit it applies the book\u2019s rule: all the way round without putting the dumbbells down means 5 to 10 lb more a dumbbell next time. The hold buttons start the app\u2019s ordinary timer.</p>
+  ${Object.keys(FINISHERS).map(guideFinisher).join('')}</div>
+  <div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Core session</h4>${of('core')}</div>
+  <div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Challenge sessions</h4>
+  <p class="note" style="margin:0">Five, and the book is blunt about them: very difficult, optional, \u201cnot meant to be a part of your regular conditioning protocol\u201d and not very healthy in a conventional sense. They are there to test your edges. Not until your conditioning is above average, once every couple of months, when fully rested, and get cleared by your physician first. So the app never schedules one and never makes one the benchmark; they are in the format list for the day you decide to.</p>
+  ${of('challenge')}</div>
+  <p class="note">Prescriptions, versions and reasoning are the book\u2019s. Scoring Burpees for the Mentally Disturbed by the two sets added together is the app\u2019s choice, and the timer\u2019s length for a bout of reps or distance is the app\u2019s estimate.</p></div>`;
+}
+function guideHicBook(){
+  const entry=guideBookEntry;
   const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
     return `<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(HIC_CAT[cat])} \u00b7 #${HIC[ks[0]].book.n} to #${HIC[ks[ks.length-1]].book.n}</h4><p class="note" style="margin:0">${intro}</p>${ks.map(entry).join('')}</div>`};
   return `<div class="card guide"><h3>Conditioning: the book\u2019s HIC sessions</h3>
@@ -855,6 +884,7 @@ function vGuideHtml(){
   <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   ${guideHicBook()}
+  ${guideCoreGrip()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Phase</th><th>Exercise</th><th>Sets × reps</th><th class="n">Contacts</th><th class="n">Rest</th></tr></thead><tbody>${PLYO.map(ph=>ph.ex.map((e,i)=>`<tr><td>${i?'':`<b>${ph.name}</b><br><span class="small muted">~${ph.target}</span>`}</td><td>${esc(e.label)}</td><td class="mono small">${e.s} × ${esc(e.r)}</td><td class="n">${e.c}</td><td class="n">${e.rest>=120?e.rest/60+' min':e.rest+' s'}</td></tr>`).join('')).join('')}</tbody></table></div>
