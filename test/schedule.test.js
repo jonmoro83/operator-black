@@ -85,7 +85,9 @@ test("the weekly layout is strength / conditioning on alternate days", () => {
   const x = app();
   const mon = "2026-10-19";
   const kinds = [0, 1, 2, 3, 4, 5, 6].map((i) => x.sessKind(x.dayPlan(x.addDays(mon, i))));
-  a.deepEqual(kinds, ["strength", "hic", "strength", "hic", "strength", "hic", "other"]);
+  // Saturday is Black's HIC-or-E slot (TB II p59); with no history an E is due, and
+  // an easy session is still conditioning on its own day.
+  a.deepEqual(kinds, ["strength", "hic", "strength", "hic", "strength", "easy", "other"]);
 });
 
 /* ---------------- the plan you live is the plan you were shown (3.84) ----------------

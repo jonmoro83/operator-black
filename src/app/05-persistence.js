@@ -180,7 +180,7 @@ function migrate(write){
   for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
   return true;
 }
-function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); }
+function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; if(path!=='hic.format'&&(path==='done'||path.startsWith('hic'))) hicStamp(date); setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 

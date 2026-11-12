@@ -109,7 +109,9 @@ function freezePast(){
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','afterW','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
-    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))}
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))
+      // What Black recommended, kept: a past week must not follow today's cluster.
+      if(hicRecOn(wk)) f.recs=recWeek(wk.monday).slots.map(x=>x.f)}
     fz[wk.monday]=f; changed=true; planV++;
   }
   const curMon=list[cur]&&list[cur].monday;

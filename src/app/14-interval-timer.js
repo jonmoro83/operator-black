@@ -86,7 +86,30 @@ const IV_BOOK={
   beasting:{rounds:[4,12],def:6,seq:[BK_W('March',600),BK_H('100 swings, or 100 squats',300)]},
   snakeeater:{rounds:[1,1],def:1,seq:[BK_H('Ruck 10 km',6000),BK_H('Run 10 km',3600)]},
 };
-for(const [k,v] of Object.entries(IV_BOOK)){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
+/* MTI's sessions, the same way. An "every 2:30" shuttle is one timed segment: the run
+   and the rest that is left of it, which is how MTI's clock works. */
+const IV_MTI={
+  m40:{rounds:[10,20],def:10,seq:[BK_W('Shuttle 40 ft',30),BK_R(30)]},
+  m40d:{rounds:[10,10],def:10,seq:[BK_W('8 lengths, then rest the minute out',60)]},
+  msui:{rounds:[10,20],def:20,seq:[BK_W('Suicide, then rest',30)]},
+  m300:{rounds:[4,6],def:4,seq:[BK_W('300 m shuttle, then rest',150)]},
+  m150:{rounds:[4,8],def:4,seq:[BK_W('150 m shuttle, then rest',75)]},
+  mp2s:{rounds:[6,12],def:8,seq:[BK_W('Prone to sprint',30),BK_R(30)]},
+  mbeep:{rounds:[10,10],def:10,seq:[BK_W('Shuttle reps, then rest',120)]},
+  mfix:{rounds:[10,10],def:10,seq:[BK_W('20 m shuttles',60),BK_R(60)]},
+  mtjt:{rounds:[20,20],def:20,seq:[BK_W('Touch, jump, touch',10),BK_R(50)]},
+  m555:{rounds:[3,3],def:3,seq:[...Array.from({length:5},(_,i)=>BK_W(`6 cleans, 6 burpees (${i+1} of 5)`,60)),BK_R(60)]},
+  m1010:{rounds:[1,1],def:1,seq:[...Array.from({length:4},(_,i)=>BK_W(`300 m shuttle, then rest (${i+1} of 4)`,150)),BK_R(180),BK_W('Sandbag get-ups',600)]},
+  mamrap:{rounds:[1,1],def:1,seq:[BK_W('AMRAP: 3 clean and press, 75 m shuttle',1200)]},
+  mhinge:{rounds:[8,8],def:8,seq:[BK_H('10 hinge lifts',30),BK_H('30 step-ups',75),BK_R(15)]},
+  mmtn:{rounds:[8,8],def:8,seq:[BK_H('20 step-ups',50),BK_H('6 × 25 m shuttle',35),BK_H('1 rope climb',20)]},
+  mvest:{rounds:[1,1],def:1,seq:[BK_W('AMRAP: 3 cleans, 75 m shuttle',720)]},
+  mrr15:{rounds:[1,1],def:1,seq:[BK_H('Ruck run 1.5 miles',810)]},
+  mshort:{rounds:[1,2],def:1,seq:[BK_H('Sprint 50 m',8),BK_R(120),BK_H('Sprint 100 m',15),BK_R(180),BK_H('Sprint 200 m',30),BK_R(240)]},
+  mz2:{rounds:[1,1],def:1,seq:[BK_W('Zone 2: 180 minus your age',2700)]},
+  m21:{rounds:[10,30],def:20,seq:[BK_W('Run',120),BK_R(60,'Walk')]},
+};
+for(const [k,v] of Object.entries({...IV_BOOK,...IV_MTI})){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
 // One round of a book session as segments. The sub-label names the round, and the
 // trailing rest of the last round is dropped, as it is for every other format.
 function bookRound(r,i,n){

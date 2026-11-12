@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.86',date:'2026-11-12',title:"Black's conditioning, the way the book sets it",items:[
+    "The book's Black never named MAP, Anaerobic and Threshold days. That rotation was the app's own. What the book asks for is at least two hard sessions a week and an easy endurance session at least every other week, so that's what Black schedules now: HIC, HIC, then HIC or E.",
+    "Each conditioning day recommends a session and says why, with the book page for each reason. It rotates through your cluster, the book's preferred way to progress: two or three sessions, each kept until you can do its Advanced version, then swapped for a new one. You can always pick something else.",
+    "It also keeps the mix the book asks for. After a run of interval work it recommends general conditioning, and if your cluster has none it offers some to add. Set your cluster in Setup, under Program.",
+    "Nineteen of Mountain Tactical Institute's conditioning sessions are now formats, with timers: shuttle intervals, work capacity events, a Zone 2 run, ruck runs. They're filed into the book's categories the way the book says to file outside sessions. Wherever a session is suggested, MTI's that meet the same need are shown beside the book's.",
+    "If you've been training, this week stays as it was. The new way starts Monday.",
+  ]},
   {v:'3.85',date:'2026-11-12',title:"The coach has read Mountain Tactical Institute",items:[
     "The coach can now read Mountain Tactical Institute's whole article archive: about 2,200 pieces from 2011 on, including Rob Shaul's mini-studies, research reviews and Q&As. It's especially useful for rucking, event prep and assessments, which the books cover only briefly.",
     "The books still come first. When an article and a book disagree, the coach goes with the book and tells you the article says something different. It also reminds you that MTI's studies are small groups over a few weeks.",

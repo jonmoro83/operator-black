@@ -786,7 +786,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=7;
+const SCHEMA=8;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -884,6 +884,12 @@ const MIGRATIONS=[
     }
     if(Object.keys(at).length) p.at=at;
     delete p.order; delete p.stack;
+  }},
+  /* 3.86: Black's three sessions are recommended rather than fixed. A plan with history
+     keeps the old rotation until next Monday, so the week already under way is not
+     rewritten mid-week; a new plan starts on the recommendations. */
+  {to:8,note:'Black recommends its sessions from next week',run(d,p){
+    p.hicRecFrom=Object.keys(d.logs||{}).length?addDays(mondayOf(todayStr()),7):'';
   }},
 ];
 

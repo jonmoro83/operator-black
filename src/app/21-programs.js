@@ -448,6 +448,28 @@ function templateCard(){
   h+=`<div class="note">Changing either re-draws this week and every week after it. Weeks you have already trained keep the program they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }
+/* Black's cluster: the book's preferred way to progress (TB II p187). Two or three HICs
+   and an E session, each run until you can do its Advanced version and then swapped.
+   The day's recommendation rotates through them; see 04c-hic-rec.js. */
+function hicClusterCard(){
+  if(!CPROTO[cprotoKey()].recommend) return '';
+  const cl=hicCluster(), E=hicE();
+  const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
+  const lastOf=f=>{const ds=Object.keys(logs).filter(d=>((logs[d].hic||{}).format||(logs[d].hic||logs[d].done?effFmt(d):''))===f&&d<=todayStr()).sort();return ds.length?ds[ds.length-1]:null};
+  let h=`<div class="card"><div class="lift-h"><h2>Conditioning cluster</h2><span class="chip light">${cl.length} HIC + E</span></div>
+  <p class="note" style="margin:0">Black leaves the sessions to you (TB II p59). The book\u2019s preferred way to choose them is a cluster: two or three HICs and an E session. Run each at its Basic version until you can do the Advanced, then swap it for a new one (p187). Mix aerobic/anaerobic sessions with general conditioning; avoid only one kind (p112). Each conditioning day recommends one and says why, and you can always pick something else.</p>`;
+  for(const c of cl){
+    const l=lastOf(c.f), g=hicGrad(c.f);
+    h+=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap"><span style="min-width:0"><b>${nm(c.f)}</b> <span class="chip">${hicTbCat(c.f)}</span>${hicMti(c.f)?' <span class="chip blue">MTI</span>':''}
+      <div class="small muted">${l?'Last done '+fmtD(l,true):'Not done yet'}${g?' · Advanced done: ready to swap':''}</div></span>
+      ${cl.length>1?`<button class="btn sm" data-act="hicdrop" data-f="${esc(c.f)}" aria-label="Remove ${nm(c.f)}">Remove</button>`:''}</div>`;
+  }
+  h+=`<label class="f">Add a session<select data-act-hicadd="1"><option value="">Choose…</option>${hicOptions('',k=>hicTbCat(k)!=='E'&&!cl.some(c=>c.f===k)&&k!=='free')}</select></label>
+  <label class="f">E session<select id="p-hicE" data-pbind="hicE">${Object.keys(HIC).filter(k=>hicTbCat(k)==='E').map(k=>`<option value="${esc(k)}"${k===E?' selected':''}>${nm(k)}${hicMti(k)?' · MTI':''}</option>`).join('')}</select></label>
+  <div class="note">Black asks for an E at least every other week; the last session of the week becomes one when it is due. Without a cluster of your own, the app starts you on its three interval shapes, MAP, Anaerobic and Threshold, because they run on whatever equipment you have.</div>
+  <div class="small muted">Ours: the starting cluster, and the order the rules are applied in. The rules themselves are the book\u2019s.</div></div>`;
+  return h;
+}
 /* The Ageless Athlete preset. It writes three real settings rather than layering a
    hidden mode over them, so each one stays visible in Setup and individually
    reversible. `agelessOn()` is what the card checks to know it has been applied. */
@@ -547,7 +569,7 @@ function vSetup(){
     <label class="check"><input type="checkbox" id="p-gym" data-act="gym" ${gymOn()?'checked':''}> <span>Gym mode: bigger buttons and stronger contrast for sweaty hands</span></label></div>`;
   }
   h+=SEC('program')+programsCard();
-  h+=SEC('program')+templateCard();
+  h+=SEC('program')+templateCard()+hicClusterCard();
   h+=SEC('program')+plyoCardSetup();
   h+=SEC('program')+`<div class="card"><h2>Start and units</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
@@ -804,12 +826,12 @@ function guideBookEntry(k){
     if(b.basic) vs.push(`<b>Basic:</b> ${esc(b.basic)}`);
     if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
     if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
-    const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):'Not scored by the book: the app logs rounds and minutes.';
+    const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):`Not scored by ${b.src==='mti'?'MTI':'the book'}: the app logs rounds and minutes.`;
     return `<details class="px"><summary><span>${tag}${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
       <ul class="tight" style="margin:6px 0">${b.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
       ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
       <div class="small muted" style="margin:4px 0 6px">${esc(b.why)}</div>
-      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`;
+      <div class="small muted">${b.src==='mti'?'From “'+esc(b.a)+'”. ':''}${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`;
 }
 function guideFinisher(k){
   const F=FINISHERS[k], vs=[];
@@ -835,6 +857,13 @@ function guideCoreGrip(){
   ${of('challenge')}</div>
   <p class="note">Prescriptions, versions and reasoning are the book\u2019s. Scoring Burpees for the Mentally Disturbed by the two sets added together is the app\u2019s choice, and the timer\u2019s length for a bout of reps or distance is the app\u2019s estimate.</p></div>`;
 }
+function guideMti(){
+  const ks=Object.keys(HIC).filter(hicMti), by=c=>ks.filter(k=>hicTbCat(k)===c).map(guideBookEntry).join('');
+  return `<div class="card guide"><h3>Conditioning: MTI\u2019s sessions</h3>
+  <p>Mountain Tactical Institute publishes a large archive of training articles, and the coach reads all of it. ${ks.length} of its conditioning sessions are formats here, beside the book\u2019s, in the format list on any conditioning day and among the suggestions on Black\u2019s days. Tactical Barbell II encourages bringing in sessions from elsewhere and says how to file them (p189): a high-intensity session is a HIC, one done for time or with several tools is general conditioning, and a long steady one is an E. That is how these are filed, so when the week needs general conditioning you are shown the book\u2019s and MTI\u2019s side by side.</p>
+  ${['AA','GC','PD','E'].map(c=>by(c)?`<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(TB_CAT[c])}</h4>${by(c)}</div>`:'').join('')}
+  <p class="note">Prescriptions are MTI\u2019s, paraphrased from the article each names. Where an article gives no round count, the timer\u2019s is the app\u2019s, and says so. MTI\u2019s studies are small, a handful of athletes each, and where they disagree with the book the app follows the book. The sessions that need an assessment first, MTI\u2019s speed-over-ground intervals among them, are not here yet.</p></div>`;
+}
 function guideHicBook(){
   const entry=guideBookEntry;
   const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
@@ -859,7 +888,7 @@ function vGuide(){
 }
 function vGuideHtml(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
-  <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
+  <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC, recommended from your cluster</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC, recommended</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC, or an E session when one is due: Black asks for one at least every other week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Cluster lifts and their variants</h3>
   <p>Each cluster lift has a list of variants, and the first on each list is the <b>reference</b> — the lift your stored max belongs to. Pick the one your block actually runs in Setup \u2192 Program; it is a per-cycle choice, like your accessories, because the wave builds to heavy weeks on a max for a particular lift and changing it mid-block makes those weeks mean nothing.</p>
@@ -896,6 +925,7 @@ function vGuideHtml(){
   <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   ${guideHicBook()}
+  ${guideMti()}
   ${guideCoreGrip()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>

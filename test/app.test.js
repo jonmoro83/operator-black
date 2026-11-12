@@ -4273,6 +4273,9 @@ test("the Sound card offers the beep test and shows the result", () => {
 
 test("the composed Operator week is exactly the week that used to be hardcoded", () => {
   const x = app({ now: "2026-10-19" });
+  // Since 3.86 Black recommends its sessions. A week before plan.hicRecFrom keeps the
+  // fixed rotation it was trained under, and that rotation must still be this literal.
+  x.plan.hicRecFrom = "2099-01-05"; x.bump();
   const wk = x.weeks().find((w) => w.kind === "cycle" && w.w % 2 === 1);
   const ev = x.weeks().find((w) => w.kind === "cycle" && w.w % 2 === 0);
 
@@ -4456,7 +4459,8 @@ test("a week already trained keeps the programme it was trained under", () => {
   a.equal(x.plan.frozen[past].tpl, "operator", "stamped with the template it ran under");
 
   const before = [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlanSlot(x.addDays(past, d), d).short);
-  a.deepEqual(before, ["Op 1", "HIC", "Op 2", "HIC", "Op 3", "HIC", "Off"]);
+  // Saturday is Black's HIC-or-E slot (TB II p59), and with no history an E is due.
+  a.deepEqual(before, ["Op 1", "HIC", "Op 2", "HIC", "Op 3", "E", "Off"]);
 
   // Switch programme now. History must not be rewritten into something never done.
   x.plan.stempl = "fighter"; x.bump();
@@ -10373,4 +10377,126 @@ test("only alerts the server will accept are sent, and a long session's later on
     // And a long freeform session is no longer cut off at its eightieth change.
     a.equal(x.ALARM_MAX, 240, "as many as the server holds in a slot");
   } finally { x.iv = null; h.restore() }
+});
+
+// --- Black's conditioning, recommended from the book (3.86) ----------------------------
+/* The user's decision, 12 November 2026: "follow the book as much as possible but make
+   changes where they make the most sense". The book's Black names no MAP, Anaerobic or
+   Threshold days (TB II p58–59): it asks for two HICs a week and an E every other week,
+   and its advice on choosing them (p112, p187, p189) is what recommends each day. The
+   app's three shapes stay as sessions and as the starting cluster. When a HIC is
+   suggested, MTI's sessions meeting the same need are shown beside the books'. */
+function blackApp(now) {
+  const x = app({ now });
+  x.plan.startMonday = "2026-11-16"; x.plan.bridge = false; x.plan.hicRecFrom = ""; x.bump();
+  return x;
+}
+const fmtsOf = (x, mon) => [1, 3, 5].map((d) => x.dayPlan(x.addDays(mon, d)).fmt);
+
+test("Black schedules HIC, HIC, then HIC or E, and says why with the book's pages", () => {
+  const x = blackApp("2026-11-16");
+  a.deepEqual(fmtsOf(x, "2026-11-16"), ["map", "anaerobic", "liss"], "the starting cluster in turn, and an E due in week one");
+  const sat = x.dayPlan("2026-11-21");
+  a.equal(sat.short, "E");
+  a.ok(sat.rec.why.some(([t, c]) => /every other week/.test(t) && c === "TB II p59"), "the E is due by Black's own minimum");
+  // Week two had an E the week before, so its last slot is a HIC, and the rotation
+  // carries on from where week one left it.
+  const w2 = fmtsOf(x, "2026-11-23");
+  a.equal(x.hicTbCat(w2[2]), "AA", "no E two weeks running");
+  a.equal(w2[0], "threshold", "the session not done yet comes round first");
+  a.ok(x.dayPlan("2026-11-17").rec.why.every(([, c]) => /^TB II p\d+$/.test(c)), "every reason cites a page");
+});
+
+test("a cluster with no general conditioning is offered one, the books' and MTI's", () => {
+  const x = blackApp("2026-11-17");
+  x.sel = "2026-11-17";
+  const h = x.vToday();
+  a.match(h, /Recommended/);
+  a.match(h, /no general conditioning/, "the mix the book asks for (p112)");
+  const add = [...h.matchAll(/data-act="hicadd" data-f="([a-z0-9]+)"/g)].map((m) => m[1]);
+  a.ok(add.some((k) => x.HIC[k].book && x.HIC[k].book.n), "a TB II session");
+  a.ok(add.some((k) => x.hicMti(k)), "and an MTI one");
+  a.ok(add.every((k) => x.hicTbCat(k) === "GC"), "all general conditioning");
+  // Alternatives for an aerobic/anaerobic day include MTI's aerobic/anaerobic sessions.
+  a.match(h, /Also aerobic \/ anaerobic, from MTI/);
+});
+
+test("the mix rule recommends general conditioning after a run of aerobic work", () => {
+  const x = blackApp("2026-12-01");
+  x.plan.hicCluster = [{ f: "map", since: "" }, { f: "anaerobic", since: "" }, { f: "mhinge", since: "" }]; x.bump();
+  // Three weeks of nothing but MAP and Anaerobic, done.
+  for (const mon of ["2026-11-16", "2026-11-23"]) for (const d of [1, 3]) {
+    const day = x.addDays(mon, d);
+    x.seed({ [day]: { date: day, done: true, hic: { format: d === 1 ? "map" : "anaerobic", mod: "echo", cal: 100 } } });
+  }
+  x.bump();
+  const tue = x.dayPlan("2026-12-01");
+  a.equal(tue.fmt, "mhinge", "MTI's Hinge and Step Up, filed as general conditioning");
+  a.ok(tue.rec.why.some(([, c]) => c === "TB II p112"));
+  a.equal(x.hicTbCat("mhinge"), "GC");
+});
+
+test("a finished week keeps what it was recommended when the cluster changes", () => {
+  const x = blackApp("2026-11-18");
+  const tue = "2026-11-17";
+  a.equal(x.dayPlan(tue).fmt, "map");
+  x.setLog(tue, "hic.cal", 120);
+  a.equal(x.logs[tue].hic.format, "map", "logging the day stamps the session it was");
+  x.plan.hicCluster = [{ f: "apex", since: "2026-11-18" }, { f: "gc1", since: "2026-11-18" }]; x.bump();
+  a.equal(x.effFmt(tue), "map", "so a new cluster does not rewrite it");
+  // A week that has passed is frozen with its recommendations.
+  const y = blackApp("2026-12-02");
+  y.freezePast();
+  a.deepEqual(y.plan.frozen["2026-11-16"].recs, ["map", "anaerobic", "liss"]);
+  y.plan.hicCluster = [{ f: "apex", since: "" }]; y.bump();
+  a.deepEqual(fmtsOf(y, "2026-11-16"), ["map", "anaerobic", "liss"], "history stays what it was");
+});
+
+test("weeks before the change keep the old rotation; a new plan starts on the book", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.hicRecFrom = "2026-11-23"; x.bump();
+  a.deepEqual(fmtsOf(x, "2026-11-16"), ["map", "anaerobic", "threshold"], "the week under way is not rewritten");
+  a.equal(x.dayPlan("2026-11-21").rec, undefined, "and makes no recommendation");
+  a.equal(x.dayPlan("2026-11-24").rec.f, x.dayPlan("2026-11-24").fmt, "next week is recommended");
+  // The migration: a plan with history waits for next Monday, a new one does not.
+  const y = app({ now: "2026-11-12" });
+  y.seed({ "2026-11-10": { date: "2026-11-10", done: true } });
+  y.plan.schema = 7; y.migrate(false);
+  a.equal(y.plan.hicRecFrom, "2026-11-16");
+  const z = app({ now: "2026-11-12" });
+  for (const k of Object.keys(z.logs)) delete z.logs[k];
+  z.plan.schema = 7; z.migrate(false);
+  a.equal(z.plan.hicRecFrom, "");
+});
+
+test("logging the Advanced version offers a swap, as the book says", () => {
+  const x = blackApp("2026-11-24");
+  x.plan.hicCluster = [{ f: "resets600", since: "2026-11-01" }, { f: "mhinge", since: "2026-11-01" }]; x.bump();
+  x.seed({ "2026-11-17": { date: "2026-11-17", done: true, hic: { format: "resets600", ver: "advanced", rounds: 6 } } }); x.bump();
+  a.equal(x.hicGrad("resets600"), true);
+  x.sel = "2026-11-24";
+  x.plan.hicCluster = [{ f: "resets600", since: "2026-11-01" }]; x.bump();
+  const h = x.vToday();
+  a.match(h, /Ready to swap/);
+  a.match(h, /data-act="hicswap" data-from="resets600"/);
+  a.match(h, /data-act="hicver"/, "the version is logged on the card");
+});
+
+test("MTI's sessions are formats: filed by the book's rule, timed, sourced", () => {
+  const x = app({ now: "2026-10-20" });
+  const ks = Object.keys(x.HIC).filter(x.hicMti);
+  a.ok(ks.length >= 19);
+  for (const k of ks) {
+    const b = x.HIC[k].book;
+    a.ok(b.lines.length && b.why.length > 40 && b.a, k + " carries the prescription and its article");
+    a.ok(["AA", "GC", "PD", "E"].includes(x.hicTbCat(k)), k + " is filed in a TB category");
+    a.ok(x.IV[k] && x.IV[k].seq, k + " runs on the timer");
+    a.match(x.hicSrcLabel(k), /^Mountain Tactical Institute, “.+”, filed as .+ \(TB II p189\)$/);
+    if (b.measure) a.deepEqual(x.metricFor("echo", k), b.measure);
+    else a.equal(x.HIC[k].noMetric, true);
+  }
+  a.match(x.hicOptions("m300"), /<optgroup label="MTI: aerobic \/ anaerobic">/);
+  a.equal(x.hicTbCat("liss"), "E");
+  a.equal(x.hicTbCat("gc1"), "GC");
+  a.equal(x.hicTbCat("map"), "AA", "the app's shapes are aerobic/anaerobic work");
 });

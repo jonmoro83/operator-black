@@ -384,9 +384,16 @@ const STEMPL={
 const CPROTO={
   black:{
     name:'Black', book:'TB2', blurb:'The standard continuation protocol. Strength and high-intensity conditioning weighted equally, with endurance kept ticking over.',
-    // Three hard sessions. The last alternates so both aerobic-power qualities stay in
-    // rotation, which is what this week has always done.
-    sessions:wk=>[
+    // The book's Black (TB II p58–59): at least two HICs a week and an E at least every
+    // other week, on whichever days suit you. So three slots, HIC, HIC and HIC-or-E, and
+    // which session fills each is recommended from your cluster and your history rather
+    // than fixed: see 04c-hic-rec.js.
+    recommend:true,
+    sessions:()=>[{t:'hic',rec:true},{t:'hic',rec:true},{t:'hic',rec:true,eOk:true}],
+    // Until 3.86 the app fixed the three: MAP, Anaerobic, then Threshold and Long HIC
+    // alternating. That was the app's own rotation, not the book's. Weeks before
+    // plan.hicRecFrom keep it, so what you trained under it stays what it was.
+    legacy:wk=>[
       {t:'hic',fmt:'map'},
       {t:'hic',fmt:'anaerobic'},
       {t:'hic',fmt:wk.w%2?'threshold':'long',note:'Swap to LISS if the week has been heavy.'},
@@ -611,6 +618,13 @@ function weekShape(slots,sessions){
   return out;
 }
 
+// The days of a composed week that carry a conditioning session, in slot order: the
+// order composeSlot counts them in, so the third entry is the third session.
+function condDays(wk){
+  const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
+  const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[], sd=tplDays(T,wk);
+  return weekShape(P.noStrength?[]:tplSlots(T,wk,sd),cs).map((r,i)=>r==='C'||r==='SC'?i:-1).filter(i=>i>=0);
+}
 // One slot of a composed week. `wk` carries the week number, `date` resolves Lift 3.
 function composeSlot(date,wk,d){
   // A week frozen in the past carries the template it was trained under, so changing
@@ -633,17 +647,19 @@ function composeSlot(date,wk,d){
           // The session rides along after the barbell work, the way the book's Black +
           // Zulu week does. Its own fields come with it so the right card is drawn: a
           // circuit is not a bike session and must not be rendered as one.
-          const c=cs[ci]||{};
+          const c=cs[ci]&&cs[ci].rec?Object.assign({},cs[ci],hicRecSlot(wk,ci)):cs[ci]||{};
           o.ride=c.t==='se'?'se':'hic';
           o.short=x.short+' + '+(c.short||(c.fmt==='liss'?'E':'HIC'));
           if(o.ride==='se'){ o.circuits=c.circuits; o.reps=c.reps }
           else { o.cardio=true; o.fmt=c.fmt||'map' }
           if(c.note) o.condNote=c.note;
+          if(c.rec&&typeof c.rec==='object') o.rec=c.rec;
         }
         return o;
       }
       if(role==='C'){
         const x=cs[ci];
+        if(x.rec){ const r=hicRecSlot(wk,ci); return Object.assign({short:hicTbCat(r.fmt)==='E'?'E':'HIC'},r,{t:'hic'}) }
         return Object.assign({short:'HIC'},x,{t:x.t||'hic'});
       }
       return {t:'off',short:'Off'};

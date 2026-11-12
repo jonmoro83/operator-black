@@ -114,6 +114,11 @@ document.addEventListener('change',e=>{ const t=e.target;
     }
     t.value=''; render(); return;
   }
+  if(t.dataset&&t.dataset.actHicadd){
+    const f=t.value; t.value='';
+    if(HIC[f]) mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});
+    return;
+  }
   if(t.dataset&&t.dataset.actFob){
     setFob(sel,t.value); render(); return;
   }
@@ -320,6 +325,12 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wzcancel'){wz=null;render();return}
   if(a==='wzskip'){mutatePlan(p=>{p.onboarded=true;if(!st0Saved())p.startMonday=nextMonday()});wz=null;render();return}
   if(a==='wzrerun'){wz=wzNew(true);render();window.scrollTo(0,0);return}
+  // Black's recommendation and your cluster. See 04c-hic-rec.js.
+  if(a==='hicpick'){setLog(sel,'hic.format',b.dataset.f);render();return}
+  if(a==='hicver'){setLog(sel,'hic.ver',(lg(sel).hic||{}).ver===b.dataset.v?'':b.dataset.v);render();return}
+  if(a==='hicadd'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});return}
+  if(a==='hicdrop'){const c=hicCluster();if(c.length<2)return;mutatePlan(p=>{p.hicCluster=c.filter(x=>x.f!==b.dataset.f)});return}
+  if(a==='hicswap'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{p.hicCluster=hicCluster().map(x=>x.f===b.dataset.from?{f,since:todayStr()}:x)});return}
   if(a==='ivopt'){if(ivOpts(sel,effFmt(sel))[b.dataset.k]===+b.dataset.v)return;setLog(sel,'hic.iv.'+b.dataset.k,+b.dataset.v);render();return}
   if(a==='ivfree'){for(const [k,v] of [['work',b.dataset.w],['rest',b.dataset.r],['mins',b.dataset.m]]) setLog(sel,'hic.iv.'+k,+v);render();return}
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}

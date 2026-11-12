@@ -46,27 +46,18 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
-- **Conditioning by purpose, and MTI's sessions and progressions (decided 2026-11-12).**
-  The user chose both recommended options: (1) scope is MTI's sessions *and* its
-  assessment-paced progressions; (2) the day card shows the slot's purpose and a short
-  "Fits today" list (book default first, then TB, then MTI, each labeled), with a
-  filterable Browse for everything. Progressions are opt-in blocks like OMS that take
-  over some conditioning days for 4 to 7 weeks. Books stay the default; every MTI
-  session names its source article. Prototype awaiting a verdict:
-  https://claude.ai/artifact/GYJ3aWsmmc9fowKW1YMo3t. Planned as three releases:
-  purposes + Fits today + Browse (TB only); the MTI sessions with timers; then the
-  progression blocks, Speed over ground first (MTI: intervals a third of the test
-  distance at 20% faster than test pace, long days 10 to 50% further at 20% slower,
-  re-test mid-block). Still open: which days a block takes, and whether Setup asks
-  for gear once.
-  **Revised the same day:** a recommendation with reasons, overridable, built on TB II's
-  own rules: Black's minimums (p58–59: 2+ HIC a week, an E every other week, an easy
-  week every third), the AA/GC mix (p112, p150), the Basic-to-Advanced cluster or
-  Variety Junkie (p187–188), and filing imported sessions by category (p189). The user
-  asked that MTI sessions meeting the same criterion show beside the books' wherever
-  a recommendation is made. **Found:** the book's Black names no MAP / Anaerobic /
-  Threshold days; that rotation in `CPROTO.black` is the app's own. Whether Black
-  should schedule HIC, HIC, HIC-or-E instead is the user's call, still open.
+- **Still to come from the conditioning redesign (3.86 shipped the first part).**
+  MTI's assessment-paced progressions as opt-in blocks like OMS, Speed over ground first
+  (intervals a third of the test distance at 20% faster than test pace, long days 10 to
+  50% further at 20% slower, re-test mid-block), then the 300 m shuttle, beep test,
+  Zone 2 and TJT blocks; MTI's assessment sessions (`mtwca`, `mabase`, `msog`, `mlong`)
+  come with them. A filterable Browse of every session. Variety Junkie (TB II p188) as
+  a cluster setting. A gear question in Setup, so suggestions skip what you can't do.
+  Prototype: https://claude.ai/artifact/GYJ3aWsmmc9fowKW1YMo3t.
+- **A weekly check for new MTI articles (asked 2026-11-12).** A Worker cron that pulls
+  posts newer than the newest `mti` chunk into D1, so the coach stays current with no
+  one running `tools/mti.py`. New workouts are flagged for review, not added to the
+  format list on their own: each needs paraphrasing, a TB category and a timer shape.
 - **TB book coverage is done**, OMS included since 3.82, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
@@ -158,6 +149,24 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**Black's conditioning follows the book; MTI's sessions are formats (2026-11-12, 3.86)**
+- The user's call: "follow the book as much as possible but make changes where they
+  make the most sense." TB II's Black names no MAP / Anaerobic / Threshold days
+  (p58–59); that rotation was ours. `CPROTO.black` now schedules HIC, HIC, HIC-or-E and
+  `04c-hic-rec.js` recommends each from the user's cluster: an E when one is due (none
+  this week or last, p59), the AA/GC mix (p112), least recently done, Basic-to-Advanced
+  and swap on a logged Advanced (p187). Reasons carry their page. Ours, and labeled so:
+  the starting cluster (MAP, Anaerobic, Threshold, because they run on any equipment)
+  and the order the rules apply in.
+- History is safe three ways: weeks before `plan.hicRecFrom` keep the old rotation
+  (`CPROTO.black.legacy`; migration 8 sets it to next Monday for a plan with logs),
+  `freezePast` stores each passed week's picks as `recs`, and `setLog` stamps
+  `hic.format` on a recommended day the moment anything is logged on it.
+- 19 MTI sessions in `01f-hic-mti.js`, filed per TB II p189 (`tb`), with timer shapes
+  (`IV_MTI`), a Guide section and article attribution. Where an article gives no round
+  count the entry says the timer's count is the app's. The day card shows the
+  cluster, then the same category from the books and from MTI, as the user asked.
 
 **The coach reads MTI's article archive (2026-11-12, 3.85)**
 - By request: every post in mtntactical.com's Articles / Research category, 2,244 of

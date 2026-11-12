@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.85", RELEASES_SRC="/releases.js?b=f5f6150428";
+const APP_VERSION="3.86", RELEASES_SRC="/releases.js?b=fa193d5d00";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -389,9 +389,16 @@ const STEMPL={
 const CPROTO={
   black:{
     name:'Black', book:'TB2', blurb:'The standard continuation protocol. Strength and high-intensity conditioning weighted equally, with endurance kept ticking over.',
-    // Three hard sessions. The last alternates so both aerobic-power qualities stay in
-    // rotation, which is what this week has always done.
-    sessions:wk=>[
+    // The book's Black (TB II p58–59): at least two HICs a week and an E at least every
+    // other week, on whichever days suit you. So three slots, HIC, HIC and HIC-or-E, and
+    // which session fills each is recommended from your cluster and your history rather
+    // than fixed: see 04c-hic-rec.js.
+    recommend:true,
+    sessions:()=>[{t:'hic',rec:true},{t:'hic',rec:true},{t:'hic',rec:true,eOk:true}],
+    // Until 3.86 the app fixed the three: MAP, Anaerobic, then Threshold and Long HIC
+    // alternating. That was the app's own rotation, not the book's. Weeks before
+    // plan.hicRecFrom keep it, so what you trained under it stays what it was.
+    legacy:wk=>[
       {t:'hic',fmt:'map'},
       {t:'hic',fmt:'anaerobic'},
       {t:'hic',fmt:wk.w%2?'threshold':'long',note:'Swap to LISS if the week has been heavy.'},
@@ -616,6 +623,13 @@ function weekShape(slots,sessions){
   return out;
 }
 
+// The days of a composed week that carry a conditioning session, in slot order: the
+// order composeSlot counts them in, so the third entry is the third session.
+function condDays(wk){
+  const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
+  const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[], sd=tplDays(T,wk);
+  return weekShape(P.noStrength?[]:tplSlots(T,wk,sd),cs).map((r,i)=>r==='C'||r==='SC'?i:-1).filter(i=>i>=0);
+}
 // One slot of a composed week. `wk` carries the week number, `date` resolves Lift 3.
 function composeSlot(date,wk,d){
   // A week frozen in the past carries the template it was trained under, so changing
@@ -638,17 +652,19 @@ function composeSlot(date,wk,d){
           // The session rides along after the barbell work, the way the book's Black +
           // Zulu week does. Its own fields come with it so the right card is drawn: a
           // circuit is not a bike session and must not be rendered as one.
-          const c=cs[ci]||{};
+          const c=cs[ci]&&cs[ci].rec?Object.assign({},cs[ci],hicRecSlot(wk,ci)):cs[ci]||{};
           o.ride=c.t==='se'?'se':'hic';
           o.short=x.short+' + '+(c.short||(c.fmt==='liss'?'E':'HIC'));
           if(o.ride==='se'){ o.circuits=c.circuits; o.reps=c.reps }
           else { o.cardio=true; o.fmt=c.fmt||'map' }
           if(c.note) o.condNote=c.note;
+          if(c.rec&&typeof c.rec==='object') o.rec=c.rec;
         }
         return o;
       }
       if(role==='C'){
         const x=cs[ci];
+        if(x.rec){ const r=hicRecSlot(wk,ci); return Object.assign({short:hicTbCat(r.fmt)==='E'?'E':'HIC'},r,{t:'hic'}) }
         return Object.assign({short:'HIC'},x,{t:x.t||'hic'});
       }
       return {t:'off',short:'Off'};
@@ -1446,7 +1462,7 @@ Two halves, and the second is the one that actually protects the data:
 
 Adding one: append to MIGRATIONS with the next `to`, bump SCHEMA, write a test. Never
 renumber or edit a shipped migration - someone's phone may be about to run it. */
-const SCHEMA=7;
+const SCHEMA=8;
 // Fields that are meant to be arrays. setPath builds arrays for numeric keys today, but
 // data written before it did (and anything restored from an old export) can hold
 // {"0":…,"1":…} instead, which is why wuList and two `Array.isArray` guards exist.
@@ -1544,6 +1560,12 @@ const MIGRATIONS=[
     }
     if(Object.keys(at).length) p.at=at;
     delete p.order; delete p.stack;
+  }},
+  /* 3.86: Black's three sessions are recommended rather than fixed. A plan with history
+     keeps the old rotation until next Monday, so the week already under way is not
+     rewritten mid-week; a new plan starts on the recommendations. */
+  {to:8,note:'Black recommends its sessions from next week',run(d,p){
+    p.hicRecFrom=Object.keys(d.logs||{}).length?addDays(mondayOf(todayStr()),7):'';
   }},
 ];
 
@@ -2686,6 +2708,7 @@ function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
 function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
 function hicSrcLabel(f){
   const b=(HIC[f]||{}).book; if(!b) return '';
+  if(b.src==='mti') return `Mountain Tactical Institute, “${b.a}”, filed as ${TB_CAT[hicTbCat(f)].toLowerCase()} (TB II p189)`;
   if(b.n) return `Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`;
   return b.cat==='challenge'?`Tactical Barbell II, challenge session ${b.no}`:`Tactical Barbell II, core and grip, session ${b.no}`;
 }
@@ -2720,6 +2743,11 @@ function hicOptions(cur,keep){
   for(const [c,label] of Object.entries(HIC_CAT)){
     const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>hicOrd(a[1])-hicOrd(b[1])).filter(ok).map(opt).join('');
     if(xs) h+=`<optgroup label="Tactical Barbell II: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
+  }
+  // MTI's, under the book's categories they are filed in (p189).
+  for(const [c,label] of Object.entries(TB_CAT)){
+    const xs=Object.entries(HIC).filter(([k])=>hicMti(k)&&hicTbCat(k)===c).filter(ok).map(opt).join('');
+    if(xs) h+=`<optgroup label="MTI: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
   }
   return h;
 }
@@ -2800,6 +2828,131 @@ function finBlock(date,a,i){
   h+=`<div class="small muted">Tactical Barbell II, core and grip, session ${F.no}. Needs: ${esc(F.gear.toLowerCase())}.</div>`;
   return h;
 }
+
+/* ---------------- Mountain Tactical Institute's conditioning sessions ----------------
+Nineteen sessions from MTI's article archive, the same archive the coach reads. They sit
+in the format list beside Tactical Barbell II's, and are filed into the book's own
+categories by the rule the book gives for bringing in sessions from elsewhere (TB II
+p189): a high-intensity session is a HIC, one done for time or with several tools is
+general conditioning, and a long steady one is an E. `tb` is that filing; `cat` is 'mti'
+so nothing that lists the book's own groups picks these up by accident.
+
+The prescriptions are MTI's, paraphrased, each from the article named in `a`. Where the
+article gives no round count (`rx` below says so) the timer's count is the app's. MTI's
+assessment-based sessions, the ones that need a test before you can do them, are left
+out until the app can run a test with them. */
+const MTI_SHUT='MTI’s Favorite Shuttle Sprint Formats for Work Capacity Programming (2019)';
+const MTI_DUR='MTI’s Favorite Work Capacity Events by Duration (2017)';
+const MTI_PROVEN='Most Proven Work Capacity Training Events by Athlete (2017)';
+const MTI_BEEP='Mini Study: Fixed-Interval Beep Test Progression (2025)';
+const HIC_MTI={
+  m40:{tb:'aa',name:'40-ft Shuttle Intervals',sys:'Aerobic / anaerobic',gear:'40 ft of floor',a:MTI_SHUT,
+    sess:'30 s shuttles / 30 s rest × 10–20',
+    lines:['Two lines about 40 ft apart','Shuttle for 30 s, touching the line with a hand at each end','Rest 30 s','10 to 20 rounds'],
+    basic:'10 rounds.',advanced:'20 rounds.',
+    why:'Any 30 to 50 ft works. In a weight vest, stop touching the line: bending to it under load is too much on the low back.'},
+  m40d:{tb:'aa',name:'40-ft Shuttle Density',sys:'Aerobic / anaerobic',gear:'40 ft of floor',a:MTI_SHUT,
+    sess:'8 lengths of 40 ft every minute × 10',
+    lines:['Every minute on the minute for 10 minutes','8 lengths of 40 ft, which is 4 round trips','Rest for what is left of the minute'],
+    why:'A density format: the work is fixed and the clock is fixed, so fitness shows up as rest. The faster you finish the lengths, the more of the minute you get back.'},
+  msui:{tb:'aa',name:'Suicide Shuttles',sys:'Aerobic / anaerobic',gear:'40 ft of floor',a:MTI_SHUT,
+    sess:'A suicide every 30 s × 20',
+    lines:['Cones at each end and one in the middle','Run to the middle and back, then to the far end and back','Start a new one every 30 s, 20 rounds'],
+    advanced:'3 burpees or 5 box jumps before each shuttle, inside the same 30 s.',
+    why:'MTI’s harder versions put 3 burpees or 5 box jumps in front of each shuttle, inside the same 30 s, so the extra work comes out of your rest.'},
+  m300:{tb:'aa',name:'300 m Shuttle',sys:'Aerobic / anaerobic',gear:'25 m of running room',a:MTI_SHUT,
+    sess:'12 lengths of 25 m, every 2:30 × 4',
+    lines:['Two cones 25 m apart','12 lengths, 6 round trips, with a hand touch at each end','Start a new one every 2:30, 4 rounds'],
+    basic:'Every 2:30.',advanced:'Every 2:10. Then the same again in a 25 lb vest.',
+    why:'MTI’s favorite mode for work capacity. Most athletes finish a 300 in 1:00 to 1:15, so it runs at roughly one to one work and rest. MTI progresses it by the clock: two sessions at 2:30, two at 2:20, two at 2:10, then back to 2:30 in a vest. The timer runs 2:30.'},
+  m150:{tb:'aa',name:'150 m Shuttle',sys:'Aerobic / anaerobic',gear:'25 m of running room',a:MTI_SHUT,
+    sess:'6 lengths of 25 m, every 1:15 × 4',
+    lines:['Two cones 25 m apart','6 lengths, 3 round trips','Start a new one every 1:15, 4 rounds'],
+    basic:'4 rounds.',advanced:'8 rounds.',
+    why:'The law-enforcement version of the 300: shorter, and closer to what a foot chase actually is.'},
+  mp2s:{tb:'aa',name:'Prone to Sprint',sys:'Aerobic / anaerobic',gear:'25 m or 40 ft of floor',a:MTI_SHUT,rx:true,
+    sess:'30 s on / 30 s off, dropping prone at each end',
+    lines:['Shuttle 40 ft or 25 m','Drop to full prone at each end, get up, sprint back','30 s of work, 30 s of rest'],
+    why:'The level change adds a large metabolic cost to an ordinary shuttle, and getting up off the ground fast is a skill in itself. It is the basis of MTI’s tactical work capacity test. The article gives the work and the rest but not a count; the timer’s eight rounds are the app’s.'},
+  mbeep:{tb:'aa',name:'20 m Shuttle Intervals',sys:'Aerobic / anaerobic',gear:'20 m of running room',a:MTI_BEEP,
+    sess:'Shuttle reps every 2 min × 10, set from your beep test',
+    lines:['Cones 20 m apart, and one at 10 m for half reps','Every 2 min for 10 rounds','Reps a round from your beep test level: 10.5 at level 7, 11.5 at level 9, 12.5 at level 11'],
+    why:'Assessment-based: the work is scaled to you from a beep test, and when you re-test mid-cycle the reps go up. In MTI’s small study this narrowly lost to the fixed version, 20 m Shuttle Intervals’ simpler sibling.'},
+  mfix:{tb:'aa',name:'Fixed Shuttle Intervals',sys:'Aerobic / anaerobic',gear:'20 m of running room',a:MTI_BEEP,
+    sess:'60 s of 20 m shuttles / 60 s rest × 10',
+    lines:['20 m shuttles for 60 s','Rest 60 s','10 rounds'],
+    basic:'60 s on, 60 s off.',advanced:'70 s on and 50 s off, then 80 s on and 40 s off.',
+    why:'No test needed: the work and rest are fixed and you progress by moving the split. In MTI’s study it narrowly beat the beep-test version. Four athletes over five weeks, so a hint rather than a finding.'},
+  mtjt:{tb:'aa',name:'Touch, Jump, Touch to Box',sys:'Aerobic / anaerobic',gear:'A 17 in box',a:'Touch Jump Touch to Box Intervals (2025)',
+    sess:'20 × 1 min: 10 s on / 50 s off, building to 30 / 30',
+    lines:['Stand beside the box and touch the floor with the inside hand','Hop laterally onto the box and off the other side, touch, and back','20 rounds of 1 minute'],
+    basic:'10 s of work, 50 s of rest.',advanced:'30 s of work, 30 s of rest.',
+    why:'MTI calls it its most intense work capacity event, built for skiers’ legs. The work grows across the cycle while the minute stays a minute.'},
+  m555:{tb:'gc',name:'5+5+5 Clean and Burpee',sys:'Work capacity',gear:'A barbell, 95 or 65 lb',a:MTI_DUR,
+    sess:'3 × 5 min, every minute: 6 power cleans, 6 burpees',
+    lines:['Every minute for 5 minutes: 6 power cleans at 95 or 65 lb, then 6 burpees','Rest a minute','Three times through'],
+    why:'Scale it as you go: if you are getting 40 s of rest, add a rep to each; if you barely make the minute, drop one. Two tools and a fixed clock, which is what makes it general conditioning rather than an interval.'},
+  m1010:{tb:'gc',name:'10 + 10',sys:'Work capacity',gear:'25 m of running room and a 60 or 80 lb sandbag',a:MTI_DUR,
+    sess:'4 × 300 m shuttle every 2:30, rest 3 min, then 10 min of sandbag get-ups',
+    lines:['A 300 m shuttle every 2:30, 4 rounds','Rest 3 min','10 min of sandbag get-ups for reps, 60 or 80 lb'],
+    measure:['reps','get-ups'],
+    why:'Two hard ten-minute efforts back to back, the shuttles and then the sandbag, with only three minutes between them.'},
+  mamrap:{tb:'gc',name:'Clean, Press and Shuttle',sys:'Work capacity',gear:'A barbell, 85 or 135 lb, and 25 m',a:MTI_DUR,
+    sess:'20 min AMRAP: 3 clean and push press, 75 m shuttle, walk back',
+    lines:['As many rounds as possible in 20 min','3 power clean and push press, 85 or 135 lb','A 75 m shuttle, 3 lengths of 25 m','Walk back to the bar'],
+    measure:['amrap','rounds'],
+    why:'Sprint the shuttle and recover on the walk back to the bar. Scored by rounds completed in the 20 minutes.'},
+  mhinge:{tb:'gc',name:'Hinge and Step Up',sys:'Work capacity',gear:'A barbell, 95 or 155 lb, and a 20 in box',a:MTI_DUR,
+    sess:'8 rounds for time: 10 hinge lifts, 30 step-ups, rest 15 s',
+    lines:['8 rounds for time','10 hinge lifts, 95 or 155 lb','30 step-ups on a 20 in box','Rest 15 s'],
+    measure:['time','mm:ss'],lower:true,
+    why:'MTI’s favorite gym work capacity event for mountain athletes. The 15 s rest keeps each round an attack rather than a slog.'},
+  mmtn:{tb:'gc',name:'Step Up, Shuttle, Rope',sys:'Work capacity',gear:'A 25 lb pack, a 20 in box, 25 m and a rope',a:MTI_PROVEN,
+    sess:'8 rounds for time in a 25 lb pack: 20 step-ups, 6 shuttles, 1 rope climb',
+    lines:['8 rounds for time, with a 25 lb pack on','20 step-ups on a 20 in box','6 shuttle sprints of 25 m','1 rope climb'],
+    measure:['time','mm:ss'],lower:true,
+    why:'Legs, lungs and a climbing pull, under a pack. Fit mountain athletes finish in about 20 minutes.'},
+  mvest:{tb:'gc',name:'Clean and Shuttle, vested',sys:'Work capacity',gear:'A barbell, 95 or 135 lb, a 25 lb vest and 25 m',a:MTI_PROVEN,
+    sess:'12 min AMRAP in a vest: 3 power cleans, 75 m shuttle, walk back',
+    lines:['As many rounds as possible in 12 min, in a 25 lb vest','3 power cleans, 95 or 135 lb','A 75 m shuttle, then walk back to the bar'],
+    measure:['amrap','rounds'],
+    why:'MTI’s movement-under-fire event, under load: short, explosive, and done in the kit you would wear.'},
+  mrr15:{tb:'gc',name:'1.5-mile Ruck Run',sys:'Work capacity',gear:'A 45 lb ruck and a 10 lb dumbbell',a:MTI_PROVEN,
+    sess:'1.5 miles for time with 45 lb, carrying 10 lb',
+    lines:['1.5 miles for time','45 lb ruck, and a rubber rifle, sledge or 10 lb dumbbell in your hands'],
+    measure:['time','mm:ss'],lower:true,
+    why:'One of the events MTI’s athletes have improved on most reliably. Top athletes finish around 13:30.'},
+  mshort:{tb:'power',name:'Short Sprints',sys:'Power',gear:'A track',a:'Mini Study: Short Sprints outperform Heavy Squats and Lunges (2023)',rx:true,
+    sess:'50, 100 and 200 m sprints with full recovery',
+    lines:['Sprint 50 m, 100 m and 200 m','Recover fully between efforts'],
+    why:'In MTI’s study these did more for a 3-mile run time than heavy squats and lunges: 7.7% against 4.2%, in a handful of athletes. “Full recovery” is the article’s; the timer’s rests are the app’s estimate of it.'},
+  mz2:{tb:'e',name:'Zone 2 Run',sys:'Aerobic base',gear:'Somewhere to run',a:'Mini Study: 3 Hours of Weekly Zone 2 Running Improves Aerobic Base (2025)',
+    sess:'45–60 min at a heart rate of 180 minus your age',
+    lines:['45 to 60 min easy','Heart rate at 180 minus your age, or a pace where you can talk in full sentences'],
+    why:'Three of these a week improved aerobic base in four weeks in MTI’s study. It is an E session in the book’s terms: long, steady and easy, and as useful for being repeatable as for anything else.'},
+  m21:{tb:'e',name:'2/1 Ruck Run',sys:'Aerobic base',gear:'A ruck',a:'2/1 Intervals vs Continuous Ruck Run (2025)',rx:true,
+    sess:'2 min running / 1 min walking, for the distance',
+    lines:['Run 2 min, walk 1 min, and repeat','For the whole distance: the study used 6 miles at 60 lb'],
+    why:'Faster than running the same distance continuously for all four athletes in MTI’s study, and easier to hold on to mentally. The timer’s twenty rounds, an hour, are the app’s.'},
+};
+for(const [k,x] of Object.entries(HIC_MTI)){
+  x.cat='mti'; x.src='mti';
+  HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower};
+  if(!x.measure) HIC[k].noMetric=true;
+}
+/* TB II's categories for every format (p111–112, p189): AA aerobic/anaerobic, GC
+   general conditioning, PD power development, E long steady endurance, plus the core
+   and challenge sessions. The app's own interval shapes are aerobic/anaerobic work;
+   TB III's short maximal sprints are power. */
+const TB_CAT={AA:'Aerobic / anaerobic',GC:'General conditioning',PD:'Power development',E:'Endurance',Core:'Core',Challenge:'Challenge'};
+function hicTbCat(f){
+  const b=(HIC[f]||{}).book;
+  if(f==='liss'||f==='predator') return 'E';
+  if(['sprints','reset20','hillsprint'].includes(f)) return 'PD';
+  const c=b&&(b.src==='mti'?b.tb:b.cat);
+  return {aa:'AA',gc:'GC',power:'PD',e:'E',core:'Core',challenge:'Challenge'}[c]||'AA';
+}
+function hicMti(f){ return !!(HIC[f]&&HIC[f].book&&HIC[f].book.src==='mti') }
 
 /* ---------------- state ---------------- */
 let plan=clone(DEF), logs={}, planV=0;
@@ -3058,7 +3211,9 @@ function freezePast(){
     const f={kind:wk.kind};
     for(const key of ['cycle','w','after','afterW','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
-    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))}
+    else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))
+      // What Black recommended, kept: a past week must not follow today's cluster.
+      if(hicRecOn(wk)) f.recs=recWeek(wk.monday).slots.map(x=>x.f)}
     fz[wk.monday]=f; changed=true; planV++;
   }
   const curMon=list[cur]&&list[cur].monday;
@@ -3789,6 +3944,127 @@ function lpSpentNote(k,date){
   return `<div class="banner info"><div class="small"><b>This lift has reset ${lpState(k,date).resets} times.</b> That is normally where a beginner program has given you what it has: adding weight every session has stopped working, and the answer is a program that does not try to. Operator is the obvious next one — three days a week, the same lifts, and a six-week wave instead of a straight line. Change it in Setup → Template whenever you are ready; everything you have logged stays where it is.</div></div>`;
 }
 
+/* ---------- Black's conditioning, recommended ----------
+The book's Black does not name its sessions (TB II p58–59). It asks for at least two
+HICs a week and an E at least every other week, and leaves the choice to you, with three
+pieces of advice the app turns into a recommendation:
+
+  - mix them: most HICs from #1–36, aerobic/anaerobic and general conditioning both,
+    and "avoid doing only AA, or only GC" (p112)
+  - the author's preferred way to progress: a cluster of two or three HICs plus E work,
+    each kept in rotation until you can do its Advanced version, then swapped (p187)
+  - sessions from elsewhere are welcome, filed by kind (p189), which is how MTI's are
+
+The rules are the book's; the order they are applied in, and "least recently done" as
+the tie-break, are the app's. The recommendation is only that: the day's card offers the
+rest of the cluster and the sessions that meet the same need, the books' and MTI's, and
+whatever you pick is what the day becomes. */
+const HIC_CLUSTER0=['map','anaerobic','threshold'];
+// Your cluster: [{f, since}]. Unset, it is the app's three interval shapes, because
+// they run on whatever you have; the card asks for a general conditioning session to
+// complete the mix rather than guessing what equipment you own.
+function hicCluster(){
+  const c=Array.isArray(plan.hicCluster)?plan.hicCluster.filter(x=>x&&HIC[x.f]&&hicTbCat(x.f)!=='E'):[];
+  return c.length?c:HIC_CLUSTER0.map(f=>({f,since:''}));
+}
+function hicE(){ return HIC[plan.hicE]&&hicTbCat(plan.hicE)==='E'?plan.hicE:'liss' }
+let recC={v:'',m:{},grad:null};
+function recVer(){ const v=planV+':'+logsV+':'+todayStr(); if(recC.v!==v) recC={v,m:{},grad:null}; return recC }
+// Cluster sessions whose Advanced version you have logged since they joined: the book's
+// signal to swap them for a new one.
+function hicGrad(f){
+  const C=recVer();
+  if(!C.grad){
+    C.grad=new Set();
+    for(const c of hicCluster()){
+      const b=(HIC[c.f]||{}).book; if(!b||!b.advanced) continue;
+      for(const [d,L] of Object.entries(logs)) if(d>=(c.since||'')&&L.hic&&L.hic.format===c.f&&L.hic.ver==='advanced'){ C.grad.add(c.f); break }
+    }
+  }
+  return C.grad.has(f);
+}
+function hicRecOn(wk){
+  const P=CPROTO[wk.cpr]||cprotoOf();
+  return !!P.recommend&&wk.kind==='cycle'&&!(plan.hicRecFrom&&wk.monday<plan.hicRecFrom);
+}
+// The format for a recommended slot, and the reasons. A week that has passed carries
+// what it was recommended, frozen; a week before the change keeps the old rotation.
+function hicRecSlot(wk,ci){
+  const P=CPROTO[wk.cpr]||cprotoOf();
+  if(!hicRecOn(wk)){ const x=(P.legacy?P.legacy(wk):[])[ci]||{}; const o={fmt:x.fmt||'map'}; if(x.note) o.note=x.note; return o }
+  if(wk.recs&&HIC[wk.recs[ci]]) return {fmt:wk.recs[ci]};
+  const s=recWeek(wk.monday).slots[ci];
+  return s?{fmt:s.f,rec:s}:{fmt:'map'};
+}
+// What you did, newest first, in the three weeks before `monday`. Ahead of today it is
+// what is planned, so next week's recommendation follows on from this week's.
+function hicHistory(monday){
+  const out=[], today=todayStr();
+  for(let i=1;i<=21;i++){
+    const d=addDays(monday,-i), L=logs[d];
+    if(d<today&&!(L&&(L.hic||L.done))) continue;
+    const f=effFmt(d);
+    if(f&&HIC[f]) out.push({d,f});
+  }
+  return out;
+}
+function recWeek(monday){
+  const C=recVer();
+  if(C.m[monday]) return C.m[monday];
+  // Each week ahead leans on the one before it, so build them in order rather than
+  // recursing a year deep from the far end of the calendar.
+  const cur=mondayOf(todayStr());
+  for(let m=addDays(cur,7);m<monday;m=addDays(m,7)) if(!C.m[m]) recWeek(m);
+  const R=C.m[monday]={slots:[]};
+  const wk=weekAt(monday); if(!wk||!hicRecOn(wk)) return R;
+  const P=CPROTO[wk.cpr]||cprotoOf(), cs=P.sessions(wk), hist=hicHistory(monday), week=[];
+  condDays(wk).forEach((d,ci)=>{
+    const date=addDays(monday,d), s=hicPick(cs[ci]||{},week,hist,monday);
+    s.date=date; R.slots.push(s);
+    const lf=((logs[date]||{}).hic||{}).format;
+    week.push(HIC[lf]?lf:s.f);
+  });
+  return R;
+}
+function hicPick(slot,week,hist,monday){
+  const why=[], cat=hicTbCat, seq=[...week.slice().reverse(),...hist.map(h=>h.f)];
+  const eWeek=week.some(f=>cat(f)==='E'), ePrev=hist.some(h=>h.d>=addDays(monday,-7)&&cat(h.f)==='E');
+  if(slot.eOk&&!eWeek&&!ePrev&&week.length>=2){
+    why.push(['An E session is due. Black asks for one at least every other week, and last week had none.','TB II p59']);
+    why.push(['Repeat one or two E sessions you like. Variety matters less here.','TB II p85']);
+    return {f:hicE(),need:'E',why};
+  }
+  const cl=hicCluster(), pool=cl.map(c=>c.f);
+  const recent=seq.filter(f=>['AA','GC','PD'].includes(cat(f))).slice(0,6);
+  let need=null;
+  if(recent.length>=3){
+    if(!recent.some(f=>cat(f)==='GC')&&pool.some(f=>cat(f)==='GC')) need='GC';
+    else if(!recent.some(f=>cat(f)==='AA')&&pool.some(f=>cat(f)==='AA')) need='AA';
+  }
+  const score=f=>{ let s=week.includes(f)?-50:seq.indexOf(f)<0?99:seq.indexOf(f); if(need&&cat(f)===need) s+=100; if(hicGrad(f)) s-=40; return s };
+  const f=pool.map((x,i)=>[x,score(x),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2])[0][0];
+  if(need) why.push([`No ${TB_CAT[need].toLowerCase()} in your last ${recent.length} hard sessions. The book asks for a mix: avoid doing only one kind.`,'TB II p112']);
+  why.push([week.includes(f)?'From your cluster. Every session in it has had a turn this week.':seq.indexOf(f)<0?'From your cluster, and not done in the last three weeks.':'From your cluster, and the one done least recently.','TB II p187']);
+  const b=(HIC[f]||{}).book;
+  if(b&&b.advanced) why.push([hicGrad(f)?'You have done the Advanced version, which is when the book says to swap it for a new session.':'Keep it in rotation until you can do the Advanced version, then swap it for a new one.','TB II p187']);
+  return {f,need:need||cat(f),why};
+}
+/* Sessions that meet the same need as `f`: its TB category, nearest first by system,
+   the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
+function hicLike(c,f,exclude,n){
+  const sys=(HIC[f]||{}).sys, own=new Set(exclude);
+  const xs=Object.keys(HIC).filter(k=>hicTbCat(k)===c&&!own.has(k)&&!(HIC[k].book&&HIC[k].book.cat==='challenge')&&k!=='free'&&k!=='fobbit')
+    .map((k,i)=>[k,(HIC[k].sys===sys?2:0)+(HIC[k].book&&HIC[k].book.n?1:0),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]);
+  return {books:xs.filter(k=>!hicMti(k)).slice(0,n),mti:xs.filter(hicMti).slice(0,n)};
+}
+// A done session keeps the format it was done as. Without this, changing your cluster
+// would rewrite this week's finished days into whatever is recommended now.
+function hicStamp(date){
+  const L=logs[date]; if(!L||(L.hic&&L.hic.format)) return;
+  const dp=dayPlan(date);
+  if(dp&&dp.rec&&HIC[dp.fmt]) setPath(L,'hic.format',dp.fmt);
+}
+
 /* ---------------- persistence ---------------- */
 // One JSON document per path (plan/main, logs/YYYY-MM-DD), stored in D1 behind /api.
 // The phone keeps its own copy (ob.cache) so the app opens offline, and an outbox of
@@ -3971,7 +4247,7 @@ function migrate(write){
   for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
   return true;
 }
-function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); }
+function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; if(path!=='hic.format'&&(path==='done'||path.startsWith('hic'))) hicStamp(date); setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 
@@ -5279,15 +5555,54 @@ function hicBookBlock(f){
   if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
   if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
   if(vs.length) h+=`<div class="small">${vs.join('<br>')}</div>`;
+  // Which version you did. Logging the Advanced is the book's cue to swap a cluster
+  // session for a new one (TB II p187).
+  if(b.basic||b.advanced){
+    const v=(lg(sel).hic||{}).ver||'';
+    h+=`<div class="restsel"><span>Version done</span><div class="seg">${[['basic','Basic'],['rx','As written'],['advanced','Advanced']].filter(([k])=>k==='rx'||b[k]).map(([k,l])=>`<button class="segb${v===k?' on':''}" data-act="hicver" data-v="${k}" aria-pressed="${v===k}">${l}</button>`).join('')}</div></div>`;
+  }
   if(b.load) h+=fobLoadLine(b.load.map(x=>({pct:x.pct,lift:x.lift,reps:''})));
   h+=`<details class="plain" data-px="bkwhy"${openPx.has('bkwhy')?' open':''}><summary>What the book says</summary><div class="small muted" style="margin-top:6px">${esc(b.why)}</div></details>`;
-  h+=`<div class="small muted">${esc(hicSrcLabel(f))}.${b.gear?' Needs: '+esc(b.gear.toLowerCase())+'.':''}${b.measure?' Scored by '+(b.measure[0]==='time'?'time, so lower is better':b.measure[0]==='amrap'?'rounds completed':'total '+esc(b.measure[1]))+'.':' Not scored by the book: log the rounds and the minutes.'}</div>`;
+  h+=`<div class="small muted">${esc(hicSrcLabel(f))}.${b.gear?' Needs: '+esc(b.gear.toLowerCase())+'.':''}${b.measure?' Scored by '+(b.measure[0]==='time'?'time, so lower is better':b.measure[0]==='amrap'?'rounds completed':'total '+esc(b.measure[1]))+'.':(b.src==='mti'?' Not scored by MTI':' Not scored by the book')+': log the rounds and the minutes.'}</div>`;
+  return h;
+}
+/* Black's recommendation for the day: the session, why, with the page each reason comes
+   from, and what else would do. Picking one sets the day's format like the Format list
+   does; "Use the recommendation" clears it. See 04c-hic-rec.js. */
+function hicRecBlock(dp,f){
+  const R=dp.rec; if(!R) return '';
+  const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
+  const tag=k=>`<span class="chip">${hicTbCat(k)}</span>${hicMti(k)?' <span class="chip blue">MTI</span>':''}`;
+  const pick=(k,sub)=>`<button class="segb${k===f?' on':''}" data-act="hicpick" data-f="${esc(k)}" aria-pressed="${k===f}">${nm(k)}${sub?` <span class="small muted">${esc(sub)}</span>`:''}</button>`;
+  const cl=hicCluster(), inCl=cl.map(c=>c.f);
+  let h=`<div class="rec"><div class="rec-h"><span class="small muted">Recommended</span><span>${tag(R.f)}</span></div>
+    <div style="font-weight:700">${nm(R.f)}</div>
+    <ul class="why">${R.why.map(([t,c])=>`<li>${esc(t)} <span class="cite">${esc(c)}</span></li>`).join('')}</ul>`;
+  if(f!==R.f) h+=`<div><button class="btn sm" data-act="hicpick" data-f="">Use the recommendation</button></div>`;
+  h+=`</div>`;
+  const others=R.need==='E'?[]:inCl.filter(k=>k!==R.f);
+  if(others.length) h+=`<div class="restsel"><span>Your cluster</span><div class="seg">${others.map(k=>pick(k)).join('')}</div></div>`;
+  const like=hicLike(R.need,R.f,[R.f,...inCl],2), lbl=TB_CAT[R.need].toLowerCase();
+  if(like.books.length) h+=`<div class="restsel"><span>Also ${esc(lbl)}, from the books</span><div class="seg">${like.books.map(k=>pick(k)).join('')}</div></div>`;
+  if(like.mti.length) h+=`<div class="restsel"><span>Also ${esc(lbl)}, from MTI</span><div class="seg">${like.mti.map(k=>pick(k)).join('')}</div></div>`;
+  // The mix the book asks for needs both kinds in the cluster to rotate between.
+  if(R.need!=='E'&&!inCl.some(k=>hicTbCat(k)==='GC')){
+    const gc=hicLike('GC',null,inCl,2);
+    h+=`<div class="banner info"><div class="small">Your cluster has no general conditioning, and the book asks for a mix: avoid doing only aerobic/anaerobic work (TB II p112). Add one and the recommendation will rotate it in.</div>
+      <div class="seg">${[...gc.books,...gc.mti].map(k=>`<button class="segb" data-act="hicadd" data-f="${esc(k)}">+ ${nm(k)}${hicMti(k)?' · MTI':''}</button>`).join('')}</div></div>`;
+  }
+  if(hicGrad(R.f)){
+    const sw=hicLike(hicTbCat(R.f),R.f,inCl,2);
+    h+=`<div class="banner info"><div class="small"><b>Ready to swap.</b> You have done the Advanced version of ${nm(R.f)}. The book says swap it for a new session now (TB II p187). Same kind:</div>
+      <div class="seg">${[...sw.books,...sw.mti].map(k=>`<button class="segb" data-act="hicswap" data-from="${esc(R.f)}" data-f="${esc(k)}">${nm(k)}${hicMti(k)?' · MTI':''}</button>`).join('')}</div></div>`;
+  }
   return h;
 }
 function hicCard(dp,note){
   const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f), bk=hicBook(f)?H.book:null;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${bk?esc(H.name):`${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}`}</span><span class="chip">${H.sys}</span></div>`;
   const lead0=(IV[f]||{}).lead&&!bk?ivOpts(sel,f):null, free0=(IV[f]||{}).free?freeShape(sel):null;
+  h+=hicRecBlock(dp,f);
   h+=`<div style="font-size:18px;font-weight:700">${lead0?`${lead0.rounds} bouts \u00b7 ${esc(secsLabel(lead0.every))} of base between`:free0?`${free0.rounds} \u00d7 ${esc(freeLabel(free0))}`:H.sess}</div>${note}`;
   // The book's session, as the book gives it: the prescription, its versions, and the
   // reasoning folded away. The activity does not apply: the session says what you do.
@@ -7397,7 +7712,30 @@ const IV_BOOK={
   beasting:{rounds:[4,12],def:6,seq:[BK_W('March',600),BK_H('100 swings, or 100 squats',300)]},
   snakeeater:{rounds:[1,1],def:1,seq:[BK_H('Ruck 10 km',6000),BK_H('Run 10 km',3600)]},
 };
-for(const [k,v] of Object.entries(IV_BOOK)){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
+/* MTI's sessions, the same way. An "every 2:30" shuttle is one timed segment: the run
+   and the rest that is left of it, which is how MTI's clock works. */
+const IV_MTI={
+  m40:{rounds:[10,20],def:10,seq:[BK_W('Shuttle 40 ft',30),BK_R(30)]},
+  m40d:{rounds:[10,10],def:10,seq:[BK_W('8 lengths, then rest the minute out',60)]},
+  msui:{rounds:[10,20],def:20,seq:[BK_W('Suicide, then rest',30)]},
+  m300:{rounds:[4,6],def:4,seq:[BK_W('300 m shuttle, then rest',150)]},
+  m150:{rounds:[4,8],def:4,seq:[BK_W('150 m shuttle, then rest',75)]},
+  mp2s:{rounds:[6,12],def:8,seq:[BK_W('Prone to sprint',30),BK_R(30)]},
+  mbeep:{rounds:[10,10],def:10,seq:[BK_W('Shuttle reps, then rest',120)]},
+  mfix:{rounds:[10,10],def:10,seq:[BK_W('20 m shuttles',60),BK_R(60)]},
+  mtjt:{rounds:[20,20],def:20,seq:[BK_W('Touch, jump, touch',10),BK_R(50)]},
+  m555:{rounds:[3,3],def:3,seq:[...Array.from({length:5},(_,i)=>BK_W(`6 cleans, 6 burpees (${i+1} of 5)`,60)),BK_R(60)]},
+  m1010:{rounds:[1,1],def:1,seq:[...Array.from({length:4},(_,i)=>BK_W(`300 m shuttle, then rest (${i+1} of 4)`,150)),BK_R(180),BK_W('Sandbag get-ups',600)]},
+  mamrap:{rounds:[1,1],def:1,seq:[BK_W('AMRAP: 3 clean and press, 75 m shuttle',1200)]},
+  mhinge:{rounds:[8,8],def:8,seq:[BK_H('10 hinge lifts',30),BK_H('30 step-ups',75),BK_R(15)]},
+  mmtn:{rounds:[8,8],def:8,seq:[BK_H('20 step-ups',50),BK_H('6 × 25 m shuttle',35),BK_H('1 rope climb',20)]},
+  mvest:{rounds:[1,1],def:1,seq:[BK_W('AMRAP: 3 cleans, 75 m shuttle',720)]},
+  mrr15:{rounds:[1,1],def:1,seq:[BK_H('Ruck run 1.5 miles',810)]},
+  mshort:{rounds:[1,2],def:1,seq:[BK_H('Sprint 50 m',8),BK_R(120),BK_H('Sprint 100 m',15),BK_R(180),BK_H('Sprint 200 m',30),BK_R(240)]},
+  mz2:{rounds:[1,1],def:1,seq:[BK_W('Zone 2: 180 minus your age',2700)]},
+  m21:{rounds:[10,30],def:20,seq:[BK_W('Run',120),BK_R(60,'Walk')]},
+};
+for(const [k,v] of Object.entries({...IV_BOOK,...IV_MTI})){ if(!v.lead){ v.work=0; v.rest=0 } IV[k]=v }
 // One round of a book session as segments. The sub-label names the round, and the
 // trailing rest of the last round is dropped, as it is for every other format.
 function bookRound(r,i,n){
@@ -9652,6 +9990,28 @@ function templateCard(){
   h+=`<div class="note">Changing either re-draws this week and every week after it. Weeks you have already trained keep the program they were done under, so your history stays what it was. Each template keeps its own wave below, so switching back and forth does not lose your numbers.</div>`;
   return h+`</div>`;
 }
+/* Black's cluster: the book's preferred way to progress (TB II p187). Two or three HICs
+   and an E session, each run until you can do its Advanced version and then swapped.
+   The day's recommendation rotates through them; see 04c-hic-rec.js. */
+function hicClusterCard(){
+  if(!CPROTO[cprotoKey()].recommend) return '';
+  const cl=hicCluster(), E=hicE();
+  const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
+  const lastOf=f=>{const ds=Object.keys(logs).filter(d=>((logs[d].hic||{}).format||(logs[d].hic||logs[d].done?effFmt(d):''))===f&&d<=todayStr()).sort();return ds.length?ds[ds.length-1]:null};
+  let h=`<div class="card"><div class="lift-h"><h2>Conditioning cluster</h2><span class="chip light">${cl.length} HIC + E</span></div>
+  <p class="note" style="margin:0">Black leaves the sessions to you (TB II p59). The book\u2019s preferred way to choose them is a cluster: two or three HICs and an E session. Run each at its Basic version until you can do the Advanced, then swap it for a new one (p187). Mix aerobic/anaerobic sessions with general conditioning; avoid only one kind (p112). Each conditioning day recommends one and says why, and you can always pick something else.</p>`;
+  for(const c of cl){
+    const l=lastOf(c.f), g=hicGrad(c.f);
+    h+=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap"><span style="min-width:0"><b>${nm(c.f)}</b> <span class="chip">${hicTbCat(c.f)}</span>${hicMti(c.f)?' <span class="chip blue">MTI</span>':''}
+      <div class="small muted">${l?'Last done '+fmtD(l,true):'Not done yet'}${g?' · Advanced done: ready to swap':''}</div></span>
+      ${cl.length>1?`<button class="btn sm" data-act="hicdrop" data-f="${esc(c.f)}" aria-label="Remove ${nm(c.f)}">Remove</button>`:''}</div>`;
+  }
+  h+=`<label class="f">Add a session<select data-act-hicadd="1"><option value="">Choose…</option>${hicOptions('',k=>hicTbCat(k)!=='E'&&!cl.some(c=>c.f===k)&&k!=='free')}</select></label>
+  <label class="f">E session<select id="p-hicE" data-pbind="hicE">${Object.keys(HIC).filter(k=>hicTbCat(k)==='E').map(k=>`<option value="${esc(k)}"${k===E?' selected':''}>${nm(k)}${hicMti(k)?' · MTI':''}</option>`).join('')}</select></label>
+  <div class="note">Black asks for an E at least every other week; the last session of the week becomes one when it is due. Without a cluster of your own, the app starts you on its three interval shapes, MAP, Anaerobic and Threshold, because they run on whatever equipment you have.</div>
+  <div class="small muted">Ours: the starting cluster, and the order the rules are applied in. The rules themselves are the book\u2019s.</div></div>`;
+  return h;
+}
 /* The Ageless Athlete preset. It writes three real settings rather than layering a
    hidden mode over them, so each one stays visible in Setup and individually
    reversible. `agelessOn()` is what the card checks to know it has been applied. */
@@ -9751,7 +10111,7 @@ function vSetup(){
     <label class="check"><input type="checkbox" id="p-gym" data-act="gym" ${gymOn()?'checked':''}> <span>Gym mode: bigger buttons and stronger contrast for sweaty hands</span></label></div>`;
   }
   h+=SEC('program')+programsCard();
-  h+=SEC('program')+templateCard();
+  h+=SEC('program')+templateCard()+hicClusterCard();
   h+=SEC('program')+plyoCardSetup();
   h+=SEC('program')+`<div class="card"><h2>Start and units</h2><div class="grid2"><label class="f">Start (Monday of first week)<input type="date" id="p-start" data-pbind="startMonday" value="${plan.startMonday}"></label></div>
   <label class="check"><input type="checkbox" id="p-bridge" data-pbind="bridge" ${plan.bridge?'checked':''}> Begin with the bridge (calibration) week</label>
@@ -10008,12 +10368,12 @@ function guideBookEntry(k){
     if(b.basic) vs.push(`<b>Basic:</b> ${esc(b.basic)}`);
     if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
     if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
-    const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):'Not scored by the book: the app logs rounds and minutes.';
+    const score=b.measure?(b.measure[0]==='time'?'Scored by time; lower is better.':b.measure[0]==='amrap'?'Scored by rounds completed.':'Scored by total '+esc(b.measure[1])+'.'):`Not scored by ${b.src==='mti'?'MTI':'the book'}: the app logs rounds and minutes.`;
     return `<details class="px"><summary><span>${tag}${esc(x.name)}</span><span class="mono small">${esc(x.sys)}</span></summary>
       <ul class="tight" style="margin:6px 0">${b.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>
       ${vs.length?`<div class="small" style="margin:4px 0 6px">${vs.join('<br>')}</div>`:''}
       <div class="small muted" style="margin:4px 0 6px">${esc(b.why)}</div>
-      <div class="small muted">${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`;
+      <div class="small muted">${b.src==='mti'?'From “'+esc(b.a)+'”. ':''}${b.gear?'Needs: '+esc(b.gear.toLowerCase())+'. ':''}${score}${IV[k]&&(IV[k].seq||IV[k].lead)?' The timer walks you through it: timed parts on the clock, bouts of reps or distance held until you tap Done.':''}</div></details>`;
 }
 function guideFinisher(k){
   const F=FINISHERS[k], vs=[];
@@ -10039,6 +10399,13 @@ function guideCoreGrip(){
   ${of('challenge')}</div>
   <p class="note">Prescriptions, versions and reasoning are the book\u2019s. Scoring Burpees for the Mentally Disturbed by the two sets added together is the app\u2019s choice, and the timer\u2019s length for a bout of reps or distance is the app\u2019s estimate.</p></div>`;
 }
+function guideMti(){
+  const ks=Object.keys(HIC).filter(hicMti), by=c=>ks.filter(k=>hicTbCat(k)===c).map(guideBookEntry).join('');
+  return `<div class="card guide"><h3>Conditioning: MTI\u2019s sessions</h3>
+  <p>Mountain Tactical Institute publishes a large archive of training articles, and the coach reads all of it. ${ks.length} of its conditioning sessions are formats here, beside the book\u2019s, in the format list on any conditioning day and among the suggestions on Black\u2019s days. Tactical Barbell II encourages bringing in sessions from elsewhere and says how to file them (p189): a high-intensity session is a HIC, one done for time or with several tools is general conditioning, and a long steady one is an E. That is how these are filed, so when the week needs general conditioning you are shown the book\u2019s and MTI\u2019s side by side.</p>
+  ${['AA','GC','PD','E'].map(c=>by(c)?`<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(TB_CAT[c])}</h4>${by(c)}</div>`:'').join('')}
+  <p class="note">Prescriptions are MTI\u2019s, paraphrased from the article each names. Where an article gives no round count, the timer\u2019s is the app\u2019s, and says so. MTI\u2019s studies are small, a handful of athletes each, and where they disagree with the book the app follows the book. The sessions that need an assessment first, MTI\u2019s speed-over-ground intervals among them, are not here yet.</p></div>`;
+}
 function guideHicBook(){
   const entry=guideBookEntry;
   const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
@@ -10063,7 +10430,7 @@ function vGuide(){
 }
 function vGuideHtml(){
   return `<div class="card guide"><h2>How the week works</h2><p>Operator keeps strength work minimal and sub-maximal so conditioning can carry the real weekly load. Three lifts, three sets, never near failure.</p>
-  <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC: MAP</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC: Anaerobic</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC: Threshold / Long HIC alternating, or LISS after a heavy week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
+  <dl class="kv"><dt>Mon</dt><dd>Operator Day 1: squat, bench, Lift 3 + accessories</dd><dt>Tue</dt><dd>HIC, recommended from your cluster</dd><dt>Wed</dt><dd>Operator Day 2: squat, bench, Lift 3 + accessories</dd><dt>Thu</dt><dd>Plyos first, rest 10 min, then HIC, recommended</dd><dt>Fri</dt><dd>Operator Day 3: squat, bench, deadlift + accessories</dd><dt>Sat</dt><dd>HIC, or an E session when one is due: Black asks for one at least every other week</dd><dt>Sun</dt><dd>Off</dd></dl></div>
   <div class="card guide"><h3>Strength rules</h3><ul class="tight"><li>Sets can range 3–5 depending on what you can handle. Deadlift stays 1–3 sets.</li><li>Minimum 2 min rest between sets; 5 min on heavy squat and deadlift weeks.</li><li>If a set grinds at 70–80%, your max is too high. Lower it rather than pushing through.</li><li>Ramp: skip the 85% single on light weeks; add a 90% single on heavy weeks. Deadlift needs only 2–3 ramp sets; Lift 3 needs one light set of 10 and one at 70%.</li></ul></div>
   <div class="card guide"><h3>Cluster lifts and their variants</h3>
   <p>Each cluster lift has a list of variants, and the first on each list is the <b>reference</b> — the lift your stored max belongs to. Pick the one your block actually runs in Setup \u2192 Program; it is a per-cycle choice, like your accessories, because the wave builds to heavy weeks on a max for a particular lift and changing it mid-block makes those weeks mean nothing.</p>
@@ -10100,6 +10467,7 @@ function vGuideHtml(){
   <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   ${guideHicBook()}
+  ${guideMti()}
   ${guideCoreGrip()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
@@ -11053,6 +11421,11 @@ document.addEventListener('change',e=>{ const t=e.target;
     }
     t.value=''; render(); return;
   }
+  if(t.dataset&&t.dataset.actHicadd){
+    const f=t.value; t.value='';
+    if(HIC[f]) mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});
+    return;
+  }
   if(t.dataset&&t.dataset.actFob){
     setFob(sel,t.value); render(); return;
   }
@@ -11259,6 +11632,12 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wzcancel'){wz=null;render();return}
   if(a==='wzskip'){mutatePlan(p=>{p.onboarded=true;if(!st0Saved())p.startMonday=nextMonday()});wz=null;render();return}
   if(a==='wzrerun'){wz=wzNew(true);render();window.scrollTo(0,0);return}
+  // Black's recommendation and your cluster. See 04c-hic-rec.js.
+  if(a==='hicpick'){setLog(sel,'hic.format',b.dataset.f);render();return}
+  if(a==='hicver'){setLog(sel,'hic.ver',(lg(sel).hic||{}).ver===b.dataset.v?'':b.dataset.v);render();return}
+  if(a==='hicadd'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});return}
+  if(a==='hicdrop'){const c=hicCluster();if(c.length<2)return;mutatePlan(p=>{p.hicCluster=c.filter(x=>x.f!==b.dataset.f)});return}
+  if(a==='hicswap'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{p.hicCluster=hicCluster().map(x=>x.f===b.dataset.from?{f,since:todayStr()}:x)});return}
   if(a==='ivopt'){if(ivOpts(sel,effFmt(sel))[b.dataset.k]===+b.dataset.v)return;setLog(sel,'hic.iv.'+b.dataset.k,+b.dataset.v);render();return}
   if(a==='ivfree'){for(const [k,v] of [['work',b.dataset.w],['rest',b.dataset.r],['mins',b.dataset.m]]) setLog(sel,'hic.iv.'+k,+v);render();return}
   if(a==='ivstart'){ivStart(b.dataset.f);render();return}

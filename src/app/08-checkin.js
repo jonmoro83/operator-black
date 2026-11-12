@@ -384,15 +384,54 @@ function hicBookBlock(f){
   if(b.advanced) vs.push(`<b>Advanced:</b> ${esc(b.advanced)}`);
   if(b.alt) vs.push(`<b>Alternative:</b> ${esc(b.alt)}`);
   if(vs.length) h+=`<div class="small">${vs.join('<br>')}</div>`;
+  // Which version you did. Logging the Advanced is the book's cue to swap a cluster
+  // session for a new one (TB II p187).
+  if(b.basic||b.advanced){
+    const v=(lg(sel).hic||{}).ver||'';
+    h+=`<div class="restsel"><span>Version done</span><div class="seg">${[['basic','Basic'],['rx','As written'],['advanced','Advanced']].filter(([k])=>k==='rx'||b[k]).map(([k,l])=>`<button class="segb${v===k?' on':''}" data-act="hicver" data-v="${k}" aria-pressed="${v===k}">${l}</button>`).join('')}</div></div>`;
+  }
   if(b.load) h+=fobLoadLine(b.load.map(x=>({pct:x.pct,lift:x.lift,reps:''})));
   h+=`<details class="plain" data-px="bkwhy"${openPx.has('bkwhy')?' open':''}><summary>What the book says</summary><div class="small muted" style="margin-top:6px">${esc(b.why)}</div></details>`;
-  h+=`<div class="small muted">${esc(hicSrcLabel(f))}.${b.gear?' Needs: '+esc(b.gear.toLowerCase())+'.':''}${b.measure?' Scored by '+(b.measure[0]==='time'?'time, so lower is better':b.measure[0]==='amrap'?'rounds completed':'total '+esc(b.measure[1]))+'.':' Not scored by the book: log the rounds and the minutes.'}</div>`;
+  h+=`<div class="small muted">${esc(hicSrcLabel(f))}.${b.gear?' Needs: '+esc(b.gear.toLowerCase())+'.':''}${b.measure?' Scored by '+(b.measure[0]==='time'?'time, so lower is better':b.measure[0]==='amrap'?'rounds completed':'total '+esc(b.measure[1]))+'.':(b.src==='mti'?' Not scored by MTI':' Not scored by the book')+': log the rounds and the minutes.'}</div>`;
+  return h;
+}
+/* Black's recommendation for the day: the session, why, with the page each reason comes
+   from, and what else would do. Picking one sets the day's format like the Format list
+   does; "Use the recommendation" clears it. See 04c-hic-rec.js. */
+function hicRecBlock(dp,f){
+  const R=dp.rec; if(!R) return '';
+  const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
+  const tag=k=>`<span class="chip">${hicTbCat(k)}</span>${hicMti(k)?' <span class="chip blue">MTI</span>':''}`;
+  const pick=(k,sub)=>`<button class="segb${k===f?' on':''}" data-act="hicpick" data-f="${esc(k)}" aria-pressed="${k===f}">${nm(k)}${sub?` <span class="small muted">${esc(sub)}</span>`:''}</button>`;
+  const cl=hicCluster(), inCl=cl.map(c=>c.f);
+  let h=`<div class="rec"><div class="rec-h"><span class="small muted">Recommended</span><span>${tag(R.f)}</span></div>
+    <div style="font-weight:700">${nm(R.f)}</div>
+    <ul class="why">${R.why.map(([t,c])=>`<li>${esc(t)} <span class="cite">${esc(c)}</span></li>`).join('')}</ul>`;
+  if(f!==R.f) h+=`<div><button class="btn sm" data-act="hicpick" data-f="">Use the recommendation</button></div>`;
+  h+=`</div>`;
+  const others=R.need==='E'?[]:inCl.filter(k=>k!==R.f);
+  if(others.length) h+=`<div class="restsel"><span>Your cluster</span><div class="seg">${others.map(k=>pick(k)).join('')}</div></div>`;
+  const like=hicLike(R.need,R.f,[R.f,...inCl],2), lbl=TB_CAT[R.need].toLowerCase();
+  if(like.books.length) h+=`<div class="restsel"><span>Also ${esc(lbl)}, from the books</span><div class="seg">${like.books.map(k=>pick(k)).join('')}</div></div>`;
+  if(like.mti.length) h+=`<div class="restsel"><span>Also ${esc(lbl)}, from MTI</span><div class="seg">${like.mti.map(k=>pick(k)).join('')}</div></div>`;
+  // The mix the book asks for needs both kinds in the cluster to rotate between.
+  if(R.need!=='E'&&!inCl.some(k=>hicTbCat(k)==='GC')){
+    const gc=hicLike('GC',null,inCl,2);
+    h+=`<div class="banner info"><div class="small">Your cluster has no general conditioning, and the book asks for a mix: avoid doing only aerobic/anaerobic work (TB II p112). Add one and the recommendation will rotate it in.</div>
+      <div class="seg">${[...gc.books,...gc.mti].map(k=>`<button class="segb" data-act="hicadd" data-f="${esc(k)}">+ ${nm(k)}${hicMti(k)?' · MTI':''}</button>`).join('')}</div></div>`;
+  }
+  if(hicGrad(R.f)){
+    const sw=hicLike(hicTbCat(R.f),R.f,inCl,2);
+    h+=`<div class="banner info"><div class="small"><b>Ready to swap.</b> You have done the Advanced version of ${nm(R.f)}. The book says swap it for a new session now (TB II p187). Same kind:</div>
+      <div class="seg">${[...sw.books,...sw.mti].map(k=>`<button class="segb" data-act="hicswap" data-from="${esc(R.f)}" data-f="${esc(k)}">${nm(k)}${hicMti(k)?' · MTI':''}</button>`).join('')}</div></div>`;
+  }
   return h;
 }
 function hicCard(dp,note){
   const L=lg(sel).hic||{}, f=L.format||dp.fmt, H=HIC[f], mod=modOf(sel), M=MOD[mod], met=metricFor(mod,f), bk=hicBook(f)?H.book:null;
   let h=`<div class="card"><div class="lift-h"><span class="lift-name">${bk?esc(H.name):`${esc(mod==='other'&&L.what?L.what:M.name)} · ${H.name}`}</span><span class="chip">${H.sys}</span></div>`;
   const lead0=(IV[f]||{}).lead&&!bk?ivOpts(sel,f):null, free0=(IV[f]||{}).free?freeShape(sel):null;
+  h+=hicRecBlock(dp,f);
   h+=`<div style="font-size:18px;font-weight:700">${lead0?`${lead0.rounds} bouts \u00b7 ${esc(secsLabel(lead0.every))} of base between`:free0?`${free0.rounds} \u00d7 ${esc(freeLabel(free0))}`:H.sess}</div>${note}`;
   // The book's session, as the book gives it: the prescription, its versions, and the
   // reasoning folded away. The activity does not apply: the session says what you do.

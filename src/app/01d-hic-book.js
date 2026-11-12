@@ -302,6 +302,7 @@ function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
 function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
 function hicSrcLabel(f){
   const b=(HIC[f]||{}).book; if(!b) return '';
+  if(b.src==='mti') return `Mountain Tactical Institute, “${b.a}”, filed as ${TB_CAT[hicTbCat(f)].toLowerCase()} (TB II p189)`;
   if(b.n) return `Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`;
   return b.cat==='challenge'?`Tactical Barbell II, challenge session ${b.no}`:`Tactical Barbell II, core and grip, session ${b.no}`;
 }
@@ -336,6 +337,11 @@ function hicOptions(cur,keep){
   for(const [c,label] of Object.entries(HIC_CAT)){
     const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>hicOrd(a[1])-hicOrd(b[1])).filter(ok).map(opt).join('');
     if(xs) h+=`<optgroup label="Tactical Barbell II: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
+  }
+  // MTI's, under the book's categories they are filed in (p189).
+  for(const [c,label] of Object.entries(TB_CAT)){
+    const xs=Object.entries(HIC).filter(([k])=>hicMti(k)&&hicTbCat(k)===c).filter(ok).map(opt).join('');
+    if(xs) h+=`<optgroup label="MTI: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
   }
   return h;
 }
