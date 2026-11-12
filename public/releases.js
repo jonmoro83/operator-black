@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.82',date:'2026-11-12',title:"The OMS rotation, if you want it",items:[
+    "Tactical Barbell III's long-term model is in: a block of Operator, a block of Mass, a block of Specificity, three to six weeks each, repeated. It's off unless you turn it on, in Setup under Programs.",
+    "When it's on you choose the template and the number of weeks for each block. Zulu can stand in for Operator and any of the mass templates for Mass. You can leave Specificity out and rotate just Operator and Mass, which is the book's own variation.",
+    "Each block is its own program. In a block's last week, Today tells you what's next, and one button starts it the following Monday: the block you finished is archived, your maxes carry over and your settings stay put. Not yet puts it off a week.",
+    "The Guide has a new section on it.",
+  ]},
   {v:'3.81',date:'2026-11-12',title:"A plan for test day",items:[
     "Each lift on a test day now comes with an attempt plan. It predicts your new max from the cycle you just finished: how your heavy sets were rated, grinders, missed sets and any pain. That's the same evidence the end-of-cycle review uses.",
     "The target and the warm-up ramp open at the prediction instead of at your old max, and session mode aims at the same weight. If you type your own target, yours wins.",

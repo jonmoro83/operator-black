@@ -46,13 +46,7 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
-- **TB III's OMS Protocol is not built — tabled 2026-10-20**, found while looking for new ideas.
-  The book calls it "the standard perpetual TB model for strength and hypertrophy":
-  Operator, then Mass, then Specificity, repeated, ratios adjustable; or just Operator
-  and Mass in rotation, with Specificity added as needed. Base Building once or twice a
-  year before it, the same core lifts throughout, an occasional bridge or deload. The
-  app runs one template per program, so it cannot rotate blocks on its own today.
-- **TB book coverage is otherwise done**, Ageless Athlete included. Twelve templates against five
+- **TB book coverage is done**, OMS included since 3.82, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
   conditioning sessions; and, since 3.75, all forty of TB II's named HIC sessions. The
@@ -146,6 +140,28 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The OMS rotation, as a choice (2026-11-12, 3.82)**
+- Tabled 2026-10-20, built 2026-11-12. The book (TB III, Block Programming; the table is
+  an image, read off the PDF): Operator template x 3-6 weeks, Mass template x 3-6
+  weeks, Specificity x 3-6 weeks, "simply keep repeating the above", ratios adjustable.
+  Variation: rotate Operator and Mass, add Specificity as needed. Zulu or I/A may
+  replace Operator and other general mass templates Mass.
+- Two decisions by the user. **Chain of programs** over one endless program whose weeks
+  change template (from two previews): the engine still runs one template per program
+  and each block is a program, so Programs, History, Status and the CSV needed nothing.
+  And, mid-build: **"I want to be able to have the user select OMS or not."** It is a
+  switch in Setup -> Programs, off by default; off, nothing renders and nothing changes.
+- `plan.oms` (`on`, three `blocks`, `i`, `end`, `snooze`), read defensively by
+  `omsBlocks`/`omsState`; in `PREF_KEYS`, so it travels from program to program.
+  `omsCard()` on Today from the Monday of a block's last week; `omsStart()` after a
+  two-tap confirm; Not yet snoozes that week. `omsRebase` places a program started by
+  hand by its template.
+- `startProgram` split: `beginProgram(np, patch)` does the archive and returns an error
+  string or null, so the rotation can set the next block's template.
+- Not automated, said in Setup and the Guide instead: bridge or deload occasionally,
+  Base Building before a rotation, the same core lifts throughout. I/A is not built, so
+  it is not offered in place of Operator. Maxes carry between blocks with no retest.
 
 **The retest attempt plan (2026-11-12, 3.81)**
 - Offered 2026-10-20, picked 2026-11-12. TB1's test day (Maximums and Test Day): warm

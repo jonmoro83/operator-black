@@ -681,6 +681,8 @@ const DEF={
   // Which program this is. Two independent choices, composed into a week by
   // composeSlot — see 01c-templates.js.
   stempl:'operator', cproto:'black',
+  // Tactical Barbell III's OMS rotation, off unless switched on in Setup. See 21d-oms.js.
+  oms:{on:false,i:-1,end:null,snooze:null,blocks:[{t:'operator',w:6},{t:'mass',w:6},{t:'specalpha',w:3,on:true}]},
   // Zulu's two halves of the cluster. Empty means the template's default.
   halves:{},
   schema:0,   // 0 = written before versioning existed; migrate() brings it to SCHEMA

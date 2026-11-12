@@ -245,6 +245,11 @@ starts at their own bridge week. Rows from before per-user data were parked unde
 `LEGACY_OWNERS` secret. If a different person signs in on the same phone, the app
 drops the previous person's local copy and unsent changes.
 
+**OMS.** TB III's Operator / Mass / Specificity rotation is a switch in Setup → Programs,
+off by default (`plan.oms`, `src/app/21d-oms.js`). It does not touch the schedule engine:
+each block is its own program, and `omsCard()` on Today offers the next block in a
+block's last week, which `beginProgram()` starts with that block's template.
+
 **Programs.** Setup → Programs archives the current program (its whole plan, locked
 weeks, maxes and reviews) to `programs/<id>` with an end date, and starts a new one
 either carrying the latest maxes or with a bridge week (old maxes shown as reference).

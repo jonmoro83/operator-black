@@ -151,6 +151,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='bookcadence'&&!viewing){replan('Set to the book\u2019s cadence',p=>{p.testEvery=2;p.deloadEvery=0});return}
   if(a==='deloadevery'&&!viewing){const v=+b.dataset.v;if((+plan.deloadEvery||0)===v)return;replan(v?'Deload every '+v+' cycles':'Deloads off',p=>{p.deloadEvery=v});return}
   if(viewing&&!['go','open','view','more','updcheck','updnow','rvsel'].includes(a)){readOnly();return}
+  if(a==='omsset'){omsSet(b.dataset.v==='1');return}
+  if(a==='omslater'){omsArm=false;mutatePlan(p=>{p.oms.snooze=mondayOf(realToday())});return}
+  if(a==='omsstart'){if(!omsArm){omsArm=true;render();setTimeout(()=>{if(omsArm){omsArm=false;render()}},4000);return} omsStart();return}
   if(a==='prognew'){newProg={name:'Block '+((plan.programSeq||1)+1),start:addDays(mondayOf(realToday()),7),mode:'carry'};render();return}
   if(a==='progcancel'){newProg=null;render();return}
   if(a==='progstart'){if(!newProg.arm){newProg.arm=true;newProg.err=null;render();setTimeout(()=>{if(newProg&&newProg.arm){newProg.arm=false;render()}},4000);return} startProgram();return}

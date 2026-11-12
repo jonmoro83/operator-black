@@ -10133,3 +10133,113 @@ test("the plan reads a test set the way Tactical Barbell I does", () => {
   a.match(x.attemptNext("squat", d, { w: 225, r: 4 }, true), /Five or fewer: that is the number/);
   a.equal(x.attemptNext("squat", d, { w: 315, r: 1 }, false), "", "a heavy single is its own answer");
 });
+
+// --- the OMS rotation (3.82) ---------------------------------------------------------------
+test("OMS is off unless it is switched on, and off changes nothing", () => {
+  const x = app({ now: "2026-11-12" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.bump();
+  a.equal(x.plan.oms.on, false, "the default");
+  a.equal(x.omsCard(), "", "nothing on Today");
+  const setup = x.programsCard();
+  a.match(setup, /<h3>OMS rotation<\/h3>/);
+  a.match(setup, /data-act="omsset" data-v="0" aria-pressed="true">Off/);
+  a.doesNotMatch(setup, /p-oms-t0/, "no rotation to configure while it is off");
+  a.ok(x.PREF_KEYS ? x.PREF_KEYS.includes("oms") : true);
+});
+
+test("switched on, the current program takes its place in the rotation by its template", () => {
+  const x = app({ now: "2026-11-12" });           // a Thursday
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  x.omsSet(true);
+  const o = x.omsState();
+  a.equal(o.on, true); a.equal(o.i, 0, "an Operator program is block 1");
+  a.equal(o.end, "2026-11-15", "six weeks from 5 October ends that Sunday");
+  a.deepEqual(x.omsBlocks().map((b) => [b.role.key, b.t, b.w, b.on]),
+    [["O", "operator", 6, true], ["M", "mass", 6, true], ["S", "specalpha", 3, true]], "the book's three boxes, in its order");
+  a.equal(x.omsNext().t, "mass");
+
+  const setup = x.programsCard();
+  a.match(setup, /Now: <b>Operator<\/b>, block 1 of the rotation\. Next: <b>Mass<\/b>, 6 weeks/);
+  a.match(setup, /data-pbind="oms\.blocks\.1\.t"/); a.match(setup, /data-pbind="oms\.blocks\.2\.on"/);
+  a.match(setup, /<option value="zulu">Zulu<\/option>/, "Zulu can stand in for Operator");
+  a.doesNotMatch(setup, /p-oms-t0"[^>]*>[^]*?value="strong5"/, "and nothing else can");
+
+  // The stored rotation is read defensively: a template the role does not allow, or a
+  // length outside three to six weeks, falls back rather than being run.
+  x.plan.oms.blocks[0] = { t: "strong5", w: 12 }; x.bump();
+  a.deepEqual([x.omsBlocks()[0].t, x.omsBlocks()[0].w], ["operator", 6]);
+
+  // A program that is not one of the blocks stands outside the rotation until it ends.
+  x.plan.oms.blocks[0] = { t: "operator", w: 6 }; x.plan.stempl = "warhorse"; x.bump();
+  x.omsSet(true);
+  a.equal(x.omsState().i, -1);
+  a.equal(x.omsNext().t, "operator", "and the rotation begins at its first block");
+  a.match(x.programsCard(), /is not one of the rotation’s blocks/);
+});
+
+test("in a block's last week Today offers the next block, and one confirmed tap starts it", () => {
+  const x = app({ now: "2026-11-05" });           // the week before the last
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.plan.stempl = "operator"; x.plan.programName = "Autumn"; x.bump();
+  x.omsSet(true);
+  x.sel = "2026-11-05";
+  a.equal(x.omsCard(), "", "not yet: the block has more than a week to run");
+
+  x.setToday("2026-11-12");
+  const card = x.omsCard();
+  a.match(card, /<h3>Operator block ends Sun 11\/15<\/h3>/);
+  a.match(card, /Next in the rotation: <b>Mass<\/b>, 6 weeks, from Mon 11\/16/);
+  a.match(card, /data-act="omsstart">Start Mass block/); a.match(card, /data-act="omslater">Not yet/);
+  a.match(card, /Autumn is archived with everything in it, your maxes carry over/);
+
+  const before = x.clone(x.plan.maxes), was = x.plan.startMonday;
+  a.equal(x.omsStart(), true);
+  const old = Object.values(x.programs).find((p) => p.startMonday === was);
+  a.ok(old, "the Operator block is archived as a program");
+  a.equal(old.name, "Autumn"); a.equal(old.end, "2026-11-15"); a.equal(old.plan.stempl, "operator");
+  a.equal(x.plan.startMonday, "2026-11-16"); a.equal(x.plan.stempl, "mass"); a.equal(x.plan.programName, "Mass block");
+  a.equal(x.plan.bridge, false, "no bridge week between blocks: the maxes carry");
+  for (const k of ["squat", "bench", "dead"]) a.equal(x.plan.maxes[k], before[k], k + " carried");
+  const o = x.omsState();
+  a.equal(o.on, true); a.equal(o.i, 1); a.equal(o.end, "2026-12-27", "six weeks of Mass");
+  a.equal(x.omsNext().t, "specalpha");
+  a.equal(x.omsCard(), "", "and the offer is gone until this block's last week");
+  a.ok("plan/main" in x.outbox && Object.keys(x.outbox).some((p) => p.startsWith("programs/")), "both are saved");
+});
+
+test("Not yet puts the offer off a week; without Specificity the rotation is Operator and Mass", () => {
+  const x = app({ now: "2026-11-12" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  x.omsSet(true); x.sel = "2026-11-12";
+  a.notEqual(x.omsCard(), "");
+  x.mutatePlan((p) => { p.oms.snooze = x.mondayOf("2026-11-12") });
+  a.equal(x.omsCard(), "", "quiet for the rest of this week");
+  x.setToday("2026-11-17");
+  a.match(x.omsCard(), /Operator block ended Sun 11\/15/, "and back the week after, saying it is overdue");
+  a.match(x.omsCard(), /from Mon 11\/23/);
+
+  // The book's variation: rotate Operator and Mass, add Specificity as needed.
+  x.plan.oms.blocks[2].on = false; x.plan.oms.i = 1; x.bump();
+  a.equal(x.omsNext().t, "operator", "after Mass comes Operator again");
+  x.plan.oms.blocks[2].on = true; x.bump();
+  a.equal(x.omsNext().t, "specalpha");
+  x.plan.oms.i = 2; x.bump();
+  a.equal(x.omsNext().t, "operator", "and the three repeat");
+});
+
+test("a program started by hand while OMS is on is placed by its template, not by the old block", () => {
+  const x = app({ now: "2026-11-12" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.plan.stempl = "operator"; x.bump();
+  x.omsSet(true);
+  a.equal(x.beginProgram({ name: "By hand", start: "2026-11-16", mode: "carry" }), null);
+  a.equal(x.plan.oms.on, true, "the rotation travels with the settings");
+  a.equal(x.omsState().i, 0); a.equal(x.omsState().end, "2026-12-27", "its six weeks run from its own start");
+  a.match(x.beginProgram({ name: "Too early", start: "2026-11-16", mode: "carry" }), /has to start after/, "and the usual refusals still apply");
+});
+
+test("the Guide explains OMS, so the coach can", () => {
+  const x = app({ now: "2026-11-12" });
+  const g = x.vGuide();
+  a.match(g, /<h3>The OMS rotation<\/h3>/);
+  a.match(g, /Setup → Programs → OMS rotation/);
+  a.match(g, /Each block is its own program/);
+});
