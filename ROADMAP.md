@@ -150,6 +150,13 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The format list, grouped by what it trains (2026-11-12, 3.89)**
+- The user called the list a mess and chose "by what it trains but a designation for
+  what's sourced from TB and what's sourced from MTI". `hicOptions` now groups by
+  `hicTbCat` (AA, GC, PD, E, Core, Challenge, then Your own), orders each group App,
+  TB II by number, TB III, MTI, and tags every option via `hicSrcTag`. Black's day card
+  puts the cluster first and marks the selection only once.
+
 **The coach sees the week ahead (2026-11-12, 3.88)**
 - The user noticed the coach suggesting different conditioning from the day's card.
   Cause: the Worker cannot run the scheduler, so `coachState` had only logs, and the

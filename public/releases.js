@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.89',date:'2026-11-12',title:"A tidier conditioning list",items:[
+    "The conditioning format list is now grouped by what each session trains: aerobic/anaerobic, general conditioning, power, endurance, then core and the challenge sessions. The books' and MTI's sessions of the same kind sit together instead of in separate places.",
+    "Each session shows where it's from after its name: TB II, TB III, MTI, or App for the app's own shapes.",
+    "On Black's days, your cluster is at the top of the list.",
+  ]},
   {v:'3.88',date:'2026-11-12',title:"The coach sees the week ahead",items:[
     "The coach could suggest a different conditioning session from the one on your day's card, because it only saw what you'd logged, not what the app had planned. Now each question sends the next seven days along with it, including the recommended session, why it was picked, and your cluster.",
     "The coach starts from the app's recommendation. If it suggests something else, it says so and explains why.",

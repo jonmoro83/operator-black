@@ -327,21 +327,33 @@ function toSecs(s){
 }
 // A result with its unit, for a line of prose: "151 cal", "8:20".
 function resLine(v,un){ const s=resStr(v,un); return un==='mm:ss'||s==='—'?s:s+' '+un }
-// The format picker's options: the app's formats first, then the book's sessions by
-// group and number. `keep` filters, so Setup can offer only what makes a benchmark.
-function hicOptions(cur,keep){
-  const ok=([k,x])=>!keep||keep(k,x);
-  const opt=([k,x])=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(x.book&&x.book.n?'#'+x.book.n+' ':'')}${esc(x.name)}</option>`;
-  const own=Object.entries(HIC).filter(([k])=>!hicBook(k)).filter(ok).map(opt).join('');
-  let h=`<optgroup label="Formats">${own}</optgroup>`;
-  for(const [c,label] of Object.entries(HIC_CAT)){
-    const xs=Object.entries(HIC).filter(([k,x])=>hicBook(k)&&x.book.cat===c).sort((a,b)=>hicOrd(a[1])-hicOrd(b[1])).filter(ok).map(opt).join('');
-    if(xs) h+=`<optgroup label="Tactical Barbell II: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
+/* The format picker's options, grouped by what a session trains, in TB II's own
+   categories (p111–112, p189), so the books' and MTI's sessions of one kind sit
+   together. Each says where it is from, as the user asked: TB II, TB III, MTI, or App
+   for the app's own shapes. Within a group: the app's, then TB II by number, TB III,
+   MTI. On Black's days your cluster comes first (`o.cluster`); an option listed there
+   is not marked selected again below, or the browser would pick the second one.
+   `keep` filters, so Setup can offer only what makes a benchmark. */
+function hicSrcTag(k){
+  const b=(HIC[k]||{}).book;
+  if(b&&b.src==='mti') return 'MTI';
+  if(b) return 'TB II';
+  return ['predator','sprints','reset20','hillsprint'].includes(k)?'TB III':'App';
+}
+function hicOptLabel(k){ const x=HIC[k]; return (x.book&&x.book.n?'#'+x.book.n+' ':'')+x.name+' \u00b7 '+hicSrcTag(k) }
+function hicOptions(cur,keep,o){
+  const ok=k=>!keep||keep(k,HIC[k]);
+  let done=false;
+  const opt=k=>{const on=k===cur&&!done; if(on) done=true; return `<option value="${esc(k)}"${on?' selected':''}>${esc(hicOptLabel(k))}</option>`};
+  const rank=k=>{const t=hicSrcTag(k);return (t==='App'?0:t==='TB II'?1000+hicOrd(HIC[k]):t==='TB III'?3000:4000)};
+  const ks=Object.keys(HIC).filter(ok);
+  let h='';
+  if(o&&o.cluster){ const cl=hicCluster().map(c=>c.f).filter(k=>ks.includes(k)); if(cl.length) h+=`<optgroup label="Your cluster">${cl.map(opt).join('')}</optgroup>` }
+  const groups=[['AA','Aerobic / anaerobic'],['GC','General conditioning'],['PD','Power development'],['E','Endurance (E)'],['Core','Core'],['Challenge','Challenge sessions']];
+  for(const [c,label] of groups){
+    const xs=ks.filter(k=>k!=='free'&&hicTbCat(k)===c).map((k,i)=>[k,rank(k),i]).sort((a0,b0)=>a0[1]-b0[1]||a0[2]-b0[2]).map(x=>opt(x[0])).join('');
+    if(xs) h+=`<optgroup label="${esc(label)}">${xs}</optgroup>`;
   }
-  // MTI's, under the book's categories they are filed in (p189).
-  for(const [c,label] of Object.entries(TB_CAT)){
-    const xs=Object.entries(HIC).filter(([k])=>hicMti(k)&&hicTbCat(k)===c).filter(ok).map(opt).join('');
-    if(xs) h+=`<optgroup label="MTI: ${esc(label.toLowerCase())}">${xs}</optgroup>`;
-  }
+  if(ks.includes('free')) h+=`<optgroup label="Your own">${opt('free')}</optgroup>`;
   return h;
 }

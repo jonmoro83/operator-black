@@ -450,7 +450,7 @@ function hicCard(dp,note){
   else if(f!=='liss') h+=`<div class="small muted">Warm-up: ${M.wu||'5 min easy, then 3 × 15 s at HIC pace with 45 s easy between.'}</div>`;
   if(M.tip&&!bk&&(f!=='liss'||mod==='ruck')) h+=`<div class="small muted">${M.tip}</div>`;
   if(dp.plyo&&(mod==='run'||bk)&&f!=='liss') h+=`<div class="banner warn"><div class="small">Plyos already loaded your legs today. Keep sprint volume at the low end of the range, or ride instead.</div></div>`;
-  h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${hicOptions(f)}</select></label>`;
+  h+=`<div class="grid2"><label class="f">Format<select id="hic-fmt" data-bind="hic.format">${hicOptions(f,null,{cluster:!!dp.rec})}</select></label>`;
   if(mod==='other'&&!bk&&!(HIC[f]||{}).noMetric) h+=`<label class="f">Activity<input type="text" id="hic-what" data-bind="hic.what" value="${esc(L.what||'')}" placeholder="e.g. hill sprints, assault runner"></label>`;
   if((IV[f]||{}).fob){
     const fb=fobOf(sel), F=FOBBIT[fb];

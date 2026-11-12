@@ -9934,8 +9934,9 @@ test("the day card shows a book session as the book gives it, and offers the who
   a.doesNotMatch(card, /data-act="mod"/, "no activity to pick: the session says what you do");
   a.match(card, /id="in-hic-time"[^>]*data-bind="hic.time"/, "a time field, typed as m:ss");
   a.match(card, /Rounds done/);
-  a.match(card, /<optgroup label="Formats">/); a.match(card, /<optgroup label="Tactical Barbell II: aerobic \/ anaerobic">/);
-  a.match(card, /<option value="meateater2" selected>#14 Meat Eater II<\/option>/);
+  // Grouped by what it trains, each tagged with its source (by request, 3.89).
+  a.match(card, /<optgroup label="Aerobic \/ anaerobic"><option value="map">MAP · App<\/option>/);
+  a.match(card, /<option value="meateater2" selected>#14 Meat Eater II · TB II<\/option>/);
   a.match(card, /Rounds<\/span>/, "the book's range of rounds is on offer");
   a.match(card, /First logged Meat Eater II session\. Results only compare against the same session/);
 
@@ -9951,7 +9952,7 @@ test("the day card shows a book session as the book gives it, and offers the who
   const setup = x.vSetup();
   const opts = (setup.match(/data-pbind="benchmark\.fmt">([\s\S]*?)<\/select>/) || [])[1] || "";
   a.ok(opts.includes('value="meateater2"')); a.ok(!opts.includes('value="resets600"'));
-  a.match(opts, /<optgroup label="Tactical Barbell II: general conditioning">/);
+  a.match(opts, /<optgroup label="General conditioning"><option value="gc1">#25 GC 1: Beat Your Face · TB II/);
 });
 
 // --- Tactical Barbell II's core, grip and challenge sessions (3.80) ---------------------
@@ -9973,9 +9974,9 @@ test("Full Core and the five challenge sessions are formats, in their own groups
 
   // The format list offers them under the forty, without a # they do not have.
   const opts = x.hicOptions("triska");
-  a.match(opts, /<optgroup label="Tactical Barbell II: core"><option value="fullcore">Full Core<\/option><\/optgroup>/);
-  a.match(opts, /<optgroup label="Tactical Barbell II: challenge sessions"><option value="dukuduku">Duku-Duku/);
-  a.match(opts, /<option value="triska" selected>Triska-Deka-Phobia<\/option>/);
+  a.match(opts, /<optgroup label="Core"><option value="fullcore">Full Core · TB II<\/option><\/optgroup>/);
+  a.match(opts, /<optgroup label="Challenge sessions"><option value="dukuduku">Duku-Duku/);
+  a.match(opts, /<option value="triska" selected>Triska-Deka-Phobia · TB II<\/option>/);
 
   // The book: optional, not routine, every couple of months. Never the benchmark.
   for (const [k, f] of ch) a.equal(f.noCompare, true, k);
@@ -10498,7 +10499,7 @@ test("MTI's sessions are formats: filed by the book's rule, timed, sourced", () 
     if (b.measure) a.deepEqual(x.metricFor("echo", k), b.measure);
     else a.equal(x.HIC[k].noMetric, true);
   }
-  a.match(x.hicOptions("m300"), /<optgroup label="MTI: aerobic \/ anaerobic">/);
+  a.match(x.hicOptions("m300"), /<option value="m300" selected>300 m Shuttle · MTI<\/option>/);
   a.equal(x.hicTbCat("liss"), "E");
   a.equal(x.hicTbCat("gc1"), "GC");
   a.equal(x.hicTbCat("map"), "AA", "the app's shapes are aerobic/anaerobic work");
@@ -10533,4 +10534,26 @@ test("the coach is sent the week ahead with Black's recommendations and their re
   a.equal(ah.eSession, "LISS");
   x.setLog("2026-11-17", "hic.format", "gc1");
   a.equal(x.coachAhead().days.find((d) => d.d === "2026-11-17").cond.picked, true, "a pick over the recommendation says so");
+});
+
+test("the format list is grouped by what a session trains, each tagged with its source", () => {
+  // The user's call (3.89): "By what it trains but a designation for what's sourced from
+  // TB and what's sourced from MTI". The books' and MTI's sessions of one kind together.
+  const x = app({ now: "2026-11-17" });
+  x.plan.startMonday = "2026-11-16"; x.plan.bridge = false; x.plan.hicRecFrom = ""; x.bump();
+  const h = x.hicOptions("map");
+  const groups = [...h.matchAll(/<optgroup label="([^"]+)">/g)].map((m) => m[1]);
+  a.deepEqual(groups, ["Aerobic / anaerobic", "General conditioning", "Power development", "Endurance (E)", "Core", "Challenge sessions", "Your own"]);
+  const inGroup = (g) => (h.split(`<optgroup label="${g}">`)[1] || "").split("</optgroup>")[0];
+  const e = inGroup("Endurance (E)");
+  for (const k of ["liss", "predator", "mz2", "m21"]) a.ok(e.includes(`value="${k}"`), k + " is endurance");
+  a.match(inGroup("Aerobic / anaerobic"), /MAP · App[\s\S]*#1 Connaught[\s\S]*300 m Shuttle · MTI/, "the app's, then TB II by number, then MTI");
+  a.match(inGroup("Power development"), /Anabolic Sprints · TB III/);
+  for (const m of h.matchAll(/<option[^>]*>([^<]+)</g)) a.match(m[1], / · (TB II|TB III|MTI|App)$/, m[1] + " says where it is from");
+  // On a recommended day the cluster leads, and the selection is marked once.
+  x.sel = "2026-11-17";
+  const card = x.vToday();
+  const sel = (card.match(/id="hic-fmt"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
+  a.match(sel, /^<optgroup label="Your cluster">/);
+  a.equal((sel.match(/ selected>/g) || []).length, 1);
 });
