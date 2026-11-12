@@ -46,6 +46,19 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
+- **Conditioning by purpose, and MTI's sessions and progressions (decided 2026-11-12).**
+  The user chose both recommended options: (1) scope is MTI's sessions *and* its
+  assessment-paced progressions; (2) the day card shows the slot's purpose and a short
+  "Fits today" list (book default first, then TB, then MTI, each labeled), with a
+  filterable Browse for everything. Progressions are opt-in blocks like OMS that take
+  over some conditioning days for 4 to 7 weeks. Books stay the default; every MTI
+  session names its source article. Prototype awaiting a verdict:
+  https://claude.ai/artifact/GYJ3aWsmmc9fowKW1YMo3t. Planned as three releases:
+  purposes + Fits today + Browse (TB only); the MTI sessions with timers; then the
+  progression blocks, Speed over ground first (MTI: intervals a third of the test
+  distance at 20% faster than test pace, long days 10 to 50% further at 20% slower,
+  re-test mid-block). Still open: which days a block takes, and whether Setup asks
+  for gear once.
 - **TB book coverage is done**, OMS included since 3.82, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
