@@ -16,6 +16,7 @@
 //   GET  /api/calendar            → { enabled, url, updatedAt } for your .ics feed
 //   POST /api/calendar/on|off|rotate → turn the feed on, off, or change its address
 //   PUT  /api/calendar/ics        → store the feed body (the app generates it)
+//   GET  /api/coach/log           → your past questions and answers, newest first
 //   POST /api/admin/catalog       → (admins) add or change a shared exercise
 //   DELETE /api/admin/catalog/<id> → (admins) drop one they added
 //   GET  /api/admin/users         → (admins) everyone, with counts and last activity
@@ -112,6 +113,15 @@ async function serve(request, env) {
     const h = await coachHistory(env, user, 30);
     return json({ ...h, used: await coachUsed(env, user), cap: COACH_CAP,
       configured: !!env.ANTHROPIC_API_KEY, debrief: await latestDebrief(env, user) }, 200, { "cache-control": "no-store" });
+  }
+  // Everything the coach has said to this person, newest first, so its advice can be
+  // read back against what happened next. Their own rows only, like every coach query.
+  if (route === "coach/log" && request.method === "GET") {
+    const { results } = await env.DB.prepare(
+      `SELECT id, asked_at, question, answer, cites, thread FROM coach_log
+       WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT ?2`
+    ).bind(user, 60).all();
+    return json({ turns: (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] })) }, 200, { "cache-control": "no-store" });
   }
   if (route === "coach/debrief/seen" && request.method === "POST") {
     const body = await request.json().catch(() => ({}));
@@ -723,9 +733,43 @@ HOW TO WRITE:
 
 Keep the answer under about 250 words. It has a hard length limit and an answer that runs past it is lost, not trimmed.
 
+ONE-TAP ACTIONS:
+A suggestion may carry an "action" that the app shows as an Apply button. Tapping it is the person's decision, not yours, so the rule above stands: never write as though it has been done. Attach one only when the suggestion is exactly that change and nothing more; most suggestions have none. There are four, and no others:
+- {"type": "add_week", "kind": "deload"} or {"type": "add_week", "kind": "test"}: adds a deload or a retest week starting next Monday.
+- {"type": "next_max", "lift": "squat", "choice": "hold"} or "choice": "reduce": sets that lift's max for the next cycle to the current one (hold) or 5% under it (reduce). lift is one of squat, bench, dead, ohp, pull, wpu. There is no action for raising a max: that is the end-of-cycle review's job.
+- {"type": "add_accessory", "slot": "rdelt"}: adds that accessory job to a training day. slot is one of state.accessorySlots.
+- {"type": "set_conditioning", "format": "Apex Hills"}: sets their next conditioning session to that format, named exactly as the Guide names it.
+
 Reply with JSON only, no other text:
-{"answer": "markdown, a few short paragraphs", "suggestions": [{"title": "short imperative", "detail": "one or two sentences"}]}
-Leave suggestions empty if you have none worth acting on. Never pad it.`;
+{"answer": "markdown, a few short paragraphs", "suggestions": [{"title": "short imperative", "detail": "one or two sentences", "action": {"type": "add_week", "kind": "deload"}}]}
+"action" is optional. Leave suggestions empty if you have none worth acting on. Never pad it.`;
+
+/* What a suggestion is allowed to carry. The model's JSON is not trusted with a plan:
+   an action is one of four shapes, every field checked against a short list or a short
+   pattern, and anything else is dropped so the suggestion falls back to being text. The
+   page checks again against the live plan before it offers a button, and what the
+   button says it will change is the page's sentence, never the model's. */
+const ACT_LIFTS = ["squat", "bench", "dead", "ohp", "pull", "wpu"];
+function cleanAction(a) {
+  if (!a || typeof a !== "object") return null;
+  if (a.type === "add_week" && (a.kind === "deload" || a.kind === "test")) return { type: "add_week", kind: a.kind };
+  if (a.type === "next_max" && ACT_LIFTS.includes(a.lift) && (a.choice === "hold" || a.choice === "reduce")) return { type: "next_max", lift: a.lift, choice: a.choice };
+  if (a.type === "add_accessory" && Object.prototype.hasOwnProperty.call(ASLOT_NAMES, a.slot)) return { type: "add_accessory", slot: a.slot };
+  if (a.type === "set_conditioning" && typeof a.format === "string" && /^[\w \u2019'&+:.,#/()-]{2,60}$/.test(a.format.trim())) return { type: "set_conditioning", format: a.format.trim() };
+  return null;
+}
+export function cleanSuggestions(list, max) {
+  const out = [];
+  for (const s of Array.isArray(list) ? list : []) {
+    if (!s || typeof s !== "object") continue;
+    const title = String(s.title || "").trim().slice(0, 120), detail = String(s.detail || "").trim().slice(0, 400);
+    if (!title && !detail) continue;
+    const action = cleanAction(s.action);
+    out.push(action ? { title, detail, action } : { title, detail });
+    if (out.length >= max) break;
+  }
+  return out;
+}
 
 /* The books as a tool: the model phrases its own query, which is what a follow-up turn
    needs ("what about the advanced version?" shares no words with the passage) and what
@@ -1098,7 +1142,7 @@ async function askCoach(request, env, user) {
     // A truncated answer is still worth reading, but say so rather than letting it
     // trail off mid-sentence as though that were the whole thought.
     truncated: stop === "max_tokens" || undefined,
-    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [],
+    suggestions: cleanSuggestions(parsed.suggestions, 6),
     cites,
     used: used + 1,
     cap: COACH_CAP,
@@ -1245,7 +1289,7 @@ async function debriefFor(env, user, now) {
     `INSERT OR IGNORE INTO coach_debrief (user, week, created_at, answer, suggestions, cites, model, tokens_in, tokens_out)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
   ).bind(user, wk.from, now, answer,
-    JSON.stringify(Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4) : []),
+    JSON.stringify(cleanSuggestions(parsed.suggestions, 4)),
     JSON.stringify((lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }))),
     data.model || COACH_MODEL, usage.input_tokens || 0, usage.output_tokens || 0).run();
   return { week: wk.from };

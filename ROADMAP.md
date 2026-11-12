@@ -28,9 +28,9 @@ investigation behind each is in [JOURNAL.md](JOURNAL.md).
   on time and clearly louder, and that session mode no longer crops its left edge (3.74). Confirmed already: install, Access login, update banner,
   lock-screen alerts, spoken cues on AirPods, the rest beep in a real session with the
   ring switch off as well as on.
-- **Does the coach give good advice?** The gate for one-tap apply. "OK so far, still
-  evaluating" (2026-10-20). The first weekly debrief landed 2026-10-26; read it against
-  the week as remembered (prompt: `DEBRIEF_ASK` in `src/api.js`).
+- **Does the coach give good advice?** Was the gate for one-tap apply; the user chose
+  to build apply anyway on 2026-11-12, as a short safe list (3.83). Still worth a
+  verdict: Coach -> Earlier conversations now lists every answer by date to read back.
 - **TB1's text has ~139 run-together words** from the extractor; the source PDF is gone,
   so no clean re-extract. Costs the coach a little recall on TB1.
 - **Conditioning last/best across programs** counts only sessions with format and
@@ -64,9 +64,6 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   most of what made the warnings noisy went with the adjacency rules in 3.3. Still
   worth a look once Zulu has actually been run, since a four-day template is where the
   remaining strength rule gets the most exercise.
-- **Decide on one-tap apply for the coach.** Built read-only on purpose, with the
-  response already shaped to carry structured suggestions, so the work is a view
-  change rather than a rewrite. Waiting on a verdict about the advice, not on effort.
 
 ## Ideas
 
@@ -140,6 +137,26 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**One-tap apply for the coach, and its log (2026-11-12, 3.83)**
+- Built read-only on purpose and waiting on a verdict about the advice; the user chose
+  on 2026-11-12, from three options with previews, **"a short safe list, with undo"**
+  over "take me there" buttons and over leaving it read-only.
+- The four actions, each something the app already lets you do by hand and done the
+  same way: `add_week` (deload or test, next Monday, Plan's insert via `replan`),
+  `next_max` (hold or reduce, `reviewOptions`' numbers into `cycleMaxes[c+1]`, the
+  review's own write), `add_accessory` (a slot onto the training day with the fewest
+  that lacks it), `set_conditioning` (the next undone conditioning day, format matched
+  by the Guide's name). **Nothing raises a max.**
+- Trust runs in two steps. The Worker's `cleanSuggestions`/`cleanAction` rebuild each
+  action from a whitelist, so extra fields and unknown types never reach the page. The
+  page's `coachAct` then checks it against the live plan and writes the "Will change"
+  sentence itself; an action that no longer applies shows no button. Applied
+  suggestions say so and cannot be applied twice (in memory, per answer).
+- The system prompt gained a ONE-TAP ACTIONS section in the cached block; the rule
+  that it never claims to have changed anything stands.
+- `GET /api/coach/log` (60 newest ok turns, own rows) and `coachLogCard()`: Earlier
+  conversations, grouped by day, loaded when opened.
 
 **The OMS rotation, as a choice (2026-11-12, 3.82)**
 - Tabled 2026-10-20, built 2026-11-12. The book (TB III, Block Programming; the table is

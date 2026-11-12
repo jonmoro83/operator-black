@@ -10243,3 +10243,104 @@ test("the Guide explains OMS, so the coach can", () => {
   a.match(g, /Setup → Programs → OMS rotation/);
   a.match(g, /Each block is its own program/);
 });
+
+// --- one-tap apply for the coach (3.83) -----------------------------------------------------
+test("an action is offered only if it means something against the plan as it stands", () => {
+  const x = app({ now: "2026-10-22" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.bump();
+  const wk = x.weekOf("2026-10-22"), c = wk.cycle;
+
+  // A deload from next Monday, done the way Plan does it.
+  const dl = x.coachAct({ type: "add_week", kind: "deload" });
+  a.equal(dl.text, "adds a deload week starting Mon 10/26");
+  dl.run();
+  a.equal(x.plan.inserts["2026-10-26"], "deload");
+  a.equal(x.weeks().find((w) => w.monday === "2026-10-26").kind, "deload", "the calendar really moved");
+  a.match(x.undoItem.label, /^Deload week added/, "through the usual Undo");
+  a.equal(x.coachAct({ type: "add_week", kind: "deload" }), null, "and it is not offered twice");
+  a.equal(x.coachAct({ type: "add_week", kind: "test" }), null, "nor a retest on top of it");
+  x.undoItem.restore();
+  a.equal(x.plan.inserts["2026-10-26"], undefined, "Undo puts the plan back");
+
+  // Next cycle's max, held or lowered 5%: the review's own numbers, the review's own write.
+  const cur = x.maxFor(c).squat.v;
+  const red = x.coachAct({ type: "next_max", lift: "squat", choice: "reduce" });
+  a.ok(red.text.includes(`sets Cycle ${c + 1}’s `) && red.text.includes(`max to ${x.reviewOptions("squat", cur).reduce} lb`));
+  red.run();
+  a.equal(x.plan.cycleMaxes[c + 1].squat, x.reviewOptions("squat", cur).reduce);
+  a.equal(x.maxFor(c).squat.v, cur, "this cycle's max is untouched");
+  a.equal(x.coachAct({ type: "next_max", lift: "squat", choice: "reduce" }), null, "already so");
+  a.equal(x.coachAct({ type: "next_max", lift: "squat", choice: "bigger" }), null, "there is no raising a max from here");
+  a.equal(x.coachAct({ type: "next_max", lift: "nonsense", choice: "hold" }), null);
+
+  // An accessory job, on the training day with the fewest that does not have it.
+  const acc = x.coachAct({ type: "add_accessory", slot: "hpull" });
+  if (acc) {
+    const before = JSON.stringify(x.plan.accSlots || {});
+    acc.run();
+    a.notEqual(JSON.stringify(x.plan.accSlots), before);
+    a.ok(Object.values(x.plan.accSlots).some((l) => l.includes("hpull")));
+    a.match(acc.text, /^adds Horizontal pull to the accessories on /);
+  }
+  a.equal(x.coachAct({ type: "add_accessory", slot: "wings" }), null);
+
+  // The next conditioning session, by the name the Guide uses.
+  const hic = x.coachAct({ type: "set_conditioning", format: "apex hills" });
+  a.match(hic.text, /conditioning to Apex Hills$/);
+  hic.run();
+  const day = Object.keys(x.logs).find((d) => (x.logs[d].hic || {}).format === "apex");
+  a.ok(day >= "2026-10-22" && x.dayPlan(day).t === "hic", "a conditioning day from today on");
+  a.equal(x.coachAct({ type: "set_conditioning", format: "Apex Hills" }), null, "already that");
+  a.equal(x.coachAct({ type: "set_conditioning", format: "Made Up Session" }), null, "a format the app does not have is not guessed at");
+
+  // Nothing at all in an archived program, or for a shape the list does not have.
+  a.equal(x.coachAct({ type: "delete_everything" }), null);
+  a.equal(x.coachAct(null), null);
+  x.viewing = { end: "2026-10-01" };
+  a.equal(x.coachAct({ type: "next_max", lift: "bench", choice: "hold" }), null);
+});
+
+test("a suggestion with an action shows what it will change and an Apply button; the rest are text", () => {
+  const x = app({ now: "2026-10-22" });
+  x.plan.startMonday = "2026-10-05"; x.plan.bridge = false; x.bump();
+  x.coach.loaded = true; x.coach.turns = [{ id: "t1", asked_at: Date.now(), question: "am I overdoing it", answer: "Back off.", cites: [] }];
+  x.coach.last = { id: "t1", suggestions: [
+    { title: "Take a deload", detail: "You are grinding.", action: { type: "add_week", kind: "deload" } },
+    { title: "Sleep more", detail: "Seven hours is not eight." },
+    { title: "Bogus", detail: "x", action: { type: "set_conditioning", format: "Made Up Session" } },
+  ] };
+  let v = x.vCoach();
+  a.match(v, /Will change: adds a deload week starting Mon 10\/26\./, "in the app's words, from the plan");
+  a.equal((v.match(/data-act="coachapply"/g) || []).length, 1, "one button: the other two are advice");
+  a.match(v, /Nothing is applied until you tap Apply/);
+
+  a.equal(x.coachApply("last", 0), true);
+  a.equal(x.plan.inserts["2026-10-26"], "deload");
+  v = x.vCoach();
+  a.match(v, /<b>Applied\.<\/b> Adds a deload week starting Mon 10\/26\./);
+  a.doesNotMatch(v, /data-act="coachapply"/, "and it cannot be applied twice");
+  a.equal(x.coachApply("last", 0), false);
+  a.equal(x.coachApply("last", 1), false, "a suggestion without an action does nothing");
+
+  // The Monday debrief's suggestions work the same way.
+  x.coach.debrief = { week: "2026-10-12", answer: "Solid.", seen: false, cites: [], suggestions: [{ title: "Hold the bench", detail: "It ground.", action: { type: "next_max", lift: "bench", choice: "hold" } }] };
+  a.match(x.debriefHtml(x.coach.debrief, true), /data-act="coachapply" data-src="debrief" data-i="0"/);
+});
+
+test("earlier conversations load when asked for, grouped by day", async () => {
+  const x = app({ now: "2026-10-22" });
+  x.coach.loaded = true; x.coach.turns = [];
+  a.match(x.vCoach(), /data-act="coachlog">Earlier conversations/);
+  const at = (d) => new Date(d + "T12:00:00").getTime();
+  global.fetch = async (url) => ({ ok: true, status: 200, type: "basic", json: async () => (String(url) === "/api/coach/log"
+    ? { turns: [{ id: "b", asked_at: at("2026-10-20"), question: "should I deload", answer: "**Yes.**", cites: [{ doc: "tb1", ref: "p40" }] },
+                { id: "a", asked_at: at("2026-10-13"), question: "how much protein", answer: "A gram a pound.", cites: [] }] } : {}) });
+  x.coachLogLoad();
+  a.match(x.vCoach(), /Loading/);
+  await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
+  const v = x.vCoach();
+  a.ok(v.indexOf("should I deload") < v.indexOf("how much protein"), "newest first");
+  a.match(v, /Tue, Oct 20/); a.match(v, /Tue, Oct 13/);
+  a.match(v, /<b>Yes\.<\/b>/, "answers render as they did when given");
+  a.match(v, /Read from: TB1 p40/);
+});

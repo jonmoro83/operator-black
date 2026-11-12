@@ -4,7 +4,7 @@
    to be inferred. Suggestions come back as their own items so that turning them into
    one-tap actions later is a change to this file, not to the contract with the
    server. */
-let coach={q:'',busy:false,err:null,last:null,turns:null,thread:null,loaded:false};
+let coach={q:'',busy:false,err:null,last:null,turns:null,thread:null,loaded:false,log:null,logOpen:false};
 const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete',guide:'Guide'};
 
 function coachLoad(){
@@ -42,7 +42,7 @@ function debriefSeen(){
 function debriefHtml(d,today){
   return `<div class="card coach-t"><div class="lift-h"><h3>Coach's debrief</h3><span class="small muted">Week of ${esc(fmtLong(d.week))}</span></div>
   <div class="coach-a">${mdLite(d.answer)}</div>
-  ${(d.suggestions||[]).map(s=>`<div class="acc-slot"><div style="font-weight:650">${esc(s.title||'')}</div><div class="small muted">${esc(s.detail||'')}</div></div>`).join('')}
+  ${(d.suggestions||[]).map((s,i)=>suggHtml(s,'debrief',i)).join('')}
   ${citeLine(d.cites)}
   ${today?`<div class="row" style="gap:10px;align-items:center;margin-top:8px"><button class="btn sm" data-act="debriefseen">Got it</button><button class="btn sm ghost" data-act="view" data-view="coach">Talk it over</button></div>`:''}</div>`;
 }
@@ -66,7 +66,7 @@ function vCoach(){
   coachLoad();
   const turns=coach.turns;
   let h=`<div class="card"><div class="lift-h"><h2>Coach</h2>${coach.cap?`<span class="small muted">${coach.used||0} of ${coach.cap} this month</span>`:''}</div>
-  <p class="note" style="margin:0">It can read your plan, your last four weeks, this app\u2019s Guide and your copies of the four books, which it searches itself, and will search the web when they do not cover something. It cannot change anything — everything it says is a suggestion you act on yourself.</p>`;
+  <p class="note" style="margin:0">It can read your plan, your last four weeks, this app\u2019s Guide and your copies of the four books, which it searches itself, and will search the web when they do not cover something. It cannot change anything by itself. A few of its suggestions come with an Apply button, which says exactly what it will change and can be undone; the rest you act on yourself.</p>`;
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`</div>`;
 
@@ -84,8 +84,8 @@ function vCoach(){
       const sugg=coach.last&&coach.last.id===x.id?coach.last.suggestions:null;
       if(sugg&&sugg.length){
         h+=`<div class="small muted" style="font-weight:650;margin-top:8px">Worth considering</div>`;
-        for(const s of sugg) h+=`<div class="acc-slot"><div style="font-weight:650">${esc(s.title||'')}</div><div class="small muted">${esc(s.detail||'')}</div></div>`;
-        h+=`<div class="small muted">Nothing here has been applied. Make the changes yourself in Plan or Setup.</div>`;
+        sugg.forEach((s,i)=>{ h+=suggHtml(s,'last',i) });
+        h+=`<div class="small muted">Nothing is applied until you tap Apply. The rest is yours to do.</div>`;
       }
       h+=citeLine(x.cites);
     }
@@ -97,6 +97,97 @@ function vCoach(){
   ${(turns||[]).length?`<button class="btn sm ghost" data-act="coachnew">New topic</button>`:''}
   <span class="small muted">Searches the web if the books do not cover it.</span></div>`;
   if(coach.err) h+=`<div class="banner warn"><div class="small">${esc(coach.err)}</div></div>`;
+  return h+`</div>`+coachLogCard();
+}
+/* ---------------- one-tap apply ----------------
+A suggestion may arrive with an action. The Worker has already cut it down to one of
+four shapes; this decides whether it means anything against the plan as it stands right
+now, and words what it would change. That sentence is written here, from the plan, so
+the button can never say one thing and do another, and a suggestion whose action no
+longer applies -- the week is already a deload, the slot is already there -- simply
+shows without a button.
+
+Four actions, chosen by the user from three options on 2026-11-12 ("a short safe list,
+with undo"), and each is a change the app already lets you make by hand, done the same
+way: a deload or retest week from next Monday (Plan's own insert), next cycle's max held
+or lowered 5% (the end-of-cycle review's own write), an accessory job added to a day
+(Setup's own list), and the next conditioning session's format. None raises a max.
+Every one goes through the Undo toast. */
+function coachAct(act){
+  if(!act||viewing||schemaAhead) return null;
+  const t=realToday();
+  if(act.type==='add_week'){
+    if(!['deload','test'].includes(act.kind)||lpOn()) return null;
+    const mon=addDays(mondayOf(t),7), wk=weeks().find(w=>w.monday===mon);
+    if((plan.inserts||{})[mon]||!wk||wk.kind!=='cycle') return null;     // already something else
+    const name=act.kind==='deload'?'Deload':'Retest';
+    return {text:`adds a ${name.toLowerCase()} week starting ${fmtD(mon,true)}`,
+      run:()=>replan(name+' week added',p=>{p.inserts[mon]=act.kind})};
+  }
+  if(act.type==='next_max'){
+    const wk=weekOf(t), k=act.lift; if(!wk||wk.kind!=='cycle'||!activeLifts().includes(k)) return null;
+    const c=wk.cycle, cur=maxFor(c)[k]; if(!cur||!['hold','reduce'].includes(act.choice)) return null;
+    const v=reviewOptions(k,cur.v)[act.choice], set=((plan.cycleMaxes||{})[c+1]||{})[k];
+    if(set!=null&&+set===v) return null;                                  // already so
+    const f=x=>(isBW(k)?'+':'')+n(x);
+    return {text:`sets Cycle ${c+1}\u2019s ${liftName(k)} max to ${f(v)} ${u()} (this cycle\u2019s is ${f(cur.v)})`,
+      run:()=>{ offerUndo('Cycle '+(c+1)+' max set',snapPlan()); mutatePlan(p=>{p.cycleMaxes[c+1]=Object.assign({},p.cycleMaxes[c+1]||{},{[k]:v})}) }};
+  }
+  if(act.type==='add_accessory'){
+    const slot=act.slot; if(!ASLOT[slot]) return null;
+    // The training day with the fewest jobs that does not already have this one.
+    const days=[]; for(const d of tplDays(stemplOf(),weekOf(t)||{w:1})) if(d.acc&&!days.some(x=>x.acc===d.acc)) days.push(d);
+    const open=days.filter(d=>!accSlots(d.acc).includes(slot)).sort((a,b)=>accSlots(a.acc).length-accSlots(b.acc).length)[0];
+    if(!open) return null;
+    return {text:`adds ${ASLOT[slot].name} to the accessories on ${open.label||open.short}`,
+      run:()=>{ offerUndo(ASLOT[slot].name+' added',snapPlan()); mutatePlan(p=>{p.accSlots=Object.assign({},p.accSlots||{},{[open.acc]:accSlots(open.acc).concat([slot])})}) }};
+  }
+  if(act.type==='set_conditioning'){
+    const want=String(act.format||'').toLowerCase().replace(/[\u2019']/g,''), key=Object.keys(HIC).find(k=>HIC[k].name.toLowerCase().replace(/[\u2019']/g,'')===want);
+    if(!key) return null;
+    let date=null; for(let i=0;i<7&&!date;i++){ const d=addDays(t,i), dp=dayPlan(d); if(dp&&dp.t==='hic'&&!lg(d).done) date=d }
+    if(!date||effFmt(date)===key) return null;
+    return {text:`sets ${date===t?'today':fmtD(date,true)}\u2019s conditioning to ${HIC[key].name}`,
+      run:()=>{ offerUndo('Conditioning set to '+HIC[key].name,snapLog(date)); if(!(lg(date).hic||{}).mod) setLog(date,'hic.mod',modOf(date)); setLog(date,'hic.format',key); render() }};
+  }
+  return null;
+}
+function suggOf(src,i){ const list=src==='debrief'?((coach.debrief||{}).suggestions):((coach.last||{}).suggestions); return (list||[])[i]||null }
+function suggHtml(s,src,i){
+  const can=s.applied?null:coachAct(s.action);
+  return `<div class="acc-slot"><div style="font-weight:650">${esc(s.title||'')}</div><div class="small muted">${esc(s.detail||'')}</div>${
+    s.applied?`<div class="small"><b>Applied.</b> ${esc(s.applied)}</div>`
+    :can?`<div class="small">Will change: ${esc(can.text)}.</div><div><button class="btn sm" data-act="coachapply" data-src="${src}" data-i="${i}">Apply</button></div>`:''}</div>`;
+}
+function coachApply(src,i){
+  const s=suggOf(src,i); if(!s||s.applied) return false;
+  const can=coachAct(s.action); if(!can) return false;
+  can.run();
+  s.applied=can.text.charAt(0).toUpperCase()+can.text.slice(1)+'.';
+  render(); return true;
+}
+/* ---------------- what it has said before ----------------
+The screen above is one conversation. This is all of them, newest first, with the day
+each thing was said: the only way to judge advice is to read it back against what
+happened next, which is the question one-tap apply was waiting on. Loaded when opened. */
+function coachLogLoad(){
+  coach.logOpen=true; render();
+  api('GET','/coach/log').then(r=>{ coach.log=r.turns||[]; render() }).catch(()=>{ coach.log=[]; coach.logErr=true; render() });
+  return true;
+}
+function coachLogCard(){
+  if(!coach.logOpen) return `<div class="card"><div class="row between"><span class="small muted">Everything it has told you, by date.</span><button class="btn sm ghost" data-act="coachlog">Earlier conversations</button></div></div>`;
+  let h=`<div class="card"><div class="lift-h"><h3>Earlier conversations</h3><button class="btn sm ghost" data-act="coachlogx">Close</button></div>`;
+  if(coach.log===null) return h+`<p class="small muted" style="margin:0">Loading…</p></div>`;
+  if(coach.logErr) return h+`<p class="note" style="margin:0">Could not load them. Try again when you have signal.</p></div>`;
+  if(!coach.log.length) return h+`<p class="note" style="margin:0">Nothing yet. Everything you ask is kept here.</p></div>`;
+  let day='';
+  for(const x of coach.log){
+    const d=new Date(x.asked_at), ds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    if(ds!==day){ day=ds; h+=`<h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(fmtLong(ds))}</h4>` }
+    h+=`<details class="px" data-px="cl${esc(x.id)}"${openPx.has('cl'+x.id)?' open':''}><summary><span>${esc(x.question.length>90?x.question.slice(0,88)+'\u2026':x.question)}</span></summary>
+      <div class="coach-q" style="margin-top:6px">${esc(x.question)}</div><div class="coach-a">${mdLite(x.answer)}</div>${citeLine(x.cites)}</details>`;
+  }
   return h+`</div>`;
 }
 /* Just enough markdown for what the coach actually returns: paragraphs, bullets, bold

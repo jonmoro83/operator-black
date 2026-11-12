@@ -334,6 +334,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='macrowhy'){setMacroWhy(!macroWhy);render();return}
   if(a==='restwarn'){setPlan('restWarn',+b.dataset.v);render();return}
   if(a==='coachnew'){coachNew();return}
+  if(a==='coachapply'){coachApply(b.dataset.src,+b.dataset.i);return}
+  if(a==='coachlog'){coachLogLoad();return}
+  if(a==='coachlogx'){coach.logOpen=false;render();return}
   if(a==='debriefseen'){debriefSeen();return}
   if(a==='minplan'){setLog(sel,'hic.min',+b.dataset.v);render();return}
   if(a==='boutplan'){setLog(sel,'hic.rounds',+b.dataset.v);render();return}

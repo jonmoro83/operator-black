@@ -480,6 +480,9 @@ function fakeDB() {
       return coachRows.filter((r) => r.user === a[0] && r.thread === (a[1] || "") && r.ok === 1)
         .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[2])
         .map((r) => ({ id: r.id, asked_at: r.asked_at, question: r.question, answer: r.answer, cites: r.cites }));
+    if (/^SELECT id, asked_at, question, answer, cites, thread FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
+      return coachRows.filter((r) => r.user === a[0] && r.ok === 1).sort((x, y) => y.asked_at - x.asked_at).slice(0, a[1])
+        .map((r) => ({ id: r.id, asked_at: r.asked_at, question: r.question, answer: r.answer, cites: r.cites, thread: r.thread }));
     if (/^SELECT id, title, short, chunks, updated_at FROM lib_doc ORDER BY id$/.test(q))
       return libDoc.slice().sort((x, y) => (x.id < y.id ? -1 : 1));
     if (/^SELECT doc, ref, body, bm25\(lib_chunk\) AS score FROM lib_chunk WHERE lib_chunk MATCH \?1 ORDER BY score LIMIT \?2$/.test(q))
@@ -2141,4 +2144,73 @@ test("one document that will not parse is skipped and logged, and the app still 
     a.match(said[0], /unreadable document skipped logs\/2026-01-02/);
     a.ok(!said[0].includes("lifter"), "the log line names the document, not the person");
   });
+});
+
+/* ---------------- 3.83: one-tap apply and the coach log ---------------- */
+
+test("a suggestion's action is one of four shapes, and anything else is cut back to text", async () => {
+  const { cleanSuggestions } = await load();
+  const out = cleanSuggestions([
+    { title: "Deload", detail: "Three ground sets.", action: { type: "add_week", kind: "deload" } },
+    { title: "Hold squat", detail: "", action: { type: "next_max", lift: "squat", choice: "hold", value: 9999 } },
+    { title: "Rear delts", detail: "x", action: { type: "add_accessory", slot: "rdelt" } },
+    { title: "Hills", detail: "x", action: { type: "set_conditioning", format: " Apex Hills " } },
+    // Everything below is a model overreaching, or somebody steering it.
+    { title: "Raise it", detail: "x", action: { type: "next_max", lift: "squat", choice: "bigger" } },
+    { title: "Any week", detail: "x", action: { type: "add_week", kind: "bridge3" } },
+    { title: "Set a max", detail: "x", action: { type: "set_max", lift: "squat", value: 500 } },
+    { title: "Bad slot", detail: "x", action: { type: "add_accessory", slot: "__proto__" } },
+    { title: "Markup", detail: "x", action: { type: "set_conditioning", format: "<img src=x onerror=1>" } },
+    { title: "", detail: "" }, "nonsense", null,
+  ], 20);
+  a.deepEqual(out.slice(0, 4).map((s) => s.action), [
+    { type: "add_week", kind: "deload" },
+    { type: "next_max", lift: "squat", choice: "hold" },
+    { type: "add_accessory", slot: "rdelt" },
+    { type: "set_conditioning", format: "Apex Hills" },
+  ], "the four, with nothing extra riding along");
+  a.equal(out.length, 9, "empty and malformed suggestions are dropped");
+  for (const s of out.slice(4)) a.equal("action" in s, false, s.title + " stays a suggestion in words");
+  a.equal(cleanSuggestions(Array.from({ length: 10 }, () => ({ title: "t" })), 6).length, 6);
+  a.deepEqual(cleanSuggestions("not a list", 6), []);
+  a.equal(cleanSuggestions([{ title: "x".repeat(500), detail: "y".repeat(900) }], 6)[0].detail.length, 400, "and text is bounded");
+});
+
+test("the coach's reply carries only a cleaned action, and it is told the four it may use", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("Back off.", [
+    { title: "Take a deload", detail: "You are grinding.", action: { type: "add_week", kind: "deload", monday: "1999-01-04" } },
+    { title: "Double it", detail: "no", action: { type: "set_max", lift: "squat", value: 600 } },
+  ]));
+  try {
+    const body = await (await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "am I overdoing it" }) }, tok)).json();
+    a.deepEqual(body.suggestions, [
+      { title: "Take a deload", detail: "You are grinding.", action: { type: "add_week", kind: "deload" } },
+      { title: "Double it", detail: "no" },
+    ]);
+    const sys = sysText(globalThis.fetch.calls[0].body);
+    a.match(sys, /ONE-TAP ACTIONS/);
+    a.match(sys, /There is no action for raising a max/);
+    a.match(sys, /never write as though it has been done/);
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach log is everything it told you, newest first, and only yours", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a), other = await mint(k.a, { email: "someone.else@example.com" });
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("First answer."));
+  try {
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "first question" }) }, tok);
+    globalThis.fetch = fakeAnthropic(coachReply("Second answer."));
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "second question", fresh: true }) }, tok);
+    const log = await (await call2(env, "coach/log", {}, tok)).json();
+    a.deepEqual(log.turns.map((t) => t.question), ["second question", "first question"], "across threads, newest first");
+    a.equal(log.turns[1].answer, "First answer.");
+    a.ok(Array.isArray(log.turns[0].cites));
+    a.deepEqual((await (await call2(env, "coach/log", {}, other)).json()).turns, []);
+    a.equal((await call2(env, "coach/log", {}, null)).status, 401);
+  } finally { globalThis.fetch = orig }
 });

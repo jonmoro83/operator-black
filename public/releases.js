@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.83',date:'2026-11-12',title:"Apply a coach suggestion with one tap",items:[
+    "Some of the coach's suggestions now come with an Apply button. There are four things it can offer: a deload or retest week starting next Monday, holding or lowering a lift's max for the next cycle, adding an accessory job to a training day, and changing your next conditioning session.",
+    "Before you tap, the card says exactly what will change, in the app's words rather than the coach's. Nothing happens until you tap Apply, and the usual Undo follows. It can't raise a max: that stays with the end-of-cycle review.",
+    "Suggestions in the Monday debrief work the same way.",
+    "Earlier conversations, at the bottom of Coach, lists everything it has told you by date, so you can read its advice back against what happened next.",
+  ]},
   {v:'3.82',date:'2026-11-12',title:"The OMS rotation, if you want it",items:[
     "Tactical Barbell III's long-term model is in: a block of Operator, a block of Mass, a block of Specificity, three to six weeks each, repeated. It's off unless you turn it on, in Setup under Programs.",
     "When it's on you choose the template and the number of weeks for each block. Zulu can stand in for Operator and any of the mass templates for Mass. You can leave Specificity out and rotate just Operator and Mass, which is the book's own variation.",
