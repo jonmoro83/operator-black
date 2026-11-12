@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.89", RELEASES_SRC="/releases.js?b=833fd8d46f";
+const APP_VERSION="3.90", RELEASES_SRC="/releases.js?b=2e2ecc5a68";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -2994,6 +2994,8 @@ function D(s){const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)}
 function S(t){return new Date(t).toISOString().slice(0,10)}
 function addDays(s,n){return S(D(s)+n*864e5)}
 function realToday(){const n=new Date();return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())}
+// The local date of a timestamp, in the same form.
+function realDay(ms){const n=new Date(+ms);return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())}
 // In an archived program, "today" is its last day, so every view shows it as it ended.
 function todayStr(){const t=realToday();return viewing&&viewing.end<t?viewing.end:t}
 // The dates that belong to the program on screen (programs never overlap).
@@ -11025,12 +11027,12 @@ function vAdmin() {
    to be inferred. Suggestions come back as their own items so that turning them into
    one-tap actions later is a change to this file, not to the contract with the
    server. */
-let coach={q:'',busy:false,err:null,last:null,turns:null,thread:null,loaded:false,log:null,logOpen:false};
+let coach={q:'',busy:false,err:null,last:null,turns:null,loaded:false,log:null,logOpen:false};
 const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete',mti:'MTI',guide:'Guide'};
 
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
-  api('GET','/coach').then(r=>{ coach.turns=r.turns||[]; coach.thread=r.thread||null;
+  api('GET','/coach').then(r=>{ coach.turns=r.turns||[];
     coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; coach.debrief=r.debrief||null; render() })
     .catch(()=>{ coach.turns=[]; render() });
 }
@@ -11062,8 +11064,8 @@ function coachAsk(){
   coach.turns=(coach.turns||[]).concat([{id:'pending',asked_at:Date.now(),question:q,answer:'',cites:[],pending:true}]);
   coach.busy=true; coach.err=null; coach.q='';
   render();
-  api('POST','/coach',{q,thread:coach.thread||undefined,today:realToday(),ahead:coachAhead()})
-    .then(r=>{ coach.last=r; coach.used=r.used; coach.thread=r.thread; coach.busy=false;
+  api('POST','/coach',{q,today:realToday(),ahead:coachAhead()})
+    .then(r=>{ coach.last=r; coach.used=r.used; coach.busy=false;
       coach.turns=(coach.turns||[]).filter(t=>!t.pending)
         .concat([{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}]);
       render() })
@@ -11094,7 +11096,6 @@ function debriefCard(){
   const d=coach.debrief;
   return d&&!d.seen?debriefHtml(d,true):'';
 }
-function coachNew(){ coach.thread=null; coach.turns=[]; coach.last=null; coach.err=null; render(); return true }
 
 // A citation is only worth printing if it can be found again, so it carries the book
 // and the page rather than just a name. An MTI article's ref is its title, and titles
@@ -11115,9 +11116,13 @@ function vCoach(){
 
   if(coach.debrief) h+=debriefHtml(coach.debrief,false);
   if(turns===null) h+=`<div class="card"><p class="small muted" style="margin:0">Loading…</p></div>`;
-  else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
+  else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers what you have been talking about, whatever the subject, so you can just say “why?”</p></div>`;
 
+  // One continuous conversation (3.90), so a change of day is marked where it happens.
+  let day0='';
   for(const x of (turns||[])){
+    const dd=x.asked_at?realDay(x.asked_at):'';
+    if(dd&&dd!==day0){ day0=dd; h+=`<div class="divider">${esc(dd===realToday()?'Today':fmtLong(dd))}</div>` }
     h+=`<div class="card coach-t"><div class="coach-q">${esc(x.question)}</div>`;
     if(x.pending) h+=`<div class="small muted">Thinking…</div>`;
     else{
@@ -11137,7 +11142,6 @@ function vCoach(){
 
   h+=`<div class="card"><label class="f">${(turns||[]).length?'Reply':'Ask'}<textarea id="coach-q" data-coachq="1" rows="3" placeholder="${(turns||[]).length?'Follow up, or ask something else…':'e.g. I have missed two HICs this week, what should I drop?'}">${esc(coach.q)}</textarea></label>
   <div class="row" style="gap:10px;align-items:center"><button class="btn primary" data-act="coachask" ${coach.busy||!coach.q.trim()?'disabled':''}>${coach.busy?'Thinking…':'Send'}</button>
-  ${(turns||[]).length?`<button class="btn sm ghost" data-act="coachnew">New topic</button>`:''}
   <span class="small muted">Searches the web if the books do not cover it.</span></div>`;
   if(coach.err) h+=`<div class="banner warn"><div class="small">${esc(coach.err)}</div></div>`;
   return h+`</div>`+coachLogCard();
@@ -11702,7 +11706,6 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='macrowin'){setMacroWin(b.dataset.v);render();return}
   if(a==='macrowhy'){setMacroWhy(!macroWhy);render();return}
   if(a==='restwarn'){setPlan('restWarn',+b.dataset.v);render();return}
-  if(a==='coachnew'){coachNew();return}
   if(a==='coachapply'){coachApply(b.dataset.src,+b.dataset.i);return}
   if(a==='coachlog'){coachLogLoad();return}
   if(a==='coachlogx'){coach.logOpen=false;render();return}

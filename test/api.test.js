@@ -468,17 +468,13 @@ function fakeDB() {
         cites: a[5], model: a[6], tokens_in: a[7], tokens_out: a[8], ok: a[9], stop: a[10], thread: a[11] });
       return [];
     }
-    if (/^SELECT question, answer FROM coach_log WHERE user = \?1 AND thread = \?2 AND ok = 1 ORDER BY asked_at DESC LIMIT \?3$/.test(q))
-      return coachRows.filter((r) => r.user === a[0] && r.thread === a[1] && r.ok === 1)
-        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[2])
-        .map((r) => ({ question: r.question, answer: r.answer }));
-    if (/^SELECT thread FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT 1$/.test(q)) {
-      const r = coachRows.filter((x) => x.user === a[0] && x.ok === 1).sort((x, y) => y.asked_at - x.asked_at)[0];
-      return r ? [{ thread: r.thread }] : [];
-    }
-    if (/^SELECT id, asked_at, question, answer, cites FROM coach_log WHERE user = \?1 AND thread = \?2 AND ok = 1 ORDER BY asked_at DESC LIMIT \?3$/.test(q))
-      return coachRows.filter((r) => r.user === a[0] && r.thread === (a[1] || "") && r.ok === 1)
-        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[2])
+    if (/^SELECT question, answer, asked_at FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
+      return coachRows.filter((r) => r.user === a[0] && r.ok === 1)
+        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[1])
+        .map((r) => ({ question: r.question, answer: r.answer, asked_at: r.asked_at }));
+    if (/^SELECT id, asked_at, question, answer, cites FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
+      return coachRows.filter((r) => r.user === a[0] && r.ok === 1)
+        .sort((x, y) => y.asked_at - x.asked_at).slice(0, a[1])
         .map((r) => ({ id: r.id, asked_at: r.asked_at, question: r.question, answer: r.answer, cites: r.cites }));
     if (/^SELECT id, asked_at, question, answer, cites, thread FROM coach_log WHERE user = \?1 AND ok = 1 ORDER BY asked_at DESC LIMIT \?2$/.test(q))
       return coachRows.filter((r) => r.user === a[0] && r.ok === 1).sort((x, y) => y.asked_at - x.asked_at).slice(0, a[1])
@@ -1708,7 +1704,10 @@ test("a truncated answer is shown, and labelled", async () => {
   } finally { globalThis.fetch = orig }
 });
 
-test("the coach carries the conversation, and a new topic drops it", async () => {
+test("the coach is one continuous conversation, with no topics to choose", async () => {
+  // By request (3.90): "a continuous conversation instead of having to select new or
+  // existing topic". Topics came in on 2026-10-16 so "why?" had something to refer to;
+  // the replay still gives it that, across subjects.
   const k = await setupKeys(); const env = await coachEnv();
   const tok = await mint(k.a);
   const orig = globalThis.fetch;
@@ -1717,65 +1716,57 @@ test("the coach carries the conversation, and a new topic drops it", async () =>
   try {
     globalThis.fetch = fakeAnthropic(coachReply("Ruck is fine today."));
     const a1 = await ask("should I ruck instead of the HIC today");
-    a.ok(a1.thread, "the first question opens a thread");
+    a.equal(a1.thread, undefined, "no thread to carry");
     a.equal(globalThis.fetch.calls[0].body.messages.length, 1, "with nothing before it");
 
     // The follow-up carries what was said, so "why?" means something.
     globalThis.fetch = fakeAnthropic(coachReply("Because an easy hour is not a hard twenty."));
-    const a2 = await ask("why?", { thread: a1.thread });
-    a.equal(a2.thread, a1.thread, "same thread");
+    await ask("why?");
     const msgs = globalThis.fetch.calls[0].body.messages;
-    a.equal(msgs.length, 3, "question, answer, question");
     a.deepEqual(msgs.map((m) => m.role), ["user", "assistant", "user"]);
     a.match(msgs[0].content, /should I ruck instead/);
     a.equal(msgs[1].content, "Ruck is fine today.", "its own answer comes back to it");
     a.match(msgs[2].content, /why\?$/);
-    // Only the current question carries passages; the history is just what was said.
     a.ok(!/<library>/.test(msgs[0].content), "no passages replayed in the history");
     a.match(msgs[2].content, /<library>/);
     a.ok(!/<state>/.test(msgs.map((m) => m.content).join("")), "and the plan is not repeated per turn");
 
-    // A new topic starts clean even though the rows are still there.
+    // A different subject, and an old client still asking for a fresh topic, carry on.
     globalThis.fetch = fakeAnthropic(coachReply("Different subject."));
-    const a3 = await ask("unrelated question about squats");
-    a.notEqual(a3.thread, a1.thread, "a fresh thread");
-    a.equal(globalThis.fetch.calls[0].body.messages.length, 1, "with no history behind it");
+    await ask("unrelated question about squats", { thread: "abc-123", fresh: true });
+    a.equal(globalThis.fetch.calls[0].body.messages.length, 5, "the conversation continues");
 
-    // And the screen shows the newest thread, oldest turn first.
+    // A question from an earlier day says when it was asked.
+    env.DB.coachRows[0].asked_at = Date.parse("2026-11-01T12:00:00Z");
+    globalThis.fetch = fakeAnthropic(coachReply("ok"));
+    await ask("and today?", { today: new Date().toISOString().slice(0, 10) });
+    a.match(globalThis.fetch.calls[0].body.messages[0].content, /^\(Asked on 2026-11-01\.\) should I ruck/);
+
+    // The screen shows the whole conversation, oldest first.
     const h = await (await call2(env, "coach", {}, tok)).json();
-    a.equal(h.thread, a3.thread);
-    a.deepEqual(h.turns.map((t) => t.question), ["unrelated question about squats"]);
+    a.equal(h.turns.length, 4);
+    a.equal(h.turns.at(-1).question, "and today?");
   } finally { globalThis.fetch = orig }
 });
 
-test("a thread is bounded, and is only ever your own", async () => {
+test("the conversation's replay is bounded, and is only ever your own", async () => {
   const k = await setupKeys(); const env = await coachEnv();
   const tok = await mint(k.a), other = await asOther(k);
   const orig = globalThis.fetch;
   try {
     globalThis.fetch = fakeAnthropic(coachReply("ok"));
-    let thread = null;
     // Twelve turns: more than the eight the replay keeps.
-    for (let i = 0; i < 12; i++) {
-      const r = await (await call2(env, "coach",
-        { method: "POST", body: JSON.stringify({ q: "question " + i, thread: thread || undefined }) }, tok)).json();
-      thread = r.thread;
-    }
+    for (let i = 0; i < 12; i++)
+      await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "question " + i }) }, tok);
     const msgs = globalThis.fetch.calls[globalThis.fetch.calls.length - 1].body.messages;
     a.ok(msgs.length <= 17, `history is capped, got ${msgs.length}`);
     a.match(msgs[msgs.length - 1].content, /question 11$/, "the newest question is last");
     a.ok(!msgs.some((m) => /question 0$/.test(m.content)), "and the oldest have fallen off");
 
-    // Someone else quoting your thread id gets their own conversation, not yours.
+    // Someone else's conversation is theirs, whatever they send.
     globalThis.fetch = fakeAnthropic(coachReply("ok"));
-    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "whose thread", thread }) }, other);
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "whose conversation", thread: "" }) }, other);
     a.equal(globalThis.fetch.calls[0].body.messages.length, 1, "no history leaks across people");
-
-    // A thread id that is not one is ignored rather than trusted.
-    globalThis.fetch = fakeAnthropic(coachReply("ok"));
-    const r = await (await call2(env, "coach",
-      { method: "POST", body: JSON.stringify({ q: "hi", thread: "../../etc/passwd" }) }, tok)).json();
-    a.match(r.thread, /^[0-9a-f-]{36}$/, "a fresh one is minted instead");
   } finally { globalThis.fetch = orig }
 });
 

@@ -150,6 +150,14 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The coach is one continuous conversation (2026-11-12, 3.90)**
+- By request: no New topic, no choosing. Threads (2026-10-16) existed so "why?" had
+  context; the replay still gives it that, now across subjects: the newest eight turns
+  within 14,000 characters, whatever thread they were asked under. New rows share the
+  empty thread; the column stays. A replayed question from an earlier day is prefixed
+  "(Asked on YYYY-MM-DD.)" so its "today" is not read as today. The screen shows the
+  conversation with a divider wherever the day changes.
+
 **The format list, grouped by what it trains (2026-11-12, 3.89)**
 - The user called the list a mess and chose "by what it trains but a designation for
   what's sourced from TB and what's sourced from MTI". `hicOptions` now groups by

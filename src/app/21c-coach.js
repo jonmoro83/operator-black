@@ -4,12 +4,12 @@
    to be inferred. Suggestions come back as their own items so that turning them into
    one-tap actions later is a change to this file, not to the contract with the
    server. */
-let coach={q:'',busy:false,err:null,last:null,turns:null,thread:null,loaded:false,log:null,logOpen:false};
+let coach={q:'',busy:false,err:null,last:null,turns:null,loaded:false,log:null,logOpen:false};
 const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete',mti:'MTI',guide:'Guide'};
 
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
-  api('GET','/coach').then(r=>{ coach.turns=r.turns||[]; coach.thread=r.thread||null;
+  api('GET','/coach').then(r=>{ coach.turns=r.turns||[];
     coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; coach.debrief=r.debrief||null; render() })
     .catch(()=>{ coach.turns=[]; render() });
 }
@@ -41,8 +41,8 @@ function coachAsk(){
   coach.turns=(coach.turns||[]).concat([{id:'pending',asked_at:Date.now(),question:q,answer:'',cites:[],pending:true}]);
   coach.busy=true; coach.err=null; coach.q='';
   render();
-  api('POST','/coach',{q,thread:coach.thread||undefined,today:realToday(),ahead:coachAhead()})
-    .then(r=>{ coach.last=r; coach.used=r.used; coach.thread=r.thread; coach.busy=false;
+  api('POST','/coach',{q,today:realToday(),ahead:coachAhead()})
+    .then(r=>{ coach.last=r; coach.used=r.used; coach.busy=false;
       coach.turns=(coach.turns||[]).filter(t=>!t.pending)
         .concat([{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}]);
       render() })
@@ -73,7 +73,6 @@ function debriefCard(){
   const d=coach.debrief;
   return d&&!d.seen?debriefHtml(d,true):'';
 }
-function coachNew(){ coach.thread=null; coach.turns=[]; coach.last=null; coach.err=null; render(); return true }
 
 // A citation is only worth printing if it can be found again, so it carries the book
 // and the page rather than just a name. An MTI article's ref is its title, and titles
@@ -94,9 +93,13 @@ function vCoach(){
 
   if(coach.debrief) h+=debriefHtml(coach.debrief,false);
   if(turns===null) h+=`<div class="card"><p class="small muted" style="margin:0">Loading…</p></div>`;
-  else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers the rest of this conversation — so you can just say “why?”</p></div>`;
+  else if(!turns.length) h+=`<div class="card"><p class="note" style="margin:0">Ask it anything about your training. It answers from the books first and says so when it is going beyond them, and it remembers what you have been talking about, whatever the subject, so you can just say “why?”</p></div>`;
 
+  // One continuous conversation (3.90), so a change of day is marked where it happens.
+  let day0='';
   for(const x of (turns||[])){
+    const dd=x.asked_at?realDay(x.asked_at):'';
+    if(dd&&dd!==day0){ day0=dd; h+=`<div class="divider">${esc(dd===realToday()?'Today':fmtLong(dd))}</div>` }
     h+=`<div class="card coach-t"><div class="coach-q">${esc(x.question)}</div>`;
     if(x.pending) h+=`<div class="small muted">Thinking…</div>`;
     else{
@@ -116,7 +119,6 @@ function vCoach(){
 
   h+=`<div class="card"><label class="f">${(turns||[]).length?'Reply':'Ask'}<textarea id="coach-q" data-coachq="1" rows="3" placeholder="${(turns||[]).length?'Follow up, or ask something else…':'e.g. I have missed two HICs this week, what should I drop?'}">${esc(coach.q)}</textarea></label>
   <div class="row" style="gap:10px;align-items:center"><button class="btn primary" data-act="coachask" ${coach.busy||!coach.q.trim()?'disabled':''}>${coach.busy?'Thinking…':'Send'}</button>
-  ${(turns||[]).length?`<button class="btn sm ghost" data-act="coachnew">New topic</button>`:''}
   <span class="small muted">Searches the web if the books do not cover it.</span></div>`;
   if(coach.err) h+=`<div class="banner warn"><div class="small">${esc(coach.err)}</div></div>`;
   return h+`</div>`+coachLogCard();

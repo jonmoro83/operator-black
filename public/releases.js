@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.90',date:'2026-11-12',title:"One conversation with the coach",items:[
+    "The coach is now one running conversation. There's no New topic button and nothing to pick: just ask. It remembers your recent exchanges whatever they were about, so a follow-up like \"why?\" still works.",
+    "The conversation shows a date wherever the day changes. When the coach looks back at something you asked on an earlier day, it knows which day that was, so \"today\" in an old question isn't taken to mean today.",
+  ]},
   {v:'3.89',date:'2026-11-12',title:"A tidier conditioning list",items:[
     "The conditioning format list is now grouped by what each session trains: aerobic/anaerobic, general conditioning, power, endurance, then core and the challenge sessions. The books' and MTI's sessions of the same kind sit together instead of in separate places.",
     "Each session shows where it's from after its name: TB II, TB III, MTI, or App for the app's own shapes.",

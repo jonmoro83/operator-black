@@ -5,6 +5,8 @@ function D(s){const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)}
 function S(t){return new Date(t).toISOString().slice(0,10)}
 function addDays(s,n){return S(D(s)+n*864e5)}
 function realToday(){const n=new Date();return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())}
+// The local date of a timestamp, in the same form.
+function realDay(ms){const n=new Date(+ms);return n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())}
 // In an archived program, "today" is its last day, so every view shows it as it ended.
 function todayStr(){const t=realToday();return viewing&&viewing.end<t?viewing.end:t}
 // The dates that belong to the program on screen (programs never overlap).

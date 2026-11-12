@@ -1051,10 +1051,9 @@ async function askCoach(request, env, user) {
   // retried without end: failures get a ceiling of their own, the same size.
   if ((await coachFailed(env, user)) >= COACH_CAP) return json({ error: "Too many answers have failed this month, so the coach is paused until the 1st. That is a fault on our side, not a count against you." }, 429);
 
-  // Carry on the thread we were given, or open one. A thread id the caller made up is
-  // harmless: it only ever selects that person's own rows.
-  const thread = /^[0-9a-f-]{8,40}$/.test(String(body.thread || "")) && !body.fresh
-    ? String(body.thread) : crypto.randomUUID();
+  // One continuous conversation since 3.90, by request: no topics to start or choose.
+  // The column stays, and new rows share the empty thread the pre-thread rows have.
+  const thread = "";
 
   // Taken only if it is a real date within a day of the server's, which is as far as a
   // time zone can put it; anything else falls back to UTC.
@@ -1072,10 +1071,13 @@ async function askCoach(request, env, user) {
   // Earlier turns carry only what was said. The state goes in the system block, where
   // it is sent once rather than once per turn of history, and the passages go with the
   // question they were retrieved for.
-  const prior = await coachTurns(env, user, thread);
+  const prior = await coachTurns(env, user);
   const messages = [];
+  const day0 = today || new Date().toISOString().slice(0, 10);
   for (const t of prior) {
-    messages.push({ role: "user", content: t.question });
+    // An earlier day's question says when it was asked, or its "today" reads as today's.
+    const on = new Date(+t.asked_at || 0).toISOString().slice(0, 10);
+    messages.push({ role: "user", content: on !== day0 && t.asked_at ? `(Asked on ${on}.) ${t.question}` : t.question });
     if (t.answer) messages.push({ role: "assistant", content: t.answer });
   }
   messages.push({
@@ -1188,7 +1190,6 @@ async function askCoach(request, env, user) {
 
   return json({
     id,
-    thread,
     answer,
     searches,
     // A truncated answer is still worth reading, but say so rather than letting it
@@ -1207,18 +1208,17 @@ function logCoach(env, x) {
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
   ).bind(x.id, x.user, Date.now(), x.q, x.answer, JSON.stringify(x.cites), x.model, x.ti, x.to, x.ok, x.stop || "", x.thread || "").run();
 }
-/* The turns already in this thread, oldest first, for replaying as context.
+/* The newest turns of the conversation, oldest first, for replaying as context.
 
    Bounded twice over: a count, so a long conversation does not grow without limit,
    and a character budget, because one rambling exchange can be worth more than ten
    short ones. The oldest go first -- a conversation reads back from the present. */
 const COACH_TURNS = 8, COACH_CHARS = 14000;
-async function coachTurns(env, user, thread) {
-  if (!thread) return [];
+async function coachTurns(env, user) {
   const { results } = await env.DB.prepare(
-    `SELECT question, answer FROM coach_log
-     WHERE user = ?1 AND thread = ?2 AND ok = 1 ORDER BY asked_at DESC LIMIT ?3`
-  ).bind(user, thread, COACH_TURNS).all();
+    `SELECT question, answer, asked_at FROM coach_log
+     WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT ?2`
+  ).bind(user, COACH_TURNS).all();
   const out = [];
   let budget = COACH_CHARS;
   for (const r of results || []) {
@@ -1230,22 +1230,15 @@ async function coachTurns(env, user, thread) {
   return out;
 }
 
-/* The conversation on screen: the most recent thread, oldest first, because that is
-   how a conversation is read. Rows from before threads existed share the empty thread
-   and read as the one long exchange they were. */
+/* The conversation on screen: the newest turns, oldest first, because that is how a
+   conversation is read. One conversation since 3.90, so every row is part of it,
+   whichever topic it was asked under before. */
 async function coachHistory(env, user, n) {
-  const last = await env.DB.prepare(
-    "SELECT thread FROM coach_log WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT 1"
-  ).bind(user).first();
-  if (!last) return { thread: null, turns: [] };
   const { results } = await env.DB.prepare(
     `SELECT id, asked_at, question, answer, cites FROM coach_log
-     WHERE user = ?1 AND thread = ?2 AND ok = 1 ORDER BY asked_at DESC LIMIT ?3`
-  ).bind(user, last.thread || "", n).all();
-  return {
-    thread: last.thread || null,
-    turns: (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] })).reverse(),
-  };
+     WHERE user = ?1 AND ok = 1 ORDER BY asked_at DESC LIMIT ?2`
+  ).bind(user, n).all();
+  return { turns: (results || []).map((r) => ({ ...r, cites: safeParse(r.cites) || [] })).reverse() };
 }
 
 /* ---------------- the weekly debrief ----------------

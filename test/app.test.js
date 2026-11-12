@@ -3141,20 +3141,14 @@ test("the coach calls the API the way the API is actually shaped", async () => {
     a.deepEqual(bare(post.body), { q: "how much protein", today: "2026-10-15" }, "a real object, stringified once");
     a.ok(!("web" in post.body), "the client no longer decides about searching");
 
-    // A follow-up carries the thread so the server can replay the conversation.
-    x.coach.thread = "abc-123"; x.coach.busy = false; x.coach.q = "why?";
+    // One continuous conversation (3.90): a follow-up is just the next question, and
+    // there is no New topic to press.
+    x.coach.busy = false; x.coach.q = "why?";
     a.equal(x.coachAsk(), true);
     await new Promise((r) => setImmediate(r));
-    a.deepEqual(bare(seen[2].body), { q: "why?", thread: "abc-123", today: "2026-10-15" });
+    a.deepEqual(bare(seen[2].body), { q: "why?", today: "2026-10-15" });
     await new Promise((r) => setImmediate(r));
-    a.strictEqual(x.coach.thread, "server-thread", "the server's thread id is adopted");
-
-    // New topic forgets the thread without touching the server.
-    const sentSoFar = seen.length;
-    x.coachNew();
-    a.strictEqual(x.coach.thread, null, "the thread is dropped, so the next question starts fresh");
-    a.deepEqual(x.coach.turns, []);
-    a.equal(seen.length, sentSoFar, "and sends nothing");
+    a.doesNotMatch(x.vCoach(), /data-act="coachnew"|New topic/);
 
     // Nothing to ask is not a request.
     const before = seen.length;
@@ -10556,4 +10550,18 @@ test("the format list is grouped by what a session trains, each tagged with its 
   const sel = (card.match(/id="hic-fmt"[^>]*>([\s\S]*?)<\/select>/) || [])[1] || "";
   a.match(sel, /^<optgroup label="Your cluster">/);
   a.equal((sel.match(/ selected>/g) || []).length, 1);
+});
+
+test("the coach's one conversation is marked where the day changes", () => {
+  const x = app({ now: "2026-11-12" });
+  x.coach.loaded = true;
+  const at = (d) => new Date(d + "T12:00:00").getTime();
+  x.coach.turns = [
+    { id: "1", asked_at: at("2026-11-10"), question: "first", answer: "a", cites: [] },
+    { id: "2", asked_at: at("2026-11-10"), question: "second", answer: "b", cites: [] },
+    { id: "3", asked_at: Date.now(), question: "third", answer: "c", cites: [] },
+  ];
+  const h = x.vCoach();
+  a.equal((h.match(/<div class="divider">/g) || []).length, 2, "one for each day, not each turn");
+  a.match(h, /<div class="divider">Today<\/div>[\s\S]*third/);
 });
