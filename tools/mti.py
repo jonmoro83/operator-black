@@ -60,6 +60,8 @@ class Text(HTMLParser):
         if tag in ('script', 'style', 'iframe', 'noscript'): self.skip += 1
         if tag in self.BLOCK: self.out.append('\n\n')
         if tag == 'li': self.out.append('- ')
+        # A row stays one line with its cells apart, or "Athlete Age" reads "AthleteAge".
+        if tag in ('td', 'th'): self.out.append(' | ')
     def handle_endtag(self, tag):
         if tag in ('script', 'style', 'iframe', 'noscript'): self.skip = max(0, self.skip - 1)
         if tag in self.BLOCK: self.out.append('\n\n')

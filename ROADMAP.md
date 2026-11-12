@@ -161,6 +161,11 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   loading `mti.sql` into D1 before 3.85 is live would flood the coach's book passages
   with articles. Deploy first, then load. Done that way on 2026-11-12: 3.85 deployed
   (version d853413d), then 7,926 chunks loaded; lib_doc lists all five docs.
+- **Tables, fixed after the first load.** About 200 articles carry conditioning
+  workouts, and they came through as text. But 106 articles have tables (mostly
+  mini-study results, some session layouts), and the extractor ran their cells
+  together ("AthleteAgeBodyweight"). Cells are now `|`-separated, one row to a line;
+  rebuilt and reloaded the same day: 7,937 chunks.
 
 **An audit of the schedule engine and the alert scheduling (2026-11-12, 3.84)**
 - The part of the 2026-11-12 review that had not been read line by line. Read in full:
