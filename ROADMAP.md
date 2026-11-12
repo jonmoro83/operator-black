@@ -28,9 +28,6 @@ investigation behind each is in [JOURNAL.md](JOURNAL.md).
   on time and clearly louder, and that session mode no longer crops its left edge (3.74). Confirmed already: install, Access login, update banner,
   lock-screen alerts, spoken cues on AirPods, the rest beep in a real session with the
   ring switch off as well as on.
-- **MTI's articles are not in D1 yet.** Owed, in this order: `npm run deploy` (3.85),
-  then `npx wrangler d1 execute operator-black --remote --file=library/mti.sql`.
-  Loading first would let the old search mix 7,926 article chunks into the books'.
 - **Does the coach give good advice?** Was the gate for one-tap apply; the user chose
   to build apply anyway on 2026-11-12, as a short safe list (3.83). Still worth a
   verdict: Coach -> Earlier conversations now lists every answer by date to read back.
@@ -162,7 +159,8 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
   article that comes back as several passages is one citation.
 - **Load order matters.** The deployed code before 3.85 searches every doc at once, so
   loading `mti.sql` into D1 before 3.85 is live would flood the coach's book passages
-  with articles. Deploy first, then load.
+  with articles. Deploy first, then load. Done that way on 2026-11-12: 3.85 deployed
+  (version d853413d), then 7,926 chunks loaded; lib_doc lists all five docs.
 
 **An audit of the schedule engine and the alert scheduling (2026-11-12, 3.84)**
 - The part of the 2026-11-12 review that had not been read line by line. Read in full:
