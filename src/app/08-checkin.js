@@ -500,7 +500,15 @@ function hicCard(dp,note){
       h+=`<div class="grid3"><label class="f">Hard (sec)${numIn('hic.iv.work',iv0.work,String(o.work))}</label><label class="f">Easy (sec)${numIn('hic.iv.rest',iv0.rest,String(o.rest))}</label><label class="f">Length (min)${numIn('hic.iv.mins',iv0.mins,String(o.mins))}</label></div>`;
       h+=`<div class="small muted">${o.rounds} rounds of ${esc(freeLabel(o))}, ${mmss(o.rounds*(o.work+o.rest))} on the clock${o.rounds*(o.work+o.rest)!==o.mins*60?` \u2014 the nearest whole number of rounds to ${o.mins} min`:''}.${o.rounds>=FREE_MAX_ROUNDS?` Capped at ${FREE_MAX_ROUNDS} rounds.`:''}</div>`;
     }
-    else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
+    else if(r&&r.rounds){
+      // The book's range as buttons, the eased count beside them when it falls outside, and
+      // a field for any other number -- half a session on the 95% week is TB2's own advice.
+      const [lo,hi]=r.rounds, vs=[...new Set([...Array.from({length:hi-lo+1},(_,i)=>lo+i),o.def])].sort((p0,q)=>p0-q);
+      const own=((lg(sel).hic||{}).iv||{}).rounds;
+      if(vs.length>1) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${vs.map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}" aria-pressed="${o.rounds===v}">${v}</button>`).join('')}</div></div>`;
+      h+=`<div class="grid3"><label class="f">Rounds (any number)${numIn('hic.iv.rounds',own,String(o.rounds),'min="1" max="'+FREE_MAX_ROUNDS+'"')}</label></div>`
+        +`<div class="small muted">${o.rounds} round${o.rounds===1?'':'s'}. The book gives ${lo===hi?lo:lo+' to '+hi}${o.rounds<lo||o.rounds>hi?(o.ease&&o.rounds===o.def?'; this week is eased below it':'; this is your own count'):''}.</div>`;
+    }
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="note"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week. TB2 asks for the rounds cut in half here \u2014 \u201cdon\u2019t strain, just grease the groove with little effort\u201d \u2014 and says the easy week is meant to land on the heavy lifting weeks. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;

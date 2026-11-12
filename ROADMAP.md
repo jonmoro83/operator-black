@@ -150,6 +150,15 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Any number of rounds (2026-11-12, 3.91)**
+- By request, for TB II's advice to halve sessions on Operator's 95% week. The Rounds
+  buttons only offered the book's range, so map's half (4 of 8) had no button and
+  threshold and long (fixed at 4 and 5) had no picker at all. Every round-based format
+  now has a "Rounds (any number)" field (`hic.iv.rounds`, 1 to `FREE_MAX_ROUNDS`), and
+  `ivOpts` returns its default as `def`, which the buttons include when it falls outside
+  the range. Bug fixed along the way: `ivStart` saved the eased count to `plan.ivRounds`,
+  so one easy week halved every week after it. An eased session is no longer remembered.
+
 **The coach is one continuous conversation (2026-11-12, 3.90)**
 - By request: no New topic, no choosing. Threads (2026-10-16) existed so "why?" had
   context; the replay still gives it that, now across subjects: the newest eight turns

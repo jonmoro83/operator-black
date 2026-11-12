@@ -7333,6 +7333,47 @@ test("the easy week reaches the session, not just the helper", () => {
     "and it is half, for the same format");
 });
 
+/* By request: TB2 says to cut the sessions in half on Operator's 95% week, and the
+   Rounds buttons only offered the book's range -- half of map's eight is four, below it,
+   and threshold and long had no picker at all. Any count is yours to pick now. */
+test("the rounds picker takes any count, and shows the halved one on the easy week", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const heavy = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(heavy.monday, i)).find((dd) => x.dayPlan(dd).t === "hic");
+  x.sel = d;
+  x.seed({ [d]: { date: d, hic: { format: "map", mod: "run" } } }); x.bump();
+  let card = x.hicCard({ t: "hic", fmt: "map" }, "");
+  a.equal(x.ivOpts(d, "map").rounds, 4, "half of map's eight");
+  a.match(card, /data-act="ivopt" data-k="rounds" data-v="4" aria-pressed="true"/, "a button for it, lit, though the book's range starts at 8");
+  a.match(card, /data-bind="hic\.iv\.rounds"/, "and a field for any other number");
+  a.match(card, /this week is eased below it/);
+
+  // Threshold is four rounds and nothing else in the book, so it used to have no picker.
+  x.setLog(d, "hic.format", "threshold"); x.setLog(d, "hic.iv.rounds", 2); x.bump();
+  card = x.hicCard({ t: "hic", fmt: "threshold" }, "");
+  a.equal(x.ivOpts(d, "threshold").rounds, 2);
+  a.match(card, /data-bind="hic\.iv\.rounds"/);
+  a.equal(x.ivParts(x.ivSegments("threshold", x.ivOpts(d, "threshold"))).rounds, 2, "and the timer runs two");
+
+  // Nonsense in the field falls back, and a huge number stops at the cap.
+  x.setLog(d, "hic.iv.rounds", 0); x.bump();
+  a.equal(x.ivOpts(d, "threshold").rounds, x.ivOpts(d, "threshold").def);
+  x.setLog(d, "hic.iv.rounds", 5000); x.bump();
+  a.equal(x.ivOpts(d, "threshold").rounds, x.FREE_MAX_ROUNDS);
+});
+
+test("an eased session is not remembered as your round count", () => {
+  const x = app({ now: "2026-11-11" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.plan.ivRounds = { map: 10 }; x.bump();
+  const heavy = x.weeks().find((w) => w.kind === "cycle" && x.tier(+x.wkRx(w).p) === "heavy");
+  const d = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(heavy.monday, i)).find((dd) => x.dayPlan(dd).t === "hic");
+  x.sel = d; x.bump();
+  a.ok(x.ivOpts(d, "map").ease, "the 95% week");
+  x.ivStart("map");
+  a.equal(x.plan.ivRounds.map, 10, "the half was for this week; next week is ten again");
+});
+
 // --- warm-up routines --------------------------------------------------------------
 test("90/90 breathing and hip switches are in every routine, whichever is picked", () => {
   const x = app({});

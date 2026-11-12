@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.90", RELEASES_SRC="/releases.js?b=2e2ecc5a68";
+const APP_VERSION="3.91", RELEASES_SRC="/releases.js?b=490b8f8447";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -5699,7 +5699,15 @@ function hicCard(dp,note){
       h+=`<div class="grid3"><label class="f">Hard (sec)${numIn('hic.iv.work',iv0.work,String(o.work))}</label><label class="f">Easy (sec)${numIn('hic.iv.rest',iv0.rest,String(o.rest))}</label><label class="f">Length (min)${numIn('hic.iv.mins',iv0.mins,String(o.mins))}</label></div>`;
       h+=`<div class="small muted">${o.rounds} rounds of ${esc(freeLabel(o))}, ${mmss(o.rounds*(o.work+o.rest))} on the clock${o.rounds*(o.work+o.rest)!==o.mins*60?` \u2014 the nearest whole number of rounds to ${o.mins} min`:''}.${o.rounds>=FREE_MAX_ROUNDS?` Capped at ${FREE_MAX_ROUNDS} rounds.`:''}</div>`;
     }
-    else if(r&&r.rounds[0]!==r.rounds[1]) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${Array.from({length:r.rounds[1]-r.rounds[0]+1},(_,i)=>r.rounds[0]+i).map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}">${v}</button>`).join('')}</div></div>`;
+    else if(r&&r.rounds){
+      // The book's range as buttons, the eased count beside them when it falls outside, and
+      // a field for any other number -- half a session on the 95% week is TB2's own advice.
+      const [lo,hi]=r.rounds, vs=[...new Set([...Array.from({length:hi-lo+1},(_,i)=>lo+i),o.def])].sort((p0,q)=>p0-q);
+      const own=((lg(sel).hic||{}).iv||{}).rounds;
+      if(vs.length>1) h+=`<div class="restsel"><span>Rounds</span><div class="seg">${vs.map(v=>`<button class="segb${o.rounds===v?' on':''}" data-act="ivopt" data-k="rounds" data-v="${v}" aria-pressed="${o.rounds===v}">${v}</button>`).join('')}</div></div>`;
+      h+=`<div class="grid3"><label class="f">Rounds (any number)${numIn('hic.iv.rounds',own,String(o.rounds),'min="1" max="'+FREE_MAX_ROUNDS+'"')}</label></div>`
+        +`<div class="small muted">${o.rounds} round${o.rounds===1?'':'s'}. The book gives ${lo===hi?lo:lo+' to '+hi}${o.rounds<lo||o.rounds>hi?(o.ease&&o.rounds===o.def?'; this week is eased below it':'; this is your own count'):''}.</div>`;
+    }
     if(ivOpts(sel,f).ease&&easyCondWeek(sel)) h+=`<div class="note"><b>Easy conditioning week.</b> Your lifts are at ${wkRx(weekOf(sel)).p}% this week. TB2 asks for the rounds cut in half here \u2014 \u201cdon\u2019t strain, just grease the groove with little effort\u201d \u2014 and says the easy week is meant to land on the heavy lifting weeks. This is deliberate, not a missed week.</div>`;
   if(f==='liss') h+=`<div class="restsel"><span>Minutes</span><div class="seg">${[30,35,40,45].map(v=>`<button class="segb${o.lissMin===v?' on':''}" data-act="ivopt" data-k="lissMin" data-v="${v}">${v}</button>`).join('')}</div></div>`;
     h+=`<div class="row" style="gap:14px">${f!=='liss'?`<label class="check"><input type="checkbox" id="iv-warm" data-act-change="ivwarm" ${o.warm?'checked':''}> Warm-up (5 min + 3 pickups ≈ 8 min)</label>`:''}<label class="check"><input type="checkbox" id="iv-cool" data-act-change="ivcool" ${o.cool?'checked':''}> 5 min cool-down</label><label class="check"><input type="checkbox" id="iv-voice" data-pbind="voice" ${plan.voice?'checked':''}> Spoken cues</label><label class="check"><input type="checkbox" id="iv-quiet" data-pbind="quietTimer" ${plan.quietTimer?'checked':''}> Silent (keep my music)</label></div>`;
@@ -7834,8 +7842,11 @@ function ivOpts(date,fmt){
   // Freeform is your own dose, so neither the easy week nor a soft day trims it.
   if(r&&r.free){const x=freeShape(date);
     return Object.assign(x,{warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:35, ease:false, bouts:null})}
-  const def=r?easeRounds(r,fmt,soft,easyWk):null;
-  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
+  // Your own count for the day goes anywhere from one round up, not just the book's range:
+  // TB2's half on the 95% week is below the range for most formats, and threshold and
+  // long have no range at all.
+  const def=r?easeRounds(r,fmt,soft,easyWk):null, own=Math.round(+o.rounds);
+  return {rounds:own>=1?Math.min(FREE_MAX_ROUNDS,own):def, def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -7909,7 +7920,8 @@ function ivStart(fmt){
   // Freeform remembers the whole shape, and the day logs it, so the history can say what it was.
   if(IV[fmt]&&IV[fmt].free){plan.ivFree={work:o.work,rest:o.rest,mins:o.mins};planV++;queueWrite('plan/main',()=>plan);
     for(const k of ['work','rest','mins']) setLog(sel,'hic.iv.'+k,o[k])}
-  else if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
+  // An eased day is not your new normal: remembering its count would halve every week after.
+  else if(IV[fmt]&&!o.ease) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
   ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); alarmSync();
 }
 // What the server should hold for this session: one alert per change still to come.

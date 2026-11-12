@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.91',date:'2026-11-12',title:"Pick any number of rounds",items:[
+    "Interval sessions take any number of rounds now, not just the book's range. Tactical Barbell II says to cut sessions in half during Operator's 95% week, and the field under Rounds lets you do that for every format, including threshold and long, which had no picker before.",
+    "On an easy week the halved count gets its own button, even when it's below the book's range.",
+    "Running an easy-week session no longer saves the halved count as your usual. The next week starts from your normal number again.",
+  ]},
   {v:'3.90',date:'2026-11-12',title:"One conversation with the coach",items:[
     "The coach is now one running conversation. There's no New topic button and nothing to pick: just ask. It remembers your recent exchanges whatever they were about, so a follow-up like \"why?\" still works.",
     "The conversation shows a date wherever the day changes. When the coach looks back at something you asked on an earlier day, it knows which day that was, so \"today\" in an old question isn't taken to mean today.",

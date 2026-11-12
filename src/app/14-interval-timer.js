@@ -178,8 +178,11 @@ function ivOpts(date,fmt){
   // Freeform is your own dose, so neither the easy week nor a soft day trims it.
   if(r&&r.free){const x=freeShape(date);
     return Object.assign(x,{warm:o.warm!=null?o.warm:false, cool:!!o.cool, lissMin:35, ease:false, bouts:null})}
-  const def=r?easeRounds(r,fmt,soft,easyWk):null;
-  return {rounds:o.rounds||def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
+  // Your own count for the day goes anywhere from one round up, not just the book's range:
+  // TB2's half on the 95% week is below the range for most formats, and threshold and
+  // long have no range at all.
+  const def=r?easeRounds(r,fmt,soft,easyWk):null, own=Math.round(+o.rounds);
+  return {rounds:own>=1?Math.min(FREE_MAX_ROUNDS,own):def, def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
   const seg=[];
@@ -253,7 +256,8 @@ function ivStart(fmt){
   // Freeform remembers the whole shape, and the day logs it, so the history can say what it was.
   if(IV[fmt]&&IV[fmt].free){plan.ivFree={work:o.work,rest:o.rest,mins:o.mins};planV++;queueWrite('plan/main',()=>plan);
     for(const k of ['work','rest','mins']) setLog(sel,'hic.iv.'+k,o[k])}
-  else if(IV[fmt]) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
+  // An eased day is not your new normal: remembering its count would halve every week after.
+  else if(IV[fmt]&&!o.ease) plan.ivRounds=Object.assign({},plan.ivRounds||{},{[fmt]:o.rounds}),planV++,queueWrite('plan/main',()=>plan);
   ivLast={idx:-1,left:-1}; LS.set('ob.iv',iv); syncScreen(); ivShow(); alarmSync();
 }
 // What the server should hold for this session: one alert per change still to come.
