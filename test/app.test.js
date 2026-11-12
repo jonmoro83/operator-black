@@ -3135,14 +3135,17 @@ test("the coach calls the API the way the API is actually shaped", async () => {
     a.equal(post.body.today, "2026-10-15", "the phone's own date goes with the question");
     a.equal(post.url, "/api/coach");
     a.equal(post.method, "POST");
-    a.deepEqual(post.body, { q: "how much protein", today: "2026-10-15" }, "a real object, stringified once");
+    // 3.88: the week ahead goes with it, so the coach starts from the day's recommendation.
+    a.ok(post.body.ahead && Array.isArray(post.body.ahead.days), "the week ahead, as an object");
+    const bare = (b) => Object.fromEntries(Object.entries(b).filter(([k0]) => k0 !== "ahead"));
+    a.deepEqual(bare(post.body), { q: "how much protein", today: "2026-10-15" }, "a real object, stringified once");
     a.ok(!("web" in post.body), "the client no longer decides about searching");
 
     // A follow-up carries the thread so the server can replay the conversation.
     x.coach.thread = "abc-123"; x.coach.busy = false; x.coach.q = "why?";
     a.equal(x.coachAsk(), true);
     await new Promise((r) => setImmediate(r));
-    a.deepEqual(seen[2].body, { q: "why?", thread: "abc-123", today: "2026-10-15" });
+    a.deepEqual(bare(seen[2].body), { q: "why?", thread: "abc-123", today: "2026-10-15" });
     await new Promise((r) => setImmediate(r));
     a.strictEqual(x.coach.thread, "server-thread", "the server's thread id is adopted");
 
@@ -10515,4 +10518,19 @@ test("Start this week brings the recommendations forward without rewriting logge
   a.equal(x.effFmt("2026-11-17"), tue, "Tuesday stays what was done");
   a.ok(x.dayPlan("2026-11-19").rec, "Thursday is recommended");
   a.doesNotMatch(x.vToday(), /data-act="hicnow"/, "and the offer goes away");
+});
+
+test("the coach is sent the week ahead with Black's recommendations and their reasons", () => {
+  const x = app({ now: "2026-11-17" });
+  x.plan.startMonday = "2026-11-16"; x.plan.bridge = false; x.plan.hicRecFrom = ""; x.bump();
+  x.realToday = () => "2026-11-17";
+  const ah = x.coachAhead();
+  a.ok(ah, "built");
+  const tue = ah.days.find((d) => d.d === "2026-11-17");
+  a.equal(tue.cond.recommended, x.HIC[x.dayPlan("2026-11-17").rec.f].name);
+  a.ok(tue.cond.why.every((w) => /\(TB II p\d+\)$/.test(w)), "every reason with its page");
+  a.deepEqual(ah.cluster, ["MAP", "Anaerobic", "Threshold"]);
+  a.equal(ah.eSession, "LISS");
+  x.setLog("2026-11-17", "hic.format", "gc1");
+  a.equal(x.coachAhead().days.find((d) => d.d === "2026-11-17").cond.picked, true, "a pick over the recommendation says so");
 });

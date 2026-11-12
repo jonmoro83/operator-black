@@ -2261,3 +2261,37 @@ test("the coach log is everything it told you, newest first, and only yours", as
     a.equal((await call2(env, "coach/log", {}, null)).status, 401);
   } finally { globalThis.fetch = orig }
 });
+
+test("the coach is handed the app's week ahead, so it starts from the day's recommendation", async () => {
+  // The user noticed the coach suggesting different conditioning from the day's card
+  // (3.88): the Worker cannot run the scheduler, so it never saw the recommendation.
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("ok"));
+  try {
+    const ahead = {
+      days: [
+        { d: "2026-11-19", day: "HIC", cond: { session: "Hinge and Step Up", kind: "General conditioning", recommended: "Hinge and Step Up", why: ["No general conditioning in your last 6 hard sessions. (TB II p112)"] } },
+        { d: "not a date", day: "x" },
+        { d: "2026-11-21", day: "E", cond: { session: "LISS", kind: "Endurance", recommended: "MAP", picked: true, why: ["x".repeat(500)] } },
+      ],
+      cluster: ["MAP", "Hinge and Step Up", 7], eSession: "LISS",
+    };
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "what should I do for conditioning thursday", ahead }) }, tok);
+    const sys = sysText(globalThis.fetch.calls[0].body);
+    const state = JSON.parse(sys.match(/<state>(.*?)<\/state>/s)[1]);
+    a.equal(state.weekAhead.days.length, 2, "a day without a real date is dropped");
+    a.equal(state.weekAhead.days[0].cond.recommended, "Hinge and Step Up");
+    a.match(state.weekAhead.days[0].cond.why[0], /TB II p112/);
+    a.equal(state.weekAhead.days[1].cond.picked, true);
+    a.equal(state.weekAhead.days[1].cond.why[0].length, 240, "strings are capped");
+    a.deepEqual(state.weekAhead.cluster, ["MAP", "Hinge and Step Up"], "only strings");
+    a.match(sys, /3b\. THE WEEK AHEAD/);
+    a.match(sys, /say plainly that it differs from the app's pick/);
+    // Nothing sent, nothing added: an older app still works.
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "again" }) }, tok);
+    const s2 = JSON.parse(sysText(globalThis.fetch.calls.at(-1).body).match(/<state>(.*?)<\/state>/s)[1]);
+    a.equal(s2.weekAhead, undefined);
+  } finally { globalThis.fetch = orig }
+});

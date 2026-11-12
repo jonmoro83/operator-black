@@ -719,6 +719,7 @@ GROUNDING, in order of authority:
 1b. MTI'S ARTICLES. Mountain Tactical Institute's research archive: Rob Shaul's mini-studies with lab rats, research reviews, Q&As and programming notes, 2011 on. Passages that match the question are supplied under <articles>, and search_articles searches it with your own query. Use it for what the books leave open or treat briefly: rucking, mountain and event-specific prep, assessments and their standards, durability, what MTI's own studies found. Cite an article by the title given in ref, e.g. [mti "Mini Study: Threshold Ruck Intervals…" (2017)]. MTI is a different system from Tactical Barbell: where an article and a book disagree, follow the book and say the article differs. An article's study is a small group of volunteers over a few weeks; say so rather than presenting it as settled science.
 2. THE APP. The person trains inside Operator Black, and its Guide is supplied under <guide>: how it schedules weeks, picks weights, runs its timers, scores conditioning, and what each setting means. Answer questions about the app from the Guide, and do not describe a feature it does not list.
 3. THE PLAN. The state block below is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
+3b. THE WEEK AHEAD. state.weekAhead, when present, is the app's own schedule for the next seven days. On Black, each conditioning day carries the session the app recommends from the person's cluster and the reasons, each citing a Tactical Barbell II page; "picked" means the person chose that session over the recommendation. The recommendation already applies the book's rules for choosing HICs. When asked what conditioning to do, start from it: endorse it, or if you suggest something else, say plainly that it differs from the app's pick and why. Name sessions exactly as the app names them.
 4. YOUR OWN REASONING, last. If the books and articles do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's or the article's.
 
 WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Search the books and the articles before the web. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
@@ -852,7 +853,29 @@ function suppsFor(plan, logs, days) {
 }
 
 const COACH_DAYS = 28;
-async function coachState(env, user, today) {
+/* The next seven days as the app scheduled them, sent with the question. The Worker
+   cannot run the app's scheduling engine, so without this the coach saw only what was
+   logged and chose conditioning on its own, and disagreed with the day's card. Shape
+   checked and every string capped: it is the person's own data, but it goes into a
+   prompt. */
+function cleanAhead(x) {
+  if (!x || typeof x !== "object") return null;
+  const str = (v, n) => (typeof v === "string" ? v.slice(0, n) : null);
+  const days = (Array.isArray(x.days) ? x.days : []).slice(0, 8).map((d) => {
+    if (!d || !realDate(String(d.d || ""))) return null;
+    const o = { d: d.d, day: str(d.day, 60) };
+    const c = d.cond;
+    if (c && typeof c === "object") o.cond = tidy({
+      session: str(c.session, 80), kind: str(c.kind, 40), recommended: str(c.recommended, 80),
+      picked: c.picked === true ? true : null,
+      why: Array.isArray(c.why) ? c.why.slice(0, 4).map((w) => str(w, 240)).filter(Boolean) : null,
+    });
+    return tidy(o);
+  }).filter(Boolean);
+  const cluster = (Array.isArray(x.cluster) ? x.cluster : []).slice(0, 8).map((v) => str(v, 80)).filter(Boolean);
+  return tidy({ days, cluster, eSession: str(x.eSession, 80) });
+}
+async function coachState(env, user, today, ahead) {
   // The newest 28 logged days. A day's calories live in the next day's check-in, and the
   // next day of any of these is either among them or not logged yet.
   const [p, logs] = await Promise.all([readPlan(env, user), readLogs(env, user, { last: COACH_DAYS })]);
@@ -937,6 +960,7 @@ async function coachState(env, user, today) {
     }),
     accessorySlots: Object.keys(ASLOT_NAMES),
     recentDays: recent,
+    ...(ahead ? { weekAhead: ahead } : {}),
   };
 }
 
@@ -1038,7 +1062,7 @@ async function askCoach(request, env, user) {
   const today = realDate(said) && Math.abs(Date.parse(said) - Date.now()) < 2 * 86400000 ? said : undefined;
 
   const [state, lib, art] = await Promise.all([
-    coachState(env, user, today),
+    coachState(env, user, today, cleanAhead(body.ahead)),
     libSearch(env, ftsQuery(q), 8),
     libSearch(env, ftsQuery(q), 4, "articles"),
   ]);

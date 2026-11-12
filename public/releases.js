@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.88',date:'2026-11-12',title:"The coach sees the week ahead",items:[
+    "The coach could suggest a different conditioning session from the one on your day's card, because it only saw what you'd logged, not what the app had planned. Now each question sends the next seven days along with it, including the recommended session, why it was picked, and your cluster.",
+    "The coach starts from the app's recommendation. If it suggests something else, it says so and explains why.",
+  ]},
   {v:'3.87',date:'2026-11-12',title:"Start Black's recommendations this week",items:[
     "The new conditioning recommendations were set to begin Monday. If you'd rather not wait, there's now a Start this week button on today's conditioning card and in Setup, under your cluster. Sessions you've already logged this week keep what they were.",
   ]},

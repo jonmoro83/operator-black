@@ -150,6 +150,15 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**The coach sees the week ahead (2026-11-12, 3.88)**
+- The user noticed the coach suggesting different conditioning from the day's card.
+  Cause: the Worker cannot run the scheduler, so `coachState` had only logs, and the
+  prompt's "what the app has actually scheduled" was not true of the schedule. The app
+  now sends `ahead` (next seven days, Black's recommendation, reasons, cluster) with
+  each question; `cleanAhead` checks the shape and caps every string; COACH_SYSTEM 3b
+  tells the coach to start from the pick and say when it differs. The Monday debrief
+  runs on the server without the app, so it still does not see this.
+
 **Start Black's recommendations this week (2026-11-12, 3.87)**
 - By request: the user wanted the picker in the week already under way. `hicStartNow`
   stamps `hic.format` on this week's logged days, then sets `plan.hicRecFrom` to this

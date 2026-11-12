@@ -13,6 +13,27 @@ function coachLoad(){
     coach.used=r.used; coach.cap=r.cap; coach.configured=r.configured; coach.debrief=r.debrief||null; render() })
     .catch(()=>{ coach.turns=[]; render() });
 }
+/* What the app has scheduled for the next seven days, for the coach. The server cannot
+   run the scheduler, and without this the coach chose conditioning on its own and
+   disagreed with the day's card. On Black each conditioning day carries the
+   recommendation and its reasons; see 04c-hic-rec.js. */
+function coachAhead(){
+  try{
+    const t=realToday(), days=[];
+    for(let i=0;i<7;i++){
+      const d=addDays(t,i), dp=dayPlan(d); if(!dp||dp.t==='pre') continue;
+      const o={d,day:dp.short||''}, f=effFmt(d);
+      if(f&&HIC[f]){
+        o.cond={session:HIC[f].name,kind:TB_CAT[hicTbCat(f)]};
+        const R=dp.rec;
+        if(R){ o.cond.recommended=HIC[R.f].name; if(f!==R.f) o.cond.picked=true; o.cond.why=R.why.map(([w,c])=>w+' ('+c+')') }
+      }
+      days.push(o);
+    }
+    const P=CPROTO[cprotoKey()];
+    return {days,...(P.recommend?{cluster:hicCluster().map(c=>HIC[c.f].name),eSession:HIC[hicE()].name}:{})};
+  }catch(e){ return null }
+}
 function coachAsk(){
   const q=coach.q.trim(); if(!q||coach.busy) return false;
   // Shown straight away with no answer under it, so a slow reply looks like thinking
@@ -20,7 +41,7 @@ function coachAsk(){
   coach.turns=(coach.turns||[]).concat([{id:'pending',asked_at:Date.now(),question:q,answer:'',cites:[],pending:true}]);
   coach.busy=true; coach.err=null; coach.q='';
   render();
-  api('POST','/coach',{q,thread:coach.thread||undefined,today:realToday()})
+  api('POST','/coach',{q,thread:coach.thread||undefined,today:realToday(),ahead:coachAhead()})
     .then(r=>{ coach.last=r; coach.used=r.used; coach.thread=r.thread; coach.busy=false;
       coach.turns=(coach.turns||[]).filter(t=>!t.pending)
         .concat([{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}]);
