@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-11-10.
+Update it as things ship. Last updated 2026-11-12.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -22,7 +22,8 @@ investigation behind each is in [JOURNAL.md](JOURNAL.md).
 - **HIC beeps stopping mid-session.** The wake lock was taken once and never re-taken;
   fixed in 3.38. **Owed:** one HIC session with the phone left alone; the log holds a
   whole session if it still stops.
-- **iPhone checks still owed at the gym:** offline launch, the screen staying awake for
+- **iPhone checks still owed at the gym:** offline launch (3.78 fixed a real cause: no
+  script on the first offline launch after a deploy, so check it the day after one), the screen staying awake for
   a whole session, the interval timer on the bike, that the rest beep (3.25) lands
   on time and clearly louder, and that session mode no longer crops its left edge (3.74). Confirmed already: install, Access login, update banner,
   lock-screen alerts, spoken cues on AirPods, the rest beep in a real session with the
@@ -80,7 +81,14 @@ within each group, roughly in order of how useful they'd be.
 
 ### Technical
 
-- Nothing open here. The Worker is tested end to end, push included (3.30).
+- **`/api/state` still returns every log ever written.** The ETag makes an unchanged
+  read a 304, and since 3.78 the coach and the debrief read only what they use, so this
+  is the last whole-history read. A `?since=` on `updated_at` would need deletions to
+  travel too (a restore removes rows). Not needed at today's size.
+- **The offline copy lives in localStorage**, which tops out near 5 MB on an iPhone and
+  holds every logged day. 3.78 makes hitting the ceiling loud and safe rather than
+  silent; moving the cache to IndexedDB is what removes the ceiling. Years away at one
+  or two kilobytes a day.
 
 ### Training and UX
 
@@ -140,6 +148,55 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**A whole-app review, and everything it found (2026-11-12, 3.78)**
+- Asked for: "a complete review of this application", then "Let's do it all". Read in
+  full: the Worker, the Durable Object, the service worker, persistence, build and CI.
+  Sampled: the UI modules. Not audited line by line: the schedule engine and timers.
+- **Offline launch after a deploy.** The page asks for `/app.js?b=<hash>`; install
+  precaches plain `/app.js`; `staleWhileRevalidate` matched the exact address; and a new
+  worker deletes the old cache that held the hashed copy. So the first launch with no
+  signal after every deploy got the page and no script, and healed on the next online
+  open, which is why nobody saw it. Now: network first on a miss, and offline the
+  precached copy answers (`ignoreSearch`, own origin only). Not `ignoreSearch` up front:
+  online, an older precache would answer for a newer page. `test/sw.test.js` is the
+  worker's first behavioral test and runs it with the network off.
+- **A full phone.** `LS.set` returned false and nothing read it. `saveOutbox` now drops
+  the cache to make room (unsent changes exist nowhere else) and `writeCache` removes a
+  cache it could not rewrite, because a stale one opened offline passes for current and
+  one edit on top of it overwrites the server: October's bug by another road.
+  `storageCard()` says so in Setup; the status line stops saying "saved on phone" when it
+  is not. With an outbox and no cache, `loaded` stays false until the server answers.
+- **Clashes were over-reported, and the plan was not reported at all.** The rule was
+  "pending and different from the server", which is true of any unsent edit: tick a set,
+  switch apps before it sends, and the day was listed as changed on another device.
+  `seen`/`ob.bases` hold a hash of what the server held when the unsent change began, and
+  a clash is that hash moving. `plan/main` is checked too. With no base on record the old
+  rule applies. Still no `If-Match`: this phone's version wins, as decided.
+- **Whose write is it.** `x-ob-user` on every write, 409 from the Worker on a mismatch,
+  and the page re-reads state (at most once in 30 s). The window was real but narrow:
+  `online` flushes before `connect()` has had the chance to notice a different person.
+- **Writes the server will never take** (a 4xx other than 401/403/408/409/429) are no
+  longer retried every five seconds. They stay in the outbox and go again on the next
+  open or foreground.
+- **Backups:** `backupEveryone` catches per person and writes a failed check record;
+  before, one throw ended the run and left last week's "verified" standing.
+- **Logs:** `[observability]` on; `handleApi` catches, logs and answers a JSON 500; the
+  crons log counts by outcome.
+- **The coach** reads the plan and the newest 28 logs by primary-key range instead of
+  every row (`readPlan`, `readLogs`; the debrief reads its week), takes the page's date
+  when it is within a day of the server's, and has a ceiling on failed calls that reached
+  the model. A failure is still not counted against the person; a test records that.
+- **Small:** `amAdmin` and the catalog are set after `switchUser`, not before it. The
+  dev door also needs a loopback `cf-connecting-ip` (not the hostname: `wrangler dev`
+  presents the route's own, checked with a probe Worker). CI lints and checks `sw.js` and
+  `guide-text.js` for drift. README and one `index.html` comment brought up to date.
+- **`wrangler dev` would not start**, found by smoke-testing the above: `export const CSP`
+  in `src/worker.js` (since the security-headers release) is a string, and workerd takes
+  every export of the entry module for a handler. Production tolerated it; local did
+  not. No longer exported; nothing imported it.
+- Gotcha: a test that stubs `setTimeout` must return a truthy id. `flush()` reads a
+  falsy timer as "no retry waiting" and re-enters at once, which hung the suite.
 
 **The coach reads the Guide and searches the books itself (2026-11-11, 3.77)**
 - Asked for: "How can we give the chat agent access to the TB books and the app's guide?"

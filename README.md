@@ -13,7 +13,7 @@ record behind them (what was tried, what the device said) is [JOURNAL.md](JOURNA
 ```
 src/app/*.js                the app, in ordered sections (01-constants … 22-events)
 build.js                    joins them into public/app.js and stamps index.html
-public/index.html           the markup: 101 lines
+public/index.html           the markup
 public/app.css              every style
 public/app.js               built — do not edit by hand
 public/releases.js          release notes for the What's new page (a plain global)
@@ -85,7 +85,8 @@ Three harnesses, no browser:
   applied (`db.test.js`): the Worker's own SQL, FTS5 with porter, the state ETag, the
   restore batch, the legacy claim. `api.test.js` keeps a fixed-answer DB fake for
   handler logic and the Access JWT path; `worker.test.js` covers routing and headers;
-  `push.test.js` the Durable Object and Web Push; `sync.test.js` drives `connect()`.
+  `push.test.js` the Durable Object and Web Push; `sync.test.js` drives `connect()`,
+  clashes and a full phone; `sw.test.js` runs the service worker with the network off.
 
 ## Deploys
 
@@ -102,6 +103,12 @@ matters: run `npm run hooks` once per clone and every `git push` runs the suite 
 
 `wrangler.toml` attaches **operatorblack.com** as a custom domain; `workers_dev` and
 preview URLs are off, so the only way in is through the Access login.
+
+## Logs
+
+Workers Logs are on (`[observability]` in `wrangler.toml`): Workers & Pages →
+operator-black → Logs. A handler that throws is logged with its route and answered as a
+JSON 500; each cron logs what it did as counts by outcome, with no addresses.
 
 ## First-time Cloudflare setup (done once)
 
@@ -180,8 +187,29 @@ the stored body, which makes any link already handed out stop working.
 
 `public/sw.js` caches the app so it opens with no signal, and the page keeps a copy
 of your data plus a queue of unsent changes in localStorage. Changes made offline
-upload when the phone reconnects. Bump `VERSION` in `sw.js` when you change icons or
-the manifest.
+upload when the phone reconnects. The worker's cache name is stamped by `build.js` from
+the files it precaches, so it moves by itself when an icon or the manifest changes.
+
+The page asks for `/app.js?b=<hash>` and the worker precaches plain `/app.js`. Online the
+hashed address is fetched and cached under its own name; offline with no such entry, the
+worker falls back to the precached copy, which was fetched alongside the page it belongs
+to. Without that fallback the first launch with no signal after a deploy had a page and
+no script (3.78).
+
+localStorage has a ceiling. If the cached copy will not fit it is removed rather than
+left stale, the outbox gets the room, and Setup says the app needs signal to open. With
+no cache, the app waits for the server before allowing edits, so nothing is built on
+defaults.
+
+**Clashes.** Writes replace whole documents and this phone's unsent changes win. A clash
+is recorded (Setup → Changes that crossed) only when the server's copy of a document
+moved while this phone had unsent changes to it: `seen` holds a hash of each document as
+the server last gave or took it, and `ob.bases` keeps that hash from the moment a
+document first has something unsent. The plan is covered as well as days.
+
+**Whose data.** Every write carries `x-ob-user`, the address the page believes it is
+signed in as. The Worker answers 409 if the Access session says otherwise, and the page
+re-reads `/api/state`, which is where `switchUser()` drops the previous person's queue.
 
 Cloudflare Access sessions expire (Zero Trust → Access → Applications →
 Operator Black → session duration; 1 month is the max). When one expires, the app

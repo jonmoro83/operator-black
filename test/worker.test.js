@@ -110,3 +110,16 @@ test("no inline event handlers remain in the app, since the CSP would silently d
   a.equal(html.match(/\son[a-z]+="/), null, "index.html has an inline handler");
   a.equal(html.match(/<script>[^<]/), null, "index.html has an inline script");
 });
+
+test("a cron's results are logged as counts by outcome, with nobody's address", async () => {
+  await load();
+  const fs = require("node:fs"), path = require("node:path");
+  const src = fs.readFileSync(path.join(__dirname, "..", "src", "worker.js"), "utf8");
+  const tally = new Function(src.match(/export (function tally[\s\S]*?\n})/)[1] + "; return tally")();
+  const out = tally([{ user: "a@x.com", week: "2026-11-02" }, { user: "b@x.com", skipped: "empty" }, { user: "c@x.com", skipped: "empty" },
+    { user: "d@x.com", ok: false }, { user: "e@x.com", ok: true }]);
+  a.deepEqual(out, { people: 5, done: 2, "skipped: empty": 2, failed: 1 });
+  a.ok(!JSON.stringify(out).includes("@"));
+  a.deepEqual(tally(undefined), { people: 0 });
+  a.match(src, /job\.then\(/, "and the scheduled handler is what logs it");
+});

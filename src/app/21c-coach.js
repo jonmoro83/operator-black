@@ -20,7 +20,7 @@ function coachAsk(){
   coach.turns=(coach.turns||[]).concat([{id:'pending',asked_at:Date.now(),question:q,answer:'',cites:[],pending:true}]);
   coach.busy=true; coach.err=null; coach.q='';
   render();
-  api('POST','/coach',{q,thread:coach.thread||undefined})
+  api('POST','/coach',{q,thread:coach.thread||undefined,today:realToday()})
     .then(r=>{ coach.last=r; coach.used=r.used; coach.thread=r.thread; coach.busy=false;
       coach.turns=(coach.turns||[]).filter(t=>!t.pending)
         .concat([{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}]);

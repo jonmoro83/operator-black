@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.77", RELEASES_SRC="/releases.js?b=03f0c50182";
+const APP_VERSION="3.78", RELEASES_SRC="/releases.js?b=fe8fab3b4e";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -3646,9 +3646,57 @@ const writers={};
 let loaded=false, signedOut=false;
 const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
 let outbox=LS.get('ob.outbox')||{};
-function saveOutbox(){LS.set('ob.outbox',outbox)}
+/* ---------------- when the phone will not store it ----------------
+localStorage has a ceiling (about 5 MB on an iPhone) and the cached copy holds every day
+ever logged, so it grows toward it. A write past the ceiling throws, LS.set swallowed
+that, and nothing looked at the answer: unsent changes would have lived in memory only
+while the status line said "saved on phone".
+
+Two rules. The outbox outranks the cache: unsent changes exist nowhere else, and the
+cache is a copy of what the server already has, so when the outbox will not fit the
+cache is dropped to make room. And a cache that could not be rewritten is removed rather
+than left behind, because an old copy is worse than none: opened offline, a stale plan
+looks current, and one edit on top of it is queued to overwrite the newer one on the
+server (see migrate() for the day that happened by another road). Without a cache the
+app needs signal to open, and says so in Setup. */
+let cacheOff=false, outboxOff=false;
+function dropCache(){try{localStorage.removeItem('ob.cache')}catch(e){} cacheOff=true}
+function saveOutbox(){
+  if(LS.set('ob.outbox',outbox)){outboxOff=false;return}
+  dropCache();
+  outboxOff=!LS.set('ob.outbox',outbox);
+}
 let cacheTimer=null;
-function saveCache(){clearTimeout(cacheTimer);cacheTimer=setTimeout(()=>LS.set('ob.cache',{plan:stash?stash.plan:plan,logs,programs}),800)}
+function writeCache(){
+  if(LS.set('ob.cache',{plan:stash?stash.plan:plan,logs,programs})) cacheOff=false; else dropCache();
+  return !cacheOff;
+}
+function saveCache(){clearTimeout(cacheTimer);cacheTimer=setTimeout(writeCache,800)}
+function storageCard(){
+  if(!cacheOff&&!outboxOff) return '';
+  return `<div class="card"><div class="lift-h"><h2>This phone can\u2019t keep an offline copy</h2></div>
+  <div class="banner warn"><div class="small">${outboxOff
+    ?'<b>Changes made without signal are not being held on this phone.</b> Keep the app open until the status reads Saved.'
+    :'Its storage for this app is full, so the app needs signal to open until there is room. Nothing is lost: everything is on the server, and changes you make offline are still held until they send.'}</div></div></div>`;
+}
+/* ---------------- what the server last held ----------------
+A clash is the server's copy of a document changing while this phone has unsent changes
+to it. Knowing that takes knowing what the server held when the changes began: `seen` is
+a short hash of each document as the server last gave it (or took it), and `bases` keeps
+that hash for a document from the moment it first has something unsent, on disk, so it
+survives the app being closed with the change still waiting. The plan is hashed in its
+filled-in form, so a default added by an update is not mistaken for someone's edit. */
+const seen={};
+let bases=LS.get('ob.bases')||{};
+function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))|0;return h}
+function docHash(path,d){return hashStr(JSON.stringify(path==='plan/main'?deepMerge(clone(DEF),d):d))}
+// Did the server's copy move under unsent changes? With no base on record -- a change
+// queued by an older build, or to a day this phone had never seen -- any difference counts.
+function crossed(path,theirs,mine){
+  const h=docHash(path,theirs); seen[path]=h;
+  if(path in bases&&bases[path]===h) return false;
+  return JSON.stringify(path==='plan/main'?deepMerge(clone(DEF),theirs):theirs)!==JSON.stringify(mine);
+}
 // Who's signed in. Everything on the server is theirs alone; the phone's copy is wiped
 // if a different person signs in on the same device.
 let me=LS.get('ob.user');
@@ -3660,7 +3708,9 @@ function waitingCount(){return Object.keys(outbox).length}
 // which, for scheduling a lock-screen alert, is the moment it matters.
 async function api(method,path,body,opt){
   const r=await fetch('/api'+path,{method,credentials:'same-origin',cache:'no-store',redirect:'manual',keepalive:!!(opt&&opt.keepalive),
-    headers:Object.assign(body?{'content-type':'application/json'}:{},opt&&opt.headers||{}),body:body?JSON.stringify(body):undefined});
+    // Every write names the person this page believes it is, so the server can refuse
+    // one that arrives under somebody else's session. Encoded: a header is Latin-1 only.
+    headers:Object.assign(body?{'content-type':'application/json'}:{},me&&method!=='GET'?{'x-ob-user':encodeURIComponent(me)}:{},opt&&opt.headers||{}),body:body?JSON.stringify(body):undefined});
   // An expired Access session answers with a redirect to the login page.
   if(r.type==='opaqueredirect'){const e=new Error('signed out');e.status=401;throw e}
   // `full` hands back the status and ETag too, for the one caller that sends If-None-Match
@@ -3676,14 +3726,22 @@ let stateTag=null;
 function errText(e){
   if(e&&(e.status===401||e.status===403)) return 'Signed out · tap to sign in';
   if(e&&e.status===413) return 'Entry too large to save';
-  const w=waitingCount();
-  if(e&&e.status) return 'Server error '+e.status+' · retrying';
-  return 'Offline'+(w?' · '+w+' waiting':' · saved on phone');
+  if(e&&e.status===409) return 'Checking who is signed in…';
+  if(refused(e)) return 'Can’t save this entry ('+e.status+')';
+  const w=waitingCount(), hold=outboxOff?' · keep the app open':'';
+  if(e&&e.status) return 'Server error '+e.status+' · retrying'+hold;
+  return outboxOff?'Offline · not saved on phone'+hold:'Offline'+(w?' · '+w+' waiting':' · saved on phone');
 }
+// An answer that asking again will not change: too large, not a real date. Not the ones
+// that mean "sign in" or "later".
+function refused(e){return !!(e&&e.status>=400&&e.status<500&&![401,403,408,409,429].includes(e.status))}
+let whoAsked=0;
 function queueWrite(path,get){
   if(!loaded){setStatus('Still loading…',true);return}
   const w=writers[path]||(writers[path]={});
   w.get=get;w.dirty=true;clearTimeout(w.timer);
+  // The first unsent change to this document: note what the server held when it began.
+  if(!(path in outbox)){ if(path in seen) bases[path]=seen[path]; else delete bases[path]; LS.set('ob.bases',bases) }
   outbox[path]=clone(get()); saveOutbox(); saveCache();
   setStatus(navigator.onLine===false?errText(null):'Saving…',navigator.onLine===false);
   w.timer=setTimeout(()=>{w.timer=null;flush(path)},500);
@@ -3698,13 +3756,23 @@ async function flush(path){
   const body=clone(w.get()), sent=JSON.stringify(body);
   try{
     await api('PUT','/doc/'+path,body);
-    if(outbox[path]&&JSON.stringify(outbox[path])===sent){delete outbox[path];saveOutbox()}
+    // The server now holds what was sent: that is the base for anything still waiting.
+    seen[path]=docHash(path,body);
+    if(outbox[path]&&JSON.stringify(outbox[path])===sent){delete outbox[path];saveOutbox();delete bases[path]}
+    else if(outbox[path]) bases[path]=seen[path];
+    LS.set('ob.bases',bases);
     signedOut=false; if(!anyPendingExcept(path)) setStatus('Saved');
   }
   catch(e){
     if(e&&(e.status===401||e.status===403)) signedOut=true;
     setStatus(errText(e),true);
-    if(!(e&&e.status===413)){ w.dirty=true; clearTimeout(w.timer); w.timer=setTimeout(()=>{w.timer=null;flush(path)},signedOut?30000:5000) }
+    // 409: the session belongs to somebody else now. Ask the server who; connect() drops
+    // the previous person's queue when it hears. At most once every 30 seconds, so a
+    // disagreement that will not settle cannot become a loop.
+    if(e&&e.status===409){ if(Date.now()-whoAsked>30000){ whoAsked=Date.now(); connect() } }
+    // Refused for good: it stays in the outbox, so nothing typed is lost, and goes up
+    // again the next time the app opens or comes forward -- not every five seconds.
+    else if(!refused(e)){ w.dirty=true; clearTimeout(w.timer); w.timer=setTimeout(()=>{w.timer=null;flush(path)},signedOut?30000:5000) }
   }
   w.busy=false; if(w.dirty&&!w.timer||w.again){w.again=false;flush(path)}
 }
@@ -3780,9 +3848,13 @@ function noteConflict(path){
 function applyState(st){
   let changed=false;
   for(const [id,d] of Object.entries(st.programs||{})){
-    if(pending('programs/'+id)){ if(JSON.stringify(d)!==JSON.stringify(programs[id])) noteConflict('programs/'+id); continue }
+    if(pending('programs/'+id)){ if(crossed('programs/'+id,d,programs[id])) noteConflict('programs/'+id); continue }
+    seen['programs/'+id]=docHash('programs/'+id,d);
     if(JSON.stringify(d)!==JSON.stringify(programs[id])){programs[id]=d;changed=true}
   }
+  // The plan is the document a clash costs most on, and it used to be the one that was
+  // not written down: logs and programs were noted, the plan was kept in silence.
+  if(st.plan){ if(pending('plan/main')){ if(crossed('plan/main',st.plan,stash?stash.plan:plan)) noteConflict('plan/main') } else seen['plan/main']=docHash('plan/main',st.plan) }
   if(stash){ // viewing an archive: refresh the current plan behind it
     if(!pending('plan/main')&&st.plan) stash.plan=deepMerge(clone(DEF),st.plan);
   } else if(!pending('plan/main')){
@@ -3790,7 +3862,8 @@ function applyState(st){
     if(JSON.stringify(next)!==JSON.stringify(plan)){plan=next;planV++;changed=true}
   }
   for(const [id,d] of Object.entries(st.logs||{})){
-    if(pending('logs/'+id)){ if(JSON.stringify(d)!==JSON.stringify(logs[id])) noteConflict('logs/'+id); continue }
+    if(pending('logs/'+id)){ if(crossed('logs/'+id,d,logs[id])) noteConflict('logs/'+id); continue }
+    seen['logs/'+id]=docHash('logs/'+id,d);
     if(JSON.stringify(d)!==JSON.stringify(logs[id])){logs[id]=d;changed=true;logsV++}
   }
   // entries removed on the server go away here too (unless this phone has unsent changes)
@@ -3805,6 +3878,13 @@ function loadLocal(){
   amAdmin=LS.get('ob.admin')===true;
   { const c=LS.get('ob.catalog'); if(Array.isArray(c)) catalog=c }
   if(c){ if(c.plan) plan=deepMerge(clone(DEF),c.plan); logs=c.logs||{}; programs=c.programs||{}; }
+  // The cache is the server's copy as this phone last knew it, for everything with
+  // nothing unsent, so a change made before the server has been heard from has a base.
+  if(c){
+    if(c.plan&&!outbox['plan/main']) seen['plan/main']=docHash('plan/main',c.plan);
+    for(const [id,d] of Object.entries(logs)) if(!outbox['logs/'+id]) seen['logs/'+id]=docHash('logs/'+id,d);
+    for(const [id,d] of Object.entries(programs)) if(!outbox['programs/'+id]) seen['programs/'+id]=docHash('programs/'+id,d);
+  }
   for(const [path,doc] of Object.entries(outbox)){
     if(path==='plan/main') plan=deepMerge(clone(DEF),doc);
     else if(path.startsWith('logs/')) logs[path.slice(5)]=doc;
@@ -3813,7 +3893,11 @@ function loadLocal(){
   }
   planV++;
   // In memory only: see migrate(). A stale cache must never win by being migrated.
-  if(c||Object.keys(outbox).length){ loaded=true; migrate(false) }
+  // Unsent changes with no cache under them (it was dropped for room) are laid out and
+  // will send, but the app is not "loaded" until the server answers: everything else on
+  // screen is defaults, and an edit made on top of defaults would be queued to replace
+  // the real thing.
+  if(c||Object.keys(outbox).length){ loaded=!!c; migrate(false) }
   return !!c;
 }
 function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.keys(outbox)])){const w=writers[p]||(writers[p]={get:()=>docFor(p)});if(outbox[p])w.dirty=true;if(w.dirty){clearTimeout(w.timer);w.timer=null;flush(p)}}}
@@ -3822,7 +3906,7 @@ function flushAll(){for(const p of new Set([...Object.keys(writers),...Object.ke
 function switchUser(user){
   for(const w of Object.values(writers)) clearTimeout(w.timer);
   for(const k of Object.keys(writers)) delete writers[k];
-  outbox={}; saveOutbox(); LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false; LS.set('ob.catalog',null); catalog=[]; stateTag=null;
+  outbox={}; saveOutbox(); bases={}; LS.set('ob.bases',bases); for(const k of Object.keys(seen)) delete seen[k]; LS.set('ob.cache',null); LS.set('ob.rest',null); LS.set('ob.iv',null); LS.set('ob.push',null); LS.set('ob.admin',null); amAdmin=false; LS.set('ob.catalog',null); catalog=[]; stateTag=null;
   plan=clone(DEF); logs={}; programs={}; stash=null; viewing=null; planV++;
   rest=null; iv=null; showRest(); ivShow();
   me=user; LS.set('ob.user',user);
@@ -3837,10 +3921,13 @@ async function connect(){
       const st=r.data; stateTag=r.etag;
       // Remembered so the tab does not vanish on a cold or offline open. It is a hint for
       // the page only: every admin route checks again, so a stale yes grants nothing.
-      amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
-      if(Array.isArray(st.catalog)){ catalog=st.catalog; LS.set('ob.catalog',catalog) }
+      // After the switch, not before it: switchUser clears both for the person leaving,
+      // and used to clear the newcomer's too, so an administrator signing in on a shared
+      // phone lost the Admin tab and the shared exercise list until the next full read.
       if(st.user&&me&&st.user!==me){ switchUser(st.user); stateTag=r.etag }
       if(st.user&&!me){me=st.user;LS.set('ob.user',me)}
+      amAdmin=!!st.admin; LS.set('ob.admin',amAdmin);
+      if(Array.isArray(st.catalog)){ catalog=st.catalog; LS.set('ob.catalog',catalog) }
       loaded=true; applyState(st);
       if(!st.plan&&!Object.keys(st.logs||{}).length&&!plan.onboarded&&!wz){wz=wzNew(false);plan.startMonday=nextMonday();planV++;render()}
     }
@@ -8918,9 +9005,9 @@ function exitArchive(){
 // Days this device kept its own version of while the server had a different one.
 function syncCard(){
   const list=conflicts(); if(!list.length) return '';
-  const label=p=>p.startsWith('logs/')?fmtLong(p.slice(5)):p.startsWith('programs/')?'an archived program':p;
+  const label=p=>p.startsWith('logs/')?fmtLong(p.slice(5)):p.startsWith('programs/')?'an archived program':p==='plan/main'?'Your plan and settings':p;
   return `<div class="card"><div class="lift-h"><h2>Changes that crossed</h2><span class="chip">${list.length}</span></div>
-  <p class="note" style="margin:0">These days were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
+  <p class="note" style="margin:0">These were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
   <div class="stack">${list.map(c=>`<div class="banner"><div class="small"><b>${esc(label(c.path))}</b><div class="muted">noticed ${esc(fmtD(c.at.slice(0,10),true))} ${esc(c.at.slice(11,16))}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn ghost" data-act="syncclear">Dismiss</button></div>
   <div class="note">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
@@ -9605,7 +9692,7 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked, and so is the week you are in: changing the deload or retest cadence takes effect from <b>next</b> week, so a week already under way cannot turn into something else on the Wednesday. The wave and your maxes still apply from this week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
-  h+=SEC('data')+syncCard();
+  h+=SEC('data')+storageCard()+syncCard();
   h+=SEC('data')+crashCard();
   h+=SEC('data')+calFeedCard();
   h+=SEC('data')+`<div class="card"><h2>Backups</h2><p class="note" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday. The last 26 of those are kept, so about six months, and your own backups are counted separately: the newest six you take by hand and the newest six taken before a restore. Taking a few by hand can’t push out the weekly history.</p>
@@ -10285,7 +10372,7 @@ function coachAsk(){
   coach.turns=(coach.turns||[]).concat([{id:'pending',asked_at:Date.now(),question:q,answer:'',cites:[],pending:true}]);
   coach.busy=true; coach.err=null; coach.q='';
   render();
-  api('POST','/coach',{q,thread:coach.thread||undefined})
+  api('POST','/coach',{q,thread:coach.thread||undefined,today:realToday()})
     .then(r=>{ coach.last=r; coach.used=r.used; coach.thread=r.thread; coach.busy=false;
       coach.turns=(coach.turns||[]).filter(t=>!t.pending)
         .concat([{id:r.id,asked_at:Date.now(),question:q,answer:r.answer,cites:r.cites||[]}]);

@@ -414,6 +414,13 @@ function fakeDB() {
     const q = norm(sql);
     if (/^SELECT path, data FROM docs WHERE user = \?1$/.test(q))
       return docs.filter((d) => d.user === a[0]).map((d) => ({ path: d.path, data: d.data }));
+    if (/^SELECT data FROM docs WHERE user = \?1 AND path = 'plan\/main'$/.test(q))
+      return docs.filter((d) => d.user === a[0] && d.path === "plan/main").map((d) => ({ data: d.data }));
+    if (/^SELECT path, data FROM docs WHERE user = \?1 AND path >= \?2 AND path < \?3 ORDER BY path DESC LIMIT \?4$/.test(q))
+      return docs.filter((d) => d.user === a[0] && d.path >= a[1] && d.path < a[2])
+        .sort((x, y) => (x.path < y.path ? 1 : -1)).slice(0, a[3]).map((d) => ({ path: d.path, data: d.data }));
+    if (/^SELECT COUNT\(\*\) AS n FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 0 AND tokens_in > 0$/.test(q))
+      return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 0 && r.tokens_in > 0).length }];
     if (/^SELECT COUNT\(\*\) AS n FROM docs WHERE user = \?1$/.test(q))
       return [{ n: docs.filter((d) => d.user === a[0]).length }];
     if (/^SELECT DISTINCT user FROM docs WHERE user != \?1$/.test(q))
@@ -1948,4 +1955,117 @@ test("the debrief has its own cron, and the Worker routes it", () => {
   a.match(fs.readFileSync(path.join(root, "src/api.js"), "utf8"), /DEBRIEF_CRON = "0 9 \* \* MON"/);
   a.match(fs.readFileSync(path.join(root, "src/worker.js"), "utf8"), /event\.cron === DEBRIEF_CRON \? weeklyDebriefs\(env\) : backupEveryone\(env\)/);
   a.ok(fs.existsSync(path.join(root, "migrations/0011_coach_debrief.sql")));
+});
+
+/* ---------------- 3.78: the review's fixes ---------------- */
+
+// console.error is the point of two of these, and noise in the rest.
+async function quietly(fn) {
+  const real = console.error, said = [];
+  console.error = (...xs) => said.push(xs.join(" "));
+  try { await fn(said) } finally { console.error = real }
+}
+
+test("a write that names somebody else is refused, not filed under this session", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  const tok = await mint(k.a);   // lifter@example.com
+  const send = (who) => call2(env, "doc/logs/2026-10-05", { method: "PUT", body: JSON.stringify({ date: "2026-10-05" }),
+    headers: who ? { "x-ob-user": who } : {} }, tok);
+
+  // The phone still believes it is the previous person, and is flushing their outbox.
+  const wrong = await send(encodeURIComponent("someone.else@example.com"));
+  a.equal(wrong.status, 409);
+  a.equal(env.DB.docs.length, 0, "and nothing of theirs was written to this account");
+
+  a.equal((await send(encodeURIComponent("lifter@example.com"))).status, 204, "the right name goes through, encoded as the page sends it");
+  a.equal((await send(encodeURIComponent("Lifter@Example.com"))).status, 204, "case is not a different person");
+  a.equal((await send(null)).status, 204, "a cached older page sends no name and still saves");
+  // Reads are not writes: a GET with a stale name is how the page finds out who it is.
+  a.equal((await call2(env, "state", { headers: { "x-ob-user": "someone.else%40example.com" } }, tok)).status, 200);
+});
+
+test("a handler that throws answers in JSON and leaves a line in the log", async () => {
+  const k = await setupKeys(); const env = dbEnv();
+  const tok = await mint(k.a);
+  env.DB.prepare = () => { throw new Error("D1_ERROR: no such table: docs") };
+  await quietly(async (said) => {
+    const res = await call2(env, "state", {}, tok);
+    a.equal(res.status, 500);
+    a.deepEqual(await res.json(), { error: "Server error." }, "the cause is not handed to the page");
+    a.equal(said.length, 1);
+    a.match(said[0], /GET \/api\/state/);
+    a.match(said[0], /no such table/, "but it is written down where the developer reads");
+  });
+});
+
+test("one person's backup failing does not cost the next person theirs, and is recorded", async () => {
+  const { backupEveryone, backupPrefix, readCheck } = await load();
+  const env = fakeEnv();
+  env.DB.prepare = (sql) => ({ bind: () => ({
+    all: async () => ({ results: /DISTINCT\s+user/i.test(sql) ? [{ user: USER }, { user: OTHER }] : [{ path: "logs/2026-10-05", data: "{}" }] }),
+    run: async () => ({}), first: async () => null }) });
+  const bad = await backupPrefix(USER), put = env.R2BACKUPS.put.bind(env.R2BACKUPS);
+  env.R2BACKUPS.put = async (key, ...rest) => {
+    if (key.startsWith(bad) && !key.endsWith("_check")) throw new Error("R2 is having a day");
+    return put(key, ...rest);
+  };
+  await quietly(async (said) => {
+    const out = await backupEveryone(env);
+    a.deepEqual(out, [{ user: USER, ok: false }, { user: OTHER, ok: true }], "the run carried on past the failure");
+    a.match(said[0], /R2 is having a day/);
+  });
+  a.equal(nBackups(env.R2BACKUPS), 1, "the second person has their backup");
+  // The record Setup and Admin read. Before, a failed week left last week's "verified" standing.
+  a.equal((await readCheck(env, USER)).ok, false);
+  a.equal((await readCheck(env, OTHER)).ok, true);
+});
+
+test("failed answers are never counted against you, but cannot be retried without end", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("Eat more."));
+  try {
+    const row = (i, tokens) => ({ id: "f" + i + tokens, user: "lifter@example.com", asked_at: Date.now(), question: "q", answer: "",
+      cites: "[]", model: "m", tokens_in: tokens, tokens_out: 0, ok: 0, stop: "", thread: "" });
+    // Failures that never reached the model cost nothing and bound nothing.
+    for (let i = 0; i < 400; i++) env.DB.coachRows.push(row(i, 0));
+    a.equal((await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok)).status, 200);
+    // Ones that did were paid for. A cap's worth of those and it stops.
+    for (let i = 0; i < 300; i++) env.DB.coachRows.push(row(i, 900));
+    const before = globalThis.fetch.calls.length;
+    const res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how much protein" }) }, tok);
+    a.equal(res.status, 429);
+    a.match((await res.json()).error, /not a count against you/);
+    a.equal(globalThis.fetch.calls.length, before, "and nothing more was spent");
+    a.equal((await (await call2(env, "coach", {}, tok)).json()).used, 1, "the count shown is still successes only");
+  } finally { globalThis.fetch = orig }
+});
+
+test("the coach works from the person's own date and from four weeks of log, not all of it", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  for (let i = 1; i <= 40; i++) {
+    const d = new Date(Date.UTC(2026, 0, i)).toISOString().slice(0, 10);
+    env.DB.docs.push({ user: "lifter@example.com", path: "logs/" + d, data: JSON.stringify({ done: true }), updated_at: 1 });
+  }
+  const asked = [];
+  const prep = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = (sql) => (asked.push(sql.replace(/\s+/g, " ").trim()), prep(sql));
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic(coachReply("Fine."));
+  const stateOf = (i) => JSON.parse(sysText(globalThis.fetch.calls[i].body).match(/<state>(.*)<\/state>/s)[1]);
+  try {
+    // An evening in the US: the phone's date is the day before the server's.
+    const local = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how was my week", today: local }) }, tok);
+    a.equal(stateOf(0).today, local, "the page's date is the one the coach reasons from");
+    a.equal(stateOf(0).supplementWindow, 28, "the newest 28 logged days");
+    a.ok(!asked.includes("SELECT path, data FROM docs WHERE user = ?1"), "and the whole history was never read");
+
+    for (const bogus of ["2020-01-01", "2026-02-31", "tomorrow", 7]) {
+      await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "how was my week", today: bogus }) }, tok);
+      a.equal(stateOf(globalThis.fetch.calls.length - 1).today, new Date().toISOString().slice(0, 10), `${bogus} is not taken on trust`);
+    }
+  } finally { globalThis.fetch = orig }
 });

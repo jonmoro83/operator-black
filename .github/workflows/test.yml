@@ -16,9 +16,13 @@ jobs:
         with: { node-version: "22", cache: npm }
       - run: npm ci
       - run: node build.js
-      - name: the committed bundle matches src/app
-        run: git diff --exit-code -- public/app.js public/index.html
-      - run: node --test test/*.test.js
+      # Everything build.js writes, not only the bundle: the worker's cache name and the
+      # Guide the coach reads are generated too, and could drift just as quietly.
+      - name: the committed build output matches its sources
+        run: git diff --exit-code -- public/app.js public/index.html public/sw.js src/guide-text.js
+      # The same gate as `npm test`, which lints before it runs the suite.
+      - run: npx eslint .
+      - run: node --no-warnings=ExperimentalWarning --test test/*.test.js
 
   # Optional. The primary deploy is `npm run deploy` from a laptop (tests, migrations,
   # then wrangler). This job does the same from a push to main, but only when a

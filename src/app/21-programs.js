@@ -29,9 +29,9 @@ function exitArchive(){
 // Days this device kept its own version of while the server had a different one.
 function syncCard(){
   const list=conflicts(); if(!list.length) return '';
-  const label=p=>p.startsWith('logs/')?fmtLong(p.slice(5)):p.startsWith('programs/')?'an archived program':p;
+  const label=p=>p.startsWith('logs/')?fmtLong(p.slice(5)):p.startsWith('programs/')?'an archived program':p==='plan/main'?'Your plan and settings':p;
   return `<div class="card"><div class="lift-h"><h2>Changes that crossed</h2><span class="chip">${list.length}</span></div>
-  <p class="note" style="margin:0">These days were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
+  <p class="note" style="margin:0">These were changed on another device while this one still had changes of its own waiting to send. <b>This device\u2019s version was kept</b> and the other was dropped. That is usually what you want, but it is worth a look if something reads wrong.</p>
   <div class="stack">${list.map(c=>`<div class="banner"><div class="small"><b>${esc(label(c.path))}</b><div class="muted">noticed ${esc(fmtD(c.at.slice(0,10),true))} ${esc(c.at.slice(11,16))}</div></div></div>`).join('')}</div>
   <div class="row"><button class="btn ghost" data-act="syncclear">Dismiss</button></div>
   <div class="note">Only ever caused by using the app on two devices at once while one of them is offline. Noted on this device only.</div></div>`;
@@ -716,7 +716,7 @@ function vSetup(){
   <div><div class="small muted" style="margin-bottom:6px;font-weight:650">Deload week lifting</div><div class="grid3"><label class="f">Sets${pIn('deload.s',plan.deload.s)}</label><label class="f">Reps${pIn('deload.r',plan.deload.r)}</label><label class="f">% of max${pIn('deload.p',plan.deload.p)}</label></div></div>
   <div class="banner"><div class="small">Past weeks are locked, and so is the week you are in: changing the deload or retest cadence takes effect from <b>next</b> week, so a week already under way cannot turn into something else on the Wednesday. The wave and your maxes still apply from this week on. Changing the start date or the bridge week re-plans everything, locked weeks included.</div></div></div>`;
   const bk=backups.list;
-  h+=SEC('data')+syncCard();
+  h+=SEC('data')+storageCard()+syncCard();
   h+=SEC('data')+crashCard();
   h+=SEC('data')+calFeedCard();
   h+=SEC('data')+`<div class="card"><h2>Backups</h2><p class="note" style="margin:0">A full copy of your plan and every logged session is saved automatically every Sunday. The last 26 of those are kept, so about six months, and your own backups are counted separately: the newest six you take by hand and the newest six taken before a restore. Taking a few by hand can’t push out the weekly history.</p>

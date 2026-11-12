@@ -6,6 +6,14 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.78',date:'2026-11-12',title:"Opens offline after an update, and safer syncing",items:[
+    "After an update, the first time you opened the app with no signal could give you a blank screen: the page loaded but its code didn't. That's fixed, so it opens offline whether or not you've opened it since the update.",
+    "\"Changes that crossed\" in Setup is accurate now. It used to list a day just because you switched apps before it had finished saving. Now it only lists something that really was changed on another device, and it covers your plan and settings as well as your days.",
+    "If your phone runs out of room for the app's offline copy, Setup now says so instead of carrying on as though everything was saved. Changes you haven't sent yet get the space first.",
+    "If a second person signs in on a phone that still holds the first person's unsent changes, those changes can no longer be saved to the wrong account.",
+    "The weekly backup carries on past a failure. If one person's backup fails, everyone else's still runs, and the failure shows as a failed check rather than last week's pass.",
+    "The coach goes by your date rather than the server's, so a question asked in the evening isn't answered as though it were already tomorrow.",
+  ]},
   {v:'3.77',date:'2026-11-11',title:"The coach reads the Guide and searches the books itself",items:[
     "The coach now has this app's whole Guide in front of it for every question, so it can explain what the app does, why a timer waits, what a setting means, and what each conditioning session asks of you.",
     "It searches the books for itself. Before, each question got eight passages picked by its own words, so a follow-up like \"what about the advanced version?\" found nothing. Now it writes its own searches, up to three a question, and reads what comes back before answering. The citations under an answer are everything it read.",

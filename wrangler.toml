@@ -38,6 +38,12 @@ id = "999b995f858d491698b2218e3c18e29d"
 [triggers]
 crons = ["0 9 * * SUN", "0 9 * * MON"]  # Sunday 09:00 UTC backup; Monday 09:00 UTC weekly debrief
 
+# Workers Logs: what the Worker and its crons print, kept and searchable in the dashboard
+# (Workers & Pages → operator-black → Logs). Off, a failed backup or a D1 error left no
+# trace anywhere.
+[observability]
+enabled = true
+
 # Deploy info (time, git tag) for Setup's "About this app".
 [version_metadata]
 binding = "CF_VERSION_METADATA"

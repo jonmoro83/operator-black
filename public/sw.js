@@ -8,7 +8,7 @@
 
 // Stamped by build.js from the contents of SHELL below. Do not edit by hand: it moves
 // when one of those files does, which is what drops the old cache after a deploy.
-const VERSION = "ob-d6a8d5ba3f";
+const VERSION = "ob-077da1cf7a";
 const SHELL = ["/", "/app.css", "/app.js", "/releases.js", "/icon-32.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 const NAV_TIMEOUT_MS = 4000;
 
@@ -84,13 +84,29 @@ async function cacheFirst(req) {
 async function staleWhileRevalidate(req) {
   const cache = await caches.open(VERSION);
   const hit = await cache.match(req);
-  const refresh = fetch(req)
-    .then((res) => {
-      if (res.ok || res.type === "opaque") cache.put(req, res.clone());
-      return res;
-    })
-    .catch(() => hit);
-  return hit || refresh;
+  const refresh = fetch(req).then((res) => {
+    if (res.ok || res.type === "opaque") cache.put(req, res.clone());
+    return res;
+  });
+  if (hit) {
+    refresh.catch(() => {});
+    return hit;
+  }
+  try {
+    return await refresh;
+  } catch (e) {
+    // Offline, and not cached under this exact address. The page asks for
+    // /app.js?b=<hash>, but install precaches plain /app.js, and a new worker's first
+    // act is to delete the old cache that held the hashed copy. So the first launch
+    // without signal after every deploy got the page and no script. The precached copy
+    // was fetched alongside the page it belongs to, so it is the right file. Network
+    // first, because online the hashed address must win: an older precache answering
+    // for a newer page would be the wrong bundle. Our own files only -- a font
+    // stylesheet's query is what it is.
+    const any = new URL(req.url).origin === self.location.origin ? await cache.match(req, { ignoreSearch: true }) : null;
+    if (any) return any;
+    throw e;
+  }
 }
 
 function withTimeout(promise, ms) {

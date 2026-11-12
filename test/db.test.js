@@ -197,3 +197,30 @@ test("the export is everything of yours, as a downloadable file, and nothing of 
   a.deepEqual(out.logs, {});
   a.ok(out.exportedAt);
 });
+
+test("the coach's readers take the plan and a range of days, by the primary key", async () => {
+  const { readPlan, readLogs } = await load();
+  const e = env();
+  a.equal(await readPlan(e, ME), null, "no plan yet is null, not a throw");
+  await put(e, "plan/main", { bar: 45 });
+  await put(e, "programs/old-one", { name: "Old" });
+  for (const d of ["2026-10-04", "2026-10-05", "2026-10-08", "2026-10-11", "2026-10-12"]) await put(e, "logs/" + d, { date: d });
+  await put(e, "logs/2026-10-06", { date: "theirs" }, OTHER);
+
+  a.deepEqual(await readPlan(e, ME), { bar: 45 });
+  // A week, both ends included, and nobody else's day inside it.
+  a.deepEqual(Object.keys(await readLogs(e, ME, { from: "2026-10-05", to: "2026-10-11" })).sort(), ["2026-10-05", "2026-10-08", "2026-10-11"]);
+  // The newest few. Only logs: the plan and the archived program sort either side of them.
+  a.deepEqual(Object.keys(await readLogs(e, ME, { last: 2 })).sort(), ["2026-10-11", "2026-10-12"]);
+  a.equal(Object.keys(await readLogs(e, ME, { last: 50 })).length, 5);
+});
+
+test("the local-dev door only opens from this machine", async () => {
+  const e = env();   // DEV_ALLOW_ANON=1, and no Access settings at all
+  const from = (ip) => call(e, "state", { headers: ip ? { "cf-connecting-ip": ip } : {} });
+  for (const ip of [null, "::1", "127.0.0.1"]) a.equal((await from(ip)).status, 200, `${ip || "no address (a test)"} is local`);
+  // The variable set by mistake on the deployed Worker: every real request carries the
+  // caller's address, so the header naming a user is not honored and Access is required.
+  const res = await from("203.0.113.9");
+  a.equal(res.status, 503, "a request from the internet falls through to the Access check");
+});

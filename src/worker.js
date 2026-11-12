@@ -14,7 +14,9 @@ export function pageVersion(etag) {
 // become script), so scripts come only from this origin: no inline handlers, no eval.
 // Inline *styles* stay allowed because the templates use style="" attributes throughout.
 // data: covers the inlined touch icon and the beep's WAV; blob: the CSV download.
-export const CSP = [
+// Not exported: workerd takes every export of the entry module for a handler, and a
+// string is not one. Exported, it stopped `wrangler dev` from starting at all.
+const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
@@ -38,6 +40,17 @@ export function securityHeaders(res, html) {
     h.set("x-frame-options", "DENY");
   }
   return h;
+}
+
+// A cron's results as counts by outcome. No addresses: a log line is not the place.
+export function tally(rows) {
+  const out = { people: 0 };
+  for (const r of rows || []) {
+    out.people++;
+    const k = r.skipped ? "skipped: " + r.skipped : r.ok === false ? "failed" : "done";
+    out[k] = (out[k] || 0) + 1;
+  }
+  return out;
 }
 
 export default {
@@ -69,6 +82,12 @@ export default {
 
   async scheduled(event, env, ctx) {
     // Two crons: Sunday's backup, and Monday's debrief of the week that just ended.
-    ctx.waitUntil(event.cron === DEBRIEF_CRON ? weeklyDebriefs(env) : backupEveryone(env));
+    // What each run did goes to the log as counts, so a cron that quietly did nothing
+    // can be told from one that never fired.
+    const job = event.cron === DEBRIEF_CRON ? weeklyDebriefs(env) : backupEveryone(env);
+    ctx.waitUntil(job.then(
+      (r) => console.log("cron", event.cron, JSON.stringify(tally(r))),
+      (e) => console.error("cron failed", event.cron, (e && e.stack) || String(e))
+    ));
   },
 };

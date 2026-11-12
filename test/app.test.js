@@ -3132,16 +3132,17 @@ test("the coach calls the API the way the API is actually shaped", async () => {
     await new Promise((r) => setImmediate(r));
     a.ok(!x.coach.turns.some((t) => t.pending), "and the placeholder is replaced by the answer");
     const post = seen[1];
+    a.equal(post.body.today, "2026-10-15", "the phone's own date goes with the question");
     a.equal(post.url, "/api/coach");
     a.equal(post.method, "POST");
-    a.deepEqual(post.body, { q: "how much protein" }, "a real object, stringified once");
+    a.deepEqual(post.body, { q: "how much protein", today: "2026-10-15" }, "a real object, stringified once");
     a.ok(!("web" in post.body), "the client no longer decides about searching");
 
     // A follow-up carries the thread so the server can replay the conversation.
     x.coach.thread = "abc-123"; x.coach.busy = false; x.coach.q = "why?";
     a.equal(x.coachAsk(), true);
     await new Promise((r) => setImmediate(r));
-    a.deepEqual(seen[2].body, { q: "why?", thread: "abc-123" });
+    a.deepEqual(seen[2].body, { q: "why?", thread: "abc-123", today: "2026-10-15" });
     await new Promise((r) => setImmediate(r));
     a.strictEqual(x.coach.thread, "server-thread", "the server's thread id is adopted");
 

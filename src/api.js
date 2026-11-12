@@ -50,11 +50,33 @@ function realDate(s) {
 const MAX_BYTES = 256 * 1024;
 const LEGACY = "__legacy__";
 
-export { ftsQuery, libSearch, MACRO_W, MACRO_STEP_W, macroTargetFor, DEBRIEF_CRON, debriefWeek };
+export { ftsQuery, libSearch, MACRO_W, MACRO_STEP_W, macroTargetFor, DEBRIEF_CRON, debriefWeek, readPlan, readLogs };
+// Anything a handler throws -- D1 unavailable, a row that will not parse -- used to leave
+// as Cloudflare's own error page with nothing written down. It is logged here (Workers
+// Logs are on in wrangler.toml) and answered as JSON, which the page already knows how
+// to retry.
 export async function handleApi(request, env) {
+  try {
+    return await serve(request, env);
+  } catch (e) {
+    console.error("api error", request.method, new URL(request.url).pathname, (e && e.stack) || String(e));
+    return json({ error: "Server error." }, 500, { "cache-control": "no-store" });
+  }
+}
+
+async function serve(request, env) {
   const auth = await authorize(request, env);
   if (auth instanceof Response) return auth;
   const user = auth.user;
+  // The page says whose data it thinks it is sending. If the Access session now belongs
+  // to somebody else -- a second person signed in on the same phone while the first
+  // one's unsent changes were still queued -- the write is refused rather than filed
+  // under the wrong account. The page answers a 409 by re-reading /api/state, which is
+  // where it finds out who it is. Older cached pages send no header and behave as before.
+  const claimed = request.headers.get("x-ob-user");
+  if (claimed && request.method !== "GET" && safeDecode(claimed).trim().toLowerCase() !== user) {
+    return json({ error: "This device was signed in as someone else." }, 409);
+  }
   await claimLegacy(env, user);
 
   const route = new URL(request.url).pathname.replace(/^\/api\/?/, "");
@@ -460,9 +482,24 @@ export async function verifyBackup(env, user, name, data, body) {
   }
 }
 
+// One person's backup failing must not cost everyone after them theirs, and it must not
+// leave last week's "verified" standing as though this week's had run: the failure is
+// written to the same check record Setup and Admin read.
 export async function backupEveryone(env) {
   const { results } = await env.DB.prepare("SELECT DISTINCT user FROM docs WHERE user != ?1").bind(LEGACY).all();
-  for (const r of results) await backupNow(env, r.user, { manual: false });
+  const out = [];
+  for (const r of results) {
+    try {
+      const b = await backupNow(env, r.user, { manual: false });
+      out.push({ user: r.user, ok: b.verified });
+    } catch (e) {
+      console.error("backup failed", (e && e.stack) || String(e));
+      const at = new Date().toISOString();
+      await writeCheck(env, r.user, { name: at.slice(0, 10), at, ok: false, logs: 0, failed: true });
+      out.push({ user: r.user, ok: false });
+    }
+  }
+  return out;
 }
 
 // Both stores, newest first. A name in R2 wins over the same name in KV.
@@ -513,6 +550,22 @@ async function stateTag(env, user) {
     try { c = (await env.DB.prepare("SELECT COALESCE(MAX(updated_at), 0) AS m FROM acc_catalog").first())?.m || 0 } catch {}
     return `"${d.n}-${d.m}-${d.b}-${c}"`;
   } catch { return null }
+}
+
+// The coach and the debrief need the plan and a few weeks of log, not every day ever
+// written. Both ride the primary key: '0' is the character after '/', so the two bounds
+// take exactly the logs/ rows.
+async function readPlan(env, user) {
+  const row = await env.DB.prepare("SELECT data FROM docs WHERE user = ?1 AND path = 'plan/main'").bind(user).first();
+  return row ? JSON.parse(row.data) : null;
+}
+async function readLogs(env, user, { from, to, last }) {
+  const { results } = await env.DB.prepare(
+    "SELECT path, data FROM docs WHERE user = ?1 AND path >= ?2 AND path < ?3 ORDER BY path DESC LIMIT ?4"
+  ).bind(user, "logs/" + (from || ""), to ? "logs/" + to + "~" : "logs0", last || 1000).all();
+  const out = {};
+  for (const row of results || []) out[row.path.slice(5)] = JSON.parse(row.data);
+  return out;
 }
 
 async function readAll(env, user) {
@@ -712,10 +765,13 @@ function suppsFor(plan, logs, days) {
   }));
 }
 
-async function coachState(env, user) {
-  const all = await readAll(env, user);
-  const plan = all.plan || {}, logs = all.logs || {};
-  const days = Object.keys(logs).sort().slice(-28);
+const COACH_DAYS = 28;
+async function coachState(env, user, today) {
+  // The newest 28 logged days. A day's calories live in the next day's check-in, and the
+  // next day of any of these is either among them or not logged yet.
+  const [p, logs] = await Promise.all([readPlan(env, user), readLogs(env, user, { last: COACH_DAYS })]);
+  const plan = p || {};
+  const days = Object.keys(logs).sort().slice(-COACH_DAYS);
   const num = (v) => (v == null || v === "" ? null : +v);
   // Calories are asked for the morning after, so the figure in a day's check-in is
   // what was eaten the day before. Attribute it to the day it covers or every reading
@@ -764,7 +820,9 @@ async function coachState(env, user) {
   const bw = last ? last.v : (num(plan.bodyweight) ?? null);
 
   return {
-    today: new Date().toISOString().slice(0, 10),
+    // The person's own date when the page sent one: in an American evening the server's
+    // UTC day is already tomorrow, and "today" and "this week" were a day out.
+    today: today || new Date().toISOString().slice(0, 10),
     units: plan.unit || "lb",
     bodyweight: bw,
     bodyweightLoggedOn: last ? last.d : null,
@@ -797,6 +855,7 @@ async function coachState(env, user) {
 }
 
 function safeParse(s) { try { return JSON.parse(s) } catch { return null } }
+function safeDecode(s) { try { return decodeURIComponent(s) } catch { return "" } }
 function nextDay(d) { return new Date(Date.parse(d) + 86400000).toISOString().slice(0, 10) }
 // Drop empty values rather than sending a shape full of nulls, which reads to a model
 // as "this was asked and left blank" instead of "this was never asked".
@@ -859,6 +918,15 @@ async function coachUsed(env, user) {
   return (row && row.n) || 0;
 }
 
+// Failed calls this calendar month that got as far as the model, and so cost something.
+async function coachFailed(env, user) {
+  const since = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1);
+  const row = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 0 AND tokens_in > 0"
+  ).bind(user, since).first();
+  return (row && row.n) || 0;
+}
+
 async function askCoach(request, env, user) {
   if (!env.ANTHROPIC_API_KEY) return json({ error: "The coach is not configured. Set ANTHROPIC_API_KEY." }, 503);
 
@@ -868,14 +936,23 @@ async function askCoach(request, env, user) {
 
   const used = await coachUsed(env, user);
   if (used >= COACH_CAP) return json({ error: `That is ${COACH_CAP} questions this month, which is the cap. It resets on the 1st.` }, 429);
+  // A failed answer is not counted against the person, and that stays true. But one that
+  // reached the model was still paid for, so a question that fails every time cannot be
+  // retried without end: failures get a ceiling of their own, the same size.
+  if ((await coachFailed(env, user)) >= COACH_CAP) return json({ error: "Too many answers have failed this month, so the coach is paused until the 1st. That is a fault on our side, not a count against you." }, 429);
 
   // Carry on the thread we were given, or open one. A thread id the caller made up is
   // harmless: it only ever selects that person's own rows.
   const thread = /^[0-9a-f-]{8,40}$/.test(String(body.thread || "")) && !body.fresh
     ? String(body.thread) : crypto.randomUUID();
 
+  // Taken only if it is a real date within a day of the server's, which is as far as a
+  // time zone can put it; anything else falls back to UTC.
+  const said = String(body.today || "");
+  const today = realDate(said) && Math.abs(Date.parse(said) - Date.now()) < 2 * 86400000 ? said : undefined;
+
   const [state, lib] = await Promise.all([
-    coachState(env, user),
+    coachState(env, user, today),
     libSearch(env, ftsQuery(q), 8),
   ]);
   const passages = (lib.hits || []).map(passageOf).join("\n");
@@ -1100,9 +1177,8 @@ async function debriefFor(env, user, now) {
     .bind(user, wk.from).first();
   if (have) return { skipped: "done" };
 
-  const all = await readAll(env, user);
-  if ((all.plan || {}).coachDebrief === false) return { skipped: "off" };
-  const logs = all.logs || {};
+  if (((await readPlan(env, user)) || {}).coachDebrief === false) return { skipped: "off" };
+  const logs = await readLogs(env, user, { from: wk.from, to: wk.to });
   const inWeek = Object.keys(logs).filter((d) => d >= wk.from && d <= wk.to && logs[d] && Object.keys(logs[d]).length);
   if (!inWeek.length) return { skipped: "empty" };
   if ((await coachUsed(env, user)) >= COACH_CAP) return { skipped: "cap" };
@@ -1341,7 +1417,12 @@ async function wipeUser(env, who) {
 
 // Returns {user} for a verified request, or a Response to send back.
 async function authorize(request, env) {
-  if (env.DEV_ALLOW_ANON === "1") {
+  // The local-dev door. It belongs in .dev.vars and nowhere else, but a variable set by
+  // mistake on the deployed Worker would let anyone name themselves in a header, so it
+  // also has to look like this machine. Cloudflare stamps every real request with the
+  // caller's address and a client cannot set that header; wrangler dev stamps loopback.
+  // (The hostname is no use for this: wrangler dev presents the route's own.)
+  if (env.DEV_ALLOW_ANON === "1" && isLocal(request)) {
     return { user: (request.headers.get("x-dev-user") || env.DEV_USER || "dev@local").toLowerCase() };
   }
   if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) {
@@ -1364,6 +1445,11 @@ async function authorize(request, env) {
   } catch {
     return json({ error: "Invalid sign-in token." }, 403);
   }
+}
+
+function isLocal(request) {
+  const ip = request.headers.get("cf-connecting-ip");
+  return !ip || ip === "::1" || ip === "127.0.0.1" || ip === "::ffff:127.0.0.1";
 }
 
 let certCache = { at: 0, keys: null };
