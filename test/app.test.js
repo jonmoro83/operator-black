@@ -10060,3 +10060,76 @@ test("the grip circuit carries the book's progression from one session to the ne
   a.equal(x.finLastLine(first, "grip"), "");
   a.equal(x.finLast(next, "plankshank"), null, "one finisher's history is not another's");
 });
+
+// --- the retest attempt plan (3.81) -------------------------------------------------------
+test("the retest attempt plan predicts from the cycle just finished, and the target opens there", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "test"), c = wk.refCycle;
+  const squatDays = [];
+  for (const w of x.weeks()) {
+    if (w.kind !== "cycle" || w.cycle !== c) continue;
+    for (let i = 0; i < 7; i++) {
+      const d = x.addDays(w.monday, i), dp = x.dayPlan(d);
+      if (dp.t === "lift" && dp.lifts.includes("squat")) squatDays.push([d, +x.rx(w, "squat", d).s]);
+    }
+  }
+  // A cycle where every set of squats was done and every one moved fast.
+  for (const [d, s] of squatDays) x.seed({ [d]: { date: d, done: true, lifts: { squat: { sets: Array(s).fill(true), eff: Array(s).fill("fast") } } } });
+  x.bump();
+  const day = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i)).find((d) => x.dayPlan(d).t === "test" && x.dayPlan(d).lifts.includes("squat"));
+  x.setToday(day);
+  const cur = x.maxFor(c).squat.v, opts = x.reviewOptions("squat", cur);
+
+  const ap = x.attemptPlan("squat", day, false);
+  a.equal(ap.rec, "bigger", "the same verdict the end-of-cycle review would reach");
+  a.equal(ap.pred, opts.bigger); a.equal(ap.cur, cur);
+  a.equal(ap.first, opts.bigger, "a heavy single aims at the predicted max");
+  a.equal(ap.singles[ap.singles.length - 1], opts.bigger, "and works up to it in singles");
+  a.ok(ap.singles[0] < ap.singles[1] && ap.singles[1] < opts.bigger);
+  a.equal(x.testTargetOn(day, "squat", false).tgt, opts.bigger, "session mode aims at the same weight");
+
+  const card = x.testCard("squat", 1, false);
+  a.match(card, /<b>Attempt plan\.<\/b> Cycle \d+: /);
+  a.match(card, /heavy sets fast/, "with the evidence, in the review's words");
+  a.ok(card.includes(`Predicted max <b>${opts.bigger} lb</b> (you trained on ${cur})`));
+  a.match(card, /\(from the attempt plan\)/, "the warm-up ramp is built from it");
+  a.match(card, /The prediction is the app’s/, "and it does not pass the guess off as the book's");
+
+  // One grinder on a heavy week: the plan is the max you trained on, and says so.
+  const heavy = squatDays.find(([d]) => x.tier(+x.wkRx(x.weekOf(d)).p) === "heavy");
+  x.logs[heavy[0]].lifts.squat.eff[0] = "ground"; x.bump();
+  const held = x.attemptPlan("squat", day, false);
+  a.equal(held.rec, "hold"); a.equal(held.pred, cur);
+  a.match(x.testCard("squat", 1, false), /the one you trained on/);
+  a.match(x.testCard("squat", 1, false), /\(from your current max\)/);
+
+  // A typed target still wins over any plan.
+  x.setLog(day, "test.squat.target", 200);
+  a.equal(x.testTargetOn(day, "squat", false).tgt, 200);
+});
+
+test("with no finished cycle behind a lift the plan is the current max, as before", () => {
+  const x = app({ now: "2026-10-19" });
+  x.plan.startMonday = "2026-10-19"; x.plan.bridge = true; x.bump();
+  const day = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays("2026-10-19", i)).find((d) => x.dayPlan(d).t === "rm5" && x.dayPlan(d).lifts.includes("squat"));
+  x.setToday(day);
+  const cur = x.currentMax("squat") ?? x.plan.prevMaxes.squat;
+  const ap = x.attemptPlan("squat", day, true);
+  if (cur == null) { a.equal(ap, null, "no max at all: no plan, and the card asks for a target"); return }
+  a.equal(ap.rec, null); a.equal(ap.pred, cur);
+  a.equal(ap.first, x.floorTo(cur * 0.87, x.plan.round.squat), "a set of five opens at 87%, as it always has");
+  a.match(x.testCard("squat", 5, true), /Nothing to predict from yet/);
+});
+
+test("the plan reads a test set the way Tactical Barbell I does", () => {
+  const x = app({ now: "2026-10-19" });
+  const d = "2026-10-19";
+  a.equal(x.attemptNext("squat", d, {}, true), "", "nothing lifted, nothing to say");
+  // Ten at 225 estimates 300; a weight for about four off that is 270.
+  const ten = x.attemptNext("squat", d, { w: 225, r: 10 }, true);
+  a.match(ten, /far more weight/); a.match(ten, /Rest five minutes and repeat at about <b>270 lb<\/b>/);
+  a.match(x.attemptNext("squat", d, { w: 225, r: 7 }, true), /More than five reps.*otherwise this number will do/);
+  a.match(x.attemptNext("squat", d, { w: 225, r: 4 }, true), /Five or fewer: that is the number/);
+  a.equal(x.attemptNext("squat", d, { w: 315, r: 1 }, false), "", "a heavy single is its own answer");
+});

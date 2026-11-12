@@ -544,14 +544,67 @@ function jumpCard(sub){
   return `<div class="card"><h3>Jump tests</h3><p class="muted small" style="margin:0">${sub} Maximal efforts: do the jump warm-up above first, rest a full minute between attempts so each one is fresh, and measure the same way every time.</p>
   <div class="stack" style="gap:10px;margin-top:10px">${f('broad','Broad jump','broad','in')}${f('vertj','Vertical','vertical','in')}${f('triple','Standing triple jump','triple','in')}</div></div>`;
 }
+/* ---------------- the retest attempt plan ----------------
+Tactical Barbell I's test day: warm up, then "add weight to give you a load you think you
+can lift for about three to five repetitions", rest five full minutes, and lift it for as
+many good reps as you can. Ten easy ones means far more weight and another go; five or
+fewer is "just about right". The book leaves "a load you think you can lift" to you.
+
+That guess is what this fills in, and the guess is the app's, not the book's. It is the
+same evidence the end-of-cycle review reads (`cycleStats`, `recommend`): how the heavy
+sets were rated, grinders, missed sets, pain. Fast heavy sets predict a max above the
+one you trained on; a grinder predicts the same max; sharp pain or grinding at moderate
+weights predicts less. The opening target, the warm-up ramp under it and session mode
+all start from the prediction, and the plan then reads the result the way the book
+does. With no finished cycle behind the lift -- a bridge week, a first program -- the
+prediction is the current max and everything is as it was. */
+function attemptPlan(k,date,isRm5){
+  const wk=weekOf(date), c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):1, m=maxFor(c)[k];
+  const cur=m?m.v:((plan.prevMaxes||{})[k]??null); if(cur==null) return null;
+  let pred=cur, rec=null, why='';
+  if(wk&&wk.kind!=='bridge'&&m){
+    const cs=cycleStats(c), S=cs.stats[k];
+    if(S&&(S.n>=3||S.sharp)){ const r=recommend(S,cs.readiness); rec=r[0]; why=r[1]; pred=reviewOptions(k,cur)[rec] }
+  }
+  const bw=isBW(k)?bwFor(date):null, rd=plan.round[k];
+  const at=(p)=>isBW(k)?(bw?floorTo((bw+pred)*p-bw,rd):null):floorTo(pred*p,rd);
+  // An untouched single stays the max exactly as stored, not floored to a plate.
+  const first=isRm5?at(.87):(isBW(k)&&!bw?null:pred);
+  const singles=isRm5?null:[at(.9),at(.95),first].filter((v,i,a)=>v!=null&&a.indexOf(v)===i);
+  return {cur,pred,rec,why,cycle:c,first,singles};
+}
+// What the result says to do next, in the book's terms. A weight for about four reps
+// off the set just done, for the cases where the book says go again.
+function attemptNext(k,date,T,isRm5){
+  if(!isRm5||T.w==null||T.w==='') return '';
+  const reps=+T.r||5, e=estMax(k,T.w,reps,date); if(e==null) return '';
+  const bw=isBW(k)?bwFor(date):null, rd=plan.round[k];
+  const again=isBW(k)?(bw?floorTo((bw+e)*.9-bw,rd):null):floorTo(e*.9,rd), f=v=>isBW(k)?fmtLoad(k,v):n(v);
+  if(reps>=10) return `Ten or more reps means it needs far more weight. Rest five minutes and repeat${again!=null?` at about <b>${f(again)} ${u()}</b>`:' heavier'}.`;
+  if(reps>5) return `More than five reps, so the estimate is looser than it would be from a heavier set. If it felt easy, rest five minutes and try${again!=null?` <b>${f(again)} ${u()}</b>`:' more'}; otherwise this number will do.`;
+  return 'Five or fewer: that is the number. You are done with this lift.';
+}
+function attemptBlock(k,isRm5){
+  const ap=attemptPlan(k,sel,isRm5); if(!ap) return '';
+  const T=(lg(sel).test||{})[k]||{}, f=v=>isBW(k)?fmtLoad(k,v):n(v);
+  let h=`<div class="note"><b>Attempt plan.</b> `;
+  h+=ap.rec?`Cycle ${ap.cycle}: ${esc(ap.why)} Predicted max <b>${f(ap.pred)} ${u()}</b>${ap.pred!==ap.cur?` (you trained on ${f(ap.cur)})`:', the one you trained on'}. `
+           :'Nothing to predict from yet, so the plan starts at your current max. ';
+  if(isRm5) h+=ap.first!=null?`Open at <b>${f(ap.first)} ${u()}</b> for the test set, after five full minutes of rest. `:'';
+  else if(ap.singles&&ap.singles.length) h+=`Singles at ${ap.singles.map(v=>'<b>'+f(v)+'</b>').join(', then ')} ${u()}, with a full rest before each. `;
+  const next=attemptNext(k,sel,T,isRm5);
+  if(next) h+=`<br><b>Your result:</b> ${next}`;
+  h+=`<br><span class="muted">Test day is collecting numbers, not a workout: take your time. The prediction is the app\u2019s, from the same evidence as the end-of-cycle review; the five-minute rest and what to do with the result are Tactical Barbell I\u2019s.</span></div>`;
+  return h;
+}
 function testCard(k,defReps,isRm5){
   const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=estMax(k,T.w,reps,sel), cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);
-  const bw=latestBw(sel);
-  const est=cur==null?null:isBW(k)?(bw?floorTo((bw+cur)*(isRm5?.87:1)-bw,plan.round[k]):null):(isRm5?floorTo(cur*.87,plan.round[k]):cur);
+  const ap=attemptPlan(k,sel,isRm5), est=ap?ap.first:null, planned=!!(ap&&ap.rec&&ap.pred!==ap.cur);
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${isRm5?'5RM · 2 in reserve':'Heavy single'}${isBW(k)?' · added weight':''}</span></div>
   <div class="grid4"><label class="f">Target${numIn('test.'+k+'.target',T.target,est?n(est):'')}</label><label class="f">Result weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
-  ${warmupLog(k,testRamp(k,tgt,isRm5),tgt!=null?`Calculated from a target of ${isBW(k)?fmtLoad(k,tgt):n(tgt)} ${u()}${T.target?'':T.w?' (your result)':' (from your current max)'}.`:'')}
+  ${warmupLog(k,testRamp(k,tgt,isRm5),tgt!=null?`Calculated from a target of ${isBW(k)?fmtLoad(k,tgt):n(tgt)} ${u()}${T.target?'':T.w?' (your result)':planned?' (from the attempt plan)':' (from your current max)'}.`:'')}
+  ${attemptBlock(k,isRm5)}
   <div class="small muted">${isRm5?'If the bar slows, you have found your number. Bad day: take the lower number.':'Work up in singles. Stop when the bar slows.'}${cur!=null?(currentMax(k)==null?' Last program’s max: ':' Current max: ')+'<span class="mono">'+(isBW(k)?'+':'')+n(cur)+'</span>.':''}${k==='pull'?' Note the machine and pin setting.':''}${isBW(k)?' Enter the weight you added (0 for bodyweight). Uses your latest bodyweight.':''}</div></div>`;
 }
 function currentMax(k){const wk=weekOf(sel);if(!wk)return null;const c=wk.kind==='cycle'?wk.cycle:wk.refCycle;const m=maxFor(c)[k];return m?m.v:null}

@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.81',date:'2026-11-12',title:"A plan for test day",items:[
+    "Each lift on a test day now comes with an attempt plan. It predicts your new max from the cycle you just finished: how your heavy sets were rated, grinders, missed sets and any pain. That's the same evidence the end-of-cycle review uses.",
+    "The target and the warm-up ramp open at the prediction instead of at your old max, and session mode aims at the same weight. If you type your own target, yours wins.",
+    "Once you log the set, the plan tells you what Tactical Barbell I would: ten or more reps means it was far too light, so rest five minutes and go again at the weight it gives you. Five or fewer and you're done with that lift.",
+    "In a bridge week, or any time there's no finished cycle to go on, nothing changes: the plan is your current max.",
+  ]},
   {v:'3.80',date:'2026-11-12',title:"The book's core, grip and challenge sessions",items:[
     "Tactical Barbell II's three finishers are in: Plank & Shank, Quarterdeck Core and the Progressive Grip Circuit. The book tacks them on after a main session, so that's where they go. On any day, open Anything else today and tap Add a finisher.",
     "Each finisher shows the book's prescription, its basic and advanced versions and what the book says about it. Plank & Shank and the gym version of the grip circuit have buttons that time a hold.",

@@ -5,10 +5,11 @@ let ls=LS.get('ob.ls'), lsTick=null;
 // Test-day target, same rules as the test card: typed target, else the result, else
 // the current max (87% of it for a 5RM; last program's max during a bridge week).
 function testTargetOn(date,k,isRm5){
-  const T=((lg(date).test||{})[k])||{}, wk=weekOf(date);
-  const c=wk?(wk.kind==='cycle'?wk.cycle:wk.refCycle):1, m=maxFor(c)[k];
-  const cur=m?m.v:((plan.prevMaxes||{})[k]??null), bw=bwFor(date);
-  const est=cur==null?null:isBW(k)?(bw?floorTo((bw+cur)*(isRm5?.87:1)-bw,plan.round[k]):null):(isRm5?floorTo(cur*.87,plan.round[k]):cur);
+  const T=((lg(date).test||{})[k])||{};
+  // The attempt plan (08-checkin.js) is where the opening target comes from, so the day
+  // card and session mode aim at the same weight. With nothing to predict from it is
+  // what it always was: the current max, or 87% of it for a set of five.
+  const ap=attemptPlan(k,date,isRm5), est=ap?ap.first:null;
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return {T,tgt,est};
 }

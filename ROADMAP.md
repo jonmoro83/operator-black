@@ -92,9 +92,7 @@ within each group, roughly in order of how useful they'd be.
 
 ### Training and UX
 
-- **Retest attempt planner.** Before a retest, predict a 3–5RM target per lift from the
-  heaviest sets and their Fast/Solid/Ground ratings, and lay out the warm-up ladder and
-  attempt jumps — TB1's method. Offered 2026-10-20, not picked yet.
+- Nothing open here. The retest attempt planner shipped in 3.81.
 
 ## Parked
 
@@ -148,6 +146,26 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The retest attempt plan (2026-11-12, 3.81)**
+- Offered 2026-10-20, picked 2026-11-12. TB1's test day (Maximums and Test Day): warm
+  up, load "you think you can lift for about three to five repetitions", rest five full
+  minutes, as many good reps as you can; ten easy ones means far more weight and
+  another go, five or fewer is "just about right".
+- `attemptPlan(k,date,isRm5)` in `08-checkin.js` fills in the book's "a load you think
+  you can lift". It reuses `cycleStats` and `recommend` on the cycle behind the test
+  week (`refCycle`) and takes `reviewOptions`' number for the verdict as the predicted
+  max. No finished cycle (bridge week, fewer than three sessions) means no prediction
+  and the current max, so the bridge week is byte-for-byte what it was.
+- `testTargetOn` takes its opening target from the plan, so the day card, the ramp and
+  session mode agree. A typed target or a logged result still wins, as before.
+- `attemptNext` reads a 5RM result the book's way and offers a weight for about four
+  reps off the set just done. Heavy singles get a work-up (90%, 95%, the prediction),
+  which is ours.
+- Left alone: the card still says "5RM, 2 in reserve", the app's own bridge-week
+  protocol, while TB1 says lift until form falters. The plan words itself around that
+  rather than changing the test; worth a decision when the first retest is run.
+- The Guide's Deloads and retests section describes it, so the coach knows it exists.
 
 **TB II's core, grip and challenge sessions (2026-11-12, 3.80)**
 - Asked for with the rest of the 2026-11-12 list. Placement was the user's choice from
