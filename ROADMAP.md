@@ -59,6 +59,14 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   distance at 20% faster than test pace, long days 10 to 50% further at 20% slower,
   re-test mid-block). Still open: which days a block takes, and whether Setup asks
   for gear once.
+  **Revised the same day:** a recommendation with reasons, overridable, built on TB II's
+  own rules: Black's minimums (p58–59: 2+ HIC a week, an E every other week, an easy
+  week every third), the AA/GC mix (p112, p150), the Basic-to-Advanced cluster or
+  Variety Junkie (p187–188), and filing imported sessions by category (p189). The user
+  asked that MTI sessions meeting the same criterion show beside the books' wherever
+  a recommendation is made. **Found:** the book's Black names no MAP / Anaerobic /
+  Threshold days; that rotation in `CPROTO.black` is the app's own. Whether Black
+  should schedule HIC, HIC, HIC-or-E instead is the user's call, still open.
 - **TB book coverage is done**, OMS included since 3.82, Ageless Athlete included. Twelve templates against five
   protocols, which is sixty combinations and a matrix test over all of them; three Base
   Building variants; two bridge weeks; 3-1-3-1 recovery weeks; TB III's named
