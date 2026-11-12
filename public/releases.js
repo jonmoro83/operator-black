@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.79',date:'2026-11-12',title:"Three small fixes",items:[
+    "The coach could come back with \"replied with nothing\" when it had searched both the web and the books for one question. It answers now.",
+    "Restoring from a file that has no plan in it, like a logs-only export, used to wipe your maxes and settings back to defaults. Now it replaces your days and leaves your plan alone, and tells you it did.",
+    "One damaged entry on the server can no longer stop the app from opening. It's skipped and logged for the developer.",
+  ]},
   {v:'3.78',date:'2026-11-12',title:"Opens offline after an update, and safer syncing",items:[
     "After an update, the first time you opened the app with no signal could give you a blank screen: the page loaded but its code didn't. That's fixed, so it opens offline whether or not you've opened it since the update.",
     "\"Changes that crossed\" in Setup is accurate now. It used to list a day just because you switched apps before it had finished saving. Now it only lists something that really was changed on another device, and it covers your plan and settings as well as your days.",

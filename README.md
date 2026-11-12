@@ -435,7 +435,8 @@ download.
 
 `POST /api/backups/<name>/restore` or `POST /api/restore` (an uploaded backup or export
 file) replaces the user's plan, logs and programs in one D1 batch, after saving a
-`YYYY-MM-DD-before-restore-HHMMSS` backup. Setup → Backups has Restore buttons and
+`YYYY-MM-DD-before-restore-HHMMSS` backup. A file with no plan in it replaces the days
+and programs and leaves the plan standing (`planKept` in the answer). Setup → Backups has Restore buttons and
 Restore from a file.
 
 ## Backups

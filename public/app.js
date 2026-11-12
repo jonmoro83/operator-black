@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.78", RELEASES_SRC="/releases.js?b=fe8fab3b4e";
+const APP_VERSION="3.79", RELEASES_SRC="/releases.js?b=7a4013e4b3";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -9720,7 +9720,7 @@ async function doRestore(path,body){
     const r2=await api('GET','/state',null,{full:true}), st=r2.data; stateTag=r2.etag;
     if(stash){stash=null;viewing=null}
     plan=st.plan?deepMerge(clone(DEF),st.plan):clone(DEF); logs=st.logs||{}; programs=st.programs||{}; planV++; saveCache();
-    restoreState.msg=`Restored ${r.restored.logs} logged day${r.restored.logs===1?'':'s'}${r.restored.programs?' and '+r.restored.programs+' archived program'+(r.restored.programs===1?'':'s'):''}${r.from?' from '+fmtLong(String(r.from).slice(0,10)):''}. Your previous data was saved as backup “${r.safetyBackup}”.`;
+    restoreState.msg=`Restored ${r.restored.logs} logged day${r.restored.logs===1?'':'s'}${r.restored.programs?' and '+r.restored.programs+' archived program'+(r.restored.programs===1?'':'s'):''}${r.from?' from '+fmtLong(String(r.from).slice(0,10)):''}.${r.planKept?' The file had no plan in it, so your plan and settings were left as they are.':''} Your previous data was saved as backup “${r.safetyBackup}”.`;
     restoreState.file=null; backups.list=null; loadBackups();
   }catch(e){ restoreState.msg=e&&e.status===413?'That file is too large to restore.':e&&e.status===400?'That file isn’t a backup this app can restore.':'Restore failed. Check your connection and try again. Nothing was changed.' }
   restoreState.busy=false; restoreState.arm=null; render();

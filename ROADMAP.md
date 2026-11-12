@@ -149,6 +149,16 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Three fixes left over from the review (2026-11-12, 3.79)**
+- `askCoach`: `pause_turn` shared the search-round counter, so a paused web search plus
+  three book searches left the loop on a `tool_use` nobody had switched off, and the
+  person got "replied with nothing". Pauses have their own count (`COACH_PAUSES`, 3).
+- `restoreFrom`: a file with no `plan` deleted the plan with everything else. It now
+  deletes `path != 'plan/main'` in that case and answers `planKept`, which Setup says.
+- `parseDoc`: a stored row that will not parse is skipped and logged (path and length,
+  no address) in `readAll`, `readPlan` and `readLogs`, instead of a 500 on every open.
+  Rows are written by `JSON.stringify`, so this is a guard, not a known fault.
+
 **A whole-app review, and everything it found (2026-11-12, 3.78)**
 - Asked for: "a complete review of this application", then "Let's do it all". Read in
   full: the Worker, the Durable Object, the service worker, persistence, build and CI.

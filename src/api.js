@@ -425,14 +425,21 @@ async function restoreFrom(env, user, data) {
   // time-stamped so two restores on one day each keep their own safety copy
   const safety = await backupNow(env, user, { suffix: "before-restore-" + new Date().toISOString().slice(11, 19).replace(/:/g, "") });
   const now = Date.now();
-  const stmts = [env.DB.prepare("DELETE FROM docs WHERE user = ?1").bind(user)];
+  // A file with no plan in it -- a logs-only export, a hand-edited backup -- replaces the
+  // days and the archived programs and leaves the plan standing. Clearing everything
+  // first meant such a file took the maxes and all of Setup with it, and left defaults.
+  const hasPlan = docs.some(([p]) => p === "plan/main");
+  const stmts = [hasPlan
+    ? env.DB.prepare("DELETE FROM docs WHERE user = ?1").bind(user)
+    : env.DB.prepare("DELETE FROM docs WHERE user = ?1 AND path != 'plan/main'").bind(user)];
   for (const [path, v] of docs) {
     stmts.push(env.DB.prepare("INSERT INTO docs (user, path, data, updated_at) VALUES (?1, ?2, ?3, ?4)").bind(user, path, JSON.stringify(v), now));
   }
   await env.DB.batch(stmts);
   return json({
-    restored: { plan: docs.some(([p]) => p === "plan/main"), logs: docs.filter(([p]) => p.startsWith("logs/")).length, programs: docs.filter(([p]) => p.startsWith("programs/")).length },
+    restored: { plan: hasPlan, logs: docs.filter(([p]) => p.startsWith("logs/")).length, programs: docs.filter(([p]) => p.startsWith("programs/")).length },
     safetyBackup: safety.name,
+    planKept: !hasPlan || undefined,
     from: data.backedUpAt || data.exportedAt || null,
     fileUser: data.user || null,
   });
@@ -555,16 +562,28 @@ async function stateTag(env, user) {
 // The coach and the debrief need the plan and a few weeks of log, not every day ever
 // written. Both ride the primary key: '0' is the character after '/', so the two bounds
 // take exactly the logs/ rows.
+// A stored document that will not parse. Every row is written by JSON.stringify, so this
+// should not happen; if it ever does, one bad row must not be the reason nobody can
+// open the app, which is what a throw here meant. It is skipped and it is logged.
+function parseDoc(user, path, data) {
+  try { return JSON.parse(data) } catch (e) {
+    console.error("unreadable document skipped", path, "length", String(data).length);
+    return undefined;
+  }
+}
 async function readPlan(env, user) {
   const row = await env.DB.prepare("SELECT data FROM docs WHERE user = ?1 AND path = 'plan/main'").bind(user).first();
-  return row ? JSON.parse(row.data) : null;
+  return (row && parseDoc(user, "plan/main", row.data)) || null;
 }
 async function readLogs(env, user, { from, to, last }) {
   const { results } = await env.DB.prepare(
     "SELECT path, data FROM docs WHERE user = ?1 AND path >= ?2 AND path < ?3 ORDER BY path DESC LIMIT ?4"
   ).bind(user, "logs/" + (from || ""), to ? "logs/" + to + "~" : "logs0", last || 1000).all();
   const out = {};
-  for (const row of results || []) out[row.path.slice(5)] = JSON.parse(row.data);
+  for (const row of results || []) {
+    const v = parseDoc(user, row.path, row.data);
+    if (v !== undefined) out[row.path.slice(5)] = v;
+  }
   return out;
 }
 
@@ -572,9 +591,11 @@ async function readAll(env, user) {
   const { results } = await env.DB.prepare("SELECT path, data FROM docs WHERE user = ?1").bind(user).all();
   const out = { plan: null, logs: {}, programs: {} };
   for (const row of results) {
-    if (row.path === "plan/main") out.plan = JSON.parse(row.data);
-    else if (row.path.startsWith("logs/")) out.logs[row.path.slice(5)] = JSON.parse(row.data);
-    else if (row.path.startsWith("programs/")) out.programs[row.path.slice(9)] = JSON.parse(row.data);
+    const v = parseDoc(user, row.path, row.data);
+    if (v === undefined) continue;
+    if (row.path === "plan/main") out.plan = v;
+    else if (row.path.startsWith("logs/")) out.logs[row.path.slice(5)] = v;
+    else if (row.path.startsWith("programs/")) out.programs[row.path.slice(9)] = v;
   }
   return out;
 }
@@ -722,6 +743,7 @@ const LIB_TOOL = {
 };
 const WEB_TOOL = { type: "web_search_20260209", name: "web_search", max_uses: 3 };
 const COACH_SEARCHES = 3;       // rounds of search_library per question, then it answers
+const COACH_PAUSES = 3;         // times a long web search may hand the turn back to be continued
 
 /* The system prompt in two blocks. The first -- the brief and the whole Guide, about
    30k tokens -- is the same for everyone and every question, so it is cached for an
@@ -991,7 +1013,10 @@ async function askCoach(request, env, user) {
   // One call, or a few: each round the model may search the books and get the
   // passages back as a tool result. The last allowed round is sent with tools off, so
   // the loop always ends in an answer rather than another question.
-  for (let round = 0; ; round++) {
+  // A paused web search is counted on its own. It used to spend one of the search
+  // rounds, so a pause and then three book searches left the loop on a tool call the
+  // model had not been told to stop making, and the person got "replied with nothing".
+  for (let round = 0, pauses = 0; ;) {
     let res;
     try {
       res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1033,10 +1058,11 @@ async function askCoach(request, env, user) {
       }
       messages.push({ role: "user", content: results });
       if (round === COACH_SEARCHES - 1) payload.tool_choice = { type: "none" };
+      round++;
       continue;
     }
     // A web search that ran long: the API hands the turn back to be continued.
-    if (stop === "pause_turn" && round < COACH_SEARCHES) { messages.push({ role: "assistant", content: data.content }); continue; }
+    if (stop === "pause_turn" && pauses < COACH_PAUSES) { pauses++; messages.push({ role: "assistant", content: data.content }); continue; }
     break;
   }
 

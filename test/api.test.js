@@ -435,6 +435,11 @@ function fakeDB() {
       else docs.push({ user: a[0], path: a[1], data: a[2], updated_at: a[3] });
       return [];
     }
+    if (/^DELETE FROM docs WHERE user = \?1 AND path != 'plan\/main'$/.test(q)) {
+      const keep = docs.filter((d) => d.user !== a[0] || d.path === "plan/main");
+      docs.length = 0; docs.push(...keep);
+      return [];
+    }
     if (/^DELETE FROM docs WHERE user = \?1$/.test(q)) {
       const keep = docs.filter((d) => d.user !== a[0]);
       docs.length = 0; docs.push(...keep);
@@ -2068,4 +2073,72 @@ test("the coach works from the person's own date and from four weeks of log, not
       a.equal(stateOf(globalThis.fetch.calls.length - 1).today, new Date().toISOString().slice(0, 10), `${bogus} is not taken on trust`);
     }
   } finally { globalThis.fetch = orig }
+});
+
+/* ---------------- 3.79 ---------------- */
+
+test("a paused web search does not use up the book searches", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  const paused = { model: "claude-sonnet-5-5", stop_reason: "pause_turn",
+    content: [{ type: "server_tool_use", id: "s1", name: "web_search", input: { query: "x" } }], usage: { input_tokens: 100, output_tokens: 10 } };
+  // The sequence that used to end in "replied with nothing": one pause, three searches.
+  globalThis.fetch = fakeAnthropicSeq([paused, searchReply("a", "t1"), searchReply("b", "t2"), searchReply("c", "t3"), coachReply("Here it is.")]);
+  try {
+    const res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "something the books half cover" }) }, tok);
+    a.equal(res.status, 200);
+    const body = await res.json();
+    a.equal(body.answer, "Here it is.");
+    a.equal(body.searches, 3, "all three book searches were still allowed");
+    const calls = globalThis.fetch.calls;
+    a.equal(calls.length, 5);
+    a.deepEqual(calls[4].body.tool_choice, { type: "none" }, "and the last call is the one told to answer");
+    a.equal(calls[3].body.tool_choice, undefined);
+
+    // A search that never stops pausing still ends.
+    globalThis.fetch = fakeAnthropicSeq([paused]);
+    const stuck = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "pause forever" }) }, tok);
+    a.equal(stuck.status, 502);
+    a.equal(globalThis.fetch.calls.length, 4, "the first call and three continuations, then it gives up");
+  } finally { globalThis.fetch = orig }
+});
+
+test("a file with no plan in it replaces the days and leaves the plan standing", async () => {
+  const k = await setupKeys(); const token = await mint(k.a);
+  const env = dbEnv();
+  seedDocs(env, "lifter@example.com", {
+    "plan/main": { bar: 45, maxes: { squat: 255 } },
+    "logs/2026-01-01": { date: "2026-01-01" },
+    "programs/old": { id: "old" },
+  });
+  const file = { exportedAt: "2026-09-01T09:00:00Z", logs: { "2026-05-05": { date: "2026-05-05" } } };
+  const out = await (await call2(env, "restore", { method: "POST", body: JSON.stringify(file) }, token)).json();
+  a.deepEqual(out.restored, { plan: false, logs: 1, programs: 0 });
+  a.equal(out.planKept, true, "and the page is told, so it can say so");
+
+  const mine = env.DB.docs.filter((d) => d.user === "lifter@example.com");
+  a.deepEqual(mine.map((d) => d.path).sort(), ["logs/2026-05-05", "plan/main"], "days and programs are the file's; the plan is still here");
+  a.deepEqual(JSON.parse(mine.find((d) => d.path === "plan/main").data).maxes, { squat: 255 }, "with its maxes");
+
+  // A file that does carry a plan behaves as it always has, and says nothing about keeping one.
+  const full = await (await call2(env, "restore", { method: "POST", body: JSON.stringify({ plan: { bar: 20 }, logs: {} }) }, token)).json();
+  a.equal(full.planKept, undefined);
+  a.deepEqual(JSON.parse(env.DB.docs.find((d) => d.path === "plan/main").data), { bar: 20 });
+});
+
+test("one document that will not parse is skipped and logged, and the app still opens", async () => {
+  const k = await setupKeys(); const token = await mint(k.a);
+  const env = dbEnv();
+  seedDocs(env, "lifter@example.com", { "plan/main": { bar: 45 }, "logs/2026-01-01": { date: "2026-01-01" } });
+  env.DB.docs.push({ user: "lifter@example.com", path: "logs/2026-01-02", data: '{"date":"2026-01-0', updated_at: 1 });
+  await quietly(async (said) => {
+    const res = await call2(env, "state", {}, token);
+    a.equal(res.status, 200, "this used to be a 500 on every open");
+    const st = await res.json();
+    a.deepEqual(st.plan, { bar: 45 });
+    a.deepEqual(Object.keys(st.logs), ["2026-01-01"]);
+    a.match(said[0], /unreadable document skipped logs\/2026-01-02/);
+    a.ok(!said[0].includes("lifter"), "the log line names the document, not the person");
+  });
 });
