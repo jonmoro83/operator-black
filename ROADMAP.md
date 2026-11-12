@@ -138,6 +138,35 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**An audit of the schedule engine and the alert scheduling (2026-11-12, 3.84)**
+- The part of the 2026-11-12 review that had not been read line by line. Read in full:
+  `04-schedule.js`, the interval timer's segment and alert builders, the alarm sync in
+  `16-alerts.js`. **Not re-audited:** the audio paths in `10-rest-timer.js`. They are
+  device behavior with a journal behind them, and reading cannot settle what the phone
+  does; the open gym checks still stand.
+- **3-1-3-1 never delivered a recovery week.** `weeks()` rebuilds everything after the
+  locked prefix from a resume point, and a locked cycle week always resumed at the next
+  cycle week. The week you are in is locked (softly) the day it starts, so by the Monday
+  after week three the prefix said "resume at week four" and the recovery week was gone.
+  Plan showed it ahead every time, which is why no test caught it: every engine test
+  laid a plan out once and read it. Fixed with a `recovery` resume phase in `ruleSeq`
+  (the week is not handed out again, its recovery week is) and `afterW` kept on a
+  locked recovery week.
+- **Walk-forward tests** (`test/schedule.test.js`): lock a plan one week at a time,
+  opening the app each Wednesday, and require what arrives to equal what was planned.
+  Run over plain, deload and retest spacings, 3-1-3-1, a bridge start, Zulu, Mass and
+  Fighter. All the others already held; this is the test the engine did not have.
+- **Alerts past two hours.** The Durable Object refuses a list whole if any alert is
+  more than two hours out. `alarmSync` sent a session's entire list (first 80), so a
+  session with anything beyond the window got a 400 for all of it, a retry every 30 s,
+  and `pushAdvice` blaming the phone's clock. 3.80's Beasting at high rounds and the
+  challenge rucks made that reachable. Now filtered to 110 minutes ahead and re-sent
+  as later alerts come into range; the cap is the server's 240, not 80.
+- The three-hour rule that drops a forgotten interval session at boot is now "three
+  hours, or an hour past the session's own length", closing the note left in 3.80.
+- Read and found sound: `freezePast`, `maxFor`, `rx`/`dayRx`, the `plan.at` session
+  placement, `testSplit`, the week layouts, `easeRounds`.
+
 **One-tap apply for the coach, and its log (2026-11-12, 3.83)**
 - Built read-only on purpose and waiting on a verdict about the advice; the user chose
   on 2026-11-12, from three options with previews, **"a short safe list, with undo"**
@@ -222,8 +251,8 @@ Newest first. The user-facing version of each entry is in `public/releases.js`.
 - **Ours, and labeled so:** Burpees for the Mentally Disturbed is scored by the two sets
   added together (the book only asks that the second beat the first). Full Core's
   "20 to 30% of 1RM" names no lift, so no weight is computed.
-- Known: an interval timer older than three hours is dropped at boot, and Triska or
-  Snake-Eater can run longer. The session and the time field still log by hand.
+- An interval timer older than three hours was dropped at boot, and Triska or
+  Snake-Eater can run longer; fixed in 3.84.
 
 **Three fixes left over from the review (2026-11-12, 3.79)**
 - `askCoach`: `pause_turn` shared the search-round counter, so a paused web search plus

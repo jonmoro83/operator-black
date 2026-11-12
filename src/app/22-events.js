@@ -559,7 +559,9 @@ render();
 if(rest) showRest();
 if(gt && Date.now() - (gt.mode === 'down' ? gt.end : gt.start) > GT_STALE_MS){ gt = null; LS.set('ob.gt', null) }
 if(gt) gtShow();
-if(iv&&Date.now()-iv.start>3*3600*1000){iv=null;LS.set('ob.iv',null)}
+// A session left running is dropped after three hours -- or an hour past its own planned
+// length, for the few (a challenge ruck) that are longer than that by design.
+if(iv&&Date.now()-iv.start>Math.max(3*3600,ivTotal(iv.segs||[])+3600)*1000){iv=null;LS.set('ob.iv',null)}
 if(iv) ivShow();
 if(ls&&ls.date!==realToday()){ls=null;LS.set('ob.ls',null)}
 if(ls) lsShow();

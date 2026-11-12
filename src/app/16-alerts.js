@@ -253,11 +253,20 @@ function alarmWant(){
 }
 const ALARM_WHAT={rest:'rest alert',iv:'interval alerts',gt:'timer alert'};
 const ALARM_WAIT=10000;            // an answer slower than this is treated as none
+/* What the server will take. It refuses a list whole if any alert in it is more than two
+   hours out, and it holds up to 240 a slot. The page used to send everything a session
+   had, cut to the first 80: so a session with anything past the two-hour mark -- a long
+   steady ride with a cool-down, Beasting at ten rounds, a challenge ruck -- got a 400 for
+   the lot, no alerts at all, a retry every thirty seconds, and advice blaming the
+   phone's clock; and a long freeform session went quiet after its eightieth change.
+   Now only what falls inside the window is sent, and the rest follows as it comes into
+   range, because the list is compared again every time this runs. */
+const ALARM_AHEAD_MS=110*60*1000, ALARM_MAX=240;
 function alarmSync(){
   if(!alertsOn()) return;
-  const want=alarmWant(), ep=LS.get('ob.push')||'';
+  const want=alarmWant(), ep=LS.get('ob.push')||'', horizon=Date.now()+ALARM_AHEAD_MS;
   for(const [kind,all] of Object.entries(want)){
-    const list=all.slice(0,80);
+    const list=all.filter(x=>x.at<=horizon).slice(0,ALARM_MAX);
     // The device is part of it: a fresh subscription is a fresh slot to fill.
     const sig=ep+'#'+list.map(x=>x.at+':'+x.title).join('|'), st=alarmState[kind];
     if(!st&&!list.length) continue;                       // never set, nothing to clear

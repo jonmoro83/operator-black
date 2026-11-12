@@ -10344,3 +10344,33 @@ test("earlier conversations load when asked for, grouped by day", async () => {
   a.match(v, /<b>Yes\.<\/b>/, "answers render as they did when given");
   a.match(v, /Read from: TB1 p40/);
 });
+
+test("only alerts the server will accept are sent, and a long session's later ones follow", async () => {
+  const x = app({ now: "2026-11-02" });
+  const h = alertsOnFor();
+  try {
+    x.plan.startMonday = "2026-10-19"; x.plan.bridge = false; x.bump();
+    // Beasting at twelve rounds runs three hours: half its changes are past the two-hour
+    // mark, and the server refuses a list whole if any one of them is.
+    const segs = x.ivSegments("beasting", { rounds: 12, warm: false, cool: false });
+    a.ok(x.ivTotal(segs) > 2 * 3600);
+    x.iv = { date: "2026-11-02", fmt: "beasting", mod: "run", segs, start: Date.now(), paused: null, pausedMs: 0, rounds: 12, done: false };
+    const all = x.ivAlerts();
+    x.alarmSync();
+    const sent = h.posts.filter((p) => p.body && p.body.kind === "iv").pop();
+    a.ok(sent, "the session's alerts went out");
+    a.ok(sent.body.alerts.length > 0 && sent.body.alerts.length < all.length, "but not the ones past the window");
+    a.ok(sent.body.alerts.every((q) => q.at <= Date.now() + 2 * 3600 * 1000), "every one inside what the server takes");
+    await answered();
+
+    // Later in the session more of it is in range, and that is sent without being asked.
+    const n = h.posts.length, realNow = Date.now;
+    Date.now = () => realNow() + 60 * 60 * 1000;
+    try { x.alarmSync() } finally { Date.now = realNow }
+    a.equal(h.posts.length, n + 1, "the list changed, so it goes again");
+    a.ok(h.posts[n].body.alerts.some((q) => q.at > sent.body.alerts[sent.body.alerts.length - 1].at), "carrying the ones that have come into range");
+
+    // And a long freeform session is no longer cut off at its eightieth change.
+    a.equal(x.ALARM_MAX, 240, "as many as the server holds in a slot");
+  } finally { x.iv = null; h.restore() }
+});

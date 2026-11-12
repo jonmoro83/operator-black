@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.84',date:'2026-11-12',title:"Recovery weeks that actually arrive",items:[
+    "If you run Ageless Athlete's 3-1-3-1, the recovery week after every third training week was showing on the plan ahead and then never arriving: when the week came, it had turned into the next training week. That's fixed. The recovery week now lands when the calendar says it will.",
+    "Lock-screen alerts for very long sessions were being refused altogether, because the server only takes alerts up to two hours ahead and the app was sending the whole session at once. It now sends what's in range and follows up with the rest as the session goes on.",
+    "A long freeform interval session no longer goes quiet after its eightieth change.",
+    "A timer for a session that's meant to run longer than three hours is no longer dropped if the app reloads part way through.",
+  ]},
   {v:'3.83',date:'2026-11-12',title:"Apply a coach suggestion with one tap",items:[
     "Some of the coach's suggestions now come with an Apply button. There are four things it can offer: a deload or retest week starting next Monday, holding or lowering a lift's max for the next cycle, adding an accessory job to a training day, and changing your next conditioning session.",
     "Before you tap, the card says exactly what will change, in the app's words rather than the coach's. Nothing happens until you tap Apply, and the usual Undo follows. It can't raise a max: that stays with the end-of-cycle review.",

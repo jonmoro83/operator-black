@@ -1,14 +1,15 @@
 /* ---------------- schedule engine ---------------- */
 // The rule sequence (bridge, 6-week cycles, rule deloads/retests). `from` resumes it
 // after the locked weeks: {c, w} continues cycle c at week w; phase 'rule' means
-// cycle c just finished and its deload/retest check comes next.
+// cycle c just finished and its deload/retest check comes next; phase 'recovery' means
+// week w of cycle c is done and the 3-1-3-1 recovery week it earns comes next.
 function* ruleSeq(p,from){
   /* A linear-progression program is a single open-ended run. There is no cycle to
      bridge into and no wave to recover from, and cycleWeeks() is Infinity, so the
      loop below never reaches a deload, a retest or a second cycle. */
   const lp=lpOn();
-  let c=1,w=1,ruleFirst=false;
-  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule'} else if(p.bridge&&!lp) yield {kind:'bridge'};
+  let c=1,w=1,ruleFirst=false,recFirst=false;
+  if(from){c=from.c;w=from.w||1;ruleFirst=from.phase==='rule';recFirst=from.phase==='recovery'} else if(p.bridge&&!lp) yield {kind:'bridge'};
   // Ageless Athlete's 3-1-3-1: a recovery week after every third training week, so a
   // six-week block takes eight. "Notice that it now takes eight weeks to complete what
   // was normally a six-week Operator/Zulu block. That's not a worry because we are in
@@ -16,7 +17,9 @@ function* ruleSeq(p,from){
   const r313=!!p.recovery313&&!lp;
   for(;;c++,w=1){
     if(!ruleFirst) for(const n=cycleWeeks();w<=n;w++){
-      yield {kind:'cycle',cycle:c,w};
+      // Resuming straight after a locked third or sixth week: that week has been
+      // trained, so it is not handed out again, but its recovery week still is.
+      if(recFirst) recFirst=false; else yield {kind:'cycle',cycle:c,w};
       // No `after` on a recovery week: it sits inside the cycle, so replaying a frozen
       // one must not advance the resume point to the next cycle.
       if(r313&&w%3===0) yield {kind:'recovery',cycle:c,afterW:w};
@@ -36,12 +39,22 @@ function weeks(minIdx){
   // Past weeks are locked in plan.frozen (see freezePast), so settings changes only
   // re-plan from the current week on. Locked weeks form a prefix from the start date.
   const out=[], fz=plan.frozen||{}; let g=null, m=plan.startMonday, cw=0, lastC=0, resume=null, bbLeft=0, bbVer='standard';
+  /* Where the rules pick up after the locked weeks. A locked third or sixth week under
+     3-1-3-1 resumes at its recovery week, and a locked recovery week at the week after.
+     Until 3.84 a locked cycle week always resumed at the next cycle week, and since the
+     week you are in is locked as soon as it starts, the recovery week after it was
+     skipped every time: Plan showed 3-1-3-1 ahead and the calendar never delivered one. */
+  const r313=!!plan.recovery313&&!lpOn();
+  const afterCycleWeek=(c,w)=>w<cycleWeeks()?{c,w:w+1}:{c,phase:'rule'};
   for(let i=0;i<=need+10;i++){
     let wk;
     if(!g&&fz[m]){
       wk=Object.assign({},fz[m],{locked:true});
       if(wk.kind==='bb'&&wk.w<bbLen(wk.ver)){bbVer=wk.ver||'standard';bbLeft=bbLen(bbVer)-wk.w}
-      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}:wk.kind==='cycle'?(wk.w<cycleWeeks()?{c:wk.cycle,w:wk.w+1}:{c:wk.cycle,phase:'rule'}):wk.after?{c:wk.after+1,w:1}:resume;
+      if(!wk.inserted) resume=wk.kind==='bridge'?{c:1,w:1}
+        :wk.kind==='cycle'?(r313&&wk.w%3===0?{c:wk.cycle,w:wk.w,phase:'recovery'}:afterCycleWeek(wk.cycle,wk.w))
+        :wk.kind==='recovery'?(resume&&resume.phase==='recovery'?afterCycleWeek(resume.c,resume.w):resume)
+        :wk.after?{c:wk.after+1,w:1}:resume;
     } else {
       if(!g) g=ruleSeq(plan,resume);
       const ins=plan.inserts[m];
@@ -94,7 +107,7 @@ function freezePast(){
     // That one only ever had `soft` cleared, so it never gained the prescription stamp
     // a hard freeze adds, and went on following today's plan instead of what was done.
     const f={kind:wk.kind};
-    for(const key of ['cycle','w','after','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
+    for(const key of ['cycle','w','after','afterW','rule','inserted','plyoIdx','refCycle','ver']) if(wk[key]!=null) f[key]=wk[key];
     if(now) f.soft=true;                       // identity only; the numbers still follow
     else if(wk.kind==='cycle'||wk.kind==='deload'||(wk.kind==='bb'&&wk.rx)){f.rx=clone(wkRx(wk));f.tpl=stemplKey();f.cpr=cprotoKey();f.l3={};for(const sl of [0,2]) f.l3[sl]=l3Auto(addDays(wk.monday,sl))}
     fz[wk.monday]=f; changed=true; planV++;
