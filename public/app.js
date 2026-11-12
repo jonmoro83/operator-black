@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.84", RELEASES_SRC="/releases.js?b=de5c67a81c";
+const APP_VERSION="3.85", RELEASES_SRC="/releases.js?b=f5f6150428";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -10629,7 +10629,7 @@ function vAdmin() {
    one-tap actions later is a change to this file, not to the contract with the
    server. */
 let coach={q:'',busy:false,err:null,last:null,turns:null,thread:null,loaded:false,log:null,logOpen:false};
-const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete',guide:'Guide'};
+const LIBNAME={tb1:'TB1',tb2:'TB2',tb3:'TB III',aa:'Ageless Athlete',mti:'MTI',guide:'Guide'};
 
 function coachLoad(){
   if(coach.loaded) return; coach.loaded=true;
@@ -10679,18 +10679,19 @@ function debriefCard(){
 function coachNew(){ coach.thread=null; coach.turns=[]; coach.last=null; coach.err=null; render(); return true }
 
 // A citation is only worth printing if it can be found again, so it carries the book
-// and the page rather than just a name.
+// and the page rather than just a name. An MTI article's ref is its title, and titles
+// have commas in them.
 function citeLine(cites){
   if(!cites||!cites.length) return '';
   const byDoc={}; for(const c of cites){ (byDoc[c.doc]=byDoc[c.doc]||[]).push(c.ref) }
-  const parts=Object.entries(byDoc).map(([d,refs])=>`${esc(LIBNAME[d]||d)} ${esc(refs.slice(0,4).join(', '))}`);
+  const parts=Object.entries(byDoc).map(([d,refs])=>`${esc(LIBNAME[d]||d)} ${esc(refs.slice(0,4).join(d==='mti'?'; ':', '))}`);
   return `<div class="small muted">Read from: ${parts.join(' · ')}</div>`;
 }
 function vCoach(){
   coachLoad();
   const turns=coach.turns;
   let h=`<div class="card"><div class="lift-h"><h2>Coach</h2>${coach.cap?`<span class="small muted">${coach.used||0} of ${coach.cap} this month</span>`:''}</div>
-  <p class="note" style="margin:0">It can read your plan, your last four weeks, this app\u2019s Guide and your copies of the four books, which it searches itself, and will search the web when they do not cover something. It cannot change anything by itself. A few of its suggestions come with an Apply button, which says exactly what it will change and can be undone; the rest you act on yourself.</p>`;
+  <p class="note" style="margin:0">It can read your plan, your last four weeks, this app\u2019s Guide, your copies of the four books and Mountain Tactical Institute\u2019s article archive, which it searches itself, and will search the web when they do not cover something. It cannot change anything by itself. A few of its suggestions come with an Apply button, which says exactly what it will change and can be undone; the rest you act on yourself.</p>`;
   if(coach.configured===false) h+=`<div class="banner warn"><div class="small">No API key set on the server, so the coach cannot answer yet.</div></div>`;
   h+=`</div>`;
 

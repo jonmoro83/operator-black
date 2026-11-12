@@ -152,6 +152,20 @@ test("the library search runs FTS5 with porter stemming and ranks by bm25", asyn
   a.ok(!("body" in list.docs[0]), "titles and counts only, never the text");
 });
 
+test("MTI's articles are searched apart from the books, in real FTS5", async () => {
+  const e = env();
+  const ins = e.DB.db.prepare("INSERT INTO lib_chunk (doc, ref, body) VALUES (?, ?, ?)");
+  ins.run("tb1", "p40", "The deadlift is trained once a week in Operator.");
+  ins.run("mti", "Deadlift Q&A (2018)", "Train the deadlift heavy, once a week, and rarely to failure.");
+  ins.run("mti", "Rucking Mini Study (2017)", "Threshold ruck intervals improved speed.");
+
+  // An UNINDEXED column filters after MATCH, so bm25 still ranks what is left.
+  const books = await (await call(e, "library/search?q=deadlift%20week")).json();
+  a.deepEqual(books.hits.map((h) => h.doc), ["tb1"], "a book search does not see the articles");
+  const arts = await (await call(e, "library/search?q=deadlift%20week&in=articles")).json();
+  a.deepEqual(arts.hits.map((h) => h.ref), ["Deadlift Q&A (2018)"], "and an article search sees nothing else");
+});
+
 test("a report is stored against the sender and the table is kept to 200 rows", async () => {
   const e = env();
   const send = (body, kind) => call(e, "report", { method: "POST", body: JSON.stringify({ body, kind, version: "3.70", ua: "test" }) });

@@ -146,8 +146,9 @@ async function serve(request, env) {
       const u = new URL(request.url);
       const q = ftsQuery(u.searchParams.get("q") || "");
       const n = Math.min(Math.max(+u.searchParams.get("n") || 8, 1), 25);
+      const from = u.searchParams.get("in") === "articles" ? "articles" : "books";
       if (!q.terms.length) return json({ hits: [], matched: "none" }, 200, { "cache-control": "no-store" });
-      return json(await libSearch(env, q, n), 200, { "cache-control": "no-store" });
+      return json(await libSearch(env, q, n, from), 200, { "cache-control": "no-store" });
     }
 
     return json({ error: "not found" }, 404);
@@ -671,16 +672,22 @@ function ftsQuery(raw) {
   return { strict: q.join(" AND "), loose: q.join(" OR "), terms: keep };
 }
 
+/* The MTI article archive shares the table with the books but is searched on its own.
+   It is nearly 8,000 chunks against the books' 600, so one ranking over both would
+   bury the books under it -- and the books are the authority. */
+const LIB_ARTICLES = "mti";
+
 /* Strict first, widening only if it came back with too little to go on. Three is the
-   threshold: fewer than that and an answer is being built on one lucky passage. */
-async function libSearch(env, q, n) {
+   threshold: fewer than that and an answer is being built on one lucky passage.
+   `from` is "books" or "articles". */
+async function libSearch(env, q, n, from = "books") {
   // bm25() is most negative for the best match, so ascending is best-first.
   const run = async (match) => {
     if (!match) return [];
     const { results } = await env.DB.prepare(
       `SELECT doc, ref, body, bm25(lib_chunk) AS score FROM lib_chunk
-       WHERE lib_chunk MATCH ?1 ORDER BY score LIMIT ?2`
-    ).bind(match, n).all();
+       WHERE lib_chunk MATCH ?1 AND doc ${from === "articles" ? "=" : "!="} ?3 ORDER BY score LIMIT ?2`
+    ).bind(match, n, LIB_ARTICLES).all();
     return results || [];
   };
   const strict = await run(q.strict);
@@ -708,12 +715,13 @@ const COACH_SYSTEM = `You are a strength and conditioning coach for one person, 
 This is a conversation, not a series of lookups. Earlier turns are above; refer back to them, do not re-introduce yourself or repeat advice you have already given. A short reply to a short follow-up is the right length.
 
 GROUNDING, in order of authority:
-1. THE BOOKS. Passages from the person's own copies that match the question's words are supplied under <library>. When they answer the question, follow them and cite them as [tb1 p12] using the doc and ref given. If they do not answer it, or you need the rest of a passage, a named session, or a different part of a book, call search_library with your own short query in the words the book would use ("meat eater burpees", "operator deload week"). Three searches at most, then answer with what you have. Tactical Barbell III and Mass Protocol are the same book.
+1. THE BOOKS. Passages from the person's own copies that match the question's words are supplied under <library>. When they answer the question, follow them and cite them as [tb1 p12] using the doc and ref given. If they do not answer it, or you need the rest of a passage, a named session, or a different part of a book, call search_library with your own short query in the words the book would use ("meat eater burpees", "operator deload week"). Three rounds of searching at most, across both search tools, then answer with what you have. Tactical Barbell III and Mass Protocol are the same book.
+1b. MTI'S ARTICLES. Mountain Tactical Institute's research archive: Rob Shaul's mini-studies with lab rats, research reviews, Q&As and programming notes, 2011 on. Passages that match the question are supplied under <articles>, and search_articles searches it with your own query. Use it for what the books leave open or treat briefly: rucking, mountain and event-specific prep, assessments and their standards, durability, what MTI's own studies found. Cite an article by the title given in ref, e.g. [mti "Mini Study: Threshold Ruck Intervals…" (2017)]. MTI is a different system from Tactical Barbell: where an article and a book disagree, follow the book and say the article differs. An article's study is a small group of volunteers over a few weeks; say so rather than presenting it as settled science.
 2. THE APP. The person trains inside Operator Black, and its Guide is supplied under <guide>: how it schedules weeks, picks weights, runs its timers, scores conditioning, and what each setting means. Answer questions about the app from the Guide, and do not describe a feature it does not list.
 3. THE PLAN. The state block below is what the app has actually scheduled and logged. It is authoritative for what the person is doing — never contradict it about their own numbers or dates.
-4. YOUR OWN REASONING, last. If the books do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's.
+4. YOUR OWN REASONING, last. If the books and articles do not cover something, say so plainly — "the books don't address this, so this is my own view" — and then answer. Never present your reasoning as the book's or the article's.
 
-WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Search the books before the web. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
+WEB SEARCH is available and you decide when to use it. Do not reach for it when the books answer the question -- they are the authority and searching instead of reading them is the wrong instinct. Search the books and the articles before the web. Use it when the question is outside what the books cover (a specific exercise they do not name, current research, an event's standards, equipment), or when the supplied passages plainly do not address what was asked.
 
 When you do use it, name the source in the sentence that relies on it, and say that it is not from the books. A forum post does not carry the weight of a book and must not be written as though it does.
 
@@ -785,6 +793,17 @@ const LIB_TOOL = {
   },
   strict: true,
 };
+const ARTICLE_TOOL = {
+  name: "search_articles",
+  description: "Full-text search of Mountain Tactical Institute's article archive: about 2,200 research write-ups, mini-studies, Q&As and programming notes by Rob Shaul and MTI, 2011 on. Returns the best-matching passages with the article title and year to cite. Secondary to the books. Use short queries.",
+  input_schema: {
+    type: "object",
+    properties: { query: { type: "string", description: "Two to six words, e.g. \"ruck pace intervals\" or \"aerobic base assessment\"." } },
+    required: ["query"],
+    additionalProperties: false,
+  },
+  strict: true,
+};
 const WEB_TOOL = { type: "web_search_20260209", name: "web_search", max_uses: 3 };
 const COACH_SEARCHES = 3;       // rounds of search_library per question, then it answers
 const COACH_PAUSES = 3;         // times a long web search may hand the turn back to be continued
@@ -799,7 +818,8 @@ function coachSystem(state) {
     { type: "text", text: `<state>${JSON.stringify(state)}</state>` },
   ];
 }
-const passageOf = (h) => `<p doc="${h.doc}" ref="${h.ref}">${h.body}</p>`;
+// An article's ref is its title, which can carry a double quote of its own.
+const passageOf = (h) => `<p doc="${h.doc}" ref="${String(h.ref).replace(/"/g, "'")}">${h.body}</p>`;
 
 /* What the coach is told about the person. Deliberately a summary rather than the raw
    log: the whole history is far more than the question needs, costs more to send, and
@@ -1017,11 +1037,13 @@ async function askCoach(request, env, user) {
   const said = String(body.today || "");
   const today = realDate(said) && Math.abs(Date.parse(said) - Date.now()) < 2 * 86400000 ? said : undefined;
 
-  const [state, lib] = await Promise.all([
+  const [state, lib, art] = await Promise.all([
     coachState(env, user, today),
     libSearch(env, ftsQuery(q), 8),
+    libSearch(env, ftsQuery(q), 4, "articles"),
   ]);
   const passages = (lib.hits || []).map(passageOf).join("\n");
+  const articles = (art.hits || []).map(passageOf).join("\n");
 
   // Earlier turns carry only what was said. The state goes in the system block, where
   // it is sent once rather than once per turn of history, and the passages go with the
@@ -1034,7 +1056,8 @@ async function askCoach(request, env, user) {
   }
   messages.push({
     role: "user",
-    content: `<library>${passages || "(nothing in the books matched this question)"}</library>\n\n${q}`,
+    content: `<library>${passages || "(nothing in the books matched this question)"}</library>\n` +
+      `<articles>${articles || "(no MTI article matched this question)"}</articles>\n\n${q}`,
   });
   const payload = {
     model: COACH_MODEL,
@@ -1045,13 +1068,16 @@ async function askCoach(request, env, user) {
     // is told to search them itself when the passages that came with the question do
     // not answer it, and to reach for the web only when the books do not cover it --
     // judgements it can make per question and the person could not make in advance.
-    tools: [LIB_TOOL, WEB_TOOL],
+    tools: [LIB_TOOL, ARTICLE_TOOL, WEB_TOOL],
   };
 
   const id = crypto.randomUUID();
   // The citations are our own retrieval, not the model's claim: what came with the
-  // question, then whatever its searches turned up, in the order they were read.
-  const cites = (lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }));
+  // question, then whatever its searches turned up, in the order they were read. An
+  // article split into several passages is one citation.
+  const cites = [];
+  const cite = (h) => { if (!cites.some((c) => c.doc === h.doc && c.ref === h.ref)) cites.push({ doc: h.doc, ref: h.ref }) };
+  for (const h of (lib.hits || []).concat(art.hits || [])) cite(h);
   const usage = { input_tokens: 0, output_tokens: 0 };
   let data, stop, searches = 0;
   // One call, or a few: each round the model may search the books and get the
@@ -1087,18 +1113,20 @@ async function askCoach(request, env, user) {
     const u = data.usage || {};
     usage.input_tokens += u.input_tokens || 0; usage.output_tokens += u.output_tokens || 0;
     stop = data.stop_reason || "";
-    const asks = (data.content || []).filter((c) => c.type === "tool_use" && c.name === LIB_TOOL.name);
+    const asks = (data.content || []).filter((c) => c.type === "tool_use" && (c.name === LIB_TOOL.name || c.name === ARTICLE_TOOL.name));
     if (stop === "tool_use" && asks.length && round < COACH_SEARCHES) {
       // The whole reply goes back as the assistant turn, thinking blocks included,
       // then one result per search. Nothing found is an answer too, not an error.
       messages.push({ role: "assistant", content: data.content });
       const results = [];
       for (const t of asks) {
-        const r = await libSearch(env, ftsQuery(String((t.input || {}).query || "")), 6);
+        const inArticles = t.name === ARTICLE_TOOL.name;
+        const r = await libSearch(env, ftsQuery(String((t.input || {}).query || "")), 6, inArticles ? "articles" : "books");
         searches++;
-        for (const h of r.hits || []) if (!cites.some((c) => c.doc === h.doc && c.ref === h.ref)) cites.push({ doc: h.doc, ref: h.ref });
+        for (const h of r.hits || []) cite(h);
         results.push({ type: "tool_result", tool_use_id: t.id,
-          content: (r.hits || []).length ? r.hits.map(passageOf).join("\n") : "Nothing in the books matched those words. Try others, or answer from what you have." });
+          content: (r.hits || []).length ? r.hits.map(passageOf).join("\n")
+            : `Nothing in the ${inArticles ? "articles" : "books"} matched those words. Try others, or answer from what you have.` });
       }
       messages.push({ role: "user", content: results });
       if (round === COACH_SEARCHES - 1) payload.tool_choice = { type: "none" };
@@ -1254,11 +1282,14 @@ async function debriefFor(env, user, now) {
   if ((await coachUsed(env, user)) >= COACH_CAP) return { skipped: "cap" };
 
   const lifts = [...new Set(inWeek.flatMap((d) => Object.keys(logs[d].lifts || {})))];
-  const [state, lib] = await Promise.all([
+  const ask = ftsQuery(`recovery fatigue progression ${lifts.join(" ")}`);
+  const [state, lib, art] = await Promise.all([
     coachState(env, user),
-    libSearch(env, ftsQuery(`recovery fatigue progression ${lifts.join(" ")}`), 6),
+    libSearch(env, ask, 6),
+    libSearch(env, ask, 3, "articles"),
   ]);
   const passages = (lib.hits || []).map(passageOf).join("\n");
+  const articles = (art.hits || []).map(passageOf).join("\n");
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -1271,7 +1302,8 @@ async function debriefFor(env, user, now) {
       model: COACH_MODEL,
       max_tokens: 2000,
       system: coachSystem(state),
-      messages: [{ role: "user", content: `<library>${passages || "(nothing in the books matched)"}</library>\n\n${DEBRIEF_ASK(wk.from, wk.to)}` }],
+      messages: [{ role: "user", content: `<library>${passages || "(nothing in the books matched)"}</library>\n` +
+        `<articles>${articles || "(no MTI article matched)"}</articles>\n\n${DEBRIEF_ASK(wk.from, wk.to)}` }],
     }),
   });
   if (!res.ok) return { skipped: "upstream" };
@@ -1290,7 +1322,8 @@ async function debriefFor(env, user, now) {
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
   ).bind(user, wk.from, now, answer,
     JSON.stringify(cleanSuggestions(parsed.suggestions, 4)),
-    JSON.stringify((lib.hits || []).map((h) => ({ doc: h.doc, ref: h.ref }))),
+    JSON.stringify([...new Map((lib.hits || []).concat(art.hits || [])
+      .map((h) => [h.doc + "\u0000" + h.ref, { doc: h.doc, ref: h.ref }])).values()]),
     data.model || COACH_MODEL, usage.input_tokens || 0, usage.output_tokens || 0).run();
   return { week: wk.from };
 }

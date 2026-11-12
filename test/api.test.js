@@ -485,8 +485,11 @@ function fakeDB() {
         .map((r) => ({ id: r.id, asked_at: r.asked_at, question: r.question, answer: r.answer, cites: r.cites, thread: r.thread }));
     if (/^SELECT id, title, short, chunks, updated_at FROM lib_doc ORDER BY id$/.test(q))
       return libDoc.slice().sort((x, y) => (x.id < y.id ? -1 : 1));
-    if (/^SELECT doc, ref, body, bm25\(lib_chunk\) AS score FROM lib_chunk WHERE lib_chunk MATCH \?1 ORDER BY score LIMIT \?2$/.test(q))
-      return fts(a[0]).slice(0, a[1]);
+    // The articles are searched apart from the books: `doc = ?3` for them, `!=` for the rest.
+    if (/^SELECT doc, ref, body, bm25\(lib_chunk\) AS score FROM lib_chunk WHERE lib_chunk MATCH \?1 AND doc (=|!=) \?3 ORDER BY score LIMIT \?2$/.test(q)) {
+      const only = / AND doc = /.test(q);
+      return fts(a[0]).filter((h) => (h.doc === a[2]) === only).slice(0, a[1]);
+    }
     if (/^SELECT token, updated_at FROM cal_feeds WHERE user = \?1$/.test(q))
       return feeds.filter((f) => f.user === a[0]).map((f) => ({ token: f.token, updated_at: f.updated_at }));
     if (/^SELECT ics FROM cal_feeds WHERE token = \?1$/.test(q))
@@ -1331,7 +1334,7 @@ test("the coach is grounded in the plan and the books before it answers", async 
     a.match(sysText(sent.body), /Never say you have adjusted/, "and it must not claim to have acted");
     // Always offered and never asked for: the model decides per question, which is a
     // judgement the person could not make before seeing the answer.
-    a.deepEqual(sent.body.tools.map((t) => t.name), ["search_library", "web_search"], "both tools are always on the table");
+    a.deepEqual(sent.body.tools.map((t) => t.name), ["search_library", "search_articles", "web_search"], "all three tools are always on the table");
     a.match(sysText(sent.body), /Do not reach for it when the books answer the question/);
   } finally { globalThis.fetch = orig }
 });
@@ -1393,6 +1396,50 @@ test("the coach searches the books itself, reads what it found, and cites it", a
     a.equal(row.tokens_in, 1400, "both calls are counted");
     a.equal(row.tokens_out, 160);
     a.equal(body.used, 1, "but it is one question against the cap");
+  } finally { globalThis.fetch = orig }
+});
+
+// Two passages of one article, plus one that shares its words with the books' Fobbit
+// passage. The archive is thirteen times the books' size, so it must not be able to
+// take their places.
+const MTI = [
+  { ref: "Mini Study: Threshold Ruck Intervals (2017)", body: "Threshold ruck intervals beat long slow rucks for 3-mile ruck speed. Kettlebell swings were not used." },
+  { ref: "Mini Study: Threshold Ruck Intervals (2017)", body: "The lab rats rucked 45 lb at threshold pace, 4 x 8 minutes, twice a week." },
+  { ref: "Q&A: \"Fobbits\" on the road (2019)", body: "Fobbit intervals with kettlebell swings travel well, says the reader." },
+];
+
+test("the coach reads MTI's articles beside the books, never in their place", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  env.DB.seedLib({ id: "mti", title: "Mountain Tactical Institute articles", short: "MTI", updated_at: 1 }, MTI);
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropicSeq([
+    { ...searchReply("ruck threshold intervals"), content: [{ type: "tool_use", id: "tu1", name: "search_articles", input: { query: "ruck threshold intervals" } }] },
+    coachReply("Threshold ruck intervals."),
+  ]);
+  try {
+    const res = await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "fobbit intervals with kettlebell swings" }) }, tok);
+    a.equal(res.status, 200);
+    const body = await res.json();
+    const first = globalThis.fetch.calls[0].body;
+    const prompt = first.messages[0].content;
+    const [, books] = prompt.match(/<library>([\s\S]*)<\/library>/);
+    const [, articles] = prompt.match(/<articles>([\s\S]*)<\/articles>/);
+    a.match(books, /<p doc="tb3" ref="p63">9\. FOBBIT INTERVALS/, "the book's passage, where it always was");
+    a.ok(!/doc="mti"/.test(books), "no article among the books");
+    a.match(articles, /<p doc="mti" ref="Q&A: 'Fobbits' on the road \(2019\)">/, "the article beside them, its title's quotes made safe");
+    a.ok(!/doc="tb/.test(articles), "and no book among the articles");
+    a.match(sysText(first), /1b\. MTI'S ARTICLES/);
+    a.match(sysText(first), /follow the book and say the article differs/, "the books stay the authority");
+
+    // Its own search reads the archive only, and the article it found twice is cited once.
+    const result = globalThis.fetch.calls[1].body.messages.at(-1).content[0];
+    a.equal(result.tool_use_id, "tu1");
+    a.match(result.content, /4 x 8 minutes/);
+    a.ok(!/doc="tb/.test(result.content), "search_articles never returns a book");
+    a.equal(body.cites.filter((c) => c.ref === "Mini Study: Threshold Ruck Intervals (2017)").length, 1);
+    a.ok(body.cites.some((c) => c.doc === "tb3" && c.ref === "p63"), "the book is cited as well");
+    a.equal(body.searches, 1);
   } finally { globalThis.fetch = orig }
 });
 

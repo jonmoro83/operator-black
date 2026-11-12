@@ -28,6 +28,9 @@ investigation behind each is in [JOURNAL.md](JOURNAL.md).
   on time and clearly louder, and that session mode no longer crops its left edge (3.74). Confirmed already: install, Access login, update banner,
   lock-screen alerts, spoken cues on AirPods, the rest beep in a real session with the
   ring switch off as well as on.
+- **MTI's articles are not in D1 yet.** Owed, in this order: `npm run deploy` (3.85),
+  then `npx wrangler d1 execute operator-black --remote --file=library/mti.sql`.
+  Loading first would let the old search mix 7,926 article chunks into the books'.
 - **Does the coach give good advice?** Was the gate for one-tap apply; the user chose
   to build apply anyway on 2026-11-12, as a short safe list (3.83). Still worth a
   verdict: Coach -> Earlier conversations now lists every answer by date to read back.
@@ -137,6 +140,29 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The coach reads MTI's article archive (2026-11-12, 3.85)**
+- By request: every post in mtntactical.com's Articles / Research category, 2,244 of
+  them (2011 to now), goes into the private library as doc `mti`. `tools/mti.py fetch`
+  pulls them through the site's public WordPress API (category 433, 23 pages of 100) into
+  `library/mti/`; `build` writes `library/mti.sql`: 7,926 chunks, 14.0M chars, cut at
+  paragraph boundaries within the books' MIN/MAX_CHARS bounds. A chunk's ref is the
+  article's title and year, since there are no pages. Nine posts are video only and have
+  no text. Nothing from the site is committed: `library/` is ignored as before.
+- **Searched apart from the books.** `libSearch(..., from)` filters `doc = 'mti'` or
+  `!= 'mti'` after the MATCH (checked in real FTS5: bm25 still ranks, about 3 ms over
+  all 8,500 chunks). One ranking over both would have let 7,926 chunks bury the books'
+  580. The question gets 8 book passages under `<library>` as before and 4 article
+  passages under `<articles>`; the debrief 6 and 3. A second strict tool,
+  `search_articles`, shares the three search rounds with `search_library`.
+  `GET /api/library/search?in=articles` searches the archive.
+- **Authority.** The brief puts the articles at 1b, under the books and above the
+  Guide: follow the book where they disagree, say the article differs, and present an
+  MTI mini-study as what it is (a few volunteers over a few weeks). Cited by title; an
+  article that comes back as several passages is one citation.
+- **Load order matters.** The deployed code before 3.85 searches every doc at once, so
+  loading `mti.sql` into D1 before 3.85 is live would flood the coach's book passages
+  with articles. Deploy first, then load.
 
 **An audit of the schedule engine and the alert scheduling (2026-11-12, 3.84)**
 - The part of the 2026-11-12 review that had not been read line by line. Read in full:
