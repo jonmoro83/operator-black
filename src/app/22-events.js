@@ -326,6 +326,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wzskip'){mutatePlan(p=>{p.onboarded=true;if(!st0Saved())p.startMonday=nextMonday()});wz=null;render();return}
   if(a==='wzrerun'){wz=wzNew(true);render();window.scrollTo(0,0);return}
   // Black's recommendation and your cluster. See 04c-hic-rec.js.
+  if(a==='hicnow'){hicStartNow();return}
   if(a==='hicpick'){setLog(sel,'hic.format',b.dataset.f);render();return}
   if(a==='hicver'){setLog(sel,'hic.ver',(lg(sel).hic||{}).ver===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='hicadd'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});return}

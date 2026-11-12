@@ -399,7 +399,9 @@ function hicBookBlock(f){
    from, and what else would do. Picking one sets the day's format like the Format list
    does; "Use the recommendation" clears it. See 04c-hic-rec.js. */
 function hicRecBlock(dp,f){
-  const R=dp.rec; if(!R) return '';
+  const R=dp.rec;
+  if(!R) return hicWaiting()&&weekOf(sel)&&weekOf(sel).monday<plan.hicRecFrom&&sel>=todayStr()
+    ?`<div class="banner info"><div class="small">Black now recommends each session from your cluster, the way the book sets it. It starts Monday so this week isn\u2019t rewritten under you.</div><div><button class="btn sm" data-act="hicnow">Start this week</button></div></div>`:'';
   const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
   const tag=k=>`<span class="chip">${hicTbCat(k)}</span>${hicMti(k)?' <span class="chip blue">MTI</span>':''}`;
   const pick=(k,sub)=>`<button class="segb${k===f?' on':''}" data-act="hicpick" data-f="${esc(k)}" aria-pressed="${k===f}">${nm(k)}${sub?` <span class="small muted">${esc(sub)}</span>`:''}</button>`;

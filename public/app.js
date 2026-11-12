@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.86", RELEASES_SRC="/releases.js?b=fa193d5d00";
+const APP_VERSION="3.87", RELEASES_SRC="/releases.js?b=a8a365a5dc";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4057,6 +4057,20 @@ function hicLike(c,f,exclude,n){
     .map((k,i)=>[k,(HIC[k].sys===sys?2:0)+(HIC[k].book&&HIC[k].book.n?1:0),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]);
   return {books:xs.filter(k=>!hicMti(k)).slice(0,n),mti:xs.filter(hicMti).slice(0,n)};
 }
+/* Bring the recommendations forward to this week, by request: the migration waits for
+   next Monday so a week under way is not rewritten. Days already logged this week are
+   stamped with the session they were done as first, so starting now changes only what
+   is still to come. */
+function hicWaiting(){ const m=mondayOf(todayStr()); return !!plan.hicRecFrom&&plan.hicRecFrom>m&&!!CPROTO[cprotoKey()].recommend }
+function hicStartNow(){
+  const m=mondayOf(todayStr());
+  for(let i=0;i<7;i++){
+    const d=addDays(m,i), L=logs[d];
+    if(!L||!(L.hic||L.done)||(L.hic&&L.hic.format)) continue;
+    const f=dayPlan(d).fmt; if(HIC[f]) setLog(d,'hic.format',f);
+  }
+  mutatePlan(p=>{p.hicRecFrom=m});
+}
 // A done session keeps the format it was done as. Without this, changing your cluster
 // would rewrite this week's finished days into whatever is recommended now.
 function hicStamp(date){
@@ -5570,7 +5584,9 @@ function hicBookBlock(f){
    from, and what else would do. Picking one sets the day's format like the Format list
    does; "Use the recommendation" clears it. See 04c-hic-rec.js. */
 function hicRecBlock(dp,f){
-  const R=dp.rec; if(!R) return '';
+  const R=dp.rec;
+  if(!R) return hicWaiting()&&weekOf(sel)&&weekOf(sel).monday<plan.hicRecFrom&&sel>=todayStr()
+    ?`<div class="banner info"><div class="small">Black now recommends each session from your cluster, the way the book sets it. It starts Monday so this week isn\u2019t rewritten under you.</div><div><button class="btn sm" data-act="hicnow">Start this week</button></div></div>`:'';
   const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
   const tag=k=>`<span class="chip">${hicTbCat(k)}</span>${hicMti(k)?' <span class="chip blue">MTI</span>':''}`;
   const pick=(k,sub)=>`<button class="segb${k===f?' on':''}" data-act="hicpick" data-f="${esc(k)}" aria-pressed="${k===f}">${nm(k)}${sub?` <span class="small muted">${esc(sub)}</span>`:''}</button>`;
@@ -10000,6 +10016,7 @@ function hicClusterCard(){
   const lastOf=f=>{const ds=Object.keys(logs).filter(d=>((logs[d].hic||{}).format||(logs[d].hic||logs[d].done?effFmt(d):''))===f&&d<=todayStr()).sort();return ds.length?ds[ds.length-1]:null};
   let h=`<div class="card"><div class="lift-h"><h2>Conditioning cluster</h2><span class="chip light">${cl.length} HIC + E</span></div>
   <p class="note" style="margin:0">Black leaves the sessions to you (TB II p59). The book\u2019s preferred way to choose them is a cluster: two or three HICs and an E session. Run each at its Basic version until you can do the Advanced, then swap it for a new one (p187). Mix aerobic/anaerobic sessions with general conditioning; avoid only one kind (p112). Each conditioning day recommends one and says why, and you can always pick something else.</p>`;
+  if(hicWaiting()) h+=`<div class="banner info"><div class="small">Starts ${esc(fmtD(plan.hicRecFrom,true))}. Sessions you have already logged this week keep what they were.</div><div><button class="btn sm" data-act="hicnow">Start this week</button></div></div>`;
   for(const c of cl){
     const l=lastOf(c.f), g=hicGrad(c.f);
     h+=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap"><span style="min-width:0"><b>${nm(c.f)}</b> <span class="chip">${hicTbCat(c.f)}</span>${hicMti(c.f)?' <span class="chip blue">MTI</span>':''}
@@ -11633,6 +11650,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wzskip'){mutatePlan(p=>{p.onboarded=true;if(!st0Saved())p.startMonday=nextMonday()});wz=null;render();return}
   if(a==='wzrerun'){wz=wzNew(true);render();window.scrollTo(0,0);return}
   // Black's recommendation and your cluster. See 04c-hic-rec.js.
+  if(a==='hicnow'){hicStartNow();return}
   if(a==='hicpick'){setLog(sel,'hic.format',b.dataset.f);render();return}
   if(a==='hicver'){setLog(sel,'hic.ver',(lg(sel).hic||{}).ver===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='hicadd'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});return}

@@ -458,6 +458,7 @@ function hicClusterCard(){
   const lastOf=f=>{const ds=Object.keys(logs).filter(d=>((logs[d].hic||{}).format||(logs[d].hic||logs[d].done?effFmt(d):''))===f&&d<=todayStr()).sort();return ds.length?ds[ds.length-1]:null};
   let h=`<div class="card"><div class="lift-h"><h2>Conditioning cluster</h2><span class="chip light">${cl.length} HIC + E</span></div>
   <p class="note" style="margin:0">Black leaves the sessions to you (TB II p59). The book\u2019s preferred way to choose them is a cluster: two or three HICs and an E session. Run each at its Basic version until you can do the Advanced, then swap it for a new one (p187). Mix aerobic/anaerobic sessions with general conditioning; avoid only one kind (p112). Each conditioning day recommends one and says why, and you can always pick something else.</p>`;
+  if(hicWaiting()) h+=`<div class="banner info"><div class="small">Starts ${esc(fmtD(plan.hicRecFrom,true))}. Sessions you have already logged this week keep what they were.</div><div><button class="btn sm" data-act="hicnow">Start this week</button></div></div>`;
   for(const c of cl){
     const l=lastOf(c.f), g=hicGrad(c.f);
     h+=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap"><span style="min-width:0"><b>${nm(c.f)}</b> <span class="chip">${hicTbCat(c.f)}</span>${hicMti(c.f)?' <span class="chip blue">MTI</span>':''}

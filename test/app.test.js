@@ -10500,3 +10500,19 @@ test("MTI's sessions are formats: filed by the book's rule, timed, sourced", () 
   a.equal(x.hicTbCat("gc1"), "GC");
   a.equal(x.hicTbCat("map"), "AA", "the app's shapes are aerobic/anaerobic work");
 });
+
+test("Start this week brings the recommendations forward without rewriting logged days", () => {
+  // By request (3.87): the user wanted the picker in the week already under way.
+  const x = app({ now: "2026-11-19" });
+  x.plan.startMonday = "2026-11-09"; x.plan.bridge = false; x.plan.hicRecFrom = "2026-11-23"; x.bump();
+  x.seed({ "2026-11-17": { date: "2026-11-17", done: true, hic: { mod: "echo", cal: 110 } } }); x.bump();
+  const tue = x.dayPlan("2026-11-17").fmt;
+  x.sel = "2026-11-19";
+  a.match(x.vToday(), /data-act="hicnow"/, "offered on today's card");
+  a.match(x.vSetup(), /data-act="hicnow"/, "and in Setup");
+  x.hicStartNow();
+  a.equal(x.plan.hicRecFrom, "2026-11-16");
+  a.equal(x.effFmt("2026-11-17"), tue, "Tuesday stays what was done");
+  a.ok(x.dayPlan("2026-11-19").rec, "Thursday is recommended");
+  a.doesNotMatch(x.vToday(), /data-act="hicnow"/, "and the offer goes away");
+});

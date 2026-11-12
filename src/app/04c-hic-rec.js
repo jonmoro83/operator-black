@@ -111,6 +111,20 @@ function hicLike(c,f,exclude,n){
     .map((k,i)=>[k,(HIC[k].sys===sys?2:0)+(HIC[k].book&&HIC[k].book.n?1:0),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]);
   return {books:xs.filter(k=>!hicMti(k)).slice(0,n),mti:xs.filter(hicMti).slice(0,n)};
 }
+/* Bring the recommendations forward to this week, by request: the migration waits for
+   next Monday so a week under way is not rewritten. Days already logged this week are
+   stamped with the session they were done as first, so starting now changes only what
+   is still to come. */
+function hicWaiting(){ const m=mondayOf(todayStr()); return !!plan.hicRecFrom&&plan.hicRecFrom>m&&!!CPROTO[cprotoKey()].recommend }
+function hicStartNow(){
+  const m=mondayOf(todayStr());
+  for(let i=0;i<7;i++){
+    const d=addDays(m,i), L=logs[d];
+    if(!L||!(L.hic||L.done)||(L.hic&&L.hic.format)) continue;
+    const f=dayPlan(d).fmt; if(HIC[f]) setLog(d,'hic.format',f);
+  }
+  mutatePlan(p=>{p.hicRecFrom=m});
+}
 // A done session keeps the format it was done as. Without this, changing your cluster
 // would rewrite this week's finished days into whatever is recommended now.
 function hicStamp(date){

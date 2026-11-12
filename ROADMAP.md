@@ -150,6 +150,11 @@ Decided against for now.
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
 
+**Start Black's recommendations this week (2026-11-12, 3.87)**
+- By request: the user wanted the picker in the week already under way. `hicStartNow`
+  stamps `hic.format` on this week's logged days, then sets `plan.hicRecFrom` to this
+  Monday. Offered on the day card and the cluster card while `hicWaiting()`.
+
 **Black's conditioning follows the book; MTI's sessions are formats (2026-11-12, 3.86)**
 - The user's call: "follow the book as much as possible but make changes where they
   make the most sense." TB II's Black names no MAP / Anaerobic / Threshold days

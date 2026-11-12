@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.87',date:'2026-11-12',title:"Start Black's recommendations this week",items:[
+    "The new conditioning recommendations were set to begin Monday. If you'd rather not wait, there's now a Start this week button on today's conditioning card and in Setup, under your cluster. Sessions you've already logged this week keep what they were.",
+  ]},
   {v:'3.86',date:'2026-11-12',title:"Black's conditioning, the way the book sets it",items:[
     "The book's Black never named MAP, Anaerobic and Threshold days. That rotation was the app's own. What the book asks for is at least two hard sessions a week and an easy endurance session at least every other week, so that's what Black schedules now: HIC, HIC, then HIC or E.",
     "Each conditioning day recommends a session and says why, with the book page for each reason. It rotates through your cluster, the book's preferred way to progress: two or three sessions, each kept until you can do its Advanced version, then swapped for a new one. You can always pick something else.",
