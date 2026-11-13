@@ -10600,9 +10600,32 @@ test("the coach's one conversation is marked where the day changes", () => {
   x.coach.turns = [
     { id: "1", asked_at: at("2026-11-10"), question: "first", answer: "a", cites: [] },
     { id: "2", asked_at: at("2026-11-10"), question: "second", answer: "b", cites: [] },
-    { id: "3", asked_at: Date.now(), question: "third", answer: "c", cites: [] },
+    { id: "3", asked_at: at("2026-11-12"), question: "third", answer: "c", cites: [] },
   ];
   const h = x.vCoach();
   a.equal((h.match(/<div class="divider">/g) || []).length, 2, "one for each day, not each turn");
   a.match(h, /<div class="divider">Today<\/div>[\s\S]*third/);
+});
+
+// Reported: the review arrived on Friday with the last lift moved to Saturday. It waits
+// for that session -- logged done, or its day gone by -- not for a weekday.
+test("the cycle review waits for the last lift of the cycle, wherever it was moved", () => {
+  const x = app({ now: "2026-10-16" });
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const mon = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1 && w.w === 6).monday;
+  const day = (i) => x.addDays(mon, i);
+  const lifts = [0, 1, 2, 3, 4, 5, 6].filter((i) => x.dayPlan(day(i)).t === "lift");
+  const last = lifts[lifts.length - 1];
+  a.equal(x.reviewCycleFor(day(last - 1)), null, "not before the last lift");
+  a.equal(x.reviewCycleFor(day(last)), null, "nor on its day until it is logged done");
+  x.seed({ [day(last)]: { date: day(last), done: true } });
+  a.equal(x.reviewCycleFor(day(last)), 1, "and there once it is");
+
+  x.seed({});
+  a.equal(x.moveSession(mon, last, day(last + 1)), true);
+  a.equal(x.reviewCycleFor(day(last)), null, "moved a day later, the old day no longer brings it");
+  a.equal(x.reviewCycleFor(day(last + 1)), null, "nor the new one before it is done");
+  x.seed({ [day(last + 1)]: { date: day(last + 1), done: true } });
+  a.equal(x.reviewCycleFor(day(last + 1)), 1, "done on the day it was moved to");
+  a.equal(x.reviewCycleFor(x.addDays(mon, 7)), 1, "and a session never logged stops holding it back once its day is past");
 });

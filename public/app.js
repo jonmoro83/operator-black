@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.91", RELEASES_SRC="/releases.js?b=490b8f8447";
+const APP_VERSION="3.92", RELEASES_SRC="/releases.js?b=f40a5d9504";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -6130,13 +6130,26 @@ function setEffort(date,k,i,v){
 // "fast, solid, ground" for whatever was rated, in set order.
 function groundSets(x){ const n=Array.isArray(x&&x.eff)?x.eff.filter(e=>e==='ground').length:0; return Math.max(n,x&&x.grinder?1:0) }
 function effSummary(x){ return (Array.isArray(x&&x.eff)?x.eff:[]).filter(Boolean).join(', ') }
+// The review waits for the cycle's last lift, wherever it was moved to: before that is
+// logged done or its day has passed, there is still a heavy session it has not read.
+// Keyed to the session, not the weekday, because a Friday lift moved to Saturday used
+// to bring the review in a day early.
+function cycleLiftsOver(c,date){
+  const wk=weeks().find(w=>w.kind==='cycle'&&w.cycle===c&&w.w===6); if(!wk) return true;
+  let last=null;
+  for(let sl=0;sl<7;sl++){
+    if(stackKindOf(dayPlanSlot(addDays(wk.monday,sl),sl))!=='lift') continue;
+    const d=slotDate(wk.monday,sl); if(!last||d>last) last=d;
+  }
+  return !last||date>last||(date===last&&!!lg(date).done);
+}
 function reviewCycleFor(date){
   const wk=weekOf(date); if(!wk) return null;
   let c=null;
-  if(wk.kind==='cycle'&&wk.w===6&&dow(date)>=4) c=wk.cycle;
+  if(wk.kind==='cycle'&&wk.w===6) c=wk.cycle;
   else if(wk.kind==='cycle'&&wk.w<=2&&wk.cycle>1) c=wk.cycle-1;
   else if(wk.kind!=='cycle'&&wk.kind!=='bridge'&&wk.refCycle) c=wk.refCycle;
-  if(!c||(plan.reviews||{})[c]) return null;
+  if(!c||(plan.reviews||{})[c]||!cycleLiftsOver(c,date)) return null;
   return c;
 }
 function cycleStats(c){

@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.92',date:'2026-11-13',title:"The cycle review waits for your last lift",items:[
+    "The end-of-cycle review used to show up on Friday of week 6 whether or not you'd lifted yet, so moving that session to Saturday brought the review in a day early. Now it waits until the cycle's last lifting session is marked done, on whatever day you moved it to.",
+    "If that session never gets logged, the review still appears once its day has passed.",
+  ]},
   {v:'3.91',date:'2026-11-12',title:"Pick any number of rounds",items:[
     "Interval sessions take any number of rounds now, not just the book's range. Tactical Barbell II says to cut sessions in half during Operator's 95% week, and the field under Rounds lets you do that for every format, including threshold and long, which had no picker before.",
     "On an easy week the halved count gets its own button, even when it's below the book's range.",

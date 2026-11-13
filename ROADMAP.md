@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-11-12.
+Update it as things ship. Last updated 2026-11-13.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -149,6 +149,15 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The cycle review waits for the last lift (2026-11-13, 3.92)**
+- Reported: the review came on Friday of week 6 with that day's lift moved to Saturday.
+  `reviewCycleFor` opened it on `dow(date)>=4`, a weekday. `cycleLiftsOver` now finds the
+  week-6 lift slots by home, takes the latest `slotDate` (so a move counts, including
+  one across weeks), and holds the review until that date is logged done or has passed.
+  The gate covers the week 1-2 and deload/test-week paths too. Fixed along the way: the
+  3.90 day-divider test stamped a turn with the real clock, so it failed once the date
+  rolled past its pinned `now`.
 
 **Any number of rounds (2026-11-12, 3.91)**
 - By request, for TB II's advice to halve sessions on Operator's 95% week. The Rounds
