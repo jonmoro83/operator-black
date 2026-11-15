@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.95", RELEASES_SRC="/releases.js?b=505c6e5716";
+const APP_VERSION="3.96", RELEASES_SRC="/releases.js?b=63d7d15681";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -465,6 +465,15 @@ const CPROTO={
         {t:'hic',fmt:'liss',short:'E',note:'Easy, or swap it for a HIC if you have the legs.'},
       ];
     },
+  },
+  /* Mountain Tactical Institute's Running Improvement Plan (Plan Focus, 2017): fifteen
+     weeks in three five-week blocks, each tested and paced from your own test times.
+     See 04f-run.js. Not a Tactical Barbell protocol: the user asked for running programs
+     the books do not have (2026-11-15), and MTI's is the one with a published shape. */
+  mtirun:{
+    name:'MTI running', book:'MTI',
+    blurb:'MTI’s Running Improvement Plan: 15 weeks in three blocks, a 1.5-mile, then 3-mile, then 6-mile test, with repeats and two easy distance runs a week paced from your own times. Start at week 1 if you are new to running, week 6 with some behind you, week 11 if you are experienced. Pairs with Fighter.',
+    sessions:wk=>runSessions(wk),
   },
   /* Ours, not the books': lifting only. Every TB protocol has conditioning in it, but
      someone already running, playing a sport or starting out on StrongLifts may want the
@@ -2716,6 +2725,7 @@ function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
 function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
 function hicSrcLabel(f){
   const b=(HIC[f]||{}).book; if(!b) return '';
+  if(b.src==='mtirun') return `Mountain Tactical Institute, “${b.a}”, paced by MTI’s Running Calculator`;
   if(b.src==='mti') return `Mountain Tactical Institute, “${b.a}”, filed as ${TB_CAT[hicTbCat(f)].toLowerCase()} (TB II p189)`;
   if(b.n) return `Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`;
   return b.cat==='challenge'?`Tactical Barbell II, challenge session ${b.no}`:`Tactical Barbell II, core and grip, session ${b.no}`;
@@ -2960,6 +2970,38 @@ for(const [k,x] of Object.entries(HIC_MTI)){
   HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower};
   if(!x.measure) HIC[k].noMetric=true;
 }
+/* MTI's running plan's sessions (04f-run.js): its three tests, scored by time, and its
+   three repeat distances. They belong to the plan, so they are not MTI's general
+   sessions (`src` 'mtirun', not 'mti') and stay out of Black's cluster and
+   recommendations: a repeat paced from a test you have not run is no use on its own.
+   The day's own numbers, the repeat count and the times, are in the session's note. */
+const RUN_A='Plan Focus: Running Improvement Plan (2017)';
+const RUN_SRC='MTI Running Improvement Plan';
+const HIC_RUN={
+  mtit15:{tb:'aa',name:'1.5-Mile Run Test',sys:'Assessment',gear:'A track or a measured route',a:RUN_A,measure:['time','mm:ss'],lower:true,
+    sess:'1.5 miles for time',lines:['Warm up 5 to 10 min easy','Run 1.5 miles for time','Log it: the next weeks are paced from it'],
+    why:'MTI’s plans start with a test and work every pace out from it, so the plan scales to whoever is running it. Test again and the paces move with you.'},
+  mtit3:{tb:'aa',name:'3-Mile Run Test',sys:'Assessment',gear:'A track or a measured route',a:RUN_A,measure:['time','mm:ss'],lower:true,
+    sess:'3 miles for time',lines:['Warm up 5 to 10 min easy','Run 3 miles for time','Log it: the next weeks are paced from it'],
+    why:'The second block’s test. Weeks 6 to 10 are paced from it.'},
+  mtit6:{tb:'aa',name:'6-Mile Run Test',sys:'Assessment',gear:'A measured route',a:RUN_A,measure:['time','mm:ss'],lower:true,
+    sess:'6 miles for time',lines:['Warm up 5 to 10 min easy','Run 6 miles for time','Log it: the next weeks are paced from it'],
+    why:'The last block’s test. Weeks 11 to 15 are paced from it.'},
+  mti800:{tb:'aa',name:'800 m Repeats',sys:'Speed over ground',gear:'A track or a measured 800 m',a:RUN_A,
+    sess:'800 m repeats at your test-based pace',lines:['Warm up 5 to 10 min easy','Run each 800 m at the time worked out from your 1.5-mile test','Rest 5 minutes between'],
+    why:'Short repeats a little faster than your test pace, timed so every one comes in the same. The times are MTI’s Running Calculator; the count and the rest are the app’s.'},
+  mti1mi:{tb:'aa',name:'1-Mile Repeats',sys:'Speed over ground',gear:'A track or a measured mile',a:RUN_A,
+    sess:'1-mile repeats at your test-based pace',lines:['Warm up 5 to 10 min easy','Run each mile at the time worked out from your 3-mile test','Rest 5 minutes between'],
+    why:'A third of the test distance, a little faster than test pace. The times are MTI’s Running Calculator; the count and the rest are the app’s.'},
+  mti2mi:{tb:'aa',name:'2-Mile Repeats',sys:'Speed over ground',gear:'A measured 2 miles',a:RUN_A,
+    sess:'2-mile repeats at your test-based pace',lines:['Warm up 5 to 10 min easy','Run each 2 miles at the time worked out from your 6-mile test','Rest 5 minutes between'],
+    why:'A third of the test distance again. MTI’s 2020 study found these alone did as much for a 6-mile time as a mix of paces. The times are MTI’s Running Calculator; the count and the rest are the app’s.'},
+};
+for(const [k,x] of Object.entries(HIC_RUN)){
+  x.cat='mti'; x.src='mtirun';
+  HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower,runPlan:true};
+  if(!x.measure) HIC[k].noMetric=true;
+}
 /* TB II's categories for every format (p111–112, p189): AA aerobic/anaerobic, GC
    general conditioning, PD power development, E long steady endurance, plus the core
    and challenge sessions. The app's own interval shapes are aerobic/anaerobic work;
@@ -2969,7 +3011,7 @@ function hicTbCat(f){
   const b=(HIC[f]||{}).book;
   if(f==='liss'||f==='predator') return 'E';
   if(['sprints','reset20','hillsprint'].includes(f)) return 'PD';
-  const c=b&&(b.src==='mti'?b.tb:b.cat);
+  const c=b&&(b.src==='mti'||b.src==='mtirun'?b.tb:b.cat);
   return {aa:'AA',gc:'GC',power:'PD',e:'E',core:'Core',challenge:'Challenge'}[c]||'AA';
 }
 function hicMti(f){ return !!(HIC[f]&&HIC[f].book&&HIC[f].book.src==='mti') }
@@ -4075,7 +4117,7 @@ function hicPick(slot,week,hist,monday){
    the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
 function hicLike(c,f,exclude,n){
   const sys=(HIC[f]||{}).sys, own=new Set(exclude);
-  const xs=Object.keys(HIC).filter(k=>hicTbCat(k)===c&&!own.has(k)&&!(HIC[k].book&&HIC[k].book.cat==='challenge')&&k!=='free'&&k!=='fobbit')
+  const xs=Object.keys(HIC).filter(k=>hicTbCat(k)===c&&!own.has(k)&&!(HIC[k].book&&HIC[k].book.cat==='challenge')&&k!=='free'&&k!=='fobbit'&&!HIC[k].runPlan)
     .map((k,i)=>[k,(HIC[k].sys===sys?2:0)+(HIC[k].book&&HIC[k].book.n?1:0),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]);
   return {books:xs.filter(k=>!hicMti(k)).slice(0,n),mti:xs.filter(hicMti).slice(0,n)};
 }
@@ -4213,6 +4255,16 @@ function recommendProgram(a){
     notes.push(['It is a block, not a way of life: the book says not to run it past nine weeks without a break.','TB II p73']);
     return {picks,alts,notes};
   }
+  if(a.goal==='run'){
+    // Neither book has a running program; MTI's is the one with a published shape, and
+    // its entry week is by level. Alongside lifting it starts at week 6 (04f-run.js).
+    const why=[['MTI’s Running Improvement Plan: tests at 1.5, 3 and 6 miles, repeats and easy distance runs paced from your own times.',RUN_SRC],
+      ['Alongside lifting, MTI starts it at week 6 and drops its own strength days: Fighter’s two take their place.',RUN_SRC]];
+    picks.push(pick('fighter','mtirun',why,{runFrom:6}));
+    alts.push(pick('fighter','mtirun',[['New to running: from week 1, starting with a 1.5-mile test. Walk-run it if you must.',RUN_SRC],['A walk-run start is fine: TB II says the same of its easy sessions.','TB II p89']],{runFrom:1}));
+    alts.push(pick('fighter','mtirun',[['An experienced runner wanting to be pushed: from week 11, the 6-mile test and 2-mile repeats.',RUN_SRC]],{runFrom:11}));
+    return {picks,alts,notes};
+  }
   if(a.goal==='size'){
     // TB III p129: Base Building, then General Mass with Green, a bridge week, then
     // Specificity with Black. The template follows the days you have (p34–35).
@@ -4275,6 +4327,7 @@ function nextProgram(cur,maxes){
     if(b!=null&&s!=null&&b>=260&&s>=300) return {stempl:'zulu',cproto:P,path:'',why:[['Your bench has reached 260 lb and your squat 300: time to move to Zulu, as the beginner path says.','TB I p29']]};
     return {stempl:'operator',cproto:P,path:'tb1beg',why:[['Another block of Operator. The beginner path moves you to Zulu at a 260 lb bench and a 300 lb squat, or when sessions run past an hour.','TB I p29']]};
   }
+  if(P==='mtirun') return {stempl:T==='fighter'?'operator':T,cproto:'black',why:[['MTI’s plan is done. Back to Black and three lifting days; your running carries on as its HIC and E sessions.','ours']]};
   if(MASS_TEMPLATES.includes(T)) return {stempl:'specalpha',cproto:'massblack',why:[['After General Mass, a bridge week, then Specificity with Black.','TB III p129'],['Alpha keeps maximal strength in the mix; Bravo is pure hypertrophy.','TB III p35']]};
   if(T==='specalpha'||T==='specbravo') return {stempl:'mass',cproto:'massgreen',why:[['Reassess and plan the next cycle: back to General Mass, the meat and potatoes.','TB III p129']]};
   return {stempl:T,cproto:P,why:[['The same again with new maxes. The book recommends keeping a cluster for at least two blocks.','TB I p49']]};
@@ -4307,7 +4360,7 @@ chooser that is open, and `ctx` is where it was opened and so what taking a pick
 `full` shows the whole sheet where a context starts with something shorter. */
 const CHZ_Q=[
   {k:'cond',q:'Conditioning',opts:[['yes','Schedule it'],['no','Lifting only']]},
-  {k:'goal',q:'What matters most',opts:[['general','All-round'],['endurance','Endurance'],['size','Size'],['minimal','Least time']]},
+  {k:'goal',q:'What matters most',opts:[['general','All-round'],['endurance','Endurance'],['run','Running'],['size','Size'],['minimal','Least time']]},
   {k:'days',q:'Lifting days a week',opts:[['2','2'],['3','3'],['4','4']]},
   {k:'other',q:'Something else hard: a fight gym, a sport',opts:[['no','No'],['yes','Yes']]},
   {k:'exp',q:'Barbell experience',opts:[['new','Little or none'],['some','Some'],['advanced','A lot']]},
@@ -4338,7 +4391,7 @@ function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx)); return 
 function pickName(pk){ return pk.stempl?STEMPL[pk.stempl].name:CPROTO[pk.cproto].name }
 function pickLine(pk){
   const P=CPROTO[pk.cproto], cond=pk.cproto==='none'?'lifting only':pk.stempl?'with '+P.name:'';
-  return [pickName(pk),cond].filter(Boolean).join(' ')+(pk.bb?', '+(pk.bb==='mass'?'Mass Base Building':'Base Building')+' first ('+bbLen(pk.bb)+' weeks)':'');
+  return [pickName(pk),cond].filter(Boolean).join(' ')+(pk.cproto==='mtirun'?' from week '+(pk.runFrom||1):'')+(pk.bb?', '+(pk.bb==='mass'?'Mass Base Building':'Base Building')+' first ('+bbLen(pk.bb)+' weeks)':'');
 }
 /* Taking a pick in the welcome setup. Its fields are the setup's own, so the Program
    step shows the pick selected and every step after it still applies; the path, the
@@ -4346,7 +4399,7 @@ function pickLine(pk){
 function chzUseWz(pk){
   if(!wz||!pk||pk.oms) return false;
   if(pk.stempl) wz.stempl=pk.stempl;
-  wz.cproto=pk.cproto; wz.bb=!!pk.bb; wz.bbVer=pk.bb||''; wz.progPath=pk.path||'';
+  wz.cproto=pk.cproto; wz.runFrom=pk.runFrom||1; wz.bb=!!pk.bb; wz.bbVer=pk.bb||''; wz.progPath=pk.path||'';
   if(pk.path==='tb1beg') wz.test=1;
   wz.chooser=Object.assign({},chz.a);
   return true;
@@ -4383,6 +4436,7 @@ function pickPatch(pk,rest){
   return next=>{
     if(pk.stempl) next.stempl=pk.stempl;
     next.cproto=pk.cproto; next.progPath=pk.path||'';
+    if(pk.cproto==='mtirun') next.runFrom=pk.runFrom||1;
     if(pk.path==='tb1beg') next.testEvery=1; else if(pk.cycles) next.testEvery=pk.cycles; else if(plan.progPath==='tb1beg') next.testEvery=DEF.testEvery;
     // A week off lined up before it is the new program's first week (an Off insert).
     const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
@@ -4398,7 +4452,7 @@ function pickPatch(pk,rest){
   };
 }
 function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=Array.isArray(pk.why[0])?pk.why[0]:pk.why;
-  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; return o }
+  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; if(pk.cproto==='mtirun') o.runFrom=pk.runFrom||1; return o }
 // Lining one up: kept on the plan until its start, then offered.
 function chzLineUp(pk){
   if(!pk||pk.oms) return false;
@@ -4468,7 +4522,7 @@ function yrItems(){ const q=plan.nextPrograms; return Array.isArray(q)?q.filter(
 // Cycles before the retest: the item's own, or the beginner path's one 9-week block, or
 // the book's two (TB I p33).
 function itemCycles(it){ return it.cycles||(it.path==='tb1beg'?1:DEF.testEvery) }
-function itemFixed(it){ const T=it.stempl&&STEMPL[it.stempl]; return !!(it.weeks||!T||T.lp) }
+function itemFixed(it){ const T=it.stempl&&STEMPL[it.stempl]; return !!(it.weeks||!T||T.lp||it.cproto==='mtirun') }
 // How long a block runs: Base Building, its cycles, then the retest. A block with a
 // length of its own keeps it: TB II p200's Black, nine weeks, and anything with no
 // wave to count (Progressive SE, nine weeks at most, TB II p73; a linear progression).
@@ -4476,6 +4530,7 @@ function itemWeeks(it){
   if(it.off) return 1;
   const bb=it.bb?bbLen(it.bb):0, T=it.stempl&&STEMPL[it.stempl];
   if(it.weeks) return bb+it.weeks;
+  if(it.cproto==='mtirun') return bb+16-(it.runFrom||1);
   if(!T) return bb+9;
   if(T.lp) return bb+12;
   const wl=it.stempl==='operator'&&it.path==='tb1beg'?9:T.wave.length;
@@ -4525,6 +4580,11 @@ function yrBookAfter(i){
    on, a week off before each; what is left over, too short for a block, is the program
    you are on running that much longer before it hands over. */
 const YR_GOALS={
+  race:{label:'A race, 5K to 10K',date:'Race day',name:'the race',
+    seq:()=>[[{off:true},{stempl:'fighter',cproto:'mtirun',bb:'standard',runFrom:6,why:['Base Building first, its E sessions run (walk-run is fine, TB II p89), then MTI’s plan from week 6 with Fighter.','TB II p17, MTI']}],
+             [{off:true},{stempl:'fighter',cproto:'mtirun',runFrom:6,why:['MTI’s plan from week 6 with Fighter: the 3-mile test, then the 6-mile.',RUN_SRC]}],
+             [{off:true},{stempl:'fighter',cproto:'mtirun',runFrom:11,why:['MTI’s last block with Fighter: the 6-mile test and 2-mile repeats.',RUN_SRC]}]],
+    cut:'No room for Base Building, so MTI’s plan starts at week 6.',cut2:'Not enough room for week 6: MTI’s plan starts at week 11, which MTI pitches at experienced runners.',cite:RUN_SRC},
   event:{label:'Selection or a test',date:'Event date',name:'the event',
     seq:()=>[[{off:true},{stempl:'fighter',cproto:'black',bb:'standard',weeks:9,why:['The book’s 17-week program: 8 weeks of Base Building, then 9 of Black with Fighter, run on until your benchmarks are met.','TB II p200']}],
              [{off:true},{stempl:'fighter',cproto:'black',weeks:9,why:['Black with Fighter. The book starts with 8 weeks of Base Building; there is not room for it.','TB II p200']}]],
@@ -4550,7 +4610,7 @@ function ygPlan(goal,date){
   items.push(...tail.map(x=>Object.assign({},x)));
   const extra=Math.max(0,free);
   if(items[0]) items[0].start=addDays(from,extra*7);
-  return {items,gap,extra,short,cut:k>0?G.cut:'',need:len(seqs[seqs.length-1]),cite:G.cite,G};
+  return {items,gap,extra,short,cut:k>1&&G.cut2?G.cut2:k>0?G.cut:'',need:len(seqs[seqs.length-1]),cite:G.cite,G};
 }
 // Taking it: the year is replaced, and the goal kept so planning again starts there.
 function ygUse(){
@@ -4558,6 +4618,89 @@ function ygUse(){
   mutatePlan(p=>{p.nextPrograms=r.items;p.yearGoal={goal:yg.goal,date:yg.date}});
   yg=null; yrSel=-1; return true;
 }
+
+/* ---------------- MTI's running plan ----------------
+Asked for 2026-11-15: a beginner running program and progressions for intermediate
+runners. Neither Tactical Barbell nor MTI has a separate beginner program; both start
+beginners inside one they have. So this is MTI's Running Improvement Plan (Plan Focus,
+2017-04-24), the user's pick, entered at the week MTI gives for your level:
+
+  "new to running? Begin the plan on week 1 ... some running experience but need lots
+   of work? Start at week 6 ... an experienced runner wanting to be pushed? Start at
+   week 11." Alongside a strength program, "start this plan on Week 6 and drop the
+   Tuesday and Thursday strength days": your template's days take their place.
+
+What the article gives: three five-week blocks (a 1.5-mile test and 800 m repeats, a
+3-mile test and 1-mile repeats, a 6-mile test and 2-mile repeats); intervals Monday and
+Wednesday, a test on some Mondays; easy distance runs Friday and Saturday, "3 miles on
+week one" rising "to 12 miles on week 15". The paces are MTI's Running Calculator, whose
+factors it published (Lab Rat Calculator, 2015): a time for each interval and a range
+per mile for easy running, each a fraction of your test time.
+
+What it does not give, the plan's day-by-day sessions being paid, is ours and said so:
+which Mondays test (the first and fourth of each block, after MTI's "mid-cycle we
+usually program in a re-assessment", Programming Holy Grail part 3, 2019), how many
+repeats, and the rest between them (five minutes, from MTI's 800 m mini-study, 2018). */
+const RUN_BLOCKS=[
+  {test:'mtit15',rep:'mti800',dist:1.5,repLabel:'800 m',reps:[4,5,6,5,6],
+   iv:[.3113,.3147],easy:[.8977,.96324]},
+  {test:'mtit3',rep:'mti1mi',dist:3,repLabel:'1 mile',reps:[3,3,4,3,4],
+   iv:[.3067,.31],easy:[.4266,.4577]},
+  {test:'mtit6',rep:'mti2mi',dist:6,repLabel:'2 miles',reps:[2,2,3,2,3],
+   iv:[.302,.3053],easy:[.2,.215]},
+];
+const RUN_TEST_K=[1,4];          // which weeks of a block test: ours
+const RUN_REST=300;
+function runFrom(){ return [1,6,11].includes(+plan.runFrom)?+plan.runFrom:1 }
+/* The plan's week for a calendar week: weeks of this program so far, not counting
+   Base Building, weeks off, the bridge or travel, from the week you entered at. After
+   week 15 the last block runs again. */
+function runWeekOf(wk){
+  if(!wk||!wk.monday) return {w:runFrom(),b:Math.floor((runFrom()-1)/5),k:(runFrom()-1)%5+1};
+  const list=weeks(Math.max(0,wk.idx!=null?wk.idx:idxOf(wk.monday))+1);
+  let n=0;
+  for(const x of list){ if(x.monday>wk.monday) break; if(!['bb','off','bridge','bridge3','travel'].includes(x.kind)) n++ }
+  let w=runFrom()+Math.max(1,n)-1;
+  if(w>15) w=11+((w-11)%5);
+  return {w,b:Math.floor((w-1)/5),k:(w-1)%5+1};
+}
+// Your latest test time at a distance, in seconds, logged on or before `upto`.
+function runTestTime(fmt,upto){
+  let best=null;
+  for(const [d,L] of Object.entries(logs)){
+    const h=L&&L.hic; if(!h||h.format!==fmt||!h.time||(upto&&d>upto)) continue;
+    const s=toSecs(h.time); if(s&&(!best||d>best.d)) best={d,s};
+  }
+  return best;
+}
+// A test's time sets the format on the day it is logged, so it can be found again.
+function runTestStamp(date){
+  const f=effFmt(date), L=lg(date).hic||{};
+  if(!L.format&&RUN_BLOCKS.some(B=>B.test===f)) setLog(date,'hic.format',f);
+}
+function runPaceStr(lo,hi){ return lo===hi?mmss(lo):mmss(lo)+'–'+mmss(hi) }
+function runMi(mi){ return u()==='kg'?`${n(+(mi*1.609).toFixed(1))} km`:`${n(mi)} mi` }
+// Per mile, or per km on metric.
+function runPerUnit(lo,hi){ const k=u()==='kg'?1/1.609:1; return runPaceStr(lo*k,hi*k)+(u()==='kg'?' per km':' per mile') }
+function runEasyMiles(w){ return Math.round(3+(Math.min(15,w)-1)*9/14) }
+function runSessions(wk){
+  const r=runWeekOf(wk), B=RUN_BLOCKS[r.b], test=RUN_TEST_K.includes(r.k);
+  const t=runTestTime(B.test,wk&&wk.monday?addDays(wk.monday,6):null), T=t&&t.s;
+  const reps=B.reps[r.k-1], from=T?` From your ${B.dist}-mile test of ${mmss(T)}.`:'';
+  const repNote=T?`${reps} × ${B.repLabel}, each in ${runPaceStr(T*B.iv[0],T*B.iv[1])}, resting ${RUN_REST/60} minutes between.${from}`
+    :`${reps} × ${B.repLabel}, a little faster than your ${B.dist}-mile test pace and even across all of them, resting ${RUN_REST/60} minutes between. Log a ${B.dist}-mile test and the times are worked out for you.`;
+  const rep={t:'hic',fmt:B.rep,mod:'run',short:B.repLabel+' ×'+reps,note:repNote,run:{w:r.w,reps}};
+  const mi=runEasyMiles(r.w);
+  const easy=(i)=>({t:'hic',fmt:'liss',mod:'run',short:'Easy '+runMi(mi),
+    note:`Easy distance run, ${runMi(mi)}${T?` at ${runPerUnit(T*B.easy[0],T*B.easy[1])}`:', at a pace you could talk at'}.${i?' The second of two on back-to-back days.':''} Walk-run is fine while you are new to it.`});
+  return [
+    test?{t:'hic',fmt:B.test,mod:'run',short:B.dist+'-mile test',note:`Week ${r.w} of 15. Run ${B.dist} miles for time, as fast as you can hold, on a track or a measured route. Log the time: it sets the paces until the next test. New to running? Walk-run it if you must, but try to run it.`,run:{w:r.w}}
+        :Object.assign({},rep,{note:`Week ${r.w} of 15. `+rep.note}),
+    rep, easy(0), easy(1),
+  ];
+}
+// The day's repeat count, for the timer.
+function runDayReps(date){ const dp=dayPlan(date); return dp&&dp.run&&dp.run.reps||null }
 
 /* ---------------- persistence ---------------- */
 // One JSON document per path (plan/main, logs/YYYY-MM-DD), stored in D1 behind /api.
@@ -7699,6 +7842,7 @@ function wzFinish(){
     // TB I's beginner path is Operator's; pick another template after choosing it and
     // the path goes with the choice.
     p.progPath=w.stempl==='operator'?(w.progPath||''):'';
+    if(w.cproto==='mtirun') p.runFrom=w.runFrom||1;
     if(w.chooser) p.programGoals=Object.assign({},p.programGoals,{chooser:w.chooser});
     // Black's sessions, chosen with the program: a starting cluster from the kit your
     // main tool implies, unless you already have one.
@@ -8252,6 +8396,13 @@ const IV_BOOK={
 /* MTI's sessions, the same way. An "every 2:30" shuttle is one timed segment: the run
    and the rest that is left of it, which is how MTI's clock works. */
 const IV_MTI={
+  // The running plan's: one test, or the day's repeats (runDayReps), with MTI's rest.
+  mtit15:{rounds:[1,1],def:1,seq:[BK_H('Run 1.5 miles',720)]},
+  mtit3:{rounds:[1,1],def:1,seq:[BK_H('Run 3 miles',1500)]},
+  mtit6:{rounds:[1,1],def:1,seq:[BK_H('Run 6 miles',3000)]},
+  mti800:{rounds:[3,8],def:5,day:runDayReps,seq:[BK_H('Run 800 m',220),BK_R(300)]},
+  mti1mi:{rounds:[2,6],def:3,day:runDayReps,seq:[BK_H('Run 1 mile',480),BK_R(300)]},
+  mti2mi:{rounds:[2,4],def:2,day:runDayReps,seq:[BK_H('Run 2 miles',960),BK_R(300)]},
   m40:{rounds:[10,20],def:10,seq:[BK_W('Shuttle 40 ft',30),BK_R(30)]},
   m40d:{rounds:[10,10],def:10,seq:[BK_W('8 lengths, then rest the minute out',60)]},
   msui:{rounds:[10,20],def:20,seq:[BK_W('Suicide, then rest',30)]},
@@ -8344,7 +8495,7 @@ function ivOpts(date,fmt){
   // Your own count for the day goes anywhere from one round up, not just the book's range:
   // TB2's half on the 95% week is below the range for most formats, and threshold and
   // long have no range at all.
-  const def=r?easeRounds(r,fmt,soft,easyWk):null, own=Math.round(+o.rounds);
+  const def=r?(r.day&&r.day(date))||easeRounds(r,fmt,soft,easyWk):null, own=Math.round(+o.rounds);
   return {rounds:own>=1?Math.min(FREE_MAX_ROUNDS,own):def, def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
@@ -8536,7 +8687,7 @@ document.getElementById('iv').addEventListener('click',e=>{
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
-  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],met[0]==='time'?String(inp.value).trim():+inp.value); } ivClose(); }
+  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],met[0]==='time'?String(inp.value).trim():+inp.value); if(met[0]==='time') runTestStamp(iv.date); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });
 
@@ -10590,6 +10741,8 @@ function templateCard(){
     h+=`<label class="f">Conditioning protocol<select id="p-cproto" data-pbind="cproto">${pkeys.map(k=>`<option value="${k}"${k===cprotoKey()?' selected':''}>${esc(CPROTO[k].name)} · ${esc(CPROTO[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(P.blurb)}</div>`;
   }
+  if(cprotoKey()==='mtirun') h+=`<div class="restsel"><span>Start at week</span><div class="seg">${[[1,'1 · new to running'],[6,'6 · some behind you'],[11,'11 · experienced']].map(([v,l])=>`<button class="segb${runFrom()===v?' on':''}" data-act="runfrom" data-v="${v}" aria-pressed="${runFrom()===v}">${l}</button>`).join('')}</div></div>
+    <p class="note" style="margin:0">MTI’s entry points by level. This program is in week ${runWeekOf(weekOf(realToday())).w} of 15. <span class="mono muted">${RUN_SRC}</span></p>`;
   if(P.noStrength) h+=`<div class="banner info"><div class="small">${esc(P.name)} does no barbell work at all \u2014 the book is explicit about it \u2014 so your strength template is set aside while this protocol is running. It comes back the moment you switch off it.</div></div>`;
   else if(T.split) h+=halvesCard();
   const warn=programWarnings(stemplKey(),cprotoKey(),false);
@@ -11029,6 +11182,14 @@ function guideMti(){
   ${['AA','GC','PD','E'].map(c=>by(c)?`<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(TB_CAT[c])}</h4>${by(c)}</div>`:'').join('')}
   <p class="note">Prescriptions are MTI\u2019s, paraphrased from the article each names. Where an article gives no round count, the timer\u2019s is the app\u2019s, and says so. MTI\u2019s studies are small, a handful of athletes each, and where they disagree with the book the app follows the book. The sessions that need an assessment first, MTI\u2019s speed-over-ground intervals among them, are not here yet.</p></div>`;
 }
+function guideRun(){
+  const ks=Object.keys(HIC).filter(k=>HIC[k].runPlan);
+  return `<div class="card guide"><h3>Conditioning: MTI’s running plan</h3>
+  <p>Neither Tactical Barbell nor MTI has a separate program for a beginner runner; both start you inside one they have. Choose <b>MTI running</b> as your protocol and the app runs MTI’s Running Improvement Plan: fifteen weeks in three blocks, a 1.5-mile test and 800 m repeats, then a 3-mile test and 1-mile repeats, then a 6-mile test and 2-mile repeats, with two easy distance runs a week growing from 3 miles to 12. Start at week 1 if you are new to running, week 6 with some running behind you, week 11 if you are experienced; alongside lifting, MTI starts at week 6 and Fighter’s two days take the place of its strength days.</p>
+  <p><b>Paced from you.</b> Log your test time and every repeat and easy run after it is worked out from it, with MTI’s Running Calculator: each repeat a little faster than test pace, easy miles well slower. Test again and the paces move with you.</p>
+  <div class="stack" style="gap:6px">${ks.map(guideBookEntry).join('')}</div>
+  <p class="note">The plan’s shape, the paces and the easy-run distances are MTI’s. Its day-by-day sessions are sold, not published, so which weeks test (the first and fourth of each block), how many repeats, and the five minutes between them are the app’s, the rest from MTI’s 800 m study.</p></div>`;
+}
 function guideHicBook(){
   const entry=guideBookEntry;
   const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
@@ -11091,6 +11252,7 @@ function vGuideHtml(){
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   ${guideHicBook()}
   ${guideMti()}
+  ${guideRun()}
   ${guideCoreGrip()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
@@ -12077,7 +12239,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.yg&&yg){ yg.date=t.value||yg.date; render(); return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
-  if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); }
+  if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); if(t.dataset.bind==='hic.time') runTestStamp(sel); }
   else if(t.dataset.pbind){
     let v=val(t);
     if(t.dataset.pbind==='startMonday'){ if(!v) return; v=mondayOf(v); }
@@ -12352,6 +12514,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
   if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
   if(a==='nextstart'){nextStart();render();return}
+  if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
   if(a==='yrcyc'){yrCycles(+b.dataset.i,+b.dataset.v);return}

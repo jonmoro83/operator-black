@@ -46,30 +46,6 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
-- **Running programs, beginner and intermediate (asked 2026-11-15).** The user asked
-  for both and whether TB or MTI has a beginner one. Neither has a separate beginner
-  program; both put beginners inside one they have. MTI's Running Improvement Plan
-  (Plan Focus, 2017-04-24): 15 weeks in three 5-week blocks, a 1.5-mile test and 800 m
-  repeats, a 3-mile test and 1-mile repeats, a 6-mile test and 2-mile repeats, all
-  paced from your own tests, plus easy long runs Friday and Saturday from 3 to 12 miles
-  (11 to 34 miles a week). Entry by level: new to running week 1, some experience week
-  6, experienced week 11; alongside a strength program, start at week 6 and drop its
-  strength days. MTI's Q&As let new runners walk/run the test and intervals. TB II's
-  LSS (E session 1, p88–89): Basic version 30 minutes, walking breaks fine, "a
-  walk-run-walk session is totally acceptable if you're entry level/beginner", toward
-  45–60. Decided: MTI's progression, paced from your tests (user's pick), as
-  fixed-length blocks you line up (user's pick). Layout: new and running only, MTI week
-  1; new and lifting, TB II Base Building as running with LSS's walk-run basic version,
-  then MTI from week 6 with Fighter; some experience, MTI week 6 with Fighter (TB II p71
-  pairs Green with Fighter); experienced, week 11. MTI's articles give the plan's shape,
-  not its paid day-by-day sessions: fill the gaps from MTI's published speed-over-ground
-  rules, and label anything left as ours. Supersedes "MTI's assessment-paced
-  progressions as opt-in blocks" in the conditioning item below for running.
-- **The year planner, still to come (3.95 shipped the rest).** The race goal waits on
-  the running blocks (the item above); then "A 10K or 5-mile" joins Plan a year: Base
-  Building as running, then MTI from week 6 with Fighter, cut to MTI from week 11 when
-  short. A's "Fill the year from a book sequence" presets were dropped: a goal with a
-  date does the same job, and an open-ended preset had nothing to land on.
 - **The program chooser (asked 2026-11-15; steps one to three shipped in 3.93 and 3.94).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
@@ -208,6 +184,27 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**MTI's running plan (2026-11-15, 3.96)**
+- What the user asked for (beginner and intermediate running) and whether TB or MTI
+  had a beginner one: neither has a separate program; both start beginners inside one.
+  The user's picks: MTI's progression paced from your tests, as blocks lined up like
+  programs. `CPROTO.mtirun`, 04f-run.js: MTI's Running Improvement Plan (Plan Focus,
+  2017), entered at MTI's week by level (`plan.runFrom` 1, 6 or 11), with Fighter in
+  place of its strength days as MTI says for running it beside lifting.
+- MTI's: the three blocks, Monday/Wednesday intervals, Friday/Saturday easy runs from 3
+  to 12 miles, and the paces, the Running Calculator's factors as MTI published them
+  (Lab Rat Calculator, 2015), a fraction of your test time for each interval and a
+  per-mile range for easy runs. Ours, said in the Guide: tests in weeks 1 and 4 of a
+  block (after MTI's "mid-cycle re-assessment", 2019), the repeat counts, five minutes'
+  rest (MTI's 800 m study, 2018), and the last block repeating after week 15.
+- The six sessions (`HIC_RUN`, src 'mtirun') are book-style formats kept out of Black's
+  cluster and recommendations (`runPlan`). A test's time stamps its format when logged
+  (`runTestStamp`), and `runTestTime` reads the latest; the timer's rounds are the day's
+  repeats (`IV.day`).
+- The chooser's Running goal (Fighter with MTI from week 6; week 1 and week 11 as the
+  alternatives) and Plan a year's race (Base Building, then week 6; cut to week 6, then
+  week 11). After the plan the books' next step is Black, with three lifting days (ours).
 
 **The year planner (2026-11-15, 3.95)**
 - C feeding A, as the user chose from the prototype. `plan.nextPrograms` is the year:

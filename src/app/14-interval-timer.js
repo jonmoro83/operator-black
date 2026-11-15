@@ -89,6 +89,13 @@ const IV_BOOK={
 /* MTI's sessions, the same way. An "every 2:30" shuttle is one timed segment: the run
    and the rest that is left of it, which is how MTI's clock works. */
 const IV_MTI={
+  // The running plan's: one test, or the day's repeats (runDayReps), with MTI's rest.
+  mtit15:{rounds:[1,1],def:1,seq:[BK_H('Run 1.5 miles',720)]},
+  mtit3:{rounds:[1,1],def:1,seq:[BK_H('Run 3 miles',1500)]},
+  mtit6:{rounds:[1,1],def:1,seq:[BK_H('Run 6 miles',3000)]},
+  mti800:{rounds:[3,8],def:5,day:runDayReps,seq:[BK_H('Run 800 m',220),BK_R(300)]},
+  mti1mi:{rounds:[2,6],def:3,day:runDayReps,seq:[BK_H('Run 1 mile',480),BK_R(300)]},
+  mti2mi:{rounds:[2,4],def:2,day:runDayReps,seq:[BK_H('Run 2 miles',960),BK_R(300)]},
   m40:{rounds:[10,20],def:10,seq:[BK_W('Shuttle 40 ft',30),BK_R(30)]},
   m40d:{rounds:[10,10],def:10,seq:[BK_W('8 lengths, then rest the minute out',60)]},
   msui:{rounds:[10,20],def:20,seq:[BK_W('Suicide, then rest',30)]},
@@ -181,7 +188,7 @@ function ivOpts(date,fmt){
   // Your own count for the day goes anywhere from one round up, not just the book's range:
   // TB2's half on the 95% week is below the range for most formats, and threshold and
   // long have no range at all.
-  const def=r?easeRounds(r,fmt,soft,easyWk):null, own=Math.round(+o.rounds);
+  const def=r?(r.day&&r.day(date))||easeRounds(r,fmt,soft,easyWk):null, own=Math.round(+o.rounds);
   return {rounds:own>=1?Math.min(FREE_MAX_ROUNDS,own):def, def, warm:o.warm!=null?o.warm:(fmt!=='liss'), cool:!!o.cool, lissMin:o.lissMin||(ease?25:35), ease, bouts:null};
 }
 function ivSegments(fmt,o){
@@ -373,6 +380,6 @@ document.getElementById('iv').addEventListener('click',e=>{
     } else iv.paused=Date.now(); LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='skip'){ const t=ivElapsed(); if(t<0){iv.start=Date.now()-iv.pausedMs}else{const p=ivPos(t); iv.start-=p.left*1000;} ivLast.idx=-1; LS.set('ob.iv',iv); ivRender(); alarmSync(); }
   else if(a==='stop'){ if(Date.now()-ivStopArm<3000){ ivClose(); } else { ivStopArm=Date.now(); const s=document.getElementById('iv-stop'); s.textContent='Tap again to end'; setTimeout(()=>{s.textContent='End'},3000); } }
-  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],met[0]==='time'?String(inp.value).trim():+inp.value); } ivClose(); }
+  else if(a==='save'){ const inp=document.getElementById('iv-result'), met=metricFor(iv.mod,iv.fmt); if(inp&&met&&inp.value!==''){ if(!(lg(iv.date).hic||{}).mod) setLog(iv.date,'hic.mod',iv.mod); setLog(iv.date,'hic.'+met[0],met[0]==='time'?String(inp.value).trim():+inp.value); if(met[0]==='time') runTestStamp(iv.date); } ivClose(); }
 });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') syncScreen() });

@@ -109,6 +109,38 @@ for(const [k,x] of Object.entries(HIC_MTI)){
   HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower};
   if(!x.measure) HIC[k].noMetric=true;
 }
+/* MTI's running plan's sessions (04f-run.js): its three tests, scored by time, and its
+   three repeat distances. They belong to the plan, so they are not MTI's general
+   sessions (`src` 'mtirun', not 'mti') and stay out of Black's cluster and
+   recommendations: a repeat paced from a test you have not run is no use on its own.
+   The day's own numbers, the repeat count and the times, are in the session's note. */
+const RUN_A='Plan Focus: Running Improvement Plan (2017)';
+const RUN_SRC='MTI Running Improvement Plan';
+const HIC_RUN={
+  mtit15:{tb:'aa',name:'1.5-Mile Run Test',sys:'Assessment',gear:'A track or a measured route',a:RUN_A,measure:['time','mm:ss'],lower:true,
+    sess:'1.5 miles for time',lines:['Warm up 5 to 10 min easy','Run 1.5 miles for time','Log it: the next weeks are paced from it'],
+    why:'MTI’s plans start with a test and work every pace out from it, so the plan scales to whoever is running it. Test again and the paces move with you.'},
+  mtit3:{tb:'aa',name:'3-Mile Run Test',sys:'Assessment',gear:'A track or a measured route',a:RUN_A,measure:['time','mm:ss'],lower:true,
+    sess:'3 miles for time',lines:['Warm up 5 to 10 min easy','Run 3 miles for time','Log it: the next weeks are paced from it'],
+    why:'The second block’s test. Weeks 6 to 10 are paced from it.'},
+  mtit6:{tb:'aa',name:'6-Mile Run Test',sys:'Assessment',gear:'A measured route',a:RUN_A,measure:['time','mm:ss'],lower:true,
+    sess:'6 miles for time',lines:['Warm up 5 to 10 min easy','Run 6 miles for time','Log it: the next weeks are paced from it'],
+    why:'The last block’s test. Weeks 11 to 15 are paced from it.'},
+  mti800:{tb:'aa',name:'800 m Repeats',sys:'Speed over ground',gear:'A track or a measured 800 m',a:RUN_A,
+    sess:'800 m repeats at your test-based pace',lines:['Warm up 5 to 10 min easy','Run each 800 m at the time worked out from your 1.5-mile test','Rest 5 minutes between'],
+    why:'Short repeats a little faster than your test pace, timed so every one comes in the same. The times are MTI’s Running Calculator; the count and the rest are the app’s.'},
+  mti1mi:{tb:'aa',name:'1-Mile Repeats',sys:'Speed over ground',gear:'A track or a measured mile',a:RUN_A,
+    sess:'1-mile repeats at your test-based pace',lines:['Warm up 5 to 10 min easy','Run each mile at the time worked out from your 3-mile test','Rest 5 minutes between'],
+    why:'A third of the test distance, a little faster than test pace. The times are MTI’s Running Calculator; the count and the rest are the app’s.'},
+  mti2mi:{tb:'aa',name:'2-Mile Repeats',sys:'Speed over ground',gear:'A measured 2 miles',a:RUN_A,
+    sess:'2-mile repeats at your test-based pace',lines:['Warm up 5 to 10 min easy','Run each 2 miles at the time worked out from your 6-mile test','Rest 5 minutes between'],
+    why:'A third of the test distance again. MTI’s 2020 study found these alone did as much for a 6-mile time as a mix of paces. The times are MTI’s Running Calculator; the count and the rest are the app’s.'},
+};
+for(const [k,x] of Object.entries(HIC_RUN)){
+  x.cat='mti'; x.src='mtirun';
+  HIC[k]={name:x.name,sess:x.sess,sys:x.sys,book:x,lower:!!x.lower,runPlan:true};
+  if(!x.measure) HIC[k].noMetric=true;
+}
 /* TB II's categories for every format (p111–112, p189): AA aerobic/anaerobic, GC
    general conditioning, PD power development, E long steady endurance, plus the core
    and challenge sessions. The app's own interval shapes are aerobic/anaerobic work;
@@ -118,7 +150,7 @@ function hicTbCat(f){
   const b=(HIC[f]||{}).book;
   if(f==='liss'||f==='predator') return 'E';
   if(['sprints','reset20','hillsprint'].includes(f)) return 'PD';
-  const c=b&&(b.src==='mti'?b.tb:b.cat);
+  const c=b&&(b.src==='mti'||b.src==='mtirun'?b.tb:b.cat);
   return {aa:'AA',gc:'GC',power:'PD',e:'E',core:'Core',challenge:'Challenge'}[c]||'AA';
 }
 function hicMti(f){ return !!(HIC[f]&&HIC[f].book&&HIC[f].book.src==='mti') }

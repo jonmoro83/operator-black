@@ -107,7 +107,7 @@ function hicPick(slot,week,hist,monday){
    the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
 function hicLike(c,f,exclude,n){
   const sys=(HIC[f]||{}).sys, own=new Set(exclude);
-  const xs=Object.keys(HIC).filter(k=>hicTbCat(k)===c&&!own.has(k)&&!(HIC[k].book&&HIC[k].book.cat==='challenge')&&k!=='free'&&k!=='fobbit')
+  const xs=Object.keys(HIC).filter(k=>hicTbCat(k)===c&&!own.has(k)&&!(HIC[k].book&&HIC[k].book.cat==='challenge')&&k!=='free'&&k!=='fobbit'&&!HIC[k].runPlan)
     .map((k,i)=>[k,(HIC[k].sys===sys?2:0)+(HIC[k].book&&HIC[k].book.n?1:0),i]).sort((a,b)=>b[1]-a[1]||a[2]-b[2]).map(x=>x[0]);
   return {books:xs.filter(k=>!hicMti(k)).slice(0,n),mti:xs.filter(hicMti).slice(0,n)};
 }

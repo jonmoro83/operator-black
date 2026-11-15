@@ -302,6 +302,7 @@ function hicKey(mod,f){ return (hicBook(f)?'book':mod)+'|'+f }
 function hicTitle(mod,f){ const H=HIC[f]||{}; return (mod==='book'||hicBook(f)||!MOD[mod])?H.name:MOD[mod].name+' · '+H.name }
 function hicSrcLabel(f){
   const b=(HIC[f]||{}).book; if(!b) return '';
+  if(b.src==='mtirun') return `Mountain Tactical Institute, “${b.a}”, paced by MTI’s Running Calculator`;
   if(b.src==='mti') return `Mountain Tactical Institute, “${b.a}”, filed as ${TB_CAT[hicTbCat(f)].toLowerCase()} (TB II p189)`;
   if(b.n) return `Tactical Barbell II, HIC #${b.n}, ${HIC_CAT[b.cat].toLowerCase()}`;
   return b.cat==='challenge'?`Tactical Barbell II, challenge session ${b.no}`:`Tactical Barbell II, core and grip, session ${b.no}`;

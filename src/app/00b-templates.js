@@ -461,6 +461,15 @@ const CPROTO={
       ];
     },
   },
+  /* Mountain Tactical Institute's Running Improvement Plan (Plan Focus, 2017): fifteen
+     weeks in three five-week blocks, each tested and paced from your own test times.
+     See 04f-run.js. Not a Tactical Barbell protocol: the user asked for running programs
+     the books do not have (2026-11-15), and MTI's is the one with a published shape. */
+  mtirun:{
+    name:'MTI running', book:'MTI',
+    blurb:'MTI’s Running Improvement Plan: 15 weeks in three blocks, a 1.5-mile, then 3-mile, then 6-mile test, with repeats and two easy distance runs a week paced from your own times. Start at week 1 if you are new to running, week 6 with some behind you, week 11 if you are experienced. Pairs with Fighter.',
+    sessions:wk=>runSessions(wk),
+  },
   /* Ours, not the books': lifting only. Every TB protocol has conditioning in it, but
      someone already running, playing a sport or starting out on StrongLifts may want the
      app to schedule none. Deload and test weeks drop their easy cardio too (see

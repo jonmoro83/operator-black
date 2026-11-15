@@ -110,6 +110,16 @@ function recommendProgram(a){
     notes.push(['It is a block, not a way of life: the book says not to run it past nine weeks without a break.','TB II p73']);
     return {picks,alts,notes};
   }
+  if(a.goal==='run'){
+    // Neither book has a running program; MTI's is the one with a published shape, and
+    // its entry week is by level. Alongside lifting it starts at week 6 (04f-run.js).
+    const why=[['MTI’s Running Improvement Plan: tests at 1.5, 3 and 6 miles, repeats and easy distance runs paced from your own times.',RUN_SRC],
+      ['Alongside lifting, MTI starts it at week 6 and drops its own strength days: Fighter’s two take their place.',RUN_SRC]];
+    picks.push(pick('fighter','mtirun',why,{runFrom:6}));
+    alts.push(pick('fighter','mtirun',[['New to running: from week 1, starting with a 1.5-mile test. Walk-run it if you must.',RUN_SRC],['A walk-run start is fine: TB II says the same of its easy sessions.','TB II p89']],{runFrom:1}));
+    alts.push(pick('fighter','mtirun',[['An experienced runner wanting to be pushed: from week 11, the 6-mile test and 2-mile repeats.',RUN_SRC]],{runFrom:11}));
+    return {picks,alts,notes};
+  }
   if(a.goal==='size'){
     // TB III p129: Base Building, then General Mass with Green, a bridge week, then
     // Specificity with Black. The template follows the days you have (p34–35).
@@ -172,6 +182,7 @@ function nextProgram(cur,maxes){
     if(b!=null&&s!=null&&b>=260&&s>=300) return {stempl:'zulu',cproto:P,path:'',why:[['Your bench has reached 260 lb and your squat 300: time to move to Zulu, as the beginner path says.','TB I p29']]};
     return {stempl:'operator',cproto:P,path:'tb1beg',why:[['Another block of Operator. The beginner path moves you to Zulu at a 260 lb bench and a 300 lb squat, or when sessions run past an hour.','TB I p29']]};
   }
+  if(P==='mtirun') return {stempl:T==='fighter'?'operator':T,cproto:'black',why:[['MTI’s plan is done. Back to Black and three lifting days; your running carries on as its HIC and E sessions.','ours']]};
   if(MASS_TEMPLATES.includes(T)) return {stempl:'specalpha',cproto:'massblack',why:[['After General Mass, a bridge week, then Specificity with Black.','TB III p129'],['Alpha keeps maximal strength in the mix; Bravo is pure hypertrophy.','TB III p35']]};
   if(T==='specalpha'||T==='specbravo') return {stempl:'mass',cproto:'massgreen',why:[['Reassess and plan the next cycle: back to General Mass, the meat and potatoes.','TB III p129']]};
   return {stempl:T,cproto:P,why:[['The same again with new maxes. The book recommends keeping a cluster for at least two blocks.','TB I p49']]};
@@ -204,7 +215,7 @@ chooser that is open, and `ctx` is where it was opened and so what taking a pick
 `full` shows the whole sheet where a context starts with something shorter. */
 const CHZ_Q=[
   {k:'cond',q:'Conditioning',opts:[['yes','Schedule it'],['no','Lifting only']]},
-  {k:'goal',q:'What matters most',opts:[['general','All-round'],['endurance','Endurance'],['size','Size'],['minimal','Least time']]},
+  {k:'goal',q:'What matters most',opts:[['general','All-round'],['endurance','Endurance'],['run','Running'],['size','Size'],['minimal','Least time']]},
   {k:'days',q:'Lifting days a week',opts:[['2','2'],['3','3'],['4','4']]},
   {k:'other',q:'Something else hard: a fight gym, a sport',opts:[['no','No'],['yes','Yes']]},
   {k:'exp',q:'Barbell experience',opts:[['new','Little or none'],['some','Some'],['advanced','A lot']]},
@@ -235,7 +246,7 @@ function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx)); return 
 function pickName(pk){ return pk.stempl?STEMPL[pk.stempl].name:CPROTO[pk.cproto].name }
 function pickLine(pk){
   const P=CPROTO[pk.cproto], cond=pk.cproto==='none'?'lifting only':pk.stempl?'with '+P.name:'';
-  return [pickName(pk),cond].filter(Boolean).join(' ')+(pk.bb?', '+(pk.bb==='mass'?'Mass Base Building':'Base Building')+' first ('+bbLen(pk.bb)+' weeks)':'');
+  return [pickName(pk),cond].filter(Boolean).join(' ')+(pk.cproto==='mtirun'?' from week '+(pk.runFrom||1):'')+(pk.bb?', '+(pk.bb==='mass'?'Mass Base Building':'Base Building')+' first ('+bbLen(pk.bb)+' weeks)':'');
 }
 /* Taking a pick in the welcome setup. Its fields are the setup's own, so the Program
    step shows the pick selected and every step after it still applies; the path, the
@@ -243,7 +254,7 @@ function pickLine(pk){
 function chzUseWz(pk){
   if(!wz||!pk||pk.oms) return false;
   if(pk.stempl) wz.stempl=pk.stempl;
-  wz.cproto=pk.cproto; wz.bb=!!pk.bb; wz.bbVer=pk.bb||''; wz.progPath=pk.path||'';
+  wz.cproto=pk.cproto; wz.runFrom=pk.runFrom||1; wz.bb=!!pk.bb; wz.bbVer=pk.bb||''; wz.progPath=pk.path||'';
   if(pk.path==='tb1beg') wz.test=1;
   wz.chooser=Object.assign({},chz.a);
   return true;
@@ -280,6 +291,7 @@ function pickPatch(pk,rest){
   return next=>{
     if(pk.stempl) next.stempl=pk.stempl;
     next.cproto=pk.cproto; next.progPath=pk.path||'';
+    if(pk.cproto==='mtirun') next.runFrom=pk.runFrom||1;
     if(pk.path==='tb1beg') next.testEvery=1; else if(pk.cycles) next.testEvery=pk.cycles; else if(plan.progPath==='tb1beg') next.testEvery=DEF.testEvery;
     // A week off lined up before it is the new program's first week (an Off insert).
     const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
@@ -295,7 +307,7 @@ function pickPatch(pk,rest){
   };
 }
 function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=Array.isArray(pk.why[0])?pk.why[0]:pk.why;
-  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; return o }
+  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; if(pk.cproto==='mtirun') o.runFrom=pk.runFrom||1; return o }
 // Lining one up: kept on the plan until its start, then offered.
 function chzLineUp(pk){
   if(!pk||pk.oms) return false;

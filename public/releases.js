@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.96',date:'2026-11-15',title:"A running plan",items:[
+    "New conditioning protocol: MTI running, Mountain Tactical Institute's Running Improvement Plan. Fifteen weeks in three blocks: a 1.5-mile test and 800 m repeats, a 3-mile test and 1-mile repeats, then a 6-mile test and 2-mile repeats, with two easy distance runs a week growing from 3 miles to 12.",
+    "Start at week 1 if you're new to running, week 6 with some running behind you, or week 11 if you're experienced. That's MTI's own advice, and you set it in Setup → Program. Run it with Fighter: its two lifting days take the place of MTI's strength days.",
+    "Paced from your own times. Log a test and every repeat and easy run after it gets a target time from MTI's Running Calculator. Test again and the paces move with you. The interval timer counts the day's repeats.",
+    "The chooser has a Running goal, and Plan a year has a race: Base Building, then the plan from week 6, ending on race day. If time is short, it starts at week 11.",
+    "MTI doesn't publish the plan's day-by-day sessions, so how many repeats, which weeks test, and the 5-minute rest are the app's own. The Guide says so.",
+  ]},
   {v:'3.95',date:'2026-11-15',title:"Plan your year",items:[
     "Setup → Programs now shows Your year: the program you're on, then everything lined up after it, each with its dates and length. Tap a block to move it, change how many cycles it runs before its retest, add a block after it, or remove it.",
     "Plan a year from a goal: say what the year is for (selection or a test, putting on size, or getting stronger) and the date. The planner works the books' sequence back from that date: TB II's 8 weeks of Base Building then 9 of Black, or TB III's Mass Base Building, General Mass, then Specificity. Blocks of what the books suggest after your current program fill the weeks before it.",

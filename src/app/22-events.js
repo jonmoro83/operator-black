@@ -66,7 +66,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.yg&&yg){ yg.date=t.value||yg.date; render(); return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
-  if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); }
+  if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); if(t.dataset.bind==='hic.time') runTestStamp(sel); }
   else if(t.dataset.pbind){
     let v=val(t);
     if(t.dataset.pbind==='startMonday'){ if(!v) return; v=mondayOf(v); }
@@ -341,6 +341,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
   if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
   if(a==='nextstart'){nextStart();render();return}
+  if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
   if(a==='yrcyc'){yrCycles(+b.dataset.i,+b.dataset.v);return}

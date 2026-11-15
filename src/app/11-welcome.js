@@ -143,6 +143,7 @@ function wzFinish(){
     // TB I's beginner path is Operator's; pick another template after choosing it and
     // the path goes with the choice.
     p.progPath=w.stempl==='operator'?(w.progPath||''):'';
+    if(w.cproto==='mtirun') p.runFrom=w.runFrom||1;
     if(w.chooser) p.programGoals=Object.assign({},p.programGoals,{chooser:w.chooser});
     // Black's sessions, chosen with the program: a starting cluster from the kit your
     // main tool implies, unless you already have one.

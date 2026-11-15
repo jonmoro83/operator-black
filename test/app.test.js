@@ -11032,3 +11032,79 @@ test("adding to the year: the books' next step, a week off, or the chooser", () 
   a.deepEqual(x.yrItems().map((it) => (it.off ? "off" : it.stempl)), ["off", "operator"]);
   a.ok(x.yrItems()[0].start, "the handover goes on the first");
 });
+
+/* ---------- MTI's running plan (3.96) ----------
+Asked 2026-11-15: a beginner running program and progressions for intermediate
+runners. Neither TB nor MTI has a separate beginner program; the user picked MTI's
+Running Improvement Plan, paced from your own tests, as blocks lined up like programs.
+The paces are MTI's published calculator factors; the repeat counts, test weeks and
+rest are ours and the Guide says so. */
+function runApp(from) {
+  const x = blackApp("2026-11-16");
+  x.plan.stempl = "fighter"; x.plan.cproto = "mtirun"; x.plan.runFrom = from; x.bump();
+  return x;
+}
+test("the running plan: a test, repeats and two easy runs a week, at MTI's entry week", () => {
+  let x = runApp(1);
+  const wk1 = [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlan(x.addDays("2026-11-16", i)));
+  a.deepEqual(wk1.filter((d) => d.t === "hic").map((d) => d.fmt), ["mtit15", "mti800", "liss", "liss"]);
+  a.equal(wk1.filter((d) => d.t === "lift").length, 2, "Fighter's two days in place of MTI's strength days");
+  a.match(wk1.find((d) => d.fmt === "liss").short, /Easy 3 mi/, "3 miles in week one");
+  // Week 2 repeats, week 4 tests again (ours), week 15's easy runs are 12 miles.
+  const fmts = (mon) => [0, 1, 2, 3, 4, 5, 6].map((i) => x.dayPlan(x.addDays(mon, i)).fmt).filter(Boolean);
+  a.ok(!fmts("2026-11-23").includes("mtit15"));
+  a.ok(fmts("2026-12-07").includes("mtit15"), "the fourth week of the block retests");
+  a.ok(fmts(x.addDays("2026-11-16", 5 * 7)).includes("mtit3"), "week 6: the 3-mile test");
+  a.equal(x.runWeekOf(x.weekOf(x.addDays("2026-11-16", 14 * 7))).w, 15);
+  a.equal(x.runEasyMiles(15), 12);
+  a.equal(x.runWeekOf(x.weekOf(x.addDays("2026-11-16", 15 * 7))).w, 11, "past 15, the last block again");
+  x = runApp(11);
+  a.ok(fmts("2026-11-16").includes("mtit6"), "from week 11: the 6-mile test");
+  // Not a cluster session: a repeat paced from a test you have not run.
+  a.ok(!x.recommendCluster().fs.some((f) => x.HIC[f].runPlan));
+});
+
+test("paces come from your test time, by MTI's Running Calculator", () => {
+  const x = runApp(6);
+  a.match(x.dayPlan("2026-11-20").note, /Log a 3-mile test/, "no test yet: run them by feel");
+  x.sel = "2026-11-17";
+  x.setLog("2026-11-17", "hic.time", "30:00");
+  x.runTestStamp("2026-11-17");
+  a.equal(x.logs["2026-11-17"].hic.format, "mtit3", "the test day keeps its format");
+  a.equal(x.runTestTime("mtit3").s, 1800);
+  x.bump();
+  const fri = x.dayPlan("2026-11-20");
+  a.match(fri.note, /3 × 1 mile, each in 9:12–9:18/, ".3067 and .31 of 30:00");
+  a.match(fri.note, /From your 3-mile test of 30:00/);
+  a.match(x.dayPlan("2026-11-21").note, /6 mi at 12:48–13:44 per mile/, ".4266 and .4577 of 30:00");
+  a.equal(x.ivOpts("2026-11-20", "mti1mi").rounds, 3, "the timer counts the day's repeats");
+  x.plan.unit = "kg"; x.bump();
+  a.match(x.dayPlan("2026-11-21").note, /9\.7 km at 7:57–8:32 per km/);
+});
+
+test("choosing running: the chooser's goal, Setup's entry week, and a race in the year", () => {
+  const x = blackApp("2026-11-18");
+  const r = x.recommendProgram({ cond: true, goal: "run", days: 3, exp: "some", barbell: true });
+  a.deepEqual(r.picks.map((p) => [p.stempl, p.cproto, p.runFrom]), [["fighter", "mtirun", 6]]);
+  a.deepEqual(r.alts.map((p) => p.runFrom), [1, 11]);
+  a.match(x.pickLine(r.picks[0]), /Fighter with MTI running from week 6/);
+  a.equal(x.itemWeeks(x.pickOf(r.picks[0])), 10);
+  // Setup shows where you are in it, and lets you change the entry.
+  x.plan.cproto = "mtirun"; x.plan.runFrom = 6; x.bump();
+  a.match(x.templateCard(), /data-act="runfrom" data-v="11"/);
+  a.match(x.templateCard(), /week 6 of 15/);
+  // A race: Base Building, then the plan from week 6, ending on race day; shorter, from 11.
+  const sw = x.progSwitchMonday();
+  let p = x.ygPlan("race", x.addDays(sw, 19 * 7));
+  a.deepEqual(p.items.map((it) => (it.off ? "off" : `${it.cproto}/${it.runFrom}${it.bb ? "+bb" : ""}`)), ["off", "mtirun/6+bb"]);
+  p = x.ygPlan("race", x.addDays(sw, 7 * 7));
+  a.deepEqual(p.items.map((it) => it.off || it.runFrom), [true, 11]);
+  a.match(p.cut, /starts at week 11/);
+  // Starting it from the year sets the entry week; afterwards the books' next step is Black.
+  x.plan.cproto = "black"; x.bump();
+  x.yrInsert(0, p.items[1]);
+  x.setToday(x.addDays(sw, -6)); x.bump();
+  x.nextStart(); x.startProgram();
+  a.deepEqual([x.plan.cproto, x.plan.runFrom], ["mtirun", 11]);
+  a.equal(x.chzBookNext().cproto, "black");
+});

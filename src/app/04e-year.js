@@ -16,7 +16,7 @@ function yrItems(){ const q=plan.nextPrograms; return Array.isArray(q)?q.filter(
 // Cycles before the retest: the item's own, or the beginner path's one 9-week block, or
 // the book's two (TB I p33).
 function itemCycles(it){ return it.cycles||(it.path==='tb1beg'?1:DEF.testEvery) }
-function itemFixed(it){ const T=it.stempl&&STEMPL[it.stempl]; return !!(it.weeks||!T||T.lp) }
+function itemFixed(it){ const T=it.stempl&&STEMPL[it.stempl]; return !!(it.weeks||!T||T.lp||it.cproto==='mtirun') }
 // How long a block runs: Base Building, its cycles, then the retest. A block with a
 // length of its own keeps it: TB II p200's Black, nine weeks, and anything with no
 // wave to count (Progressive SE, nine weeks at most, TB II p73; a linear progression).
@@ -24,6 +24,7 @@ function itemWeeks(it){
   if(it.off) return 1;
   const bb=it.bb?bbLen(it.bb):0, T=it.stempl&&STEMPL[it.stempl];
   if(it.weeks) return bb+it.weeks;
+  if(it.cproto==='mtirun') return bb+16-(it.runFrom||1);
   if(!T) return bb+9;
   if(T.lp) return bb+12;
   const wl=it.stempl==='operator'&&it.path==='tb1beg'?9:T.wave.length;
@@ -73,6 +74,11 @@ function yrBookAfter(i){
    on, a week off before each; what is left over, too short for a block, is the program
    you are on running that much longer before it hands over. */
 const YR_GOALS={
+  race:{label:'A race, 5K to 10K',date:'Race day',name:'the race',
+    seq:()=>[[{off:true},{stempl:'fighter',cproto:'mtirun',bb:'standard',runFrom:6,why:['Base Building first, its E sessions run (walk-run is fine, TB II p89), then MTI’s plan from week 6 with Fighter.','TB II p17, MTI']}],
+             [{off:true},{stempl:'fighter',cproto:'mtirun',runFrom:6,why:['MTI’s plan from week 6 with Fighter: the 3-mile test, then the 6-mile.',RUN_SRC]}],
+             [{off:true},{stempl:'fighter',cproto:'mtirun',runFrom:11,why:['MTI’s last block with Fighter: the 6-mile test and 2-mile repeats.',RUN_SRC]}]],
+    cut:'No room for Base Building, so MTI’s plan starts at week 6.',cut2:'Not enough room for week 6: MTI’s plan starts at week 11, which MTI pitches at experienced runners.',cite:RUN_SRC},
   event:{label:'Selection or a test',date:'Event date',name:'the event',
     seq:()=>[[{off:true},{stempl:'fighter',cproto:'black',bb:'standard',weeks:9,why:['The book’s 17-week program: 8 weeks of Base Building, then 9 of Black with Fighter, run on until your benchmarks are met.','TB II p200']}],
              [{off:true},{stempl:'fighter',cproto:'black',weeks:9,why:['Black with Fighter. The book starts with 8 weeks of Base Building; there is not room for it.','TB II p200']}]],
@@ -98,7 +104,7 @@ function ygPlan(goal,date){
   items.push(...tail.map(x=>Object.assign({},x)));
   const extra=Math.max(0,free);
   if(items[0]) items[0].start=addDays(from,extra*7);
-  return {items,gap,extra,short,cut:k>0?G.cut:'',need:len(seqs[seqs.length-1]),cite:G.cite,G};
+  return {items,gap,extra,short,cut:k>1&&G.cut2?G.cut2:k>0?G.cut:'',need:len(seqs[seqs.length-1]),cite:G.cite,G};
 }
 // Taking it: the year is replaced, and the goal kept so planning again starts there.
 function ygUse(){

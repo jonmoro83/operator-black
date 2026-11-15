@@ -507,6 +507,8 @@ function templateCard(){
     h+=`<label class="f">Conditioning protocol<select id="p-cproto" data-pbind="cproto">${pkeys.map(k=>`<option value="${k}"${k===cprotoKey()?' selected':''}>${esc(CPROTO[k].name)} · ${esc(CPROTO[k].book)}</option>`).join('')}</select></label>
     <div class="small muted">${esc(P.blurb)}</div>`;
   }
+  if(cprotoKey()==='mtirun') h+=`<div class="restsel"><span>Start at week</span><div class="seg">${[[1,'1 · new to running'],[6,'6 · some behind you'],[11,'11 · experienced']].map(([v,l])=>`<button class="segb${runFrom()===v?' on':''}" data-act="runfrom" data-v="${v}" aria-pressed="${runFrom()===v}">${l}</button>`).join('')}</div></div>
+    <p class="note" style="margin:0">MTI’s entry points by level. This program is in week ${runWeekOf(weekOf(realToday())).w} of 15. <span class="mono muted">${RUN_SRC}</span></p>`;
   if(P.noStrength) h+=`<div class="banner info"><div class="small">${esc(P.name)} does no barbell work at all \u2014 the book is explicit about it \u2014 so your strength template is set aside while this protocol is running. It comes back the moment you switch off it.</div></div>`;
   else if(T.split) h+=halvesCard();
   const warn=programWarnings(stemplKey(),cprotoKey(),false);
@@ -946,6 +948,14 @@ function guideMti(){
   ${['AA','GC','PD','E'].map(c=>by(c)?`<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(TB_CAT[c])}</h4>${by(c)}</div>`:'').join('')}
   <p class="note">Prescriptions are MTI\u2019s, paraphrased from the article each names. Where an article gives no round count, the timer\u2019s is the app\u2019s, and says so. MTI\u2019s studies are small, a handful of athletes each, and where they disagree with the book the app follows the book. The sessions that need an assessment first, MTI\u2019s speed-over-ground intervals among them, are not here yet.</p></div>`;
 }
+function guideRun(){
+  const ks=Object.keys(HIC).filter(k=>HIC[k].runPlan);
+  return `<div class="card guide"><h3>Conditioning: MTI’s running plan</h3>
+  <p>Neither Tactical Barbell nor MTI has a separate program for a beginner runner; both start you inside one they have. Choose <b>MTI running</b> as your protocol and the app runs MTI’s Running Improvement Plan: fifteen weeks in three blocks, a 1.5-mile test and 800 m repeats, then a 3-mile test and 1-mile repeats, then a 6-mile test and 2-mile repeats, with two easy distance runs a week growing from 3 miles to 12. Start at week 1 if you are new to running, week 6 with some running behind you, week 11 if you are experienced; alongside lifting, MTI starts at week 6 and Fighter’s two days take the place of its strength days.</p>
+  <p><b>Paced from you.</b> Log your test time and every repeat and easy run after it is worked out from it, with MTI’s Running Calculator: each repeat a little faster than test pace, easy miles well slower. Test again and the paces move with you.</p>
+  <div class="stack" style="gap:6px">${ks.map(guideBookEntry).join('')}</div>
+  <p class="note">The plan’s shape, the paces and the easy-run distances are MTI’s. Its day-by-day sessions are sold, not published, so which weeks test (the first and fourth of each block), how many repeats, and the five minutes between them are the app’s, the rest from MTI’s 800 m study.</p></div>`;
+}
 function guideHicBook(){
   const entry=guideBookEntry;
   const group=(cat,intro)=>{const ks=Object.keys(HIC).filter(k=>HIC[k].book&&HIC[k].book.cat===cat).sort((a0,b0)=>HIC[a0].book.n-HIC[b0].book.n);
@@ -1008,6 +1018,7 @@ function vGuideHtml(){
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
   ${guideHicBook()}
   ${guideMti()}
+  ${guideRun()}
   ${guideCoreGrip()}
   <div class="card guide"><h3>Plyometrics</h3><p>A nervous-system stimulus, not a workout. Quality of each rep matters far more than how many you do: 15 to 20 minutes of actual work, once a week and never after conditioning. Phases rotate every 3 training weeks. Deload weeks use the extensive session at half volume.</p>
   <p><b>They are not tied to a session.</b> Thursday is the default, because that is where the week's middle conditioning day sits, but plyos are their own thing and move on their own. Open any day in a training week, tap <b>Move…</b>, and pick a day under Plyometrics. That changes the week you are looking at and nothing else; picking Thursday again clears it. Whatever was already on the day you choose stays — plyos go first, and on a conditioning day you get ten minutes between the two.</p>
