@@ -74,6 +74,20 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   it, and the books' sequences as presets to fill it (TB III p129's Base Building,
   General Mass, Specificity; the OMS rotation; TB II's 9 weeks of Black then 9 of Green,
   p66; TB I's beginner path to Zulu). Prototype it first, as the chooser was.
+  Prototyped 2026-11-15 (canvas "Year Planner Prototype": A a list, B a 13-week strip,
+  C planned back from a goal). Decided: **C feeding A**. "Plan a year" asks what the
+  year is for (a race, selection or a test, size, strength) and the date, and works the
+  book's sequence back from it: race = Base Building as running, then MTI from week 6
+  with Fighter; short of room, drop Base Building, then start MTI at week 11 (MTI's
+  entry by level). Event = TB II p200's 8 weeks of Base Building, then 9 of Black.
+  Size = TB III p129. Strength = Zulu with Black blocks (TB I p49). The weeks before
+  are filled with whole blocks, and leftovers show as open weeks; too short says so and
+  points at a later date or Change program now. "Use this plan" lines up the first
+  block and writes the rest to the list, which is A: every block with dates, tap to
+  move, add after (the books' next steps first, then everything) or remove; "Fill the
+  year from a book sequence" keeps A's presets. Week off: **warn and offer**, a note on
+  any block after 18 or more weeks without one (TB I p58), with "Add a week off before
+  this". After the goal, a week off and the chooser again.
 - **The program chooser (asked 2026-11-15; steps one to three shipped in 3.93 and 3.94).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
