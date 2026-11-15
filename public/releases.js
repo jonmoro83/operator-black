@@ -6,6 +6,15 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.94',date:'2026-11-15',title:"Help choosing your program",items:[
+    "Welcome setup now opens its Program step on a Help me choose sheet. Eight quick questions, each already set to the most common answer, and the books' pick shows below with the page behind every reason. Tap Use this and it's selected for you; the full lists are still there underneath.",
+    "If you're new to the barbell you get two choices side by side: TB I's own beginner path and StrongLifts, each with what it asks of you.",
+    "TB I's beginner path runs Operator in 9-week blocks, the six-week wave and then its first three weeks again, before each retest, the way the book has it. Once your bench reaches 260 lb and your squat 300, the books suggest moving to Zulu.",
+    "On Black, setup also picks your starting conditioning cluster and E session from your main conditioning tool.",
+    "In Programs, Help me choose what's next lines up the next program. It can start when the cycle you're in ends, or after your retest, which is the book's point to change. It shows on the Programs card, with a Start it button in its last week.",
+    "Change program now shows the books' reasons to finish the block first, then asks what's changed: a back that needs a break, a new schedule, or an event moved up each get the program the books have for it.",
+    "Starting a new program no longer drops your goals, your conditioning cluster and E session, or your kit list.",
+  ]},
   {v:'3.93',date:'2026-11-15',title:"A cluster suggested from your kit",items:[
     "The conditioning cluster card in Setup has a Suggest a cluster button. Tick what you've got to train with, a kettlebell, a heavy bag, a hill, room to run, and it picks two or three of the book's sessions plus an E session you can actually do.",
     "The picks follow Tactical Barbell II: a mix of aerobic/anaerobic and general conditioning, nothing from the power sessions, and sessions with an Advanced version first, so the book's swap rule has something to aim for. Every reason shows its page.",

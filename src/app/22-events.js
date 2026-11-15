@@ -328,6 +328,20 @@ document.getElementById('main').addEventListener('click',e=>{
   // Black's recommendation and your cluster. See 04c-hic-rec.js.
   if(a==='hicnow'){hicStartNow();return}
   if(a==='hicsug'){clSug=true;render();return}
+  if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
+  if(a==='chzwz'){chzOpen('wz');render();return}
+  if(a==='chzclose'){chz=null;render();return}
+  if(a==='chznext'){chzOpen('next');render();return}
+  if(a==='chznow'){chzOpen(progWeeksLeft()>1?'warn':'now');render();return}
+  if(a==='chzctx'){if(chz){chz.ctx=b.dataset.v;chz.full=chz.ctx!=='next'}render();return}
+  if(a==='chzfull'){if(chz)chz.full=true;render();return}
+  if(a==='chzreason'){if(chz&&CHZ_WHY[b.dataset.v])chz.reason=b.dataset.v;render();return}
+  if(a==='chzuse'){chzUse(+b.dataset.i);render();return}
+  if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
+  if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
+  if(a==='nextstart'){nextStart();render();return}
+  if(a==='nextrm'){mutatePlan(p=>{p.nextPrograms=(p.nextPrograms||[]).slice(1)});return}
+  if(a==='chzstart'){if(chz)chz.start=b.dataset.v;render();return}
   if(a==='hicsugno'){clSug=false;render();return}
   if(a==='hicsuguse'){clSug=false;useClusterSuggestion(recommendCluster({kit:kitHave()}));return}
   if(a==='kit'){kitToggle(b.dataset.k);return}

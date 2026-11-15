@@ -46,7 +46,16 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
-- **The program chooser (asked 2026-11-15; step one shipped in 3.93).** Help picking
+- **A year of training, planned with the chooser (asked 2026-11-15).** "Plan future
+  cycles ... it would be nice to be able to plan an entire year of training using the
+  chooser." 3.94 stores what is lined up as a list (`plan.nextPrograms`), starts the
+  first and carries the rest into the new program, so a year is that list laid out.
+  Still to build: adding a second, third and later program to the list from the
+  chooser, each with its length (cycles and the retest), a year view to see and reorder
+  it, and the books' sequences as presets to fill it (TB III p129's Base Building,
+  General Mass, Specificity; the OMS rotation; TB II's 9 weeks of Black then 9 of Green,
+  p66; TB I's beginner path to Zulu). Prototype it first, as the chooser was.
+- **The program chooser (asked 2026-11-15; steps one to three shipped in 3.93 and 3.94).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
   path and StrongLifts side by side with a clear description of each; offer the chooser
@@ -184,6 +193,32 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The chooser, in setup and in Programs (2026-11-15, 3.94)**
+- Step three. The sheet is B from the prototype (`CHZ_Q`, preset by `CHZ_DEF`, last
+  answers from `programGoals.chooser`); the goal box on top waits for the coach fill-in
+  (step 5). `chz.ctx` decides what taking a pick does: `wz` fills the welcome setup's
+  Program step (`chzUseWz`), `next` lines it up (`chzLineUp`), `now` opens the
+  new-program form with it (`chzSwitch`), whose own second tap confirms. A first run
+  opens on the sheet; a re-run starts with it shut.
+- Mid-program, as prototyped: `warn` (TB I p49, p33) when more than one week is left,
+  "line it up" as the primary button, then `reason` (`CHZ_WHY`): back → Back Break,
+  schedule → Fighter, event → Fighter with Green; "something different" gets the book's
+  answer, finish the block, with switching still possible.
+- When a lined-up program starts (`progHandovers`): when the cycle under way ends, or
+  at `progSwitchMonday`, the Monday after the next retest (the OMS block's end when the
+  rotation is on). By request mid-step, so the user can begin "after my current cycle
+  ends"; the cycle-end choice says the block goes untested. The queue is a list,
+  `plan.nextPrograms`, for the year planner to come: Programs shows the first, offers
+  Start it in its last week, and `pickPatch` carries the rest into the new program.
+- TB I's beginner path (`plan.progPath==='tb1beg'`): `waveOf` returns Operator's six
+  weeks and then weeks 1–3 again, the user's call ("rearrange to match the book");
+  `baseWave` is what Setup edits. The path sets `testEvery` 1; leaving it restores the
+  default. The end-of-cycle review keyed on `w===6`, now on `cycleWeeks()`.
+- Setup's finish saves the path, a Mass Base Building version (`bbVer`), the answers,
+  and on Black a starting cluster and E from the main tool's kit when none exists.
+- Fixed along the way: `PREF_KEYS` left out `programGoals`, `hicCluster`, `hicE` and
+  `kit`, so every new program dropped the goals and Black's cluster.
 
 **A cluster suggested from your kit; the books' next program (2026-11-15, 3.93)**
 - Step one of the program chooser (see Next up). `04d-prog-rec.js` holds the engine.

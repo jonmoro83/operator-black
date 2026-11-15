@@ -2,7 +2,7 @@
 // Logs are stored by date and programs never overlap, so a program is just a start
 // date plus its plan. Archiving copies the current plan (frozen weeks, maxes, reviews
 // included) into programs/<id> with an end date; nothing about the logs changes.
-const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','ivFree','cal','accSlots','accPick','accCustom','accRest','accRestBy','accSwitch','accSwitchBy','supps','suppCustom','warmRoutine','warmCustom','stempl','cproto','oms'];
+const PREF_KEYS=['unit','bar','bodyweight','lift3Name','machineNote','l3','acc','basis','tmPct','round','waves','inc','deloadEvery','testEvery','deload','goal','sleepTarget','proteinPerLb','rest','cardio','ivRounds','ivFree','cal','accSlots','accPick','accCustom','accRest','accRestBy','accSwitch','accSwitchBy','supps','suppCustom','warmRoutine','warmCustom','progPath','stempl','cproto','oms','programGoals','hicCluster','hicE','kit'];
 let newProg=null;
 // "Next deload: Mon 12/28 (after Cycle 2)" from the live calendar
 function nextScheduled(kind){
@@ -148,19 +148,78 @@ function programsCard(){
   let h=`<div class="card"><h2>Programs and archive</h2><div class="grid2"><label class="f">Current program<input type="text" id="p-pname" data-pbind="programName" value="${esc(plan.programName||'')}" placeholder="${esc(progName())}"></label><label class="f">Started<input type="text" value="${fmtLong(plan.startMonday)}" disabled></label></div>`;
   if(list.length) h+=`<div class="stack small">${list.map(p=>`<div class="row between"><span><b>${esc(p.name)}</b> <span class="muted">${fmtD(p.startMonday)}–${fmtD(p.end)}</span></span><button class="btn sm" data-act="progview" data-id="${p.id}">View</button></div>`).join('')}</div>`;
   h+=omsSetup();
-  if(!newProg) h+=`<div class="row"><button class="btn" data-act="prognew">Start a new program…</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
+  h+=nextLinedUp();
+  if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
+  else if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
   else {
     const carried=activeLifts().filter(k=>cm[k]!=null).map(k=>esc(liftName(k))+' '+(isBW(k)?'+':'')+n(cm[k])).join(' · ')||'no maxes yet';
     h+=`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">
     <div class="grid2"><label class="f">New program name<input type="text" id="np-name" data-np="name" value="${esc(newProg.name)}"></label><label class="f">Starts (week of)<input type="date" id="np-start" data-np="start" value="${newProg.start}"></label></div>
     <label class="check"><input type="radio" name="np-mode" id="np-carry" data-np="mode" value="carry" ${newProg.mode==='carry'?'checked':''}> <span>Carry my maxes forward <span class="small muted">(${carried})</span></span></label>
     <label class="check"><input type="radio" name="np-mode" id="np-bridge" data-np="mode" value="bridge" ${newProg.mode==='bridge'?'checked':''}> <span>Start with a bridge week and re-test <span class="small muted">(your current maxes show on test days for reference)</span></span></label>
-    ${nextProgramNote()}
+    ${newProg.pick?`<div class="banner info"><div class="small">Starting <b>${esc(pickLine(newProg.pick))}</b>.${newProg.pick.why?` ${esc(newProg.pick.why[0])} <span class="mono muted">${esc(newProg.pick.why[1])}</span>`:''}</div></div>`:nextProgramNote()}
     <p class="note" style="margin:0">${esc(progName())} will be archived. Its calendar, maxes, reviews and every logged session stay viewable here and from History, Status and Plan. Your settings (Lift 3, accessories, rest times, conditioning, wave and deload rules) carry over.</p>
     ${newProg.err?`<div class="banner warn"><div class="small">${esc(newProg.err)}</div></div>`:''}
     <div class="row"><button class="btn primary" data-act="progstart">${newProg.arm?'Tap again to confirm':'Archive and start '+esc(newProg.name||'new program')}</button><button class="btn ghost" data-act="progcancel">Cancel</button></div></div>`;
   }
   return h+`</div>`;
+}
+/* The chooser (04d-prog-rec.js), drawn. One sheet of questions with the pick below it;
+   `btn` says what taking a pick does where it was opened. */
+function pickSrc(pk){ const b=pk.stempl?STEMPL[pk.stempl].book:CPROTO[pk.cproto].book; return b==='ours'?'Ours':b.replace(/^TB(\d)$/,(m,n)=>'TB '+['','I','II','III'][n]) }
+function whyList(why){ return `<ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">${why.map(([t,c])=>`<li>${esc(t)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span></li>`).join('')}</ul>` }
+function pickCard(pk,btn){
+  const T=pk.stempl&&STEMPL[pk.stempl], src=pickSrc(pk);
+  return `<div class="card" style="background:var(--bg)"><div class="lift-h"><h2>${esc(pk.oms?'The OMS rotation':pickName(pk))}</h2><span class="chip${src==='Ours'?'':' blue'}">${esc(src)}</span></div>
+  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${btn}</div>`;
+}
+function chooserSheet(btn){
+  const a=chz.a, r=chzResult(), two=r.picks.length>1;
+  let h=`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
+  <h3>The books suggest</h3>${two?'<p class="note" style="margin:0">Two good paths for where you are: the book’s own, and ours. They differ in what they ask of you first.</p>':''}`;
+  r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two)) });
+  for(const [t,c] of r.notes) h+=`<div class="banner info"><div class="small">${esc(t)} <span class="mono muted">${esc(c)}</span></div></div>`;
+  if(r.alts.length) h+=`<h3>Also fits</h3>`+r.alts.map((pk,j)=>pickCard(pk,pk.oms?'<div class="small muted">Set it up under OMS rotation in Setup → Programs.</div>':btn(pk,r.picks.length+j,false))).join('');
+  return h;
+}
+function chzBtn(ctx){
+  const sw=fmtD(chzStart(),true);
+  return (pk,i,two)=>ctx==='wz'?(chz.used===i?'<div class="small"><b>✓ Set.</b> Selected in the lists below.</div>':`<button class="btn primary" data-act="chzuse" data-i="${i}">${two?'Choose '+esc(pickName(pk)):'Use this'}</button>`)
+    :ctx==='next'?`<button class="btn primary" data-act="chzuse" data-i="${i}">Line it up for ${esc(sw)}</button>`
+    :`<button class="btn primary" data-act="chzuse" data-i="${i}">Switch to this</button>`;
+}
+// Programs: what comes next, and a change asked for with weeks still to run. The
+// user's call (2026-11-15): the books' reasons first, "line it up" as the main button,
+// and switching now only after saying what changed, then a second tap on the form.
+function chooserFlow(){
+  const c=chz, cur=progName(), wl=progWeeksLeft(), sw=esc(fmtD(c.ctx==='next'?chzStart():progSwitchMonday(),true)), hs=progHandovers();
+  let h=`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">`;
+  if(c.ctx==='next'){
+    const nx=chzBookNext();
+    const st=chzStart(), hk=(hs.find(x=>x.start===st)||{}).k;
+    h+=`<h3>After ${esc(cur)}</h3>${hs.length>1?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===st?' on':''}" data-act="chzstart" data-v="${x.start}" aria-pressed="${x.start===st}">${esc(x.label)} \u00b7 ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}
+    <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick is lined up for then; nothing changes before.`}</p>`
+      +pickCard(nx,`<button class="btn primary" data-act="chzlinebook">Line it up for ${sw}</button>`).replace(/<span class="chip blue">[^<]*<\/span>/,'<span class="chip blue">The books’ next step</span>')
+      +(c.full?chooserSheet(chzBtn('next')):`<button class="btn" data-act="chzfull">Something else: answer the questions</button>`);
+  } else if(c.ctx==='warn'){
+    h+=`<h2>You’re ${wl} weeks from the end of this one</h2><div class="banner warn"><ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>Keep a cluster for at least two blocks before changing it. <span class="mono muted">TB I p49</span></li><li>The book’s best strength phase is two blocks between tests. Switching now leaves this block untested, so the next program starts from the maxes you have now. <span class="mono muted">TB I p33</span></li></ul></div>
+    <button class="btn primary" data-act="chzctx" data-v="next">Line up the change for ${sw} instead</button><button class="btn" data-act="chzctx" data-v="reason">I need to switch now</button><button class="btn ghost" data-act="chzclose">Keep going with ${esc(cur)}</button>`;
+    return h+`</div>`;
+  } else if(c.ctx==='reason'){
+    h+=`<h2>What’s changed?</h2><p class="note" style="margin:0">The books have an answer for most reasons to switch.</p><div class="stack" style="gap:6px">${Object.entries(CHZ_WHY).map(([k,x])=>`<button class="btn${c.reason===k?' primary':''}" style="justify-content:flex-start" data-act="chzreason" data-v="${k}" aria-pressed="${c.reason===k}">${esc(x.label)}</button>`).join('')}</div>`;
+    if(c.reason){ const pk=CHZ_WHY[c.reason].pick();
+      h+=pk?pickCard(pk,`<button class="btn primary" data-act="chzswitchwhy">Switch to ${esc(pickName(pk))} now</button><button class="btn ghost" data-act="chzctx" data-v="now">Choose from all of them</button>`)
+        :`<div class="card" style="background:var(--bg)"><p class="note" style="margin:0">The book’s answer to wanting something different is to finish the block: change the cluster at the start of the next one instead. <span class="mono muted small">TB I p49</span></p><button class="btn primary" data-act="chzctx" data-v="next">Line it up for ${sw}</button><button class="btn" data-act="chzctx" data-v="now">Switch now anyway</button></div>`;
+    }
+  } else if(c.ctx==='now'){
+    h+=`<h3>Change program now</h3><p class="note" style="margin:0">The new program starts next week, with your maxes carried over.</p>`+chooserSheet(chzBtn('now'));
+  }
+  return h+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
+}
+// A program lined up to follow this one, until it starts. Offered in its last week.
+function nextLinedUp(){
+  const n=nextQueued(); if(!n||newProg) return '';
+  return `<div class="banner info"><div class="lift-h"><b>Lined up next</b><span class="chip blue">${esc(fmtD(n.start,true))}</span></div><div class="small">${esc(pickLine(n))}${n.why?`. ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1])}</span>`:''}</div><div class="row">${nextDue()?'<button class="btn sm primary" data-act="nextstart">Start it</button>':''}<button class="btn sm ghost" data-act="nextrm">Remove</button></div></div>`;
 }
 /* What the books suggest after this program (04d-prog-rec.js), said beside the form.
    Advice only: the new program starts on your current settings, and Setup is where the
@@ -171,7 +230,7 @@ function nextProgramNote(){
   return `<div class="banner info"><div class="small"><b>What the books suggest next:</b> ${same?'the same again':esc((T?T.name+' with ':'')+P.name)}.${nx.why.map(([t,c])=>` ${esc(t)} <span class="muted">${esc(c)}</span>`).join('')}${same?'':' Change the template and protocol in Setup \u2192 Program once it starts.'}</div></div>`;
 }
 function startProgram(){
-  const err=beginProgram(newProg);
+  const err=beginProgram(newProg,newProg.pick?pickPatch(newProg.pick,newProg.queued?(plan.nextPrograms||[]).slice(1):null):undefined);
   if(err){newProg.err=err;newProg.arm=false;render();return}
   newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }
@@ -755,8 +814,8 @@ function vSetup(){
   }
   // Nothing to edit on a program with no wave: the template answers for every session
   // itself, so an editor here would take numbers and ignore them.
-  if(!lpOn()) h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="note" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>
-  <p class="note" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${waveOf().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
+  if(!lpOn()) h+=SEC('program')+`<div class="card"><h2>The wave</h2><p class="note" style="margin:0">Six weeks, repeating. Sources disagree on weeks 5–6 (some use 3×3 @ 85% and 3×1 @ 95%). Check your copy of the book.</p>${waveOf().length>baseWave().length?'<div class="banner info"><div class="small">You are on TB I\u2019s beginner path, so each block runs these six weeks and then weeks 1 to 3 again before you retest: nine weeks, as the book has it (p29).</div></div>':''}
+  <p class="note" style="margin:0"><b>Up to</b> sets a standing ceiling for a week, and is optional twice over: you can also just tap <b>+</b> on any lift card to add a set on the day. Leave this blank and the week is exactly the sets prescribed. Set it higher and the extra sets show on the lift card as dashed buttons you can take or leave — this is the Operator I/A idea, where you decide the volume session by session. <i>Ageless Athlete</i> allows as many as ten sets per lift, and calls a couple of extra sets the gentlest way to add size. The two-minute rest rule still applies to every set.</p><div class="tbl-wrap"><table class="wavetbl"><thead><tr><th>Week</th><th class="n">Sets</th><th class="n">Up to</th><th class="n">Reps</th><th class="n">%</th><th></th></tr></thead><tbody>${baseWave().map((v0,i)=>{const v=v0||{},W='waves.'+stemplKey()+'.'+i+'.';return `<tr><td><b>${i+1}</b></td><td class="n">${pIn(W+'s',v.s)}</td><td class="n">${pIn(W+'sMax',v.sMax,'placeholder="'+(v.s??'')+'"')}</td><td class="n">${pIn(W+'r',v.r)}</td><td class="n">${pIn(W+'p',v.p)}</td><td><span class="chip ${tier(+v.p)}">${{light:'Light',mid:'Medium',heavy:'Heavy'}[tier(+v.p)]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
   {
     const byBook=(+plan.testEvery||0)===2&&(+plan.deloadEvery||0)===0;
     h+=SEC('program')+`<div class="card"><h2>Cycles, deloads and retests</h2>

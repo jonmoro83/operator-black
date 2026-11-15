@@ -549,10 +549,18 @@ function cprotoKey(){ return CPROTO[plan.cproto]?plan.cproto:'black' }
 // The wave belongs to the template: Fighter's is a three-week block run twice, not
 // Operator's six. Yours, once you have edited it, lives under plan.waves by template,
 // so switching templates does not carry one program's numbers into another.
-function waveOf(tpl){
+function baseWave(tpl){
   const k=tpl&&STEMPL[tpl]?tpl:stemplKey();
   const w=(plan.waves||{})[k];
   return Array.isArray(w)&&w.length?w:STEMPL[k].wave;
+}
+/* The block as it runs. On TB I's beginner path Operator is run "in 9 week blocks
+   before re-testing" (p29), and the book's wave is six, so the block is the wave and
+   then its first three weeks again: the user's call (2026-11-15), over retesting at
+   six or twelve. Setup edits the six; the repeat follows them. */
+function waveOf(tpl){
+  const k=tpl&&STEMPL[tpl]?tpl:stemplKey(), w=baseWave(k);
+  return k==='operator'&&plan.progPath==='tb1beg'&&w.length===6?[...w,...w.slice(0,3)]:w;
 }
 // How long a cycle runs. Derived, so a template with a three- or nine-week wave works.
 /* A linear-progression program is one cycle that never ends: no wave to run out, so

@@ -10762,3 +10762,148 @@ test("what comes next follows the books' sequences", () => {
   for (const c of [{ stempl: "zulu", cproto: "black" }, { stempl: "mass", cproto: "massgreen" }, { stempl: "fighter", cproto: "greense" }])
     a.ok(nx(c).why.every(([, cite]) => CITE.test(cite)));
 });
+
+/* ---------- the chooser, in setup and in Programs (3.94) ----------
+The user's calls from the prototype (2026-11-15): one sheet of questions preset to the
+commonest answers with the pick following (B; the goal box on top comes with the coach,
+step 5); the mid-program change as prototyped, the books' reasons first and "line it
+up" the main button, a stated reason before switching now, then the form's second tap;
+and TB I's beginner path in 9-week blocks, "rearrange to match the book". */
+test("TB I's beginner path runs Operator in 9-week blocks: the wave, then weeks 1–3 again", () => {
+  const x = blackApp("2026-11-18");
+  a.equal(x.cycleWeeks(), 6);
+  x.plan.progPath = "tb1beg"; x.plan.testEvery = 1; x.bump();
+  a.equal(x.cycleWeeks(), 9, "TB I p29");
+  const W = x.waveOf();
+  a.deepEqual(W.slice(6), W.slice(0, 3), "weeks 7 to 9 repeat 1 to 3");
+  a.equal(x.baseWave().length, 6, "Setup still edits the six");
+  const wk9 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1 && w.w === 9);
+  a.ok(wk9, "a ninth cycle week");
+  a.equal(x.weeks()[wk9.idx + 1].kind, "test", "then the retest");
+  a.equal(x.reviewCycleFor(x.addDays(wk9.monday, 6)), 1, "the review comes at the end of week 9");
+  const wk6 = x.weeks().find((w) => w.kind === "cycle" && w.cycle === 1 && w.w === 6);
+  a.equal(x.reviewCycleFor(x.addDays(wk6.monday, 6)), null, "not at week 6");
+  x.plan.stempl = "zulu"; x.bump();
+  a.equal(x.cycleWeeks(), 6, "the path is Operator's alone");
+});
+
+test("the welcome setup opens on the chooser, and a pick carries through to Start", () => {
+  const x = app({ now: "2026-11-15" });
+  x.wz = x.wzNew(false); x.wz.step = 1; x.wz.cardio = "rower";
+  a.equal(x.chz.ctx, "wz", "a first run opens on it");
+  let h = x.vWelcome();
+  a.match(h, /Help me choose/); a.match(h, /data-act="chz" data-k="days" data-v="4"/);
+  a.match(h, /The books suggest/);
+  // A beginner gets both, and takes the book's path.
+  a.ok(x.chzSet("exp", "new"));
+  a.equal(x.chzSet("exp", "nonsense"), false);
+  h = x.vWelcome();
+  a.match(h, /Choose Operator/); a.match(h, /Choose StrongLifts/);
+  a.ok(x.chzUse(0));
+  a.equal(x.wz.stempl, "operator"); a.equal(x.wz.progPath, "tb1beg"); a.equal(x.wz.test, 1);
+  a.match(x.vWelcome(), /✓ Set\./);
+  x.wzFinish();
+  a.equal(x.plan.progPath, "tb1beg");
+  a.equal(x.plan.testEvery, 1, "a retest after every 9-week block");
+  a.equal(x.plan.programGoals.chooser.exp, "new", "the answers are kept for next time");
+  a.ok(Object.values(x.plan.inserts).includes("bb"), "Base Building first (TB II p19)");
+  a.equal(x.hicCluster().length, 3, "Black's cluster chosen with the program");
+  a.ok(x.hicCluster().every((c) => !x.HIC_KIT[c.f] || x.kitOk(c.f, ["machine"])), "from the rower's kit");
+  a.equal(x.cycleWeeks(), 9);
+  // Mass Protocol starts with its own Base Building.
+  const y = app({ now: "2026-11-15" });
+  y.wz = y.wzNew(false); y.wz.step = 1;
+  y.chzSet("goal", "size"); y.chzSet("days", "4"); y.chzUse(0);
+  y.wzFinish();
+  a.equal(y.plan.stempl, "mass"); a.equal(y.plan.cproto, "massgreen");
+  const at = Object.keys(y.plan.inserts).find((k) => y.plan.inserts[k] === "bb");
+  a.equal(y.plan.bbVer[at], "mass", "TB III p129");
+  // A re-run keeps the program it has and starts with the chooser shut.
+  y.wz = y.wzNew(true);
+  a.equal(y.chz, null);
+  y.wz.step = 1;
+  a.match(y.vWelcome(), /data-act="chzwz"/);
+});
+
+test("what's next is lined up for the handover, then started with its settings", () => {
+  const x = blackApp("2026-11-18");
+  const sw = x.progSwitchMonday();
+  a.equal(sw, "2027-02-15", "the Monday after the retest that ends two cycles");
+  a.equal(x.progWeeksLeft(), 13);
+  x.chzOpen("next");
+  const h = x.programsCard();
+  a.match(h, /The books’ next step/); a.match(h, /TB I p49/, "the same again, by the book");
+  a.match(h, /data-act="chzfull"/);
+  x.chz.full = true; x.chzSet("days", "4");
+  a.match(x.programsCard(), /Line it up for/);
+  const i = x.chzResult().all.findIndex((p) => p.stempl === "zulu");
+  a.ok(x.chzUse(i));
+  a.equal(x.chz, null);
+  a.deepEqual([x.plan.nextPrograms[0].stempl, x.plan.nextPrograms[0].cproto, x.plan.nextPrograms[0].start], ["zulu", "black", sw]);
+  a.match(x.programsCard(), /Lined up next/);
+  a.doesNotMatch(x.programsCard(), /data-act="nextstart"/, "not offered until its last week");
+  // The last week before it: offered, and starting it takes the pick.
+  x.setToday("2027-02-09"); x.bump();
+  a.ok(x.nextDue());
+  a.match(x.programsCard(), /data-act="nextstart"/);
+  x.nextStart();
+  a.equal(x.newProg.start, sw);
+  a.match(x.programsCard(), /Starting <b>Zulu with Black/);
+  x.plan.hicCluster = [{ f: "gc1", since: "2026-11-16" }]; x.plan.programGoals = { aim: "315 squat" }; x.bump();
+  x.newProg.arm = true; x.startProgram();
+  a.equal(x.plan.stempl, "zulu"); a.equal(x.plan.startMonday, sw);
+  a.deepEqual(x.plan.nextPrograms, [], "used up, and the rest of the queue (none) carried");
+  a.deepEqual(x.hicCluster().map((c) => c.f), ["gc1"], "the cluster carries into the new program");
+  a.equal(x.plan.programGoals.aim, "315 squat", "and so do the goals");
+});
+
+test("changing mid-program: the books' reasons, a stated reason, then the form's second tap", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.programGoals = { chooser: { days: "2", exp: "nonsense" } }; x.bump();
+  x.chzOpen("warn");
+  a.equal(x.chz.a.days, "2", "last time's answers come back");
+  a.equal(x.chz.a.exp, "some", "only valid ones");
+  let h = x.programsCard();
+  a.match(h, /13 weeks from the end/);
+  a.match(h, /TB I p49/); a.match(h, /TB I p33/);
+  a.match(h, /data-act="chzctx" data-v="next">Line up the change/, "lining it up is the main button");
+  x.chz.ctx = "reason"; x.chz.reason = "event";
+  h = x.programsCard();
+  a.match(h, /Fighter/); a.match(h, /TB II p69, p71/);
+  a.ok(x.chzSwitch(x.CHZ_WHY.event.pick()));
+  a.equal(x.newProg.start, "2026-11-23", "next week");
+  a.deepEqual([x.newProg.pick.stempl, x.newProg.pick.cproto], ["fighter", "green"]);
+  a.match(x.programsCard(), /Archive and start/, "the form's own confirmation still stands");
+  // Wanting something different has no program: the book says finish the block.
+  x.newProg = null; x.chzOpen("reason"); x.chz.reason = "other";
+  a.match(x.programsCard(), /finish the block/);
+  a.equal(x.CHZ_WHY.other.pick(), null);
+  // In the last week before the handover there is nothing to warn about.
+  x.setToday("2027-02-09"); x.bump();
+  a.equal(x.progWeeksLeft(), 1);
+});
+
+test("a lined-up program can start when the cycle ends or after the retest, and the queue carries on", () => {
+  // Asked for 2026-11-15: begin the next program "after my current cycle ends", as well
+  // as switching mid-cycle (Change program now) and the book's handover after the retest.
+  const x = blackApp("2026-11-18");
+  const hs = x.progHandovers();
+  a.deepEqual(hs.map((h) => [h.k, h.start]), [["cycle", "2026-12-28"], ["handover", "2027-02-15"]]);
+  a.match(hs[1].label, /After the retest/);
+  x.chzOpen("next");
+  a.equal(x.chzStart(), "2027-02-15", "the book's point by default");
+  x.chz.start = "2026-12-28";
+  const h = x.programsCard();
+  a.match(h, /data-act="chzstart" data-v="2026-12-28" aria-pressed="true"/);
+  a.match(h, /will not be retested/);
+  a.match(h, /Line it up for Mon 12\/28/);
+  x.chzLineUp(x.chzBookNext());
+  a.equal(x.plan.nextPrograms[0].start, "2026-12-28");
+  // Two queued: starting the first carries the second into the new program.
+  x.plan.nextPrograms.push({ stempl: "zulu", cproto: "black", bb: "", path: "", start: "2027-03-01" }); x.bump();
+  x.setToday("2026-12-23"); x.bump();
+  a.ok(x.nextDue()); x.nextStart(); x.startProgram();
+  a.equal(x.plan.startMonday, "2026-12-28");
+  a.deepEqual(x.plan.nextPrograms.map((n) => n.stempl), ["zulu"]);
+  a.match(x.programsCard(), /Lined up next/);
+});

@@ -4,9 +4,11 @@ let wz=null;
 function st0Saved(){return !!plan.onboarded}
 function nextMonday(){const t=realToday();return dow(t)===0?t:addDays(mondayOf(t),7)}
 function wzNew(rerun){
+  // A first run opens on the chooser; a re-run already has a program, so it starts shut.
+  if(rerun) chz=null; else chzOpen('wz');
   return {rerun:!!rerun,step:0,unit:plan.unit||'lb',bw:plan.bodyweight||'',l3:Object.assign({pull:true,ohp:false,wpu:false},rerun?(plan.l3||{}).on:{}),
     start:rerun?plan.startMonday:nextMonday(),mode:rerun&&!plan.bridge?'maxes':'bridge',rm:'1rm',maxes:rerun?clone(plan.maxes):{},cardio:defMod(),deload:rerun?(+plan.deloadEvery||0):0,test:rerun?(+plan.testEvery||0):3,
-    stempl:rerun?stemplKey():'operator',cproto:rerun?cprotoKey():'black',bb:false,
+    stempl:rerun?stemplKey():'operator',cproto:rerun?cprotoKey():'black',bb:false,bbVer:'',progPath:rerun?(plan.progPath||''):'',chooser:null,
     plyo:rerun?plan.plyoOn!==false:true,plyoDow:rerun?plyoDowDefault():3,
     plyoPer:rerun?plyoPerWeek():1,plyoDow2:rerun?plyoDow2():6};
 }
@@ -20,7 +22,7 @@ function vWelcome(){
     <div class="grid2"><label class="f">Units<div class="seg">${['lb','kg'].map(x=>`<button class="segb${w.unit===x?' on':''}" data-act="wzset" data-k="unit" data-v="${x}">${x}</button>`).join('')}</div></label><label class="f">Bodyweight (${w.unit}, optional)<input type="number" inputmode="decimal" step="any" id="wz-bw" data-wz="bw" value="${w.bw??''}"></label></div>
     <div class="small muted">Bodyweight is used for protein targets and weighted pull-ups.</div>`;
   } else if(w.step===1){
-    h+=`<p style="margin:0">Two choices, and the week is built from them. Everything here is from the books \u2014 the app only arranges it.</p>
+    h+=wzChooser()+`<p style="margin:0">Two choices, and the week is built from them. Everything here is from the books \u2014 the app only arranges it.</p>
     <label class="f">Strength template<div class="stack">${Object.entries(STEMPL).map(([k,T])=>`<button class="btn${w.stempl===k?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="wzset" data-k="stempl" data-v="${k}"><span><b>${w.stempl===k?'\u2713 ':''}${esc(T.name)}</b> <span class="small">\u00b7 ${tplDays(T,{w:1}).length} days \u00b7 ${esc(T.book)}</span><br><span class="small">${esc(T.blurb)}</span></span></button>`).join('')}</div></label>
     <label class="f">Conditioning protocol<div class="stack">${Object.entries(CPROTO).map(([k,P])=>`<button class="btn${w.cproto===k?' primary':''}" style="justify-content:flex-start;text-align:left;height:auto;padding:10px 12px" data-act="wzset" data-k="cproto" data-v="${k}"><span><b>${w.cproto===k?'\u2713 ':''}${esc(P.name)}</b> <span class="small">\u00b7 ${esc(P.book)}</span><br><span class="small">${esc(P.blurb)}</span></span></button>`).join('')}</div></label>
     <label class="check"><input type="checkbox" id="wz-bb" data-act-change="wzbb" ${w.bb?'checked':''}> Start with <b>Base Building</b> first</label>
@@ -104,6 +106,13 @@ function wzLpDays(w){
     out.push({short:x.short,lifts:(LIFTSET[x.lifts]||LIFTSET.SBD)(w.start)}) }
   return out;
 }
+// The chooser on the Program step (04d-prog-rec.js). Taking a pick fills in this step's
+// own choices, so the lists below show it selected and can still be changed.
+function wzChooser(){
+  if(!(chz&&chz.ctx==='wz')) return `<div class="row"><button class="btn" data-act="chzwz">Help me choose</button></div>`;
+  return `<div class="stack" style="gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line)"><div class="lift-h"><h3>Help me choose</h3><button class="btn sm ghost" data-act="chzclose">Pick it myself</button></div>
+  <p class="note" style="margin:0">Each answer is set to the commonest one. Change what isn\u2019t you; the pick follows.</p>${chooserSheet(chzBtn('wz'))}</div>`;
+}
 function wzLiftName(w,k){ return k==='pull'&&lpOn(w.stempl)?(plan.lift3Name||'Barbell row'):liftName(k) }
 function wzSet(k,v){
   if(!wz) return false;
@@ -131,12 +140,23 @@ function wzFinish(){
     p.cardio=Object.assign({},p.cardio||{},{def:w.cardio}); p.deloadEvery=w.deload; p.testEvery=w.test;
     p.startMonday=start; p.bridge=w.mode==='bridge';
     p.stempl=w.stempl; p.cproto=w.cproto;
+    // TB I's beginner path is Operator's; pick another template after choosing it and
+    // the path goes with the choice.
+    p.progPath=w.stempl==='operator'?(w.progPath||''):'';
+    if(w.chooser) p.programGoals=Object.assign({},p.programGoals,{chooser:w.chooser});
+    // Black's sessions, chosen with the program: a starting cluster from the kit your
+    // main tool implies, unless you already have one.
+    if(w.chooser&&CPROTO[w.cproto].recommend&&!(Array.isArray(p.hicCluster)&&p.hicCluster.length)){
+      const s=recommendCluster({kit:Array.isArray(p.kit)?p.kit:(MOD_KIT[w.cardio]||[]),goal:w.chooser.goal==='endurance'?'endurance':w.chooser.other==='yes'?'combat':''});
+      p.hicCluster=s.fs.map(f=>({f,since:mondayOf(w.start)})); p.hicE=s.e;
+    }
     p.plyoOn=!!w.plyo;
     if(w.plyo){ p.plyoDow=+w.plyoDow; p.plyoPerWeek=+w.plyoPer===2?2:1; p.plyoDow2=+w.plyoDow2 }
     // Base Building goes after the bridge week when there is one: the bridge is what
     // gives Base Building's two strength days their numbers.
     if(w.bb){ const at=w.mode==='bridge'?addDays(start,7):start;
-      p.inserts=Object.assign({},p.inserts,{[at]:'bb'}); }
+      p.inserts=Object.assign({},p.inserts,{[at]:'bb'});
+      if(w.bbVer&&w.bbVer!=='standard') p.bbVer=Object.assign({},p.bbVer,{[at]:w.bbVer}); }
     if(restart){p.frozen={};p.lockedMax={}}
     if(w.mode==='maxes'){const m={};for(const k of LK){const v=w.maxes[k];if(v!=null&&v!=='')m[k]=w.rm==='5rm'?floorTo(+v/.87,+(p.round||{})[k]||5):+v}p.maxes=Object.assign({},clone(DEF.maxes),p.maxes||{},m)}
     p.onboarded=true;

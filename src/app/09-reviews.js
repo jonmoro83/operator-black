@@ -39,7 +39,7 @@ function effSummary(x){ return (Array.isArray(x&&x.eff)?x.eff:[]).filter(Boolean
 // Keyed to the session, not the weekday, because a Friday lift moved to Saturday used
 // to bring the review in a day early.
 function cycleLiftsOver(c,date){
-  const wk=weeks().find(w=>w.kind==='cycle'&&w.cycle===c&&w.w===6); if(!wk) return true;
+  const wk=weeks().find(w=>w.kind==='cycle'&&w.cycle===c&&w.w===cycleWeeks()); if(!wk) return true;
   let last=null;
   for(let sl=0;sl<7;sl++){
     if(stackKindOf(dayPlanSlot(addDays(wk.monday,sl),sl))!=='lift') continue;
@@ -50,7 +50,7 @@ function cycleLiftsOver(c,date){
 function reviewCycleFor(date){
   const wk=weekOf(date); if(!wk) return null;
   let c=null;
-  if(wk.kind==='cycle'&&wk.w===6) c=wk.cycle;
+  if(wk.kind==='cycle'&&wk.w===cycleWeeks()) c=wk.cycle;
   else if(wk.kind==='cycle'&&wk.w<=2&&wk.cycle>1) c=wk.cycle-1;
   else if(wk.kind!=='cycle'&&wk.kind!=='bridge'&&wk.refCycle) c=wk.refCycle;
   if(!c||(plan.reviews||{})[c]||!cycleLiftsOver(c,date)) return null;
