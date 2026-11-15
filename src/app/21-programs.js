@@ -148,7 +148,7 @@ function programsCard(){
   let h=`<div class="card"><h2>Programs and archive</h2><div class="grid2"><label class="f">Current program<input type="text" id="p-pname" data-pbind="programName" value="${esc(plan.programName||'')}" placeholder="${esc(progName())}"></label><label class="f">Started<input type="text" value="${fmtLong(plan.startMonday)}" disabled></label></div>`;
   if(list.length) h+=`<div class="stack small">${list.map(p=>`<div class="row between"><span><b>${esc(p.name)}</b> <span class="muted">${fmtD(p.startMonday)}–${fmtD(p.end)}</span></span><button class="btn sm" data-act="progview" data-id="${p.id}">View</button></div>`).join('')}</div>`;
   h+=omsSetup();
-  h+=nextLinedUp();
+  h+=yearSection();
   if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
   else if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
   else {
@@ -185,6 +185,7 @@ function chooserSheet(btn){
 function chzBtn(ctx){
   const sw=fmtD(chzStart(),true);
   return (pk,i,two)=>ctx==='wz'?(chz.used===i?'<div class="small"><b>✓ Set.</b> Selected in the lists below.</div>':`<button class="btn primary" data-act="chzuse" data-i="${i}">${two?'Choose '+esc(pickName(pk)):'Use this'}</button>`)
+    :ctx==='add'?`<button class="btn primary" data-act="chzuse" data-i="${i}">Add to your year</button>`
     :ctx==='next'?`<button class="btn primary" data-act="chzuse" data-i="${i}">Line it up for ${esc(sw)}</button>`
     :`<button class="btn primary" data-act="chzuse" data-i="${i}">Switch to this</button>`;
 }
@@ -211,15 +212,12 @@ function chooserFlow(){
       h+=pk?pickCard(pk,`<button class="btn primary" data-act="chzswitchwhy">Switch to ${esc(pickName(pk))} now</button><button class="btn ghost" data-act="chzctx" data-v="now">Choose from all of them</button>`)
         :`<div class="card" style="background:var(--bg)"><p class="note" style="margin:0">The book’s answer to wanting something different is to finish the block: change the cluster at the start of the next one instead. <span class="mono muted small">TB I p49</span></p><button class="btn primary" data-act="chzctx" data-v="next">Line it up for ${sw}</button><button class="btn" data-act="chzctx" data-v="now">Switch now anyway</button></div>`;
     }
+  } else if(c.ctx==='add'){
+    h+=`<h3>Add to your year</h3>`+chooserSheet(chzBtn('add'));
   } else if(c.ctx==='now'){
     h+=`<h3>Change program now</h3><p class="note" style="margin:0">The new program starts next week, with your maxes carried over.</p>`+chooserSheet(chzBtn('now'));
   }
   return h+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
-}
-// A program lined up to follow this one, until it starts. Offered in its last week.
-function nextLinedUp(){
-  const n=nextQueued(); if(!n||newProg) return '';
-  return `<div class="banner info"><div class="lift-h"><b>Lined up next</b><span class="chip blue">${esc(fmtD(n.start,true))}</span></div><div class="small">${esc(pickLine(n))}${n.why?`. ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1])}</span>`:''}</div><div class="row">${nextDue()?'<button class="btn sm primary" data-act="nextstart">Start it</button>':''}<button class="btn sm ghost" data-act="nextrm">Remove</button></div></div>`;
 }
 /* What the books suggest after this program (04d-prog-rec.js), said beside the form.
    Advice only: the new program starts on your current settings, and Setup is where the
@@ -230,7 +228,7 @@ function nextProgramNote(){
   return `<div class="banner info"><div class="small"><b>What the books suggest next:</b> ${same?'the same again':esc((T?T.name+' with ':'')+P.name)}.${nx.why.map(([t,c])=>` ${esc(t)} <span class="muted">${esc(c)}</span>`).join('')}${same?'':' Change the template and protocol in Setup \u2192 Program once it starts.'}</div></div>`;
 }
 function startProgram(){
-  const err=beginProgram(newProg,newProg.pick?pickPatch(newProg.pick,newProg.queued?(plan.nextPrograms||[]).slice(1):null):undefined);
+  const err=beginProgram(newProg,newProg.pick?pickPatch(newProg.pick,newProg.queued?yrItems().slice(newProg.pick.qi+1):null):undefined);
   if(err){newProg.err=err;newProg.arm=false;render();return}
   newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }

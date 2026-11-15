@@ -6,6 +6,14 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.95',date:'2026-11-15',title:"Plan your year",items:[
+    "Setup → Programs now shows Your year: the program you're on, then everything lined up after it, each with its dates and length. Tap a block to move it, change how many cycles it runs before its retest, add a block after it, or remove it.",
+    "Plan a year from a goal: say what the year is for (selection or a test, putting on size, or getting stronger) and the date. The planner works the books' sequence back from that date: TB II's 8 weeks of Base Building then 9 of Black, or TB III's Mass Base Building, General Mass, then Specificity. Blocks of what the books suggest after your current program fill the weeks before it.",
+    "If the date is too close for the whole sequence, it shortens it and tells you what it left out. If it's too close for even the shortest version, it says so.",
+    "A week off every few months, as TB I has it: any block that comes after more than 18 weeks without one gets a note and an Add a week off button. A week off lined up before a program becomes that program's first week.",
+    "Adding a block offers the books' next step first, a week off, or the chooser's questions.",
+    "Only the first block is lined up for real. When it starts, the next one is set to start when it ends, and the rest follow.",
+  ]},
   {v:'3.94',date:'2026-11-15',title:"Help choosing your program",items:[
     "Welcome setup now opens its Program step on a Help me choose sheet. Eight quick questions, each already set to the most common answer, and the books' pick shows below with the page behind every reason. Tap Use this and it's selected for you; the full lists are still there underneath.",
     "If you're new to the barbell you get two choices side by side: TB I's own beginner path and StrongLifts, each with what it asks of you.",

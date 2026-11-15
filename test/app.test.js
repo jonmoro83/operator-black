@@ -10907,3 +10907,128 @@ test("a lined-up program can start when the cycle ends or after the retest, and 
   a.deepEqual(x.plan.nextPrograms.map((n) => n.stempl), ["zulu"]);
   a.match(x.programsCard(), /Lined up next/);
 });
+
+/* ---------- the year planner (3.95) ----------
+The user's calls from the prototype (2026-11-15): plan back from a goal date with the
+books' sequences, then see and change the year as a list ("C feeding A"); and the week
+off every few months (TB I p58) as a warning with a fix, never added for you. */
+test("the year is the queue: blocks laid end to end, with cycles and a week off", () => {
+  const x = blackApp("2026-11-18");
+  const sw = x.progSwitchMonday();
+  a.equal(x.yrBlocks().length, 0);
+  a.match(x.programsCard(), /Your year/);
+  a.match(x.programsCard(), /Nothing planned after it yet/);
+  // The books' next step, then a week off, then Zulu by the chooser.
+  x.yrInsert(0, x.pickOf(x.yrBookAfter(0)));
+  x.yrOffBefore(1);
+  x.yrInsert(2, { stempl: "zulu", cproto: "black", bb: "", path: "" });
+  const bl = x.yrBlocks();
+  a.deepEqual(bl.map((b) => b.weeks), [13, 1, 13], "two six-week cycles and the retest");
+  a.equal(bl[0].start, sw, "the first starts at the handover");
+  a.equal(bl[1].start, x.addDays(sw, 91));
+  a.equal(bl[2].start, x.addDays(sw, 98));
+  a.equal(x.plan.nextPrograms[0].start, undefined, "added by the planner, the handover is worked out");
+  a.ok(bl[0].warn, "13 weeks of this program and 13 more: no week off in 26 (TB I p58)");
+  a.equal(bl[0].since, 13);
+  a.ok(!bl[2].warn, "the week off resets the count");
+  x.yrOffBefore(0);
+  a.ok(!x.yrBlocks()[1].warn, "fixed by the button");
+  // Cycles before the retest, and moving.
+  x.yrCycles(3, 1);
+  a.equal(x.yrBlocks()[3].weeks, 19);
+  x.yrCycles(3, 5);
+  a.equal(x.plan.nextPrograms[3].cycles, 4, "four at most");
+  a.ok(x.yrMove(3, -1));
+  a.deepEqual(x.yrItems().map((it) => (it.off ? "off" : it.stempl)), ["off", "operator", "zulu", "off"]);
+  a.equal(x.yrMove(0, -1), false);
+  a.ok(x.yrRemove(3));
+  // Drawn: the dates, the lined-up chip, the warning and its fix.
+  x.yrSel = 1;
+  const h = x.programsCard();
+  a.match(h, /Lined up next · 13 weeks/, "the first program after the week off is the one lined up");
+  a.match(h, /Week off/);
+  a.match(h, /data-act="yrmv" data-i="1" data-v="-1"/);
+  a.match(h, /data-act="yrcyc" data-i="1"/);
+});
+
+test("starting from the year: a week off first, the cycles as its retest, the rest pinned", () => {
+  const x = blackApp("2026-11-18");
+  const sw = x.progSwitchMonday();
+  x.yrInsert(0, { off: true });
+  x.yrInsert(1, { stempl: "zulu", cproto: "black", bb: "standard", path: "", cycles: 1 });
+  x.yrInsert(2, { off: true });
+  x.yrInsert(3, { stempl: "operator", cproto: "black", bb: "", path: "" });
+  const n = x.nextQueued();
+  a.deepEqual([n.stempl, n.offFirst, n.qi, n.start], ["zulu", true, 1, sw]);
+  x.setToday(x.addDays(sw, -6)); x.bump();
+  a.ok(x.nextDue());
+  x.nextStart(); x.newProg.arm = true; x.startProgram();
+  a.equal(x.plan.startMonday, sw);
+  a.equal(x.plan.inserts[sw], "off", "the week off is the new program's first week");
+  a.equal(x.plan.inserts[x.addDays(sw, 7)], "bb", "Base Building after it");
+  a.equal(x.plan.testEvery, 1, "one cycle before the retest");
+  a.equal(x.weeks()[0].kind, "off");
+  // Zulu: 8 + 6 + 1 weeks after the week off, and the rest of the year pinned to that.
+  a.deepEqual(x.plan.nextPrograms.map((it) => (it.off ? "off" : it.stempl)), ["off", "operator"]);
+  a.equal(x.plan.nextPrograms[0].start, x.addDays(sw, 16 * 7));
+});
+
+test("planning back from a goal: the books' sequence ends on the date", () => {
+  const x = blackApp("2026-11-18");
+  const sw = x.progSwitchMonday();
+  x.ygOpen();
+  a.equal(x.yg.goal, "event");
+  // Selection 40 weeks after the handover: one filler block, then TB II p200's 17.
+  const date = x.addDays(sw, 39 * 7 + 5);
+  let r = x.ygPlan("event", date);
+  a.equal(r.gap, 40);
+  a.deepEqual(r.items.map((it) => (it.off ? "off" : it.stempl + "/" + it.cproto + (it.bb ? "+bb" : ""))), ["off", "operator/black", "off", "fighter/black+bb"]);
+  a.equal(r.extra, 40 - 14 - 18, "the rest is this program running longer");
+  a.equal(r.items[0].start, x.addDays(sw, r.extra * 7));
+  const lay = x.yrLay(r.items);
+  a.equal(lay[lay.length - 1].end, x.addDays(x.mondayOf(date), 6), "the last block ends the week of the event");
+  // Short of room: Black without Base Building, said so; shorter still, refused.
+  r = x.ygPlan("event", x.addDays(sw, 12 * 7));
+  a.ok(!r.short); a.match(r.cut, /No room for Base Building/);
+  a.deepEqual(r.items.map((it) => it.off || it.bb), [true, undefined]);
+  r = x.ygPlan("event", x.addDays(sw, 3 * 7));
+  a.ok(r.short);
+  x.yg.date = x.addDays(sw, 3 * 7);
+  a.match(x.programsCard(), /Shorter than the book’s shortest/);
+  a.equal(x.ygUse(), false);
+  // Size: Mass Base Building, General Mass, then Specificity.
+  r = x.ygPlan("size", x.addDays(sw, 18 * 7));
+  a.deepEqual(r.items.map((it) => (it.off ? "off" : it.stempl + "/" + it.cproto)), ["off", "mass/massgreen", "specalpha/massblack"]);
+  a.equal(r.items[1].bb, "mass", "TB III p129");
+  // Taking it replaces the year and keeps the goal.
+  x.yg = { goal: "event", date };
+  let h = x.programsCard();
+  a.match(h, /Worked back from the date/); a.match(h, /Use this plan/);
+  a.ok(x.ygUse());
+  a.equal(x.yg, null);
+  a.equal(x.plan.yearGoal.date, date);
+  a.equal(x.yrBlocks().length, 4);
+  x.ygOpen();
+  a.match(x.programsCard(), /Replace your year with this/);
+});
+
+test("adding to the year: the books' next step, a week off, or the chooser", () => {
+  const x = blackApp("2026-11-18");
+  x.yrAdd = 0;
+  let h = x.programsCard();
+  a.match(h, /The books’ next step/); a.match(h, /data-act="yraddchz"/);
+  x.chzOpen("add").at = 0; x.yrAdd = null;
+  h = x.programsCard();
+  a.match(h, /Add to your year/);
+  x.chzSet("days", "4");
+  const i = x.chzResult().all.findIndex((p) => p.stempl === "zulu");
+  a.ok(x.chzUse(i));
+  a.equal(x.yrItems()[0].stempl, "zulu");
+  a.equal(x.chz, null);
+  // Lining up from the chooser replaces the first program and keeps a week off before it.
+  x.yrOffBefore(0);
+  x.chzOpen("next");
+  x.chzLineUp(x.chzBookNext());
+  a.deepEqual(x.yrItems().map((it) => (it.off ? "off" : it.stempl)), ["off", "operator"]);
+  a.ok(x.yrItems()[0].start, "the handover goes on the first");
+});

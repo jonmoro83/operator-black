@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.94", RELEASES_SRC="/releases.js?b=4c48a71ecd";
+const APP_VERSION="3.95", RELEASES_SRC="/releases.js?b=505c6e5716";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4383,22 +4383,31 @@ function pickPatch(pk,rest){
   return next=>{
     if(pk.stempl) next.stempl=pk.stempl;
     next.cproto=pk.cproto; next.progPath=pk.path||'';
-    if(pk.path==='tb1beg') next.testEvery=1; else if(plan.progPath==='tb1beg') next.testEvery=DEF.testEvery;
-    if(pk.bb){ const at=next.bridge?addDays(next.startMonday,7):next.startMonday;
+    if(pk.path==='tb1beg') next.testEvery=1; else if(pk.cycles) next.testEvery=pk.cycles; else if(plan.progPath==='tb1beg') next.testEvery=DEF.testEvery;
+    // A week off lined up before it is the new program's first week (an Off insert).
+    const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
+    if(pk.offFirst) next.inserts=Object.assign({},next.inserts,{[next.startMonday]:'off'});
+    if(pk.bb){ const at=next.bridge?addDays(s0,7):s0;
       next.inserts=Object.assign({},next.inserts,{[at]:'bb'});
       if(pk.bb!=='standard') next.bbVer=Object.assign({},next.bbVer,{[at]:pk.bb}); }
-    // Started from the queue: the rest of the queue goes with it.
-    if(rest) next.nextPrograms=rest;
+    // Started from the queue: the rest of the year goes with it, and what follows is
+    // pinned to start when this one ends.
+    if(rest){ next.nextPrograms=rest.map(x=>Object.assign({},x));
+      if(rest[0]&&!rest[0].start) next.nextPrograms[0].start=addDays(next.startMonday,((pk.offFirst?1:0)+itemWeeks(pk))*7); }
     omsRebase(next);
   };
 }
-function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=pk.why[0]; return o }
+function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=Array.isArray(pk.why[0])?pk.why[0]:pk.why;
+  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; return o }
 // Lining one up: kept on the plan until its start, then offered.
 function chzLineUp(pk){
   if(!pk||pk.oms) return false;
   const o=Object.assign(pickOf(pk),{start:chzStart()});
-  // The queue is a list so that a year can be planned in it; this lines up the first.
-  mutatePlan(p=>{ p.nextPrograms=[o,...(Array.isArray(p.nextPrograms)?p.nextPrograms.slice(1):[])]; if(chz) p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
+  // The queue is the year (04e-year.js); this replaces its first program, keeping any
+  // week off lined up before it.
+  const q=yrItems().map(x=>Object.assign({},x)); let i=0; while(q[i]&&q[i].off) i++;
+  const st=o.start; q.splice(i,q[i]?1:0,o); q.forEach(x=>{ delete x.start }); q[0].start=st;
+  mutatePlan(p=>{ p.nextPrograms=q; if(chz) p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
   chz=null; return true;
 }
 // Switching now: the new-program form, with the pick to start on. Its own second tap
@@ -4409,7 +4418,12 @@ function chzSwitch(pk){
   if(chz&&chz.ctx!=='reason') mutatePlan(p=>{ p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
   chz=null; return true;
 }
-function nextQueued(){ const q=plan.nextPrograms; return Array.isArray(q)&&q[0]&&CPROTO[q[0].cproto]?q[0]:null }
+// The next program to start: the first in the year, after any week off lined up before
+// it, which then becomes its first week.
+function nextQueued(){
+  const q=yrItems(); let i=0; while(q[i]&&q[i].off) i++;
+  return q[i]?Object.assign({},q[i],{start:q[0].start||progSwitchMonday(),offFirst:i>0,qi:i}):null;
+}
 function nextDue(){ const n=nextQueued(); return !!(n&&n.start&&realToday()>=addDays(n.start,-7)) }
 function nextStart(){
   const n=nextQueued(); if(!n) return false;
@@ -4431,9 +4445,119 @@ function chzUse(i){
   if(chz.ctx==='wz'){ if(!chzUseWz(pk)) return false; chz.used=i; return true }
   if(chz.ctx==='next') return chzLineUp(pk);
   if(chz.ctx==='now') return chzSwitch(pk);
+  if(chz.ctx==='add'&&!pk.oms){ yrInsert(chz.at,pickOf(pk)); chz=null; return true }
   return false;
 }
 function chzBookNext(){ return nextProgram({stempl:stemplKey(),cproto:cprotoKey(),path:plan.progPath||''},carryMaxes()) }
+
+/* ---------------- the year planner ----------------
+Asked for 2026-11-15: "plan future cycles ... it would be nice to be able to plan an
+entire year of training using the chooser." Prototyped the same day, and the user's
+calls: plan back from a goal date with the books' sequences, then see and change the
+year as a list ("C feeding A"); a week off every few months is a warning with a fix,
+not a rule the planner enforces.
+
+The year is plan.nextPrograms, the queue the chooser lines programs up in: programs
+({stempl, cproto, bb, path, cycles?, weeks?}) and weeks off ({off:true}), in order.
+The first one carries `start`, when the program you are on hands over; every other
+start follows from the lengths before it, and is pinned when the one before it starts.
+Only the first is ever acted on. The rest are a plan, changed freely until they start. */
+let yrSel=-1, yrAdd=null, yg=null;
+
+function yrItems(){ const q=plan.nextPrograms; return Array.isArray(q)?q.filter(it=>it&&(it.off||CPROTO[it.cproto])):[] }
+// Cycles before the retest: the item's own, or the beginner path's one 9-week block, or
+// the book's two (TB I p33).
+function itemCycles(it){ return it.cycles||(it.path==='tb1beg'?1:DEF.testEvery) }
+function itemFixed(it){ const T=it.stempl&&STEMPL[it.stempl]; return !!(it.weeks||!T||T.lp) }
+// How long a block runs: Base Building, its cycles, then the retest. A block with a
+// length of its own keeps it: TB II p200's Black, nine weeks, and anything with no
+// wave to count (Progressive SE, nine weeks at most, TB II p73; a linear progression).
+function itemWeeks(it){
+  if(it.off) return 1;
+  const bb=it.bb?bbLen(it.bb):0, T=it.stempl&&STEMPL[it.stempl];
+  if(it.weeks) return bb+it.weeks;
+  if(!T) return bb+9;
+  if(T.lp) return bb+12;
+  const wl=it.stempl==='operator'&&it.path==='tb1beg'?9:T.wave.length;
+  return bb+itemCycles(it)*wl+1;
+}
+function itemName(it){ return it.off?'Week off':pickLine(it) }
+function yrFirstStart(){ const q=yrItems(); return (q[0]&&q[0].start)||progSwitchMonday() }
+/* Every block with its dates, and the week-off check: a block that comes after more
+   than 18 weeks without one is flagged, counting the program you are on from its start.
+   TB I p58 says "every few months"; 18 weeks is ours, a little over four. */
+const YR_OFF_AFTER=18;
+function yrBlocks(){ return yrLay(yrItems()) }
+function yrLay(items){
+  let at=(items[0]&&items[0].start)||progSwitchMonday(), run=Math.max(0,Math.round((D(at)-D(plan.startMonday))/(7*864e5)));
+  return items.map((it,i)=>{
+    const w=itemWeeks(it), b={it,i,start:at,end:addDays(at,w*7-1),weeks:w,warn:false};
+    if(it.off) run=0; else { run+=w; if(run>YR_OFF_AFTER){b.warn=true;b.since=run-w;run=w} }
+    at=addDays(at,w*7); return b;
+  });
+}
+function yrEnd(){ const b=yrBlocks(); return b.length?b[b.length-1].end:addDays(yrFirstStart(),-1) }
+// Writing the year back. The handover stays with whatever is first.
+function yrSet(list){
+  const st=(yrItems()[0]||{}).start;
+  list=list.map(it=>{const o=Object.assign({},it);delete o.start;return o});
+  if(list[0]&&st) list[0].start=st;
+  mutatePlan(p=>{p.nextPrograms=list});
+}
+function yrMove(i,d){ const q=yrItems(), j=i+d; if(!q[i]||j<0||j>=q.length) return false; [q[i],q[j]]=[q[j],q[i]]; yrSel=j; yrSet(q); return true }
+function yrRemove(i){ const q=yrItems(); if(!q[i]) return false; q.splice(i,1); yrSel=-1; yrSet(q); return true }
+function yrInsert(i,it){ const q=yrItems(); q.splice(Math.max(0,Math.min(i,q.length)),0,it); yrAdd=null; yrSet(q); return true }
+function yrOffBefore(i){ return yrInsert(i,{off:true}) }
+function yrCycles(i,d){
+  const q=yrItems(), it=q[i]; if(!it||it.off||itemFixed(it)) return false;
+  const c=Math.max(1,Math.min(4,itemCycles(it)+d)); if(c===itemCycles(it)) return false;
+  q[i]=Object.assign({},it,{cycles:c}); yrSet(q); return true;
+}
+// The books' next step after block i-1, or after the program you are on.
+function yrBookAfter(i){
+  const q=yrItems(); let j=i-1; while(j>=0&&q[j].off) j--;
+  return j<0?chzBookNext():nextProgram(q[j],carryMaxes());
+}
+
+/* Planning back from a goal. Each goal is the books' sequence that ends on the date,
+   longest first, and what is said when there is not room for the whole of it. The
+   weeks before are filled with whole blocks of the books' next step after what you are
+   on, a week off before each; what is left over, too short for a block, is the program
+   you are on running that much longer before it hands over. */
+const YR_GOALS={
+  event:{label:'Selection or a test',date:'Event date',name:'the event',
+    seq:()=>[[{off:true},{stempl:'fighter',cproto:'black',bb:'standard',weeks:9,why:['The book’s 17-week program: 8 weeks of Base Building, then 9 of Black with Fighter, run on until your benchmarks are met.','TB II p200']}],
+             [{off:true},{stempl:'fighter',cproto:'black',weeks:9,why:['Black with Fighter. The book starts with 8 weeks of Base Building; there is not room for it.','TB II p200']}]],
+    cut:'No room for Base Building, so Black starts straight away.',cite:'TB II p200'},
+  size:{label:'Put on size',date:'By',name:'your size goal',
+    seq:()=>[[{off:true},{stempl:'mass',cproto:'massgreen',bb:'mass',why:['Six weeks of Base Building, then General Mass with Green.','TB III p129']},{stempl:'specalpha',cproto:'massblack',cycles:1,why:['Then Specificity with Black, in three-week blocks.','TB III p129, p58']}],
+             [{off:true},{stempl:'mass',cproto:'massgreen',why:['General Mass with Green.','TB III p129']},{stempl:'specalpha',cproto:'massblack',cycles:1,why:['Then Specificity with Black.','TB III p129']}]],
+    cut:'No room for the six weeks of Mass Base Building.',cite:'TB III p129'},
+  strength:{label:'Get stronger',date:'Retest by',name:'the retest',
+    seq:()=>{const nx=chzBookNext();return [[{off:true},Object.assign(pickOf(nx),{why:nx.why[0]})]]},
+    cut:'',cite:'TB I p49'},
+};
+function ygOpen(){ return yg={goal:(plan.yearGoal||{}).goal||'event',date:(plan.yearGoal||{}).date||addDays(yrFirstStart(),7*26+5)} }
+function ygPlan(goal,date){
+  const G=YR_GOALS[goal]; if(!G||!date) return null;
+  const from=progSwitchMonday(), gap=Math.max(0,Math.round((D(addDays(mondayOf(date),7))-D(from))/(7*864e5)));
+  const seqs=G.seq(), len=s=>s.reduce((t,it)=>t+itemWeeks(it),0);
+  let k=seqs.findIndex(s=>len(s)<=gap); const short=k<0; if(short) k=seqs.length-1;
+  const tail=seqs[k];
+  let free=gap-len(tail); const items=[];
+  const nx=chzBookNext(), fill=[{off:true},Object.assign(pickOf(nx),{why:nx.why[0]})], fl=len(fill);
+  while(free>=fl){items.push(...fill.map(x=>Object.assign({},x)));free-=fl}
+  items.push(...tail.map(x=>Object.assign({},x)));
+  const extra=Math.max(0,free);
+  if(items[0]) items[0].start=addDays(from,extra*7);
+  return {items,gap,extra,short,cut:k>0?G.cut:'',need:len(seqs[seqs.length-1]),cite:G.cite,G};
+}
+// Taking it: the year is replaced, and the goal kept so planning again starts there.
+function ygUse(){
+  const r=yg&&ygPlan(yg.goal,yg.date); if(!r||r.short) return false;
+  mutatePlan(p=>{p.nextPrograms=r.items;p.yearGoal={goal:yg.goal,date:yg.date}});
+  yg=null; yrSel=-1; return true;
+}
 
 /* ---------------- persistence ---------------- */
 // One JSON document per path (plan/main, logs/YYYY-MM-DD), stored in D1 behind /api.
@@ -10107,7 +10231,7 @@ function programsCard(){
   let h=`<div class="card"><h2>Programs and archive</h2><div class="grid2"><label class="f">Current program<input type="text" id="p-pname" data-pbind="programName" value="${esc(plan.programName||'')}" placeholder="${esc(progName())}"></label><label class="f">Started<input type="text" value="${fmtLong(plan.startMonday)}" disabled></label></div>`;
   if(list.length) h+=`<div class="stack small">${list.map(p=>`<div class="row between"><span><b>${esc(p.name)}</b> <span class="muted">${fmtD(p.startMonday)}–${fmtD(p.end)}</span></span><button class="btn sm" data-act="progview" data-id="${p.id}">View</button></div>`).join('')}</div>`;
   h+=omsSetup();
-  h+=nextLinedUp();
+  h+=yearSection();
   if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
   else if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
   else {
@@ -10144,6 +10268,7 @@ function chooserSheet(btn){
 function chzBtn(ctx){
   const sw=fmtD(chzStart(),true);
   return (pk,i,two)=>ctx==='wz'?(chz.used===i?'<div class="small"><b>✓ Set.</b> Selected in the lists below.</div>':`<button class="btn primary" data-act="chzuse" data-i="${i}">${two?'Choose '+esc(pickName(pk)):'Use this'}</button>`)
+    :ctx==='add'?`<button class="btn primary" data-act="chzuse" data-i="${i}">Add to your year</button>`
     :ctx==='next'?`<button class="btn primary" data-act="chzuse" data-i="${i}">Line it up for ${esc(sw)}</button>`
     :`<button class="btn primary" data-act="chzuse" data-i="${i}">Switch to this</button>`;
 }
@@ -10170,15 +10295,12 @@ function chooserFlow(){
       h+=pk?pickCard(pk,`<button class="btn primary" data-act="chzswitchwhy">Switch to ${esc(pickName(pk))} now</button><button class="btn ghost" data-act="chzctx" data-v="now">Choose from all of them</button>`)
         :`<div class="card" style="background:var(--bg)"><p class="note" style="margin:0">The book’s answer to wanting something different is to finish the block: change the cluster at the start of the next one instead. <span class="mono muted small">TB I p49</span></p><button class="btn primary" data-act="chzctx" data-v="next">Line it up for ${sw}</button><button class="btn" data-act="chzctx" data-v="now">Switch now anyway</button></div>`;
     }
+  } else if(c.ctx==='add'){
+    h+=`<h3>Add to your year</h3>`+chooserSheet(chzBtn('add'));
   } else if(c.ctx==='now'){
     h+=`<h3>Change program now</h3><p class="note" style="margin:0">The new program starts next week, with your maxes carried over.</p>`+chooserSheet(chzBtn('now'));
   }
   return h+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
-}
-// A program lined up to follow this one, until it starts. Offered in its last week.
-function nextLinedUp(){
-  const n=nextQueued(); if(!n||newProg) return '';
-  return `<div class="banner info"><div class="lift-h"><b>Lined up next</b><span class="chip blue">${esc(fmtD(n.start,true))}</span></div><div class="small">${esc(pickLine(n))}${n.why?`. ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1])}</span>`:''}</div><div class="row">${nextDue()?'<button class="btn sm primary" data-act="nextstart">Start it</button>':''}<button class="btn sm ghost" data-act="nextrm">Remove</button></div></div>`;
 }
 /* What the books suggest after this program (04d-prog-rec.js), said beside the form.
    Advice only: the new program starts on your current settings, and Setup is where the
@@ -10189,7 +10311,7 @@ function nextProgramNote(){
   return `<div class="banner info"><div class="small"><b>What the books suggest next:</b> ${same?'the same again':esc((T?T.name+' with ':'')+P.name)}.${nx.why.map(([t,c])=>` ${esc(t)} <span class="muted">${esc(c)}</span>`).join('')}${same?'':' Change the template and protocol in Setup \u2192 Program once it starts.'}</div></div>`;
 }
 function startProgram(){
-  const err=beginProgram(newProg,newProg.pick?pickPatch(newProg.pick,newProg.queued?(plan.nextPrograms||[]).slice(1):null):undefined);
+  const err=beginProgram(newProg,newProg.pick?pickPatch(newProg.pick,newProg.queued?yrItems().slice(newProg.pick.qi+1):null):undefined);
   if(err){newProg.err=err;newProg.arm=false;render();return}
   newProg=null; sel=realToday(); view='today'; render(); window.scrollTo(0,0);
 }
@@ -11829,6 +11951,64 @@ function guideOms(){
   <p class="note">The book\u2019s other advice is left to you: bridge or deload occasionally, run Base Building once or twice a year before a rotation, keep the same core lifts all the way through, and if the goal is mass keep Specificity about hypertrophy. Use Specificity Alpha if you want maximal strength kept in that block.</p></div>`;
 }
 
+/* The year planner (04e-year.js), drawn in Setup → Programs under the program you are
+   on: every block with its dates, tap one to move it, change its cycles, add after it
+   or remove it; and planning back from a goal, which fills it. */
+function yearSection(){
+  if(newProg) return '';
+  const bl=yrBlocks(), n=nextQueued(), sw=progSwitchMonday(), st=yrFirstStart();
+  const extra=bl.length&&st>sw?Math.round((D(st)-D(sw))/(7*864e5)):0;
+  let h=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><div class="lift-h"><h3>Your year</h3>${bl.length?`<span class="mono muted small">to ${esc(fmtLong(yrEnd()))}</span>`:''}</div>
+  <div class="row between small"><span><b>${esc(progName())}</b> <span class="muted">now</span></span><span class="mono muted">${fmtD(plan.startMonday)} – ${fmtD(addDays(st,-1))}</span></div>`;
+  if(extra) h+=`<div class="small muted">Runs ${extra} week${extra===1?'':'s'} past its handover, so the plan lands on your date.</div>`;
+  if(!bl.length) h+=`<p class="note" style="margin:0">Nothing planned after it yet. Line up what comes next, or plan the year back from a goal.</p>`;
+  if(yrAdd===0&&!bl.length) h+=yrAddSheet(0);
+  for(const b of bl){ h+=yrRow(b,n); if(yrAdd===b.i+1) h+=yrAddSheet(b.i+1) }
+  if(yg) h+=ygSheet();
+  else if(yrAdd==null) h+=`<div class="row"><button class="btn" data-act="yradd" data-i="${bl.length}">Add a block at the end</button><button class="btn" data-act="yrgoal">Plan a year from a goal…</button></div>`;
+  h+=`<p class="note" style="margin:0">Only the first is lined up for real. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
+  return h+`</div>`;
+}
+function yrRow(b,n){
+  const it=b.it, open=yrSel===b.i, first=n&&n.qi===b.i, i=b.i;
+  let h=`<div class="card" style="background:var(--bg);gap:6px;padding:10px 12px">
+  <button class="btn ghost" style="justify-content:flex-start;text-align:left;padding:0;min-height:0;border:0;display:block" data-act="yrsel" data-i="${i}" aria-expanded="${open}">
+  <span class="lift-h"><b>${esc(itemName(it))}</b><span class="chip${first?' blue':''}">${first?'Lined up next · ':''}${b.weeks} week${b.weeks===1?'':'s'}</span></span>
+  <span class="mono muted small" style="display:block">${fmtD(b.start,true)} – ${fmtD(b.end)}</span>
+  ${it.off?`<span class="small muted" style="display:block">A week off every few months. <span class="mono">TB I p58</span></span>`:it.why?`<span class="small muted" style="display:block">${esc(it.why[0])} <span class="mono">${esc(it.why[1])}</span></span>`:''}</button>`;
+  if(b.warn) h+=`<div class="banner warn"><div class="small">No week off in the ${b.since} weeks before this. The book takes one every few months. <span class="mono muted">TB I p58</span></div><div><button class="btn sm" data-act="yroff" data-i="${i}">Add a week off before this</button></div></div>`;
+  if(first&&nextDue()) h+=`<div class="row"><button class="btn sm primary" data-act="nextstart">Start it</button></div>`;
+  if(open){
+    const cyc=!it.off&&!itemFixed(it);
+    h+=`<div class="row" style="gap:6px"><button class="btn sm" data-act="yrmv" data-i="${i}" data-v="-1" aria-label="Move earlier"${i?'':' disabled'}>↑</button><button class="btn sm" data-act="yrmv" data-i="${i}" data-v="1" aria-label="Move later"${i<yrItems().length-1?'':' disabled'}>↓</button>
+    ${cyc?`<span class="small">Cycles before the retest</span><button class="btn sm" data-act="yrcyc" data-i="${i}" data-v="-1" aria-label="Fewer cycles">−</button><b>${itemCycles(it)}</b><button class="btn sm" data-act="yrcyc" data-i="${i}" data-v="1" aria-label="More cycles">+</button>`:''}</div>
+    <div class="row"><button class="btn sm" data-act="yradd" data-i="${i+1}">Add after</button><button class="btn sm ghost" data-act="yrrm" data-i="${i}">Remove</button></div>`;
+  }
+  return h+`</div>`;
+}
+function yrAddSheet(i){
+  const nx=yrBookAfter(i);
+  return `<div class="stack" style="gap:8px"><h3>Add ${i?'after '+esc(itemName(yrItems()[i-1])):'first'}</h3>`
+    +pickCard(nx,`<button class="btn primary" data-act="yraddbook" data-i="${i}">Add it</button>`).replace(/<span class="chip blue">[^<]*<\/span>/,'<span class="chip blue">The books’ next step</span>')
+    +`<div class="row"><button class="btn" data-act="yraddoff" data-i="${i}">A week off</button><button class="btn" data-act="yraddchz" data-i="${i}">Something else: answer the questions</button><button class="btn ghost" data-act="yrclose">Cancel</button></div></div>`;
+}
+function ygSheet(){
+  const G=YR_GOALS[yg.goal], r=ygPlan(yg.goal,yg.date);
+  let h=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><h3>What is the year for?</h3>
+  <div class="seg">${Object.entries(YR_GOALS).map(([k,x])=>`<button class="segb${yg.goal===k?' on':''}" data-act="ygset" data-v="${k}" aria-pressed="${yg.goal===k}">${esc(x.label)}</button>`).join('')}</div>
+  <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`;
+  if(!r) return h+`</div>`;
+  h+=`<div class="small muted">${r.gap} weeks between the end of ${esc(progName())} (${fmtD(addDays(progSwitchMonday(),-1),true)}) and ${esc(G.name)}.</div>`;
+  if(r.short) h+=`<div class="banner warn"><div class="small"><b>Shorter than the book’s shortest.</b> Even ${r.need} weeks does not fit in ${r.gap}. Pick a later date, or change program now. <span class="mono muted">${esc(r.cite)}</span></div></div>`;
+  else if(r.cut) h+=`<div class="banner warn"><div class="small"><b>Shortened to fit.</b> ${esc(r.cut)} <span class="mono muted">${esc(r.cite)}</span></div></div>`;
+  if(!r.short){
+    h+=`<h3>Worked back from the date</h3><div class="stack" style="gap:4px">${yrLay(r.items).map(b=>`<div class="row between small"><span><b>${esc(itemName(b.it))}</b></span><span class="mono muted">${fmtD(b.start)} – ${fmtD(b.end)}</span></div>`).join('')}</div>`;
+    if(r.extra) h+=`<div class="small muted">${esc(progName())} runs ${r.extra} week${r.extra===1?'':'s'} longer first: too short for a block of its own.</div>`;
+    h+=`<p class="small muted" style="margin:0">After it: a week off, then the chooser again from where you are. <span class="mono">TB I p58</span></p>`;
+  }
+  return h+`<div class="row">${r.short?'':`<button class="btn primary" data-act="yruse">${yrItems().length?'Replace your year with this':'Use this plan'}</button>`}<button class="btn ghost" data-act="yrclose">Cancel</button></div></div>`;
+}
+
 /* ---------------- copying something out of the app ----------------
 Five buttons all did `if(navigator.clipboard) ... .then(done,()=>{})`, which means that
 where the clipboard is missing or refuses, the button does nothing at all: no copy, no
@@ -11894,6 +12074,7 @@ document.addEventListener('input',e=>{
   }
   if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
+  if(t.dataset.yg&&yg){ yg.date=t.value||yg.date; render(); return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
   if(t.dataset.bind){ if(t.dataset.bind.startsWith('hic.')&&!(lg(sel).hic||{}).mod) setPath(logs[sel]||(logs[sel]={date:sel}),'hic.mod',modOf(sel)); setLog(sel,t.dataset.bind,val(t)); }
@@ -12171,7 +12352,19 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
   if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
   if(a==='nextstart'){nextStart();render();return}
-  if(a==='nextrm'){mutatePlan(p=>{p.nextPrograms=(p.nextPrograms||[]).slice(1)});return}
+  if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
+  if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
+  if(a==='yrcyc'){yrCycles(+b.dataset.i,+b.dataset.v);return}
+  if(a==='yrrm'){yrRemove(+b.dataset.i);return}
+  if(a==='yroff'){yrOffBefore(+b.dataset.i);return}
+  if(a==='yradd'){yrAdd=+b.dataset.i;yrSel=-1;yg=null;render();return}
+  if(a==='yraddbook'){const i=+b.dataset.i;yrInsert(i,pickOf(yrBookAfter(i)));return}
+  if(a==='yraddoff'){yrInsert(+b.dataset.i,{off:true});return}
+  if(a==='yraddchz'){chzOpen('add').at=+b.dataset.i;yrAdd=null;render();return}
+  if(a==='yrgoal'){ygOpen();yrAdd=null;yrSel=-1;render();return}
+  if(a==='ygset'){if(yg&&YR_GOALS[b.dataset.v])yg.goal=b.dataset.v;render();return}
+  if(a==='yruse'){ygUse();render();return}
+  if(a==='yrclose'){yrAdd=null;yg=null;render();return}
   if(a==='chzstart'){if(chz)chz.start=b.dataset.v;render();return}
   if(a==='hicsugno'){clSug=false;render();return}
   if(a==='hicsuguse'){clSug=false;useClusterSuggestion(recommendCluster({kit:kitHave()}));return}

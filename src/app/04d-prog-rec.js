@@ -280,22 +280,31 @@ function pickPatch(pk,rest){
   return next=>{
     if(pk.stempl) next.stempl=pk.stempl;
     next.cproto=pk.cproto; next.progPath=pk.path||'';
-    if(pk.path==='tb1beg') next.testEvery=1; else if(plan.progPath==='tb1beg') next.testEvery=DEF.testEvery;
-    if(pk.bb){ const at=next.bridge?addDays(next.startMonday,7):next.startMonday;
+    if(pk.path==='tb1beg') next.testEvery=1; else if(pk.cycles) next.testEvery=pk.cycles; else if(plan.progPath==='tb1beg') next.testEvery=DEF.testEvery;
+    // A week off lined up before it is the new program's first week (an Off insert).
+    const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
+    if(pk.offFirst) next.inserts=Object.assign({},next.inserts,{[next.startMonday]:'off'});
+    if(pk.bb){ const at=next.bridge?addDays(s0,7):s0;
       next.inserts=Object.assign({},next.inserts,{[at]:'bb'});
       if(pk.bb!=='standard') next.bbVer=Object.assign({},next.bbVer,{[at]:pk.bb}); }
-    // Started from the queue: the rest of the queue goes with it.
-    if(rest) next.nextPrograms=rest;
+    // Started from the queue: the rest of the year goes with it, and what follows is
+    // pinned to start when this one ends.
+    if(rest){ next.nextPrograms=rest.map(x=>Object.assign({},x));
+      if(rest[0]&&!rest[0].start) next.nextPrograms[0].start=addDays(next.startMonday,((pk.offFirst?1:0)+itemWeeks(pk))*7); }
     omsRebase(next);
   };
 }
-function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=pk.why[0]; return o }
+function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=Array.isArray(pk.why[0])?pk.why[0]:pk.why;
+  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; return o }
 // Lining one up: kept on the plan until its start, then offered.
 function chzLineUp(pk){
   if(!pk||pk.oms) return false;
   const o=Object.assign(pickOf(pk),{start:chzStart()});
-  // The queue is a list so that a year can be planned in it; this lines up the first.
-  mutatePlan(p=>{ p.nextPrograms=[o,...(Array.isArray(p.nextPrograms)?p.nextPrograms.slice(1):[])]; if(chz) p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
+  // The queue is the year (04e-year.js); this replaces its first program, keeping any
+  // week off lined up before it.
+  const q=yrItems().map(x=>Object.assign({},x)); let i=0; while(q[i]&&q[i].off) i++;
+  const st=o.start; q.splice(i,q[i]?1:0,o); q.forEach(x=>{ delete x.start }); q[0].start=st;
+  mutatePlan(p=>{ p.nextPrograms=q; if(chz) p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
   chz=null; return true;
 }
 // Switching now: the new-program form, with the pick to start on. Its own second tap
@@ -306,7 +315,12 @@ function chzSwitch(pk){
   if(chz&&chz.ctx!=='reason') mutatePlan(p=>{ p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
   chz=null; return true;
 }
-function nextQueued(){ const q=plan.nextPrograms; return Array.isArray(q)&&q[0]&&CPROTO[q[0].cproto]?q[0]:null }
+// The next program to start: the first in the year, after any week off lined up before
+// it, which then becomes its first week.
+function nextQueued(){
+  const q=yrItems(); let i=0; while(q[i]&&q[i].off) i++;
+  return q[i]?Object.assign({},q[i],{start:q[0].start||progSwitchMonday(),offFirst:i>0,qi:i}):null;
+}
 function nextDue(){ const n=nextQueued(); return !!(n&&n.start&&realToday()>=addDays(n.start,-7)) }
 function nextStart(){
   const n=nextQueued(); if(!n) return false;
@@ -328,6 +342,7 @@ function chzUse(i){
   if(chz.ctx==='wz'){ if(!chzUseWz(pk)) return false; chz.used=i; return true }
   if(chz.ctx==='next') return chzLineUp(pk);
   if(chz.ctx==='now') return chzSwitch(pk);
+  if(chz.ctx==='add'&&!pk.oms){ yrInsert(chz.at,pickOf(pk)); chz=null; return true }
   return false;
 }
 function chzBookNext(){ return nextProgram({stempl:stemplKey(),cproto:cprotoKey(),path:plan.progPath||''},carryMaxes()) }

@@ -65,29 +65,11 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   not its paid day-by-day sessions: fill the gaps from MTI's published speed-over-ground
   rules, and label anything left as ours. Supersedes "MTI's assessment-paced
   progressions as opt-in blocks" in the conditioning item below for running.
-- **A year of training, planned with the chooser (asked 2026-11-15).** "Plan future
-  cycles ... it would be nice to be able to plan an entire year of training using the
-  chooser." 3.94 stores what is lined up as a list (`plan.nextPrograms`), starts the
-  first and carries the rest into the new program, so a year is that list laid out.
-  Still to build: adding a second, third and later program to the list from the
-  chooser, each with its length (cycles and the retest), a year view to see and reorder
-  it, and the books' sequences as presets to fill it (TB III p129's Base Building,
-  General Mass, Specificity; the OMS rotation; TB II's 9 weeks of Black then 9 of Green,
-  p66; TB I's beginner path to Zulu). Prototype it first, as the chooser was.
-  Prototyped 2026-11-15 (canvas "Year Planner Prototype": A a list, B a 13-week strip,
-  C planned back from a goal). Decided: **C feeding A**. "Plan a year" asks what the
-  year is for (a race, selection or a test, size, strength) and the date, and works the
-  book's sequence back from it: race = Base Building as running, then MTI from week 6
-  with Fighter; short of room, drop Base Building, then start MTI at week 11 (MTI's
-  entry by level). Event = TB II p200's 8 weeks of Base Building, then 9 of Black.
-  Size = TB III p129. Strength = Zulu with Black blocks (TB I p49). The weeks before
-  are filled with whole blocks, and leftovers show as open weeks; too short says so and
-  points at a later date or Change program now. "Use this plan" lines up the first
-  block and writes the rest to the list, which is A: every block with dates, tap to
-  move, add after (the books' next steps first, then everything) or remove; "Fill the
-  year from a book sequence" keeps A's presets. Week off: **warn and offer**, a note on
-  any block after 18 or more weeks without one (TB I p58), with "Add a week off before
-  this". After the goal, a week off and the chooser again.
+- **The year planner, still to come (3.95 shipped the rest).** The race goal waits on
+  the running blocks (the item above); then "A 10K or 5-mile" joins Plan a year: Base
+  Building as running, then MTI from week 6 with Fighter, cut to MTI from week 11 when
+  short. A's "Fill the year from a book sequence" presets were dropped: a goal with a
+  date does the same job, and an open-ended preset had nothing to land on.
 - **The program chooser (asked 2026-11-15; steps one to three shipped in 3.93 and 3.94).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
@@ -226,6 +208,30 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**The year planner (2026-11-15, 3.95)**
+- C feeding A, as the user chose from the prototype. `plan.nextPrograms` is the year:
+  programs (`stempl`, `cproto`, `bb`, `path`, optional `cycles` and `weeks`) and weeks
+  off (`{off:true}`). Only the first carries `start` (the handover); `yrLay` lays the
+  rest end to end by `itemWeeks`: Base Building, cycles times the wave (9 on TB I's
+  beginner path) plus the retest, or a fixed `weeks` (TB II p200's nine of Black;
+  Progressive SE's nine, TB II p73; 12 for a linear progression, ours).
+- Starting from the year (`nextQueued`): a week off lined up before a program becomes
+  its first week (an Off insert, Base Building after it); `cycles` becomes `testEvery`;
+  the next item is pinned to start when this one ends, and the rest follow.
+- The week off is a warning with a fix (the user's call): a block after more than 18
+  weeks without one (`YR_OFF_AFTER`, ours, a little over TB I p58's "every few
+  months"), counting the current program from its start.
+- Plan a year (`YR_GOALS`, `ygPlan`): event = TB II p200 (Base Building then Black with
+  Fighter), cut to Black alone; size = TB III p129 (Mass Base Building, General Mass,
+  then Specificity in a three-week block, p58), cut to no Base Building; strength = the
+  books' next step. Whole blocks of the books' next step fill the weeks before, each
+  after a week off; a remainder too short for a block runs the current program longer
+  (`start` moved on). Too close for the shortest version is refused, with the reason.
+- Adding a block: the books' next step after the one before (`yrBookAfter`), a week
+  off, or the chooser in a new `add` context. Lining up from the chooser replaces the
+  first program and keeps a week off before it. The "Lined up next" banner is now the
+  first row of Your year.
 
 **The chooser, in setup and in Programs (2026-11-15, 3.94)**
 - Step three. The sheet is B from the prototype (`CHZ_Q`, preset by `CHZ_DEF`, last
