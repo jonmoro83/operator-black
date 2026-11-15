@@ -60,8 +60,26 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   chooser in the wizard's Program step and in Start a new program, setting
   `plan.progPath` for TB I's beginner path; (4) "What's next" on Today in a program's
   last week, and `plan.nextPrograms`, the queue, in Setup → Goals (OMS keeps its own
-  rotation); (5) the coach fill-in. Open: TB I runs the beginner path in 9-week blocks
-  and the app's cycles are 6 weeks; decide how a 9-week block is scheduled before step 3.
+  rotation); (5) the coach fill-in.
+- **Chooser prototype decided (2026-11-15, step 2):**
+  https://claude.ai/artifact/XBpRgu4KS99RruH3T6AQkS. Four phone artboards: A one
+  question at a time, B one sheet with a live pick and a pinned bar, C start from your
+  goal, and the mid-program change. The user chose **C on top of B**: the goal box
+  first with "Fill these in from my goal", then the answers as one sheet, each tagged
+  "From your goal" with the quoted words, "Assumed" or "You set this", and the pick
+  updating live below. Without the coach (unconfigured, at the cap, or "Answer the
+  questions myself") it is plain B. The mid-program screen **as prototyped**: the book's
+  reasons (TB I p49, p33), "Line up the change" as the primary button, "I need to
+  switch now" asks what changed and offers the book's program for it (injury → Back
+  Break, schedule → Fighter, event → Green with Fighter), then a second tap; "I just
+  want something different" gets the book's answer, finish the block, with switching
+  still possible. A lined-up program shows on the Programs card and, in the last week,
+  on Today.
+- **TB I's 9-week beginner blocks match the book (decided 2026-11-15).** The user
+  chose "rearrange to match the book" over retesting every 6 or 12 weeks: on the
+  beginner path (`plan.progPath==='tb1beg'`) Operator runs the 6-week wave and then its
+  weeks 1–3 again before the retest (TB I p29). The scheduler has no block length yet;
+  this is part of step 3.
 
 - **Still to come from the conditioning redesign (3.86 shipped the first part).**
   MTI's assessment-paced progressions as opt-in blocks like OMS, Speed over ground first
