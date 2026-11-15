@@ -55,3 +55,38 @@ function ygSheet(){
   }
   return h+`<div class="row">${r.short?'':`<button class="btn primary" data-act="yruse">${yrItems().length?'Replace your year with this':'Use this plan'}</button>`}<button class="btn ghost" data-act="yrclose">Cancel</button></div></div>`;
 }
+/* What's next, on Today in the program's last week: step 4 of the chooser, and the
+   prototype's call (2026-11-15) that a lined-up program shows "in the last week, on
+   Today". Laid out like the OMS card: start it from here with a second tap, or Not yet,
+   which asks again next week. With nothing lined up, the books' next step is offered to
+   line up, and doing nothing keeps the program going. The rotation has its own card. */
+let nextArm=false, nextErr=null;
+function nextCard(){
+  if(viewing||sel!==todayStr()||newProg||omsState().on) return '';
+  const t=realToday(); if(plan.nextSnooze===mondayOf(t)) return '';
+  const n=nextQueued(), cur=esc(progName());
+  if(n){
+    if(!nextDue()) return '';
+    const st=n.start<mondayOf(t)?mondayOf(t):n.start, nm=esc(pickName(n));
+    return `<div class="card"><div class="lift-h"><h3>${cur} ${st<=t?'has reached its handover':'hands over '+fmtD(st,true)}</h3><span class="chip blue">Lined up</span></div>
+    <p class="small" style="margin:0">Next: ${n.offFirst?'a week off, then ':''}<b>${esc(pickLine(n))}</b>, from ${fmtD(st,true)}.${n.why?` ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1]==='ours'?'Ours.':n.why[1])}</span>`:''}</p>
+    <p class="note" style="margin:0">${cur} is archived with everything in it, and your maxes carry over.</p>
+    ${nextErr?`<div class="banner warn"><div class="small">${esc(nextErr)}</div></div>`:''}
+    <div class="row"><button class="btn primary" data-act="nextgo">${nextArm?'Tap again to confirm':'Start '+nm}</button><button class="btn ghost" data-act="nextlater">Not yet</button></div>
+    <div class="note">Not yet asks again next week. To change it, or start with a bridge week and a retest, go to Setup, under Programs.</div></div>`;
+  }
+  const sw=progSwitchMonday(); if(t<addDays(sw,-7)) return '';
+  const nx=chzBookNext();
+  return `<div class="card"><div class="lift-h"><h3>${cur} hands over ${fmtD(sw,true)}</h3><span class="chip">Nothing lined up</span></div>
+  <p class="small" style="margin:0">The books’ next step: <b>${esc(pickLine(nx))}</b>.${nx.why.map(([x,c])=>` ${esc(x)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span>`).join('')}</p>
+  <div class="row"><button class="btn primary" data-act="chzlinebook">Line it up</button><button class="btn" data-act="nextchoose">Choose something else</button><button class="btn ghost" data-act="nextlater">Not yet</button></div>
+  <div class="note">With nothing lined up, ${cur} carries on with another cycle.</div></div>`;
+}
+function nextGo(){
+  if(!nextStart()) return false;
+  const pk=newProg.pick, err=beginProgram(newProg,pickPatch(pk,yrItems().slice(pk.qi+1)));
+  newProg=null; nextArm=false; nextErr=err;
+  if(err){ render(); return false }
+  sel=realToday(); view='today'; render(); window.scrollTo(0,0);
+  return true;
+}

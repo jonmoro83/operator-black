@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.97',date:'2026-11-15',title:"What's next, on Today",items:[
+    "In your program's last week, Today shows what comes next. If you've lined something up, start it from there: tap Start, then tap again to confirm. Your maxes carry over and the rest of your year moves along with it.",
+    "Nothing lined up yet? Today offers the books' next step to line up, or opens the chooser for something else. If you do nothing, your program just carries on with another cycle.",
+    "Not yet hides it until next week. To change what's lined up, or start with a bridge week and a retest, go to Setup, under Programs.",
+  ]},
   {v:'3.96',date:'2026-11-15',title:"A running plan",items:[
     "New conditioning protocol: MTI running, Mountain Tactical Institute's Running Improvement Plan. Fifteen weeks in three blocks: a 1.5-mile test and 800 m repeats, a 3-mile test and 1-mile repeats, then a 6-mile test and 2-mile repeats, with two easy distance runs a week growing from 3 miles to 12.",
     "Start at week 1 if you're new to running, week 6 with some running behind you, or week 11 if you're experienced. That's MTI's own advice, and you set it in Setup → Program. Run it with Fighter: its two lifting days take the place of MTI's strength days.",

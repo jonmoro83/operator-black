@@ -11108,3 +11108,35 @@ test("choosing running: the chooser's goal, Setup's entry week, and a race in th
   a.deepEqual([x.plan.cproto, x.plan.runFrom], ["mtirun", 11]);
   a.equal(x.chzBookNext().cproto, "black");
 });
+
+/* ---------- What's next on Today (3.97) ----------
+Step 4 of the chooser. The prototype's call (2026-11-15): a lined-up program shows on
+the Programs card and, in the last week, on Today. Laid out like the OMS card, by our
+choice: a second tap starts it, Not yet asks again next week. */
+test("Today offers what's next in the program's last week, and starts it on a second tap", () => {
+  const x = blackApp("2026-11-18");
+  x.view = "today"; x.sel = "2026-11-18";
+  a.doesNotMatch(x.vToday(), /data-act="nextgo"|data-act="chzlinebook"/, "weeks to go: nothing on Today");
+  // The last week, nothing lined up: the books' next step to line up.
+  x.setToday("2027-02-09"); x.sel = "2027-02-09"; x.bump();
+  let h = x.vToday();
+  a.match(h, /Nothing lined up/); a.match(h, /data-act="chzlinebook"/); a.match(h, /TB I p49/);
+  a.match(h, /data-act="nextchoose"/);
+  x.chzLineUp(x.chzBookNext()); x.bump();
+  h = x.vToday();
+  a.match(h, /Lined up/); a.match(h, /data-act="nextgo">Start /);
+  // Not yet: gone for this week, back the next.
+  x.plan.nextSnooze = x.mondayOf("2027-02-09"); x.bump();
+  a.doesNotMatch(x.vToday(), /data-act="nextgo"/);
+  x.plan.nextSnooze = null;
+  x.plan.nextPrograms[0].stempl = "zulu"; x.plan.nextPrograms.push({ off: true }, { stempl: "fighter", cproto: "green", bb: "", path: "" }); x.bump();
+  a.match(x.vToday(), /Start Zulu/);
+  a.ok(x.nextGo());
+  a.equal(x.plan.startMonday, "2027-02-15"); a.equal(x.plan.stempl, "zulu");
+  a.equal(x.newProg, null, "no form left open");
+  a.deepEqual(x.plan.nextPrograms.map((it) => it.off ? "off" : it.stempl), ["off", "fighter"], "the rest of the year carries");
+  a.ok(x.plan.nextPrograms[0].start, "pinned to when Zulu ends");
+  // On the OMS rotation its own card asks instead.
+  const y = blackApp("2027-02-09"); y.sel = "2027-02-09"; y.plan.oms = { on: true, end: "2027-02-14" }; y.bump();
+  a.doesNotMatch(y.nextCard(), /chzlinebook/);
+});

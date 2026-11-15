@@ -56,6 +56,7 @@ function vToday(){
   h+=aimsCard(sel);
   h+=debriefCard();
   h+=omsCard();
+  h+=nextCard();
   h+=weekSummaryCard();
   h+=weeklyCard();
   h+=prCard(sel);

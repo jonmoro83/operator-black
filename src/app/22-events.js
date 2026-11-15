@@ -341,6 +341,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
   if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
   if(a==='nextstart'){nextStart();render();return}
+  if(a==='nextlater'){nextArm=false;mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
+  if(a==='nextgo'){if(!nextArm){nextArm=true;render();setTimeout(()=>{if(nextArm){nextArm=false;render()}},4000);return} nextGo();return}
+  if(a==='nextchoose'){chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
   if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}

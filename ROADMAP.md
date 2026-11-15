@@ -46,7 +46,7 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
-- **The program chooser (asked 2026-11-15; steps one to three shipped in 3.93 and 3.94).** Help picking
+- **The program chooser (asked 2026-11-15; steps one to four shipped in 3.93, 3.94 and 3.97).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
   path and StrongLifts side by side with a clear description of each; offer the chooser
@@ -59,8 +59,9 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   prototype of the chooser, its result card and the mid-program discouragement; (3) the
   chooser in the wizard's Program step and in Start a new program, setting
   `plan.progPath` for TB I's beginner path; (4) "What's next" on Today in a program's
-  last week, and `plan.nextPrograms`, the queue, in Setup → Goals (OMS keeps its own
-  rotation); (5) the coach fill-in.
+  last week (3.97, laid out like the OMS card: a second tap starts it, Not yet asks again
+  next week; the queue itself went into Setup → Programs as Your year in 3.95); (5) the
+  coach fill-in, the one step left.
 - **Chooser prototype decided (2026-11-15, step 2):**
   https://claude.ai/artifact/XBpRgu4KS99RruH3T6AQkS. Four phone artboards: A one
   question at a time, B one sheet with a live pick and a pinned bar, C start from your
