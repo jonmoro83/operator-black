@@ -46,6 +46,25 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
+- **Running programs, beginner and intermediate (asked 2026-11-15).** The user asked
+  for both and whether TB or MTI has a beginner one. Neither has a separate beginner
+  program; both put beginners inside one they have. MTI's Running Improvement Plan
+  (Plan Focus, 2017-04-24): 15 weeks in three 5-week blocks, a 1.5-mile test and 800 m
+  repeats, a 3-mile test and 1-mile repeats, a 6-mile test and 2-mile repeats, all
+  paced from your own tests, plus easy long runs Friday and Saturday from 3 to 12 miles
+  (11 to 34 miles a week). Entry by level: new to running week 1, some experience week
+  6, experienced week 11; alongside a strength program, start at week 6 and drop its
+  strength days. MTI's Q&As let new runners walk/run the test and intervals. TB II's
+  LSS (E session 1, p88–89): Basic version 30 minutes, walking breaks fine, "a
+  walk-run-walk session is totally acceptable if you're entry level/beginner", toward
+  45–60. Decided: MTI's progression, paced from your tests (user's pick), as
+  fixed-length blocks you line up (user's pick). Layout: new and running only, MTI week
+  1; new and lifting, TB II Base Building as running with LSS's walk-run basic version,
+  then MTI from week 6 with Fighter; some experience, MTI week 6 with Fighter (TB II p71
+  pairs Green with Fighter); experienced, week 11. MTI's articles give the plan's shape,
+  not its paid day-by-day sessions: fill the gaps from MTI's published speed-over-ground
+  rules, and label anything left as ours. Supersedes "MTI's assessment-paced
+  progressions as opt-in blocks" in the conditioning item below for running.
 - **A year of training, planned with the chooser (asked 2026-11-15).** "Plan future
   cycles ... it would be nice to be able to plan an entire year of training using the
   chooser." 3.94 stores what is lined up as a list (`plan.nextPrograms`), starts the
