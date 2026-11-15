@@ -155,11 +155,20 @@ function programsCard(){
     <div class="grid2"><label class="f">New program name<input type="text" id="np-name" data-np="name" value="${esc(newProg.name)}"></label><label class="f">Starts (week of)<input type="date" id="np-start" data-np="start" value="${newProg.start}"></label></div>
     <label class="check"><input type="radio" name="np-mode" id="np-carry" data-np="mode" value="carry" ${newProg.mode==='carry'?'checked':''}> <span>Carry my maxes forward <span class="small muted">(${carried})</span></span></label>
     <label class="check"><input type="radio" name="np-mode" id="np-bridge" data-np="mode" value="bridge" ${newProg.mode==='bridge'?'checked':''}> <span>Start with a bridge week and re-test <span class="small muted">(your current maxes show on test days for reference)</span></span></label>
+    ${nextProgramNote()}
     <p class="note" style="margin:0">${esc(progName())} will be archived. Its calendar, maxes, reviews and every logged session stay viewable here and from History, Status and Plan. Your settings (Lift 3, accessories, rest times, conditioning, wave and deload rules) carry over.</p>
     ${newProg.err?`<div class="banner warn"><div class="small">${esc(newProg.err)}</div></div>`:''}
     <div class="row"><button class="btn primary" data-act="progstart">${newProg.arm?'Tap again to confirm':'Archive and start '+esc(newProg.name||'new program')}</button><button class="btn ghost" data-act="progcancel">Cancel</button></div></div>`;
   }
   return h+`</div>`;
+}
+/* What the books suggest after this program (04d-prog-rec.js), said beside the form.
+   Advice only: the new program starts on your current settings, and Setup is where the
+   template and protocol change. */
+function nextProgramNote(){
+  const cur={stempl:stemplKey(),cproto:cprotoKey(),path:plan.progPath||''}, nx=nextProgram(cur,carryMaxes());
+  const T=STEMPL[nx.stempl], P=CPROTO[nx.cproto], same=nx.stempl===cur.stempl&&nx.cproto===cur.cproto;
+  return `<div class="banner info"><div class="small"><b>What the books suggest next:</b> ${same?'the same again':esc((T?T.name+' with ':'')+P.name)}.${nx.why.map(([t,c])=>` ${esc(t)} <span class="muted">${esc(c)}</span>`).join('')}${same?'':' Change the template and protocol in Setup \u2192 Program once it starts.'}</div></div>`;
 }
 function startProgram(){
   const err=beginProgram(newProg);
@@ -468,8 +477,23 @@ function hicClusterCard(){
   h+=`<label class="f">Add a session<select data-act-hicadd="1"><option value="">Choose…</option>${hicOptions('',k=>hicTbCat(k)!=='E'&&!cl.some(c=>c.f===k)&&k!=='free')}</select></label>
   <label class="f">E session<select id="p-hicE" data-pbind="hicE">${Object.keys(HIC).filter(k=>hicTbCat(k)==='E').map(k=>`<option value="${esc(k)}"${k===E?' selected':''}>${nm(k)}${hicMti(k)?' · MTI':''}</option>`).join('')}</select></label>
   <div class="note">Black asks for an E at least every other week; the last session of the week becomes one when it is due. Without a cluster of your own, the app starts you on its three interval shapes, MAP, Anaerobic and Threshold, because they run on whatever equipment you have.</div>
+  ${clSug?clusterSuggest(nm):'<div class="row"><button class="btn sm" data-act="hicsug">Suggest a cluster</button></div>'}
   <div class="small muted">Ours: the starting cluster, and the order the rules are applied in. The rules themselves are the book\u2019s.</div></div>`;
   return h;
+}
+/* A starting cluster from the kit you have, by the book's rules (04d-prog-rec.js). It
+   is shown before it is taken, because taking it replaces the cluster you have. */
+let clSug=false;
+function clusterSuggest(nm){
+  const kit=kitHave(), s=recommendCluster({kit});
+  return `<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px">
+  <div class="small muted" style="font-weight:650">What you have to train with</div>
+  <div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(KIT).map(([k,l])=>`<button class="btn sm${kit.includes(k)?' primary':''}" data-act="kit" data-k="${esc(k)}" aria-pressed="${kit.includes(k)}">${esc(l)}</button>`).join('')}</div>
+  <div class="small muted" style="font-weight:650">Suggested</div>
+  <dl class="kv">${s.fs.map(f=>`<dt>${nm(f)}</dt><dd><span class="chip">${hicTbCat(f)}</span>${hicMti(f)?' <span class="chip blue">MTI</span>':''}</dd>`).join('')}<dt>${nm(s.e)}</dt><dd><span class="chip">E</span></dd></dl>
+  <ul class="small" style="margin:0;padding-left:18px">${s.why.map(([t,c])=>`<li>${esc(t)} <span class="muted">${esc(c==='ours'?'Ours.':c)}</span></li>`).join('')}</ul>
+  <div class="row"><button class="btn primary sm" data-act="hicsuguse">Use these</button><button class="btn ghost sm" data-act="hicsugno">Cancel</button></div>
+  <div class="small muted">Replaces your cluster and E session. Sessions you have logged keep what they were.</div></div>`;
 }
 /* The Ageless Athlete preset. It writes three real settings rather than layering a
    hidden mode over them, so each one stays visible in Setup and individually

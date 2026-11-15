@@ -10629,3 +10629,136 @@ test("the cycle review waits for the last lift of the cycle, wherever it was mov
   a.equal(x.reviewCycleFor(day(last + 1)), 1, "done on the day it was moved to");
   a.equal(x.reviewCycleFor(x.addDays(mon, 7)), 1, "and a session never logged stops holding it back once its day is past");
 });
+
+/* ---------- choosing a program and a cluster (3.93) ----------
+The user's decisions, 2026-11-15: follow the books as much as possible; where a beginner
+has a real choice, offer both with a clear description of each (TB I's beginner path and
+StrongLifts); and offer to run the chooser again, for what comes next, for a change
+mid-program (discouraged), and for lining up programs ahead. Step one is the engine and
+the cluster suggestion; the chooser screens come after a prototype. */
+const CITE = /^(TB (I|II|III) p\d+|Ageless Athlete p\d+(, p\d+)*|ours)$/;
+
+test("every TB II session #1–36 and every MTI session but power says what kit it needs", () => {
+  const x = app({ now: "2026-11-15" });
+  for (const [k, h] of Object.entries(x.HIC)) {
+    const b = h.book; if (!b) continue;
+    // #9 is the FOBBIT, a shape with its own machinery that the recommender leaves out.
+    const want = b.src === "mti" ? b.tb !== "power" : b.n && b.n <= 36 && k !== "fobbit";
+    if (want) a.ok(Array.isArray(x.HIC_KIT[k]), k + " has a kit entry");
+  }
+  for (const [k, ks] of Object.entries(x.HIC_KIT)) {
+    a.ok(x.HIC[k], k + " is a real format");
+    a.ok(ks.every((t) => x.KIT[t]), k + " uses only known kit");
+  }
+});
+
+test("a suggested cluster mixes the book's kinds and fits the kit", () => {
+  const x = app({ now: "2026-11-15" });
+  const kits = [[], ["run"], ["machine"], ["kb", "run", "bar"], ["bag", "kb", "sledge", "rope"], ["ruck", "run", "hill"], Object.keys(x.KIT)];
+  for (const kit of kits) for (const goal of [undefined, "combat", "endurance"]) {
+    const s = x.recommendCluster({ kit, goal }), cats = s.fs.map(x.hicTbCat);
+    a.equal(s.fs.length, 3, "two or three HICs, three by default (TB II p187)");
+    a.equal(new Set(s.fs).size, 3, "no session twice");
+    a.ok(cats.includes("AA") && cats.includes("GC"), `both kinds for ${kit} (TB II p112)`);
+    a.ok(cats.every((c) => c === "AA" || c === "GC"), "never power, core, a challenge or an E (TB II p164)");
+    a.ok(s.fs.every((f) => !x.HIC_KIT[f] || x.kitOk(f, kit)), `only what ${kit} allows`);
+    a.equal(x.hicTbCat(s.e), "E");
+    a.ok(!x.HIC_KIT[s.e] || x.kitOk(s.e, kit), "the E fits the kit too");
+    a.ok(s.why.every(([t, c]) => t && CITE.test(c)), "every reason cites a page or says it is ours");
+  }
+  a.deepEqual(x.recommendCluster({ kit: [] }).fs.slice(0, 2), ["map", "gc1"], "with nothing, MAP and Beat Your Face");
+  a.equal(x.recommendCluster({ kit: ["run"], n: 2 }).fs.length, 2);
+  a.equal(x.recommendCluster({ kit: ["ruck", "run"], goal: "endurance" }).e, "m21");
+  a.ok(x.recommendCluster({ kit: ["bag", "kb"], goal: "combat" }).fs.some((f) => x.HIC_KIT[f].includes("bag")), "a fighter gets the bag");
+});
+
+test("the kit starts from your main tool, and taking a suggestion sets the cluster", () => {
+  const x = blackApp("2026-11-15");
+  x.plan.cardio = { def: "rower" }; delete x.plan.kit; x.bump();
+  a.deepEqual(x.kitHave(), ["machine"], "a rower means a machine, before you say anything");
+  x.kitToggle("kb");
+  a.deepEqual(x.plan.kit, ["machine", "kb"], "the first tap keeps what was assumed");
+  x.kitToggle("machine");
+  a.deepEqual(x.plan.kit, ["kb"]);
+  a.equal(x.kitToggle("jetpack"), false);
+  const s = x.recommendCluster({ kit: x.kitHave() });
+  x.useClusterSuggestion(s);
+  a.deepEqual(x.hicCluster().map((c) => c.f), s.fs);
+  a.ok(x.hicCluster().every((c) => c.since === "2026-11-15"), "joined today, for the swap rule");
+  a.equal(x.hicE(), s.e);
+  const h = x.clusterSuggest((k) => k);
+  a.match(h, /data-act="hicsuguse"/);
+  a.match(h, /TB II p187/);
+  a.match(h, /data-act="kit" data-k="kb"[^>]*aria-pressed="true"/);
+});
+
+test("the program follows the books, with both beginner paths offered", () => {
+  const x = app({ now: "2026-11-15" });
+  const rp = (q) => x.recommendProgram(q);
+  const first = (q) => { const p = rp(q).picks[0]; return [p.stempl, p.cproto, p.bb] };
+  const cites = (q) => rp(q).picks.flatMap((p) => p.why.map(([, c]) => c));
+  // Black for most (TB II p19); the template by days and circumstances (TB I).
+  a.deepEqual(first({ bbDone: true, exp: "some", days: 4 }), ["zulu", "black", ""], "Zulu is TB I's main template (p31)");
+  a.deepEqual(first({ bbDone: true, exp: "some", days: 3 }), ["operator", "black", ""]);
+  a.deepEqual(rp({ bbDone: true, exp: "some", days: 3 }).alts.map((p) => p.stempl), ["zulu"], "and Zulu, with a fourth day");
+  a.deepEqual(first({ bbDone: true, exp: "some", days: 2 }), ["fighter", "black", ""]);
+  a.deepEqual(first({ bbDone: true, exp: "some", days: 3, other: true }), ["fighter", "black", ""], "the boxer (TB I p52)");
+  a.ok(cites({ exp: "advanced", days: 3 }).includes("TB I p31"), "Operator's warning for the very strong");
+  // Base Building first, whatever the goal (TB II p19).
+  a.equal(first({ exp: "some" })[2], "standard");
+  a.ok(cites({ exp: "some" }).includes("TB II p19"));
+  // Beginners: both, the book's path and ours (by request).
+  for (const q of [{ exp: "new" }, { exp: "some", bench: 185, squat: 275 }]) {
+    const ps = rp(q).picks;
+    a.deepEqual(ps.map((p) => p.stempl), ["operator", "strong5"]);
+    a.equal(ps[0].path, "tb1beg");
+    a.ok(ps[0].why.some(([, c]) => c === "TB I p29"));
+    a.ok(ps[1].why.some(([, c]) => c === "ours"), "StrongLifts says it is ours");
+  }
+  a.equal(rp({ exp: "some", bench: 220, squat: 275 }).picks.length, 1, "TB I's beginner benches under 200 and squats under 300");
+  // Endurance, or more E than Black holds: Green with Fighter (TB II p69, p66, p71).
+  a.deepEqual(first({ goal: "endurance", bbDone: true }), ["fighter", "green", ""]);
+  a.ok(cites({ eWeek: 3 }).includes("TB II p66"));
+  // Size: Mass Protocol, General Mass with Green, Mass Base Building (TB III).
+  a.deepEqual(first({ goal: "size", days: 4 }), ["mass", "massgreen", "mass"]);
+  a.deepEqual(first({ goal: "size", days: 3 }), ["greyman", "massgreen", "mass"]);
+  a.deepEqual(first({ goal: "size", days: 2 }), ["fighterht", "massgreen", "mass"]);
+  a.ok(cites({ goal: "size" }).includes("TB III p129"));
+  // No barbell; no conditioning; past forty.
+  a.deepEqual(first({ barbell: false }), [null, "greense", ""]);
+  a.deepEqual(first({ cond: false, days: 4, exp: "some" }), ["zulu", "none", ""], "no conditioning, no Base Building");
+  const old = rp({ older: true, exp: "some", bbDone: true });
+  a.ok(old.notes.some(([, c]) => /Ageless Athlete/.test(c)));
+  a.ok(old.alts.some((p) => p.stempl === "warhorse"));
+  // Every pick names a real template and protocol, and every reason a source.
+  const qs = [{}, { days: 2 }, { days: 4 }, { exp: "new" }, { goal: "endurance" }, { goal: "size" }, { goal: "minimal" }, { barbell: false }, { older: true }, { cond: false }];
+  for (const q of qs) {
+    const r = rp(q);
+    for (const p of [...r.picks, ...r.alts]) {
+      a.ok(p.stempl === null || x.STEMPL[p.stempl], JSON.stringify(q) + " template");
+      a.ok(x.CPROTO[p.cproto], JSON.stringify(q) + " protocol");
+      a.ok(p.why.length && p.why.every(([t, c]) => t && CITE.test(c)), JSON.stringify(q) + " reasons cite");
+    }
+    a.ok(r.notes.every(([t, c]) => t && CITE.test(c)));
+  }
+});
+
+test("what comes next follows the books' sequences", () => {
+  const x = app({ now: "2026-11-15" });
+  const nx = (cur, m) => x.nextProgram(cur, m);
+  a.equal(nx({ stempl: "operator", cproto: "black", path: "tb1beg" }, { bench: 255, squat: 310 }).stempl, "operator", "until both thresholds");
+  a.equal(nx({ stempl: "operator", cproto: "black", path: "tb1beg" }, { bench: 260, squat: 300 }).stempl, "zulu", "TB I p29");
+  x.plan.unit = "kg"; x.bump();
+  a.equal(nx({ stempl: "operator", cproto: "black", path: "tb1beg" }, { bench: 118, squat: 137 }).stempl, "zulu", "in kilograms too");
+  a.equal(nx({ stempl: "operator", cproto: "black" }, { bench: 300, squat: 400 }).stempl, "operator", "off the path, the same again (TB I p49)");
+  const m = nx({ stempl: "greyman", cproto: "massgreen" });
+  a.deepEqual([m.stempl, m.cproto], ["specalpha", "massblack"], "General Mass, then Specificity with Black (TB III p129)");
+  a.deepEqual([nx({ stempl: "specbravo", cproto: "massblack" }).stempl], ["mass"]);
+  a.equal(nx({ stempl: "operator", cproto: "greense" }).cproto, "green", "Progressive SE is nine weeks at most (TB II p74)");
+  x.plan.unit = "lb"; x.plan.stempl = "greyman"; x.plan.cproto = "massgreen"; x.bump();
+  a.match(x.nextProgramNote(), /What the books suggest next:<\/b> Specificity Alpha with Black · TB III\..*TB III p129/, "said beside the new-program form");
+  x.plan.stempl = "zulu"; x.plan.cproto = "black"; x.bump();
+  a.match(x.nextProgramNote(), /the same again\..*TB I p49/);
+  for (const c of [{ stempl: "zulu", cproto: "black" }, { stempl: "mass", cproto: "massgreen" }, { stempl: "fighter", cproto: "greense" }])
+    a.ok(nx(c).why.every(([, cite]) => CITE.test(cite)));
+});

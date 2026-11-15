@@ -6,6 +6,13 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.93',date:'2026-11-15',title:"A cluster suggested from your kit",items:[
+    "The conditioning cluster card in Setup has a Suggest a cluster button. Tick what you've got to train with, a kettlebell, a heavy bag, a hill, room to run, and it picks two or three of the book's sessions plus an E session you can actually do.",
+    "The picks follow Tactical Barbell II: a mix of aerobic/anaerobic and general conditioning, nothing from the power sessions, and sessions with an Advanced version first, so the book's swap rule has something to aim for. Every reason shows its page.",
+    "If you never fill in the list, it goes by your main conditioning tool, so a rower gets rower-friendly sessions.",
+    "Starting a new program now says what the books suggest coming next: Zulu once TB I's beginner path has done its job, Specificity after a General Mass block, or the same template again with new maxes.",
+    "Operator's and Zulu's descriptions now match TB I: Zulu is the book's main template, and Operator is its minimalist one and its starting point for beginners.",
+  ]},
   {v:'3.92',date:'2026-11-13',title:"The cycle review waits for your last lift",items:[
     "The end-of-cycle review used to show up on Friday of week 6 whether or not you'd lifted yet, so moving that session to Saturday brought the review in a day early. Now it waits until the cycle's last lifting session is marked done, on whatever day you moved it to.",
     "If that session never gets logged, the review still appears once its day has passed.",

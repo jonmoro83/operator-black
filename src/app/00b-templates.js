@@ -128,7 +128,7 @@ const OW_BLOCKS=[
 const STEMPL={
   operator:{
     name:'Operator', book:'TB1', slots:[0,2,4],   // the book's days 1, 3, 5
-    blurb:'Three full-body days a week, the same cluster every session, never near failure. The default, and what Black is built around.',
+    blurb:'Three full-body days a week, the same cluster every session, never near failure. TB I\u2019s minimalist template, and its starting point for beginners: strength fast on two or three lifts. The one this app is built around, though the book\u2019s main template is Zulu.',
     days:[
       {lifts:'SBP',acc:'mon',short:'Op 1',label:'Operator 1'},
       {lifts:'SBP',acc:'wed',short:'Op 2',label:'Operator 2'},
@@ -139,7 +139,7 @@ const STEMPL={
   },
   zulu:{
     name:'Zulu', book:'TB1', slots:[0,1,3,4], split:true,
-    blurb:'Four shorter days a week. The cluster is split in two and each half runs twice, which leaves far more room for assistance work than Operator does.',
+    blurb:'TB I\u2019s main template, the one it recommends for everyone not in a specialist category. Four shorter days a week. The cluster is split in two and each half runs twice, which leaves far more room for assistance work than Operator does.',
     days:[
       {lifts:'A',half:'a',acc:'z1',short:'Zulu A',label:'Zulu A'},
       {lifts:'B',half:'b',acc:'z2',short:'Zulu B',label:'Zulu B'},

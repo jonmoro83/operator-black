@@ -327,6 +327,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wzrerun'){wz=wzNew(true);render();window.scrollTo(0,0);return}
   // Black's recommendation and your cluster. See 04c-hic-rec.js.
   if(a==='hicnow'){hicStartNow();return}
+  if(a==='hicsug'){clSug=true;render();return}
+  if(a==='hicsugno'){clSug=false;render();return}
+  if(a==='hicsuguse'){clSug=false;useClusterSuggestion(recommendCluster({kit:kitHave()}));return}
+  if(a==='kit'){kitToggle(b.dataset.k);return}
   if(a==='hicpick'){setLog(sel,'hic.format',b.dataset.f);render();return}
   if(a==='hicver'){setLog(sel,'hic.ver',(lg(sel).hic||{}).ver===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='hicadd'){const f=b.dataset.f;if(!HIC[f])return;mutatePlan(p=>{const c=hicCluster().filter(x=>x.f!==f);c.push({f,since:todayStr()});p.hicCluster=c});return}

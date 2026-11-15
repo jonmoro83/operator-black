@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-11-13.
+Update it as things ship. Last updated 2026-11-15.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -46,13 +46,30 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
+- **The program chooser (asked 2026-11-15; step one shipped in 3.93).** Help picking
+  the template, the protocol and, on Black, the cluster. The user's decisions: follow the
+  books as much as possible; where a beginner has a real choice, offer TB I's beginner
+  path and StrongLifts side by side with a clear description of each; offer the chooser
+  again for what comes next, for a change mid-program (discouraged: the default is "line
+  it up for when this one ends", switching now needs a reason and a second tap), and for
+  lining up programs ahead from goals and an event date. The free-form goal stays the
+  existing `programGoals.aim`; the coach turns it into the chooser's answers, quoting the
+  words each came from, and `recommendProgram` makes the pick, so the pick is always
+  cited and testable and works without the coach. Remaining steps: (2) a tappable
+  prototype of the chooser, its result card and the mid-program discouragement; (3) the
+  chooser in the wizard's Program step and in Start a new program, setting
+  `plan.progPath` for TB I's beginner path; (4) "What's next" on Today in a program's
+  last week, and `plan.nextPrograms`, the queue, in Setup → Goals (OMS keeps its own
+  rotation); (5) the coach fill-in. Open: TB I runs the beginner path in 9-week blocks
+  and the app's cycles are 6 weeks; decide how a 9-week block is scheduled before step 3.
+
 - **Still to come from the conditioning redesign (3.86 shipped the first part).**
   MTI's assessment-paced progressions as opt-in blocks like OMS, Speed over ground first
   (intervals a third of the test distance at 20% faster than test pace, long days 10 to
   50% further at 20% slower, re-test mid-block), then the 300 m shuttle, beep test,
   Zone 2 and TJT blocks; MTI's assessment sessions (`mtwca`, `mabase`, `msog`, `mlong`)
   come with them. A filterable Browse of every session. Variety Junkie (TB II p188) as
-  a cluster setting. A gear question in Setup, so suggestions skip what you can't do.
+  a cluster setting. (The gear question shipped in 3.93, as the cluster card's kit list.)
   Prototype: https://claude.ai/artifact/GYJ3aWsmmc9fowKW1YMo3t.
 - **A weekly check for new MTI articles (asked 2026-11-12).** A Worker cron that pulls
   posts newer than the newest `mti` chunk into D1, so the coach stays current with no
@@ -149,6 +166,33 @@ Decided against for now.
 ## Shipped
 
 Newest first. The user-facing version of each entry is in `public/releases.js`.
+
+**A cluster suggested from your kit; the books' next program (2026-11-15, 3.93)**
+- Step one of the program chooser (see Next up). `04d-prog-rec.js` holds the engine.
+  `KIT` and `HIC_KIT` tag what every TB II #1–36 session (bar the FOBBIT) and every
+  non-power MTI session needs, read from each `gear`; a test holds the table to the
+  catalog. `plan.kit` is the person's list; unset, `kitHave()` infers it from the main
+  tool (`MOD_KIT`), and the first tap keeps that inference.
+- `recommendCluster` picks one aerobic/anaerobic, one general conditioning and a third
+  (p187, p112), never power (p164); MAP stands in when no AA session fits the kit, and
+  #25 needs only a floor so GC always fits. Ours, and labeled: sessions with an Advanced
+  version first (the swap rule needs one), then goal kit, then TB II by number. The E is
+  LISS, MTI's Zone 2 for a runner, or the 2/1 ruck run for an endurance rucker (p85).
+  The cluster card shows the suggestion and its reasons before "Use these" replaces it.
+- `recommendProgram(answers)` encodes who each template and protocol is for: Black for
+  most (TB II p19), Green for endurance or more than two E a week (p69, p66) with Fighter
+  (p71), Mass Protocol by days (TB III p31, p34–35, p129) with Mass Base Building, Zulu
+  on four days and Operator on three (TB I p31), Fighter for two days or other hard
+  training (TB I p52), Progressive SE without a barbell (TB II p73), Base Building first
+  (TB II p19), and the Ageless preset past forty (AA p28, p140). A TB I beginner (p29:
+  bench under 200, squat under 300, or new) gets two picks, the book's path and
+  StrongLifts. No caller yet, which is lint's one warning until step 3.
+- `nextProgram` gives the books' sequences: Zulu once the beginner path hits 260/300
+  (lb, converted from kg), Specificity with Black after General Mass and General Mass
+  after Specificity (TB III p129), Green or Black after Progressive SE (TB II p74), and
+  otherwise the same again (TB I p49). Shown in Start a new program as advice.
+- Operator's description said "The default". TB I p31 says Zulu is the main template;
+  both descriptions now say so.
 
 **The cycle review waits for the last lift (2026-11-13, 3.92)**
 - Reported: the review came on Friday of week 6 with that day's lift moved to Saturday.
