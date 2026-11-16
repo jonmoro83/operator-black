@@ -988,6 +988,54 @@ function guideMti(){
   ${['AA','GC','PD','E'].map(c=>by(c)?`<div class="stack" style="gap:6px"><h4 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">${esc(TB_CAT[c])}</h4>${by(c)}</div>`:'').join('')}
   <p class="note">Prescriptions are MTI\u2019s, paraphrased from the article each names. Where an article gives no round count, the timer\u2019s is the app\u2019s, and says so. MTI\u2019s studies are small, a handful of athletes each, and where they disagree with the book the app follows the book. The sessions that need an assessment first, MTI\u2019s speed-over-ground intervals among them, are not here yet.</p></div>`;
 }
+/* The chooser, the year and the handover, in full: asked for 2026-11-15 ("the chooser
+   should be fully documented in the guide"). The questions, the reasons to switch and
+   the year's goals are drawn from the lists the app uses, so they cannot drift. */
+function guideChooser(){
+  const row=(a,b,c)=>`<tr><td class="small"><b>${a}</b></td><td class="small">${b}</td><td class="small mono muted">${c}</td></tr>`;
+  return `<div class="card guide"><h3>Choosing a program</h3>
+  <p>The chooser picks a strength template and a conditioning protocol for you, by the books. It asks a few questions, shows the books’ pick with every reason and page, and lists anything else that fits. Where a beginner has a real choice it shows both, said plainly. You can open it in four places:</p>
+  <ul class="tight"><li><b>Welcome setup</b>, in the Program step: <b>Help me choose</b> sets the template and protocol for you to check.</li>
+  <li><b>Setup, under Programs</b>: <b>Help me choose what’s next</b> lines up what follows the program you are on.</li>
+  <li><b>Change program now…</b>, in the same place, for a change before this one ends.</li>
+  <li><b>Your year</b>, below it: <b>Add</b> puts a program anywhere in your plan.</li></ul>
+  <h4 class="sub-h">Say what you’re training for</h4>
+  <p>The chooser starts with a box: write what you are training for in your own words (a backcountry ski trip in March, a week of big hiking days this summer, a 10K, more muscle) and tap <b>Fill these in from my goal</b>. The coach reads it and fills in the questions below. It only sorts your words into answers; it does not pick the program. Every answer it gives quotes the words it came from, or it is not used.</p>
+  <ul class="tight"><li><b>From your goal</b> marks an answer the coach took from you, with your words beside it.</li>
+  <li><b>Assumed</b> marks one your goal did not answer, left at its usual value. Check these.</li>
+  <li><b>You set this</b> marks one you tapped yourself. Filling in again leaves it alone.</li></ul>
+  <p>Give a date and it offers <b>Plan the year back from it</b>, which opens Plan a year from a goal at that date. Your goal is saved in Setup, so the coach knows it later. Reading it uses one of your coach calls for the month, and what you write is sent to the coach to read. Without the coach, at the month’s cap, or after <b>Answer the questions myself</b>, the chooser is just the questions.</p>
+  <h4 class="sub-h">The questions</h4>
+  <dl class="kv">${CHZ_Q.map(q=>`<dt>${esc(q.q)}</dt><dd>${q.opts.map(o=>esc(o[1])).join(' · ')}</dd>`).join('')}</dl>
+  <p class="note">Each starts at the commonest answer, and last time’s answers come back when you open it again. In Setup, where your maxes are known, they count toward whether you are a beginner: TB I defines one by strength, not by years.</p>
+  <h4 class="sub-h">How the books pick</h4>
+  <div class="tbl-wrap"><table><thead><tr><th>When</th><th>The pick</th><th>Source</th></tr></thead><tbody>
+  ${row('No barbell','Green’s Progressive SE, for nine weeks at most','TB II p73')}
+  ${row('Running','Fighter with MTI’s running plan from week 6; week 1 if you’re new, week 11 if experienced','MTI')}
+  ${row('Size','Mass Base Building, then General Mass with Green: the Mass Template on four days, Grey Man on three, Fighter HT on two. The OMS rotation also fits','TB III p129, p34–35, p126')}
+  ${row('Endurance','Green with Fighter, after Base Building. Trips, expeditions, selection and races are what Green is for','TB II p69, p71, p19')}
+  ${row('A beginner','Two paths: TB I’s, Operator retesting every nine weeks until bench 260 and squat 300; or StrongLifts 5×5, ours, which needs no max','TB I p29')}
+  ${row('Two days, another sport, or least time','Fighter','TB I p52')}
+  ${row('Four days','Zulu','TB I p31')}
+  ${row('Three days','Operator, with Zulu as the other choice','TB I p31')}
+  ${row('Lifting only','The same template with no conditioning','')}
+  ${row('40 or older','The same pick, with the Ageless Athlete preset (training max, a recovery week after every three) and Old Warhorse as another choice','Ageless Athlete p28, p140, p143')}
+  </tbody></table></div>
+  <p class="note">Black with conditioning is the default, because the book says most people belong on it (TB II p19), and Base Building comes first unless you have done it. A reason marked <b>Ours</b> is the app’s, not a book’s.</p>
+  <h4 class="sub-h">What’s next, and when it starts</h4>
+  <p><b>Help me choose what’s next</b> shows the books’ next step first: the same template again with new maxes, since TB I says to keep a cluster at least two blocks (p49), or the book’s own sequence where it has one. Something else opens the questions. Choose when it starts: <b>after the retest</b>, the book’s point to change (TB I p33), or <b>when the cycle under way ends</b>, which leaves this block untested so the next starts from the maxes you have then.</p>
+  <p><b>Lined up means scheduled.</b> From its first Monday the Plan and the calendar show the new program, and opening one of its days shows it as it will be. You cannot move those days until it starts. On that Monday it starts by itself, the first time you open the app that week: the program you are on is archived with everything in it, your maxes carry over, and Base Building or a week off lined up before it comes first. In the last week Today says what is coming, with <b>Put it off a week</b>, which moves it and your whole year back a week. With nothing lined up, Today offers the books’ next step, and doing nothing keeps your program going with another cycle. To start with a bridge week and a retest instead, use the form in Setup, under Programs.</p>
+  <h4 class="sub-h">Changing program now</h4>
+  <p>The books discourage it, so the app asks first. It shows their reasons, keep a cluster at least two blocks (TB I p49) and change after the retest (TB I p33), and offers to line the change up for when this one ends. If you need to switch now it asks what has changed and gives the books’ answer:</p>
+  <ul class="tight">${Object.values(CHZ_WHY).map(x=>{const p=x.pick();return `<li><b>${esc(x.label)}</b>: ${p?esc(p.why[0][0])+` <span class="mono muted">${esc(p.why[0][1])}</span>`:'the book’s answer is to finish the block, and switching stays possible. <span class="mono muted">TB I p49</span>'}</li>`}).join('')}</ul>
+  <p class="note">Switching starts the new program next week and takes a second tap to confirm.</p>
+  <h4 class="sub-h">Your year</h4>
+  <p>Everything lined up after the program you are on, in order, with dates. Tap a block to move it, change how many cycles it runs before its retest (one to four), add one after it, or take it out. A program’s length is its Base Building, its cycles and the retest; Black for an event is TB II’s nine weeks, and the running plan is its weeks from where you start. <b>Start the plan</b> picks when the year begins: when this cycle ends or after the retest.</p>
+  <p><b>A week off.</b> TB I takes one every few months (p58). Any block that comes more than 18 weeks after the last week off is flagged, with a button to add one before it; 18 weeks is ours. Nothing is added for you.</p>
+  <p><b>Plan a year from a goal.</b> Pick what the year is for and the date, and the app works back from it with the books’ sequence, filling the weeks before with whole blocks of the books’ next step, a week off before each:</p>
+  <ul class="tight">${Object.values(YR_GOALS).map(G=>`<li><b>${esc(G.label)}</b>: ${esc((G.seq()[0].filter(it=>!it.off).map(it=>it.why?(Array.isArray(it.why[0])?it.why[0][0]:it.why[0]):pickLine(it)).join(' ')))} <span class="mono muted">${esc(G.cite)}</span></li>`).join('')}</ul>
+  <p class="note">When the date is too close for all of it, it says what it cut (Base Building first). Weeks left over, too few for a block, are the program you are on running that much longer. <b>Use this plan</b> replaces your year; any block can still be changed after.</p></div>`;
+}
 function guideRun(){
   const ks=Object.keys(HIC).filter(k=>HIC[k].runPlan);
   return `<div class="card guide"><h3>Conditioning: MTI’s running plan</h3>
@@ -1056,6 +1104,7 @@ function vGuideHtml(){
   <div class="tbl-wrap"><table><thead><tr><th>FOBBIT</th><th>Kit</th><th>Base</th><th>The rotation</th><th>Source</th></tr></thead><tbody>${Object.entries(FOBBIT).filter(([k])=>fobDef(k)).map(([k,x])=>`<tr><td><b>${esc(x.name)}</b></td><td class="small">${esc(x.gear)}</td><td class="small">${esc(fobEveryLabel(k))}</td><td class="small">${esc(fobLine(k))}</td><td class="small">${esc(fobSrcLabel(k))}</td></tr>`).join('')}</tbody></table></div>
   <p class="note">Pick a default in Setup and swap it on any single session from that day’s card. <b>Something else</b> lets you type your own movements, separated by a slash. Where a row says <b>Ours</b> the shape is the book’s and the movements and counts are the app’s — the sources sanction substituting but do not prescribe these.</p>
   <p class="note">Good for weather, for a hotel, for a day when the bike is taken, and for keeping impact off the legs the day before a heavy squat.</p></div>
+  ${guideChooser()}
   ${guideHicBook()}
   ${guideMti()}
   ${guideRun()}

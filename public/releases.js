@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.101',date:'2026-11-15',title:"The chooser, in the Guide",items:[
+    "The Guide has a new section, Choosing a program. It covers where the chooser is, describing your goal and what the tags mean, every question, how the books pick for each kind of answer with the pages, what's next and when it starts, changing program now, Your year, the week off, and planning a year from a goal.",
+  ]},
   {v:'3.100',date:'2026-11-15',title:"Say what you're training for",items:[
     "The program chooser starts with a box: what are you training for? Write it your way, like a backcountry ski trip in March or a week of big hiking days this summer, and tap Fill these in from my goal.",
     "The coach reads it and fills in the questions. Each answer it took from you says so and quotes your words. The rest are marked Assumed, and anything you tap yourself is marked You set this and stays as you set it. The program is still picked by the books from those answers, with the pages cited.",
