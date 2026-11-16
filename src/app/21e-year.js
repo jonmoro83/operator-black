@@ -35,7 +35,7 @@ function yrRow(b,n){
   <span class="lift-h"><b>${esc(itemName(it))}</b><span class="chip${first?' blue':''}">${first?'Lined up next · ':''}${b.weeks} week${b.weeks===1?'':'s'}</span></span>
   <span class="mono muted small" style="display:block">${fmtD(b.start,true)} – ${fmtD(b.end)}</span>
   ${it.off?`<span class="small muted" style="display:block">A week off every few months. <span class="mono">TB I p58</span></span>`:it.why?`<span class="small muted" style="display:block">${esc(it.why[0])} <span class="mono">${esc(it.why[1])}</span></span>`:''}</button>`;
-  if(b.warn) h+=`<div class="banner warn"><div class="small">No week off in the ${b.since} weeks before this. The book takes one every few months. <span class="mono muted">TB I p58</span></div><div><button class="btn sm" data-act="yroff" data-i="${i}">Add a week off before this</button></div></div>`;
+  if(b.warn) h+=`<div class="banner warn"><div class="small">By its end, ${b.since+b.weeks} weeks without a week off. The book takes one every few months. <span class="mono muted">TB I p58</span></div><div><button class="btn sm" data-act="yroff" data-i="${i}">Add a week off before this</button></div></div>`;
   if(first&&nextDue()) h+=`<div class="row"><button class="btn sm primary" data-act="nextstart">Start it</button></div>`;
   if(open){
     const cyc=!it.off&&!itemFixed(it);

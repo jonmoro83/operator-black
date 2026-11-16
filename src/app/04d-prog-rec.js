@@ -371,7 +371,24 @@ function chzLineUp(pk){
   const q=yrItems().map(x=>Object.assign({},x)); let i=0; while(q[i]&&q[i].off) i++;
   const st=o.start; q.splice(i,q[i]?1:0,o); q.forEach(x=>{ delete x.start }); q[0].start=st;
   mutatePlan(p=>{ p.nextPrograms=q; if(chz) p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
-  chz=null; return true;
+  chz=null; chzDone={line:pickLine(pk),start:st}; return true;
+}
+/* Said once it is scheduled, with the way to the calendar: asked 2026-11-15, "the
+   chooser is choosing but I'm not seeing it reflected on the calendar. We need an
+   obvious button on the chooser to apply the scheduling". */
+let chzDone=null;
+// The one button: what the pinned bar does with the pick shown first.
+function chzMain(){
+  if(!chz) return null;
+  if(chz.ctx==='next'&&!chz.full) return chzBookNext();
+  const r=chzResult(); return r.picks[0]||null;
+}
+function chzSchedule(){
+  const pk=chzMain(); if(!pk||pk.oms) return false;
+  if(chz.ctx==='next') return chzLineUp(pk);
+  if(chz.ctx==='add'){ const at=chz.at; yrInsert(at,pickOf(pk)); chz=null; const b=yrBlocks()[at]; chzDone=b?{line:pickLine(pk),start:b.start}:null; return true }
+  if(chz.ctx==='now') return chzSwitch(pk);
+  return false;
 }
 // Switching now: the new-program form, with the pick to start on. Its own second tap
 // is the confirmation.
@@ -408,7 +425,7 @@ function chzUse(i){
   if(chz.ctx==='wz'){ if(!chzUseWz(pk)) return false; chz.used=i; return true }
   if(chz.ctx==='next') return chzLineUp(pk);
   if(chz.ctx==='now') return chzSwitch(pk);
-  if(chz.ctx==='add'&&!pk.oms){ yrInsert(chz.at,pickOf(pk)); chz=null; return true }
+  if(chz.ctx==='add'&&!pk.oms){ const at=chz.at; yrInsert(at,pickOf(pk)); chz=null; const b=yrBlocks()[at]; chzDone=b?{line:pickLine(pk),start:b.start}:null; return true }
   return false;
 }
 function chzBookNext(){ return nextProgram({stempl:stemplKey(),cproto:cprotoKey(),path:plan.progPath||''},carryMaxes()) }

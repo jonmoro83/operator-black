@@ -804,3 +804,6 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .lift-pane .segb.on{background:var(--inv);border-color:var(--inv);color:var(--inv-ink)}
 .lift-pane .varsel{font-family:var(--f-mono);font-size:12px}
 :root[data-gym="1"] .eyebrow,:root[data-gym="1"] .sw .n,:root[data-gym="1"] .day .dn,:root[data-gym="1"] .day .dl{font-size:11px}
+/* The chooser's pinned bar: the one button that schedules the pick (3.104). */
+.chz-bar{position:sticky;bottom:calc(66px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);box-shadow:0 6px 20px rgb(0 0 0 / .18)}
+.chz-bar .btn{width:100%}

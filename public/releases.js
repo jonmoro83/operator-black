@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.104',date:'2026-11-15',title:"One button to schedule it",items:[
+    "The chooser now has one button pinned at the bottom of the screen that schedules what it picked: Schedule it from your date, Add it to your year, or Switch to it. Changing answers only changes the pick. Nothing goes on the calendar until you tap it.",
+    "After you tap it, Setup tells you what was scheduled and when, with See it on the calendar, which opens the calendar on that month.",
+    "The week-off warning in Your year now counts the block it's on, so it no longer says 3 weeks about a 21-week block.",
+  ]},
   {v:'3.103',date:'2026-11-15',title:"Pick your own start date",items:[
     "When you line up what's next, you can pick a date as well as when the cycle ends or after the retest. Any week from next week on works, and it starts on that week's Monday.",
     "Pick a date before the handover and the screen tells you the program you're on stops there without its retest. Pick one after and it carries on with more cycles until then.",

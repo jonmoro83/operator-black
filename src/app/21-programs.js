@@ -147,6 +147,7 @@ function programsCard(){
   const list=archiveList(), cm=carryMaxes();
   let h=`<div class="card" id="programs"><h2>Programs and archive</h2><div class="grid2"><label class="f">Current program<input type="text" id="p-pname" data-pbind="programName" value="${esc(plan.programName||'')}" placeholder="${esc(progName())}"></label><label class="f">Started<input type="text" value="${fmtLong(plan.startMonday)}" disabled></label></div>`;
   if(list.length) h+=`<div class="stack small">${list.map(p=>`<div class="row between"><span><b>${esc(p.name)}</b> <span class="muted">${fmtD(p.startMonday)}–${fmtD(p.end)}</span></span><button class="btn sm" data-act="progview" data-id="${p.id}">View</button></div>`).join('')}</div>`;
+  if(chzDone) h+=`<div class="banner info"><div class="small"><b>Scheduled: ${esc(chzDone.line)}, from ${esc(fmtD(chzDone.start,true))}.</b> It is on the Plan and the calendar from that week, and starts by itself that Monday.</div><div class="row"><button class="btn sm primary" data-act="chzsee">See it on the calendar</button><button class="btn sm ghost" data-act="chzdoneok">OK</button></div></div>`;
   h+=omsSetup();
   h+=yearSection();
   if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
@@ -233,7 +234,16 @@ function chooserFlow(){
   } else if(c.ctx==='now'){
     h+=`<h3>Change program now</h3><p class="note" style="margin:0">The new program starts next week, with your maxes carried over.</p>`+chooserSheet(chzBtn('now'));
   }
-  return h+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
+  return h+chzBar()+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
+}
+// The pinned bar: one obvious button that schedules what the chooser picked.
+function chzBar(){
+  const c=chz; if(!c||!['next','add','now'].includes(c.ctx)) return '';
+  const pk=chzMain(); if(!pk||pk.oms) return '';
+  const two=c.full&&chzResult().picks.length>1;
+  const when=c.ctx==='next'?fmtD(chzStart(),true):c.ctx==='now'?'next week':'';
+  const lbl=c.ctx==='now'?`Switch to ${pickName(pk)} next week…`:c.ctx==='add'?`Add ${pickName(pk)} to your year`:`Schedule ${pickName(pk)} from ${when}`;
+  return `<div class="chz-bar"><div class="small"><b>${esc(pickLine(pk))}</b>${two?'<span class="muted"> · or choose the other path above</span>':''}</div><button class="btn primary" data-act="chzschedule">${esc(lbl)}</button></div>`;
 }
 /* What the books suggest after this program (04d-prog-rec.js), said beside the form.
    Advice only: the new program starts on your current settings, and Setup is where the
@@ -1030,6 +1040,7 @@ function guideChooser(){
   <p>The books discourage it, so the app asks first. It shows their reasons, keep a cluster at least two blocks (TB I p49) and change after the retest (TB I p33), and offers to line the change up for when this one ends. If you need to switch now it asks what has changed and gives the books’ answer:</p>
   <ul class="tight">${Object.values(CHZ_WHY).map(x=>{const p=x.pick();return `<li><b>${esc(x.label)}</b>: ${p?esc(p.why[0][0])+` <span class="mono muted">${esc(p.why[0][1])}</span>`:'the book’s answer is to finish the block, and switching stays possible. <span class="mono muted">TB I p49</span>'}</li>`}).join('')}</ul>
   <p class="note">Switching starts the new program next week and takes a second tap to confirm.</p>
+  <p><b>The button at the bottom.</b> Whichever way you opened it, the chooser keeps one button pinned above the tab bar that does the scheduling: <b>Schedule</b> it from the date you picked, <b>Add</b> it to your year, or <b>Switch</b> to it. Changing answers only changes the pick; nothing is scheduled until you tap it. Afterwards Setup says what was scheduled, with <b>See it on the calendar</b>.</p>
   <h4 class="sub-h">Your year</h4>
   <p>Everything lined up after the program you are on, in order, with dates. Tap a block to move it, change how many cycles it runs before its retest (one to four), add one after it, or take it out. A program’s length is its Base Building, its cycles and the retest; Black for an event is TB II’s nine weeks, and the running plan is its weeks from where you start. <b>Start the plan</b> picks when the year begins: when this cycle ends, after the retest, or a date you pick. Plan a year from a goal has the same choice and counts its weeks from it.</p>
   <p><b>A week off.</b> TB I takes one every few months (p58). Any block that comes more than 18 weeks after the last week off is flagged, with a button to add one before it; 18 weeks is ours. Nothing is added for you.</p>

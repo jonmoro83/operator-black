@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.103", RELEASES_SRC="/releases.js?b=93f69c788d";
+const APP_VERSION="3.104", RELEASES_SRC="/releases.js?b=6ba52b98d8";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4516,7 +4516,24 @@ function chzLineUp(pk){
   const q=yrItems().map(x=>Object.assign({},x)); let i=0; while(q[i]&&q[i].off) i++;
   const st=o.start; q.splice(i,q[i]?1:0,o); q.forEach(x=>{ delete x.start }); q[0].start=st;
   mutatePlan(p=>{ p.nextPrograms=q; if(chz) p.programGoals=Object.assign({},p.programGoals,{chooser:Object.assign({},chz.a)}) });
-  chz=null; return true;
+  chz=null; chzDone={line:pickLine(pk),start:st}; return true;
+}
+/* Said once it is scheduled, with the way to the calendar: asked 2026-11-15, "the
+   chooser is choosing but I'm not seeing it reflected on the calendar. We need an
+   obvious button on the chooser to apply the scheduling". */
+let chzDone=null;
+// The one button: what the pinned bar does with the pick shown first.
+function chzMain(){
+  if(!chz) return null;
+  if(chz.ctx==='next'&&!chz.full) return chzBookNext();
+  const r=chzResult(); return r.picks[0]||null;
+}
+function chzSchedule(){
+  const pk=chzMain(); if(!pk||pk.oms) return false;
+  if(chz.ctx==='next') return chzLineUp(pk);
+  if(chz.ctx==='add'){ const at=chz.at; yrInsert(at,pickOf(pk)); chz=null; const b=yrBlocks()[at]; chzDone=b?{line:pickLine(pk),start:b.start}:null; return true }
+  if(chz.ctx==='now') return chzSwitch(pk);
+  return false;
 }
 // Switching now: the new-program form, with the pick to start on. Its own second tap
 // is the confirmation.
@@ -4553,7 +4570,7 @@ function chzUse(i){
   if(chz.ctx==='wz'){ if(!chzUseWz(pk)) return false; chz.used=i; return true }
   if(chz.ctx==='next') return chzLineUp(pk);
   if(chz.ctx==='now') return chzSwitch(pk);
-  if(chz.ctx==='add'&&!pk.oms){ yrInsert(chz.at,pickOf(pk)); chz=null; return true }
+  if(chz.ctx==='add'&&!pk.oms){ const at=chz.at; yrInsert(at,pickOf(pk)); chz=null; const b=yrBlocks()[at]; chzDone=b?{line:pickLine(pk),start:b.start}:null; return true }
   return false;
 }
 function chzBookNext(){ return nextProgram({stempl:stemplKey(),cproto:cprotoKey(),path:plan.progPath||''},carryMaxes()) }
@@ -10458,6 +10475,7 @@ function programsCard(){
   const list=archiveList(), cm=carryMaxes();
   let h=`<div class="card" id="programs"><h2>Programs and archive</h2><div class="grid2"><label class="f">Current program<input type="text" id="p-pname" data-pbind="programName" value="${esc(plan.programName||'')}" placeholder="${esc(progName())}"></label><label class="f">Started<input type="text" value="${fmtLong(plan.startMonday)}" disabled></label></div>`;
   if(list.length) h+=`<div class="stack small">${list.map(p=>`<div class="row between"><span><b>${esc(p.name)}</b> <span class="muted">${fmtD(p.startMonday)}–${fmtD(p.end)}</span></span><button class="btn sm" data-act="progview" data-id="${p.id}">View</button></div>`).join('')}</div>`;
+  if(chzDone) h+=`<div class="banner info"><div class="small"><b>Scheduled: ${esc(chzDone.line)}, from ${esc(fmtD(chzDone.start,true))}.</b> It is on the Plan and the calendar from that week, and starts by itself that Monday.</div><div class="row"><button class="btn sm primary" data-act="chzsee">See it on the calendar</button><button class="btn sm ghost" data-act="chzdoneok">OK</button></div></div>`;
   h+=omsSetup();
   h+=yearSection();
   if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
@@ -10544,7 +10562,16 @@ function chooserFlow(){
   } else if(c.ctx==='now'){
     h+=`<h3>Change program now</h3><p class="note" style="margin:0">The new program starts next week, with your maxes carried over.</p>`+chooserSheet(chzBtn('now'));
   }
-  return h+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
+  return h+chzBar()+`<div class="row"><button class="btn ghost" data-act="chzclose">Cancel</button></div></div>`;
+}
+// The pinned bar: one obvious button that schedules what the chooser picked.
+function chzBar(){
+  const c=chz; if(!c||!['next','add','now'].includes(c.ctx)) return '';
+  const pk=chzMain(); if(!pk||pk.oms) return '';
+  const two=c.full&&chzResult().picks.length>1;
+  const when=c.ctx==='next'?fmtD(chzStart(),true):c.ctx==='now'?'next week':'';
+  const lbl=c.ctx==='now'?`Switch to ${pickName(pk)} next week…`:c.ctx==='add'?`Add ${pickName(pk)} to your year`:`Schedule ${pickName(pk)} from ${when}`;
+  return `<div class="chz-bar"><div class="small"><b>${esc(pickLine(pk))}</b>${two?'<span class="muted"> · or choose the other path above</span>':''}</div><button class="btn primary" data-act="chzschedule">${esc(lbl)}</button></div>`;
 }
 /* What the books suggest after this program (04d-prog-rec.js), said beside the form.
    Advice only: the new program starts on your current settings, and Setup is where the
@@ -11341,6 +11368,7 @@ function guideChooser(){
   <p>The books discourage it, so the app asks first. It shows their reasons, keep a cluster at least two blocks (TB I p49) and change after the retest (TB I p33), and offers to line the change up for when this one ends. If you need to switch now it asks what has changed and gives the books’ answer:</p>
   <ul class="tight">${Object.values(CHZ_WHY).map(x=>{const p=x.pick();return `<li><b>${esc(x.label)}</b>: ${p?esc(p.why[0][0])+` <span class="mono muted">${esc(p.why[0][1])}</span>`:'the book’s answer is to finish the block, and switching stays possible. <span class="mono muted">TB I p49</span>'}</li>`}).join('')}</ul>
   <p class="note">Switching starts the new program next week and takes a second tap to confirm.</p>
+  <p><b>The button at the bottom.</b> Whichever way you opened it, the chooser keeps one button pinned above the tab bar that does the scheduling: <b>Schedule</b> it from the date you picked, <b>Add</b> it to your year, or <b>Switch</b> to it. Changing answers only changes the pick; nothing is scheduled until you tap it. Afterwards Setup says what was scheduled, with <b>See it on the calendar</b>.</p>
   <h4 class="sub-h">Your year</h4>
   <p>Everything lined up after the program you are on, in order, with dates. Tap a block to move it, change how many cycles it runs before its retest (one to four), add one after it, or take it out. A program’s length is its Base Building, its cycles and the retest; Black for an event is TB II’s nine weeks, and the running plan is its weeks from where you start. <b>Start the plan</b> picks when the year begins: when this cycle ends, after the retest, or a date you pick. Plan a year from a goal has the same choice and counts its weeks from it.</p>
   <p><b>A week off.</b> TB I takes one every few months (p58). Any block that comes more than 18 weeks after the last week off is flagged, with a button to add one before it; 18 weeks is ours. Nothing is added for you.</p>
@@ -12317,7 +12345,7 @@ function yrRow(b,n){
   <span class="lift-h"><b>${esc(itemName(it))}</b><span class="chip${first?' blue':''}">${first?'Lined up next · ':''}${b.weeks} week${b.weeks===1?'':'s'}</span></span>
   <span class="mono muted small" style="display:block">${fmtD(b.start,true)} – ${fmtD(b.end)}</span>
   ${it.off?`<span class="small muted" style="display:block">A week off every few months. <span class="mono">TB I p58</span></span>`:it.why?`<span class="small muted" style="display:block">${esc(it.why[0])} <span class="mono">${esc(it.why[1])}</span></span>`:''}</button>`;
-  if(b.warn) h+=`<div class="banner warn"><div class="small">No week off in the ${b.since} weeks before this. The book takes one every few months. <span class="mono muted">TB I p58</span></div><div><button class="btn sm" data-act="yroff" data-i="${i}">Add a week off before this</button></div></div>`;
+  if(b.warn) h+=`<div class="banner warn"><div class="small">By its end, ${b.since+b.weeks} weeks without a week off. The book takes one every few months. <span class="mono muted">TB I p58</span></div><div><button class="btn sm" data-act="yroff" data-i="${i}">Add a week off before this</button></div></div>`;
   if(first&&nextDue()) h+=`<div class="row"><button class="btn sm primary" data-act="nextstart">Start it</button></div>`;
   if(open){
     const cyc=!it.off&&!itemFixed(it);
@@ -12764,6 +12792,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
   if(a==='chzfill'){chzFill();return}
+  if(a==='chzschedule'){chzSchedule();render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
+  if(a==='chzdoneok'){chzDone=null;render();return}
+  if(a==='chzsee'){const s=chzDone&&chzDone.start;chzDone=null;planMode='cal';try{localStorage.setItem('ob.planmode',planMode)}catch(e){}if(s)calMonth=s.slice(0,7);goView('plan');return}
   if(a==='chzreset'){chzReset();render();return}
   if(a==='chzmanual'){if(chz)chz.manual=true;render();return}
   if(a==='chzyear'){chzYear();render();return}

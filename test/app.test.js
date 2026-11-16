@@ -11300,3 +11300,31 @@ test("a start date of your own, from the chooser, Your year and the goal planner
   a.equal(x.ygPlan("event", "2027-06-12", "2026-12-07").gap, 27);
   a.match(x.programsCard(), /between your start \(Mon 12\/7\)/);
 });
+
+test("the chooser's pinned bar schedules the pick, and says where to see it", () => {
+  // Asked 2026-11-15: "The chooser is choosing but I'm not seeing it reflected on the
+  // calendar. We need an obvious button on the chooser to apply the scheduling." The
+  // prototype's pinned bar (B), with one button, then a way to the calendar.
+  const x = blackApp("2026-11-18");
+  x.chzOpen("next");
+  let h = x.programsCard();
+  a.match(h, /class="chz-bar"/); a.match(h, /data-act="chzschedule">Schedule Operator from Mon 2\/15/, "the books' next step until you ask for something else");
+  x.chz.full = true; x.chzSet("goal", "endurance"); x.chzSet("days", "2"); x.chz.start = "2026-12-07";
+  h = x.programsCard();
+  a.match(h, /data-act="chzschedule">Schedule Fighter from Mon 12\/7/, "the answers' pick, live");
+  a.ok(x.chzSchedule());
+  a.deepEqual([x.plan.nextPrograms[0].cproto, x.plan.nextPrograms[0].start], ["green", "2026-12-07"]);
+  a.equal(x.chz, null);
+  h = x.programsCard();
+  a.match(h, /Scheduled: Fighter with Green/); a.match(h, /data-act="chzsee">See it on the calendar/);
+  a.equal(x.withFuture("2026-12-08", () => x.weekOf("2026-12-07").kind), "bb", "and it is on the calendar");
+  // Adding to the year: the same bar, saying when it lands.
+  x.chzDone = null; x.chzOpen("add"); x.chz.at = 1;
+  a.match(x.programsCard(), /data-act="chzschedule">Add Fighter to your year/, "last time's answers came back");
+  a.ok(x.chzSchedule());
+  a.equal(x.plan.nextPrograms.length, 2); a.ok(x.chzDone.start > "2026-12-07");
+  // Changing now still goes through the form's own second tap.
+  x.chzDone = null; x.chzOpen("now");
+  a.match(x.programsCard(), /Switch to Fighter next week/);
+  a.ok(x.chzSchedule()); a.ok(x.newProg); a.equal(x.chzDone, null);
+});
