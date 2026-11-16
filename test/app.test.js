@@ -11201,7 +11201,7 @@ test("a planned year can start when the cycle ends, from the goal planner or You
   a.match(x.programsCard(), /data-act="yrfrom" data-v="2026-12-28" aria-pressed="false"/);
   a.ok(x.yrStartAt("2026-12-28"));
   a.equal(x.yrBlocks()[0].start, "2026-12-28");
-  a.ok(!x.yrStartAt("2027-01-04"), "only the two handovers");
+  a.ok(!x.yrStartAt("2027-01-06"), "a Monday, not any day (since 3.103 any Monday from next week on, by request)");
 });
 
 /* ---------- the chooser from your own words (3.100) ----------
@@ -11272,4 +11272,31 @@ test("Start over clears the goal, the answers and the tags, and they do not come
   x.plan.programGoals = { aim: "315 squat" }; x.bump();
   x.chzOpen("now"); x.chzSet("days", "2"); x.chzReset();
   a.equal(x.plan.programGoals.aim, "315 squat");
+});
+
+test("a start date of your own, from the chooser, Your year and the goal planner", () => {
+  // Asked 2026-11-15: "I need to be able to select a specific start date from the
+  // chooser too." Any Monday from next week on; the handovers stay as the quick picks.
+  const x = blackApp("2026-11-18");
+  x.chzOpen("next");
+  let h = x.programsCard();
+  a.match(h, /data-startpick="chzstart"/); a.match(h, /min="2026-11-23"/);
+  a.ok(!x.progStartOk("2026-11-16"), "not this week, which has begun");
+  a.ok(!x.progStartOk("2026-12-02"), "a Monday, not a Wednesday");
+  a.ok(x.progStartOk("2026-12-07"));
+  x.chz.start = "2026-12-07";
+  a.equal(x.chzStart(), "2026-12-07");
+  h = x.programsCard();
+  a.match(h, /Partway through/, "before the handover: said what it costs"); a.match(h, /Line it up for Mon 12\/7/);
+  x.chzLineUp(x.chzBookNext());
+  a.equal(x.plan.nextPrograms[0].start, "2026-12-07");
+  // Your year: the same, and later than the handover says the program runs on.
+  a.ok(x.yrStartAt("2027-03-01"));
+  a.equal(x.yrFirstStart(), "2027-03-01");
+  a.match(x.programsCard(), /carries on past its handover/);
+  a.ok(!x.yrStartAt("2026-11-16"));
+  // The goal planner counts from it.
+  x.ygOpen(); x.yg.from = "2026-12-07"; x.yg.date = "2027-06-12";
+  a.equal(x.ygPlan("event", "2027-06-12", "2026-12-07").gap, 27);
+  a.match(x.programsCard(), /between your start \(Mon 12\/7\)/);
 });

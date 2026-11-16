@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.102", RELEASES_SRC="/releases.js?b=1051f536bd";
+const APP_VERSION="3.103", RELEASES_SRC="/releases.js?b=93f69c788d";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4482,7 +4482,7 @@ function progHandovers(){
   if(!out.some(h=>h.start===sw)) out.push({k:'handover',label:omsState().on?'When this OMS block ends':list.some(w=>w.kind==='test'&&w.monday<sw&&w.monday>=t)?'After the retest':'When this program ends',start:sw});
   return out.sort((a,b)=>a.start<b.start?-1:1);
 }
-function chzStart(){ const hs=progHandovers(); return (chz&&hs.find(h=>h.start===chz.start)||hs[hs.length-1]).start }
+function chzStart(){ const hs=progHandovers(); return chz&&(hs.some(h=>h.start===chz.start)||progStartOk(chz.start))?chz.start:hs[hs.length-1].start }
 function progWeeksLeft(){ return Math.round((D(progSwitchMonday())-D(mondayOf(realToday())))/(7*864e5)) }
 // A pick as the next program takes it: template, protocol, path, and Base Building at
 // its start, after the bridge week when there is one.
@@ -4620,9 +4620,16 @@ function yrOffBefore(i){ return yrInsert(i,{off:true}) }
 /* When the year starts: when the cycle under way ends, or after the retest, the same
    two the chooser offers (progHandovers). Asked for 2026-11-15: "can I choose to start
    the planned training after my current cycle?" */
-function yrFrom(k){ const hs=progHandovers(); return hs.find(h=>h.k===k)||hs[hs.length-1] }
+/* Or a date of your own (asked 2026-11-15: "select a specific start date from the
+   chooser"): any Monday from next week on. This week has already begun, and a program
+   lined up for it would start the moment it was lined up. */
+function progStartOk(d){ return typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!isNaN(D(d))&&d===mondayOf(d)&&d>=addDays(mondayOf(realToday()),7)&&d>plan.startMonday }
+function yrFrom(k){
+  if(progStartOk(k)) return {k:'date',label:'From '+fmtD(k,true),start:k};
+  const hs=progHandovers(); return hs.find(h=>h.k===k)||hs[hs.length-1];
+}
 function yrStartAt(start){
-  const q=yrItems(); if(!q.length||!progHandovers().some(h=>h.start===start)) return false;
+  const q=yrItems(); if(!q.length||!(progHandovers().some(h=>h.start===start)||progStartOk(start))) return false;
   q[0]=Object.assign({},q[0],{start}); mutatePlan(p=>{p.nextPrograms=q}); return true;
 }
 function yrCycles(i,d){
@@ -10518,8 +10525,8 @@ function chooserFlow(){
   if(c.ctx==='next'){
     const nx=chzBookNext();
     const st=chzStart(), hk=(hs.find(x=>x.start===st)||{}).k;
-    h+=`<h3>After ${esc(cur)}</h3>${hs.length>1?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===st?' on':''}" data-act="chzstart" data-v="${x.start}" aria-pressed="${x.start===st}">${esc(x.label)} \u00b7 ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}
-    <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick starts by itself then, and the Plan shows it from that week; nothing changes before.`}</p>`
+    h+=`<h3>After ${esc(cur)}</h3>${yrFromSeg(hs,st,'chzstart',x=>x.start,'Start it')}
+    ${hk==='handover'?`<p class="note" style="margin:0">It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick starts by itself then, and the Plan shows it from that week; nothing changes before.</p>`:`<p class="note" style="margin:0">What you pick starts by itself on ${esc(fmtD(st,true))}, and the Plan shows it from that week; nothing changes before.</p>`}`
       +pickCard(nx,`<button class="btn primary" data-act="chzlinebook">Line it up for ${sw}</button>`).replace(/<span class="chip blue">[^<]*<\/span>/,'<span class="chip blue">The books’ next step</span>')
       +(c.full?chooserSheet(chzBtn('next')):`<button class="btn" data-act="chzfull">${chzCoachOn()?'Something else: describe your goal, or answer the questions':'Something else: answer the questions'}</button>`);
   } else if(c.ctx==='warn'){
@@ -11328,14 +11335,14 @@ function guideChooser(){
   </tbody></table></div>
   <p class="note">Black with conditioning is the default, because the book says most people belong on it (TB II p19), and Base Building comes first unless you have done it. A reason marked <b>Ours</b> is the app’s, not a book’s.</p>
   <h4 class="sub-h">What’s next, and when it starts</h4>
-  <p><b>Help me choose what’s next</b> shows the books’ next step first: the same template again with new maxes, since TB I says to keep a cluster at least two blocks (p49), or the book’s own sequence where it has one. Something else opens the questions. Choose when it starts: <b>after the retest</b>, the book’s point to change (TB I p33), or <b>when the cycle under way ends</b>, which leaves this block untested so the next starts from the maxes you have then.</p>
+  <p><b>Help me choose what’s next</b> shows the books’ next step first: the same template again with new maxes, since TB I says to keep a cluster at least two blocks (p49), or the book’s own sequence where it has one. Something else opens the questions. Choose when it starts: <b>after the retest</b>, the book’s point to change (TB I p33), or <b>when the cycle under way ends</b>, which leaves this block untested so the next starts from the maxes you have then. Or <b>pick a date</b>: any week from next week on, starting on its Monday. Before the handover, the program you are on stops there without its retest; after it, it carries on with more cycles until then.</p>
   <p><b>Lined up means scheduled.</b> From its first Monday the Plan and the calendar show the new program, and opening one of its days shows it as it will be. You cannot move those days until it starts. On that Monday it starts by itself, the first time you open the app that week: the program you are on is archived with everything in it, your maxes carry over, and Base Building or a week off lined up before it comes first. In the last week Today says what is coming, with <b>Put it off a week</b>, which moves it and your whole year back a week. With nothing lined up, Today offers the books’ next step, and doing nothing keeps your program going with another cycle. To start with a bridge week and a retest instead, use the form in Setup, under Programs.</p>
   <h4 class="sub-h">Changing program now</h4>
   <p>The books discourage it, so the app asks first. It shows their reasons, keep a cluster at least two blocks (TB I p49) and change after the retest (TB I p33), and offers to line the change up for when this one ends. If you need to switch now it asks what has changed and gives the books’ answer:</p>
   <ul class="tight">${Object.values(CHZ_WHY).map(x=>{const p=x.pick();return `<li><b>${esc(x.label)}</b>: ${p?esc(p.why[0][0])+` <span class="mono muted">${esc(p.why[0][1])}</span>`:'the book’s answer is to finish the block, and switching stays possible. <span class="mono muted">TB I p49</span>'}</li>`}).join('')}</ul>
   <p class="note">Switching starts the new program next week and takes a second tap to confirm.</p>
   <h4 class="sub-h">Your year</h4>
-  <p>Everything lined up after the program you are on, in order, with dates. Tap a block to move it, change how many cycles it runs before its retest (one to four), add one after it, or take it out. A program’s length is its Base Building, its cycles and the retest; Black for an event is TB II’s nine weeks, and the running plan is its weeks from where you start. <b>Start the plan</b> picks when the year begins: when this cycle ends or after the retest.</p>
+  <p>Everything lined up after the program you are on, in order, with dates. Tap a block to move it, change how many cycles it runs before its retest (one to four), add one after it, or take it out. A program’s length is its Base Building, its cycles and the retest; Black for an event is TB II’s nine weeks, and the running plan is its weeks from where you start. <b>Start the plan</b> picks when the year begins: when this cycle ends, after the retest, or a date you pick. Plan a year from a goal has the same choice and counts its weeks from it.</p>
   <p><b>A week off.</b> TB I takes one every few months (p58). Any block that comes more than 18 weeks after the last week off is flagged, with a button to add one before it; 18 weeks is ours. Nothing is added for you.</p>
   <p><b>Plan a year from a goal.</b> Pick what the year is for and the date, and the app works back from it with the books’ sequence, filling the weeks before with whole blocks of the books’ next step, a week off before each:</p>
   <ul class="tight">${Object.values(YR_GOALS).map(G=>`<li><b>${esc(G.label)}</b>: ${esc((G.seq()[0].filter(it=>!it.off).map(it=>it.why?(Array.isArray(it.why[0])?it.why[0][0]:it.why[0]):pickLine(it)).join(' ')))} <span class="mono muted">${esc(G.cite)}</span></li>`).join('')}</ul>
@@ -12293,11 +12300,15 @@ function yearSection(){
   return h+`</div>`;
 }
 // Where the year starts, when there is a choice: the chooser's two handovers.
-function yrFromSeg(hs,on,act,val){
-  if(hs.length<2) return '';
-  const cyc=hs.find(x=>x.k==='cycle');
-  return `<div class="f"><span>Start the plan</span><div class="seg">${hs.map(x=>`<button class="segb${x.start===on?' on':''}" data-act="${act}" data-v="${esc(val(x))}" aria-pressed="${x.start===on}">${esc(x.label)} · ${esc(fmtD(x.start,true))}</button>`).join('')}</div></div>`
-    +(cyc&&cyc.start===on?`<p class="note" style="margin:0">This block will not be retested, so the plan starts from the maxes you have then. The book’s point to change is after the retest. <span class="mono muted">TB I p33</span></p>`:'');
+// Where the year starts: the chooser's two handovers, or a Monday of your own.
+function yrFromSeg(hs,on,act,val,label){
+  const cyc=hs.find(x=>x.k==='cycle'), last=hs[hs.length-1], own=!hs.some(x=>x.start===on), min=addDays(mondayOf(realToday()),7);
+  let h=`<div class="f"><span>${esc(label||'Start the plan')}</span>${hs.length>1||own?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===on?' on':''}" data-act="${act}" data-v="${esc(val(x))}" aria-pressed="${x.start===on}">${esc(x.label)} · ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}</div>
+  <label class="f">Or pick a date <span style="font-weight:500">(it starts on that week’s Monday)</span><input type="date" id="${act}-date" data-startpick="${act}" value="${esc(on)}" min="${min}"></label>`;
+  if(cyc&&cyc.start===on) h+=`<p class="note" style="margin:0">This block will not be retested, so the plan starts from the maxes you have then. The book’s point to change is after the retest. <span class="mono muted">TB I p33</span></p>`;
+  else if(own&&on<last.start) h+=`<p class="note" style="margin:0">Partway through ${esc(progName())}: it stops there without its retest, so what follows starts from the maxes you have then. The book’s point to change is after the retest (TB I p33), and a new cluster after at least two blocks (p49).</p>`;
+  else if(own) h+=`<p class="note" style="margin:0">${esc(progName())} carries on past its handover (${esc(fmtD(last.start,true))}) with more cycles until then.</p>`;
+  return h;
 }
 function yrRow(b,n){
   const it=b.it, open=yrSel===b.i, first=n&&n.qi===b.i, i=b.i;
@@ -12328,7 +12339,7 @@ function ygSheet(){
   <div class="seg">${Object.entries(YR_GOALS).map(([k,x])=>`<button class="segb${yg.goal===k?' on':''}" data-act="ygset" data-v="${k}" aria-pressed="${yg.goal===k}">${esc(x.label)}</button>`).join('')}</div>
   <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`+yrFromSeg(hs,fr.start,'ygfrom',h=>h.k);
   if(!r) return h+`</div>`;
-  h+=`<div class="small muted">${r.gap} weeks between ${fr.k==='cycle'?'the end of this cycle':'the end of '+esc(progName())} (${fmtD(addDays(fr.start,-1),true)}) and ${esc(G.name)}.</div>`;
+  h+=`<div class="small muted">${r.gap} weeks between ${fr.k==='cycle'?'the end of this cycle':fr.k==='date'?'your start':'the end of '+esc(progName())} (${fmtD(fr.k==='date'?fr.start:addDays(fr.start,-1),true)}) and ${esc(G.name)}.</div>`;
   if(r.short) h+=`<div class="banner warn"><div class="small"><b>Shorter than the book’s shortest.</b> Even ${r.need} weeks does not fit in ${r.gap}. Pick a later date, or change program now. <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   else if(r.cut) h+=`<div class="banner warn"><div class="small"><b>Shortened to fit.</b> ${esc(r.cut)} <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   if(!r.short){
@@ -12481,6 +12492,10 @@ document.addEventListener('input',e=>{
   }
   if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
+  // A start date of your own: snapped to its Monday, and only from next week on.
+  if(t.dataset.startpick){ const v=t.value&&mondayOf(t.value), k=t.dataset.startpick; if(!progStartOk(v)) return;
+    if(k==='chzstart'&&chz) chz.start=v; else if(k==='ygfrom'&&yg) yg.from=v; else if(k==='yrfrom') yrStartAt(v);
+    render(); return; }
   if(t.dataset.yg&&yg){ yg.date=t.value||yg.date; render(); return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }

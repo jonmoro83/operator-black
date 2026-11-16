@@ -60,9 +60,16 @@ function yrOffBefore(i){ return yrInsert(i,{off:true}) }
 /* When the year starts: when the cycle under way ends, or after the retest, the same
    two the chooser offers (progHandovers). Asked for 2026-11-15: "can I choose to start
    the planned training after my current cycle?" */
-function yrFrom(k){ const hs=progHandovers(); return hs.find(h=>h.k===k)||hs[hs.length-1] }
+/* Or a date of your own (asked 2026-11-15: "select a specific start date from the
+   chooser"): any Monday from next week on. This week has already begun, and a program
+   lined up for it would start the moment it was lined up. */
+function progStartOk(d){ return typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!isNaN(D(d))&&d===mondayOf(d)&&d>=addDays(mondayOf(realToday()),7)&&d>plan.startMonday }
+function yrFrom(k){
+  if(progStartOk(k)) return {k:'date',label:'From '+fmtD(k,true),start:k};
+  const hs=progHandovers(); return hs.find(h=>h.k===k)||hs[hs.length-1];
+}
 function yrStartAt(start){
-  const q=yrItems(); if(!q.length||!progHandovers().some(h=>h.start===start)) return false;
+  const q=yrItems(); if(!q.length||!(progHandovers().some(h=>h.start===start)||progStartOk(start))) return false;
   q[0]=Object.assign({},q[0],{start}); mutatePlan(p=>{p.nextPrograms=q}); return true;
 }
 function yrCycles(i,d){

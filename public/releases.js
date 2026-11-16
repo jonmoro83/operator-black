@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.103',date:'2026-11-15',title:"Pick your own start date",items:[
+    "When you line up what's next, you can pick a date as well as when the cycle ends or after the retest. Any week from next week on works, and it starts on that week's Monday.",
+    "Pick a date before the handover and the screen tells you the program you're on stops there without its retest. Pick one after and it carries on with more cycles until then.",
+    "Start the plan in Your year and in Plan a year from a goal take a date too, and the goal plan counts its weeks from it.",
+  ]},
   {v:'3.102',date:'2026-11-15',title:"Start the chooser over",items:[
     "Put the wrong thing in the chooser? Start over clears your goal and puts every answer back to its usual value, and the chooser forgets your last answers so they don't come back next time. The goal saved in Setup goes too if the chooser put it there.",
   ]},

@@ -18,11 +18,15 @@ function yearSection(){
   return h+`</div>`;
 }
 // Where the year starts, when there is a choice: the chooser's two handovers.
-function yrFromSeg(hs,on,act,val){
-  if(hs.length<2) return '';
-  const cyc=hs.find(x=>x.k==='cycle');
-  return `<div class="f"><span>Start the plan</span><div class="seg">${hs.map(x=>`<button class="segb${x.start===on?' on':''}" data-act="${act}" data-v="${esc(val(x))}" aria-pressed="${x.start===on}">${esc(x.label)} · ${esc(fmtD(x.start,true))}</button>`).join('')}</div></div>`
-    +(cyc&&cyc.start===on?`<p class="note" style="margin:0">This block will not be retested, so the plan starts from the maxes you have then. The book’s point to change is after the retest. <span class="mono muted">TB I p33</span></p>`:'');
+// Where the year starts: the chooser's two handovers, or a Monday of your own.
+function yrFromSeg(hs,on,act,val,label){
+  const cyc=hs.find(x=>x.k==='cycle'), last=hs[hs.length-1], own=!hs.some(x=>x.start===on), min=addDays(mondayOf(realToday()),7);
+  let h=`<div class="f"><span>${esc(label||'Start the plan')}</span>${hs.length>1||own?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===on?' on':''}" data-act="${act}" data-v="${esc(val(x))}" aria-pressed="${x.start===on}">${esc(x.label)} · ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}</div>
+  <label class="f">Or pick a date <span style="font-weight:500">(it starts on that week’s Monday)</span><input type="date" id="${act}-date" data-startpick="${act}" value="${esc(on)}" min="${min}"></label>`;
+  if(cyc&&cyc.start===on) h+=`<p class="note" style="margin:0">This block will not be retested, so the plan starts from the maxes you have then. The book’s point to change is after the retest. <span class="mono muted">TB I p33</span></p>`;
+  else if(own&&on<last.start) h+=`<p class="note" style="margin:0">Partway through ${esc(progName())}: it stops there without its retest, so what follows starts from the maxes you have then. The book’s point to change is after the retest (TB I p33), and a new cluster after at least two blocks (p49).</p>`;
+  else if(own) h+=`<p class="note" style="margin:0">${esc(progName())} carries on past its handover (${esc(fmtD(last.start,true))}) with more cycles until then.</p>`;
+  return h;
 }
 function yrRow(b,n){
   const it=b.it, open=yrSel===b.i, first=n&&n.qi===b.i, i=b.i;
@@ -53,7 +57,7 @@ function ygSheet(){
   <div class="seg">${Object.entries(YR_GOALS).map(([k,x])=>`<button class="segb${yg.goal===k?' on':''}" data-act="ygset" data-v="${k}" aria-pressed="${yg.goal===k}">${esc(x.label)}</button>`).join('')}</div>
   <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`+yrFromSeg(hs,fr.start,'ygfrom',h=>h.k);
   if(!r) return h+`</div>`;
-  h+=`<div class="small muted">${r.gap} weeks between ${fr.k==='cycle'?'the end of this cycle':'the end of '+esc(progName())} (${fmtD(addDays(fr.start,-1),true)}) and ${esc(G.name)}.</div>`;
+  h+=`<div class="small muted">${r.gap} weeks between ${fr.k==='cycle'?'the end of this cycle':fr.k==='date'?'your start':'the end of '+esc(progName())} (${fmtD(fr.k==='date'?fr.start:addDays(fr.start,-1),true)}) and ${esc(G.name)}.</div>`;
   if(r.short) h+=`<div class="banner warn"><div class="small"><b>Shorter than the book’s shortest.</b> Even ${r.need} weeks does not fit in ${r.gap}. Pick a later date, or change program now. <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   else if(r.cut) h+=`<div class="banner warn"><div class="small"><b>Shortened to fit.</b> ${esc(r.cut)} <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   if(!r.short){

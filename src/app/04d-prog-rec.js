@@ -337,7 +337,7 @@ function progHandovers(){
   if(!out.some(h=>h.start===sw)) out.push({k:'handover',label:omsState().on?'When this OMS block ends':list.some(w=>w.kind==='test'&&w.monday<sw&&w.monday>=t)?'After the retest':'When this program ends',start:sw});
   return out.sort((a,b)=>a.start<b.start?-1:1);
 }
-function chzStart(){ const hs=progHandovers(); return (chz&&hs.find(h=>h.start===chz.start)||hs[hs.length-1]).start }
+function chzStart(){ const hs=progHandovers(); return chz&&(hs.some(h=>h.start===chz.start)||progStartOk(chz.start))?chz.start:hs[hs.length-1].start }
 function progWeeksLeft(){ return Math.round((D(progSwitchMonday())-D(mondayOf(realToday())))/(7*864e5)) }
 // A pick as the next program takes it: template, protocol, path, and Base Building at
 // its start, after the bridge week when there is one.

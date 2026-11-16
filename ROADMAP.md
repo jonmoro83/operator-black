@@ -65,7 +65,9 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   every answer quoting the goal or dropped, logged in `coach_fill` and counted against
   the cap; a dated goal offers Plan a year back to it). Documented in full in the Guide
   (Choosing a program, 3.101, by request), drawn from CHZ_Q, CHZ_WHY and YR_GOALS.
-  Start over (3.102, by request) resets the answers, the goal box and the saved answers. Since 3.98 Your year and the goal planner offer the
+  Start over (3.102, by request) resets the answers, the goal box and the saved answers.
+  A start date of your own (3.103, by request): any Monday from next week on, in the
+  chooser, Your year and the goal planner, beside the two handovers. Since 3.98 Your year and the goal planner offer the
   same two starts as the chooser (when the cycle ends, after the retest), by request.
   Since 3.99 a lined-up program shows in the Plan and calendar from its start and starts
   by itself on that Monday (the user's call, after lining up Green and finding the Plan

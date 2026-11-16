@@ -64,6 +64,10 @@ document.addEventListener('input',e=>{
   }
   if(t.dataset.bandnew){ bandNew[t.dataset.bandnew]=t.value; render(); return; }
   if(t.dataset.wz&&wz){ const k=t.dataset.wz; if(k.startsWith('maxes.')) wz.maxes[k.slice(6)]=t.value; else wz[k]=k==='start'?(t.value||wz.start):t.value; return; }
+  // A start date of your own: snapped to its Monday, and only from next week on.
+  if(t.dataset.startpick){ const v=t.value&&mondayOf(t.value), k=t.dataset.startpick; if(!progStartOk(v)) return;
+    if(k==='chzstart'&&chz) chz.start=v; else if(k==='ygfrom'&&yg) yg.from=v; else if(k==='yrfrom') yrStartAt(v);
+    render(); return; }
   if(t.dataset.yg&&yg){ yg.date=t.value||yg.date; render(); return; }
   if(t.dataset.np&&newProg){ const k=t.dataset.np; newProg[k]=k==='start'?(t.value?mondayOf(t.value):newProg.start):t.value; newProg.arm=false; newProg.err=null; if(k==='mode') render(); return; }
   if(viewing&&(t.dataset.bind||t.dataset.pbind||t.dataset.cmax||t.dataset.accday)){ readOnly(); return; }
