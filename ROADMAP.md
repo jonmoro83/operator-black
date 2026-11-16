@@ -46,6 +46,13 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
+- **Move a session for every week (asked 2026-11-15, after the coach had to decline:
+  "In my next cycle (Fighter) can you move the Friday E session to Saturday and the
+  Saturday SE session to Friday?").** Shipped in 3.108: `plan.weekOrder` [{from, map}],
+  map keyed by session ('s1', 'c3') via `weekKeys`, applied in `slotDate` on cycle weeks;
+  a lined-up program keeps its map on the queue item and `pickPatch` applies it. Move…
+  has This week only / Every week. Not done: the coach making the move itself.
+
 - **The chooser is its own tab (asked 2026-11-15: "way too cumbersome. It needs to be
   its own tab and much more user friendly").** The user picked prototype A, one question
   at a time, as a tab between Plan and History. Shipped in 3.107: `vChoose()` in

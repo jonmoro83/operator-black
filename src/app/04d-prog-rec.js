@@ -377,6 +377,8 @@ function pickPatch(pk,rest){
     // A week off lined up before it is the new program's first week (an Off insert).
     const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
     if(pk.offFirst) next.inserts=Object.assign({},next.inserts,{[next.startMonday]:'off'});
+    // Days moved for every week before it started (3.108).
+    if(pk.weekOrder&&Object.keys(pk.weekOrder).length) next.weekOrder=[{from:next.startMonday,map:Object.assign({},pk.weekOrder)}];
     // Its sessions, joining when it starts: where the Advanced-then-swap rule counts from.
     if(pk.cl&&pk.cl.fs){ next.hicCluster=pk.cl.fs.map(f=>({f,since:s0})); next.hicE=pk.cl.e }
     if(pk.bb){ const at=next.bridge?addDays(s0,7):s0;

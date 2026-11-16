@@ -232,9 +232,68 @@ function isDateStr(v){ return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)
    is the slot, which is why `slotOf` can fall back to the weekday and still be right.
    `slotDate` is where it actually happens. Keep the two straight: a Lift 3 rotation read
    off the date it was moved to would change the session by moving it. */
+/* A standing move (3.108): a session moved to another day of its week, every training
+   week of the program, not one week. Asked 2026-11-15: "In my next cycle (Fighter) can
+   you move the Friday E session to Saturday and the Saturday SE session to Friday?" and
+   the app could only do it a week at a time. `plan.weekOrder` is a list of {from, map},
+   map being session -> weekday; the latest whose `from` is not after the week wins, so a
+   change from here on leaves the weeks before it as they were. Cycle weeks only: a
+   test, deload or Base Building week has its own layout, and the book's reasons for it.
+   Keyed by the session, not the day: 's1' is the first lifting day, 'c3' the third
+   conditioning session. Green lays a HIC week out differently from an E week, so "the
+   SE" is on a different weekday from one week to the next, and a move by weekday would
+   move a different session every other week. */
+function weekKeys(wk){
+  if(!wk||wk.kind!=='cycle') return [];
+  if(wk._keys) return wk._keys;
+  const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
+  const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[], sd=tplDays(T,wk);
+  let si=0, ci=0;
+  return wk._keys=weekShape(P.noStrength?[]:tplSlots(T,wk,sd),cs).map(r=>r==='S'||r==='SC'?'s'+(++si):r==='C'?'c'+(++ci):null);
+}
+function slotKey(monday,slot){ return weekKeys(weekAt(monday))[slot]||null }
+function weekOrderAt(monday){
+  const L=Array.isArray(plan.weekOrder)?plan.weekOrder:[]; let m={};
+  for(const e of L) if(e&&isDateStr(e.from)&&e.from<=monday&&e.map&&typeof e.map==='object') m=e.map;
+  return m;
+}
+function standingDow(monday,slot){
+  const k=slotKey(monday,slot); if(!k) return null;
+  const v=weekOrderAt(monday)[k]; return v>=0&&v<7&&+v!==slot?+v:null;
+}
 /** The date a slot's session happens on: its own day unless it has been moved. */
-function slotDate(monday,slot){ const v=atMap()[sessId(monday,slot)]; return isDateStr(v)?v:addDays(monday,slot) }
-function sessMoved(monday,slot){ return slotDate(monday,slot)!==addDays(monday,slot) }
+function slotDate(monday,slot){
+  const v=atMap()[sessId(monday,slot)]; if(isDateStr(v)) return v;
+  const s=standingDow(monday,slot); return s==null?addDays(monday,slot):addDays(monday,s);
+}
+function sessMoved(monday,slot){ return isDateStr(atMap()[sessId(monday,slot)])&&slotDate(monday,slot)!==addDays(monday,slot) }
+// Set where a session goes every week from `from` on. `home` true takes the move away.
+function setStanding(from,key,d,home){
+  if(!/^[sc]\d$/.test(key)) return false;
+  mutatePlan(p=>{ const L=(Array.isArray(p.weekOrder)?p.weekOrder:[]).filter(e=>e.from<from);
+    const map=Object.assign({},weekOrderAt(from)); if(home) delete map[key]; else map[key]=d;
+    L.push({from,map}); p.weekOrder=L });
+  return true;
+}
+// Where a standing move starts: the week you are looking at, unless it is under way and
+// something in it is done, in which case next week, so nothing you logged moves.
+function stdFrom(mon){
+  const cur=mondayOf(realToday()); if(mon>cur) return mon;
+  for(let i=0;i<7;i++){ const L=logs[addDays(cur,i)]; if(L&&(L.done||L.hic)) return addDays(cur,7) }
+  return cur;
+}
+// The lined-up program's own layout, set before it starts (asked for the same day: "In
+// my next cycle"). Kept on its queue item and applied from its first week.
+function setStandingNext(key,d,home){
+  const n=nextQueued(); if(!n) return false;
+  const idx=(plan.nextPrograms||[]).indexOf(yrItems()[n.qi]); if(idx<0) return false;
+  mutatePlan(p=>{ const q=p.nextPrograms.slice(), it=Object.assign({},q[idx]), m=Object.assign({},it.weekOrder);
+    if(d==='all') for(const k of Object.keys(m)) delete m[k];
+    else if(home) delete m[key]; else m[key]=d;
+    it.weekOrder=m; q[idx]=it; p.nextPrograms=q });
+  return true;
+}
+function clearStanding(from){ mutatePlan(p=>{ const L=(Array.isArray(p.weekOrder)?p.weekOrder:[]).filter(e=>e.from<from); L.push({from,map:{}}); p.weekOrder=L }); return true }
 /** Every session that lands on this date, as {monday,slot,home}. */
 function sessionsOn(date){
   const out=[], seen={};
@@ -396,7 +455,8 @@ function dayPlans(date){
     if(!dp||dp.t==='off'||dp.t==='pre') continue;      // a rest slot is not a session
     // Namespaced: a travel day already has its own `slot` ('day3'), and quietly
     // overwriting it moved the mobility block off the hinge day.
-    out.push(Object.assign({},dp,{sess:{monday,slot,home},moved:home!==date}));
+    // A standing move is the week's layout, not a one-off, so it is not marked moved.
+    out.push(Object.assign({},dp,{sess:{monday,slot,home},moved:home!==date&&sessMoved(monday,slot),standing:home!==date&&!sessMoved(monday,slot)}));
   }
   const rank=d=>stackKindOf(d)==='lift'?0:1;
   return out.sort((a,b)=>rank(a)-rank(b));

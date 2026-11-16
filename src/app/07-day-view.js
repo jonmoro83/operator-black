@@ -52,8 +52,8 @@ function vTodayOf(){
   // brief, which is the first thing on the screen (3.73).
   const startBtn=sel===todayStr()&&!viewing&&(dp.t==='rm5'||dp.t==='test')
     ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&!previewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
-  if(moveOpen&&!viewing&&!previewing) h+=moveCard();
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&(!previewing||moveStdOk(sel))&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
+  if(moveOpen&&!viewing&&(!previewing||moveStdOk(sel))) h+=moveCard();
   if(previewing) h+=`<div class="banner info"><div class="small"><b>Lined up: ${esc(fpC.line)}.</b> It starts by itself ${fmtD(previewing.startMonday,true)}, and this is the day as it will be. Change it in Setup, under Programs.</div></div>`;
   h+=noteCard(sel);
   h+=aimsCard(sel);
@@ -135,10 +135,14 @@ function addonCard(date){
   if(list.length) h+=`<div class="note">These sit outside the program. They feed your conditioning minutes, your records and the climbing total; they do not change your maxes, the end-of-cycle review, or whether the program counts as followed.</div>`;
   return h+`</div>`;
 }
-let moveOpen=false;
+let moveOpen=false, moveAll=false;
+// Every week: a cycle week, in the program you are on or the one lined up next.
+function moveStdOk(date){ const wk=weekOf(date); return !!wk&&wk.kind==='cycle' }
 function moveCard(){
-  const here=dayPlans(sel), mon=mondayOf(sel);
+  const here=dayPlans(sel), mon=mondayOf(sel), std=moveStdOk(sel), all=std&&(moveAll||!!previewing);
   let h=`<div class="card"><div class="lift-h"><h3>Move a session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
+  if(std&&!previewing) h+=`<div class="seg wide"><button class="segb${all?'':' on'}" data-act="moveall" data-v="0" aria-pressed="${!all}">This week only</button><button class="segb${all?' on':''}" data-act="moveall" data-v="1" aria-pressed="${all}">Every week</button></div>`;
+  if(all) return h+moveStdBody(here,mon)+`</div>`;
   if(!here.length) h+=`<p class="note" style="margin:0">Nothing on ${DAYN[dow(sel)]} to move. Open the day a session is on and move it here.</p>`;
   here.forEach(dp=>{
     const ss=dp.sess, name=dp.short||'Session';
@@ -158,6 +162,28 @@ function moveCard(){
   if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Put this week back as it was</button></div>`;
   h+=plyoMovePicker(mon);
   return h+`</div>`;
+}
+/* Every week (3.108): where each of this week's sessions goes in every training week of
+   the program, from here on. The weekday buttons are this week's, with the same
+   warnings; the test, deload and Base Building weeks keep the book's layout. */
+function moveStdBody(here,mon){
+  const from=previewing?mon:stdFrom(mon), map=weekOrderAt(mon);
+  let h=previewing?`<p class="note" style="margin:0">For <b>${esc(progName())}</b>, lined up to start ${esc(fmtD(plan.startMonday,true))}: every training week of it. It is kept with the program and applies when it starts.</p>`
+    :`<p class="note" style="margin:0">Every training week of ${esc(progName())}, from the week of ${esc(fmtD(from,true))}. Test, deload and Base Building weeks keep their own layout.</p>`;
+  const list=here.filter(dp=>!dp.moved&&slotKey(dp.sess.monday,dp.sess.slot));
+  if(!list.length) h+=`<p class="note" style="margin:0">Nothing on ${DAYN[dow(sel)]} to move. Open the day a session is on.</p>`;
+  for(const dp of list){
+    const ss=dp.sess, name=dp.short||'Session', on=dow(sel);
+    h+=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><div class="row between"><b>${esc(name)}</b>${dp.standing?`<span class="small muted">Usually ${esc(DAYN[ss.slot])}</span>`:''}</div><div class="row wrap" style="gap:6px">`;
+    for(let d=0;d<7;d++){
+      const day=addDays(mon,d), w=d===on?[]:moveWarn(day,ss);
+      h+=`<button class="btn sm${d===on?' primary':''}" data-act="movestd" data-k="${esc(slotKey(ss.monday,ss.slot)||'')}" data-home="${d===ss.slot?1:0}" data-d="${d}" data-from="${esc(from)}" aria-pressed="${d===on}" title="${esc(w[0]||'')}">${esc(DAYN[d])}${w.length?' <span aria-hidden="true">\u26a0</span>':''}</button>`;
+    }
+    h+=`</div></div>`;
+  }
+  h+=`<div class="note">Swapping two days is two moves: move one, then open the other day and move it. A \u26a0 means it is allowed but worth knowing about \u2014 hold the button to read it.</div>`;
+  if(Object.keys(map).length) h+=`<div><button class="btn sm ghost" data-act="movestdclear" data-from="${esc(from)}">Put every week back as the program lays it out</button></div>`;
+  return h;
 }
 // Plyos ride along with whichever day you put them on, so they get their own picker
 // rather than taking part in the session shuffle above.

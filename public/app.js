@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.107", RELEASES_SRC="/releases.js?b=9993642fea";
+const APP_VERSION="3.108", RELEASES_SRC="/releases.js?b=59530de994";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -3403,9 +3403,68 @@ function isDateStr(v){ return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)
    is the slot, which is why `slotOf` can fall back to the weekday and still be right.
    `slotDate` is where it actually happens. Keep the two straight: a Lift 3 rotation read
    off the date it was moved to would change the session by moving it. */
+/* A standing move (3.108): a session moved to another day of its week, every training
+   week of the program, not one week. Asked 2026-11-15: "In my next cycle (Fighter) can
+   you move the Friday E session to Saturday and the Saturday SE session to Friday?" and
+   the app could only do it a week at a time. `plan.weekOrder` is a list of {from, map},
+   map being session -> weekday; the latest whose `from` is not after the week wins, so a
+   change from here on leaves the weeks before it as they were. Cycle weeks only: a
+   test, deload or Base Building week has its own layout, and the book's reasons for it.
+   Keyed by the session, not the day: 's1' is the first lifting day, 'c3' the third
+   conditioning session. Green lays a HIC week out differently from an E week, so "the
+   SE" is on a different weekday from one week to the next, and a move by weekday would
+   move a different session every other week. */
+function weekKeys(wk){
+  if(!wk||wk.kind!=='cycle') return [];
+  if(wk._keys) return wk._keys;
+  const T=STEMPL[wk.tpl]||stemplOf(), P=CPROTO[wk.cpr]||cprotoOf();
+  const cs=(typeof P.sessions==='function'?P.sessions(wk):P.sessions)||[], sd=tplDays(T,wk);
+  let si=0, ci=0;
+  return wk._keys=weekShape(P.noStrength?[]:tplSlots(T,wk,sd),cs).map(r=>r==='S'||r==='SC'?'s'+(++si):r==='C'?'c'+(++ci):null);
+}
+function slotKey(monday,slot){ return weekKeys(weekAt(monday))[slot]||null }
+function weekOrderAt(monday){
+  const L=Array.isArray(plan.weekOrder)?plan.weekOrder:[]; let m={};
+  for(const e of L) if(e&&isDateStr(e.from)&&e.from<=monday&&e.map&&typeof e.map==='object') m=e.map;
+  return m;
+}
+function standingDow(monday,slot){
+  const k=slotKey(monday,slot); if(!k) return null;
+  const v=weekOrderAt(monday)[k]; return v>=0&&v<7&&+v!==slot?+v:null;
+}
 /** The date a slot's session happens on: its own day unless it has been moved. */
-function slotDate(monday,slot){ const v=atMap()[sessId(monday,slot)]; return isDateStr(v)?v:addDays(monday,slot) }
-function sessMoved(monday,slot){ return slotDate(monday,slot)!==addDays(monday,slot) }
+function slotDate(monday,slot){
+  const v=atMap()[sessId(monday,slot)]; if(isDateStr(v)) return v;
+  const s=standingDow(monday,slot); return s==null?addDays(monday,slot):addDays(monday,s);
+}
+function sessMoved(monday,slot){ return isDateStr(atMap()[sessId(monday,slot)])&&slotDate(monday,slot)!==addDays(monday,slot) }
+// Set where a session goes every week from `from` on. `home` true takes the move away.
+function setStanding(from,key,d,home){
+  if(!/^[sc]\d$/.test(key)) return false;
+  mutatePlan(p=>{ const L=(Array.isArray(p.weekOrder)?p.weekOrder:[]).filter(e=>e.from<from);
+    const map=Object.assign({},weekOrderAt(from)); if(home) delete map[key]; else map[key]=d;
+    L.push({from,map}); p.weekOrder=L });
+  return true;
+}
+// Where a standing move starts: the week you are looking at, unless it is under way and
+// something in it is done, in which case next week, so nothing you logged moves.
+function stdFrom(mon){
+  const cur=mondayOf(realToday()); if(mon>cur) return mon;
+  for(let i=0;i<7;i++){ const L=logs[addDays(cur,i)]; if(L&&(L.done||L.hic)) return addDays(cur,7) }
+  return cur;
+}
+// The lined-up program's own layout, set before it starts (asked for the same day: "In
+// my next cycle"). Kept on its queue item and applied from its first week.
+function setStandingNext(key,d,home){
+  const n=nextQueued(); if(!n) return false;
+  const idx=(plan.nextPrograms||[]).indexOf(yrItems()[n.qi]); if(idx<0) return false;
+  mutatePlan(p=>{ const q=p.nextPrograms.slice(), it=Object.assign({},q[idx]), m=Object.assign({},it.weekOrder);
+    if(d==='all') for(const k of Object.keys(m)) delete m[k];
+    else if(home) delete m[key]; else m[key]=d;
+    it.weekOrder=m; q[idx]=it; p.nextPrograms=q });
+  return true;
+}
+function clearStanding(from){ mutatePlan(p=>{ const L=(Array.isArray(p.weekOrder)?p.weekOrder:[]).filter(e=>e.from<from); L.push({from,map:{}}); p.weekOrder=L }); return true }
 /** Every session that lands on this date, as {monday,slot,home}. */
 function sessionsOn(date){
   const out=[], seen={};
@@ -3567,7 +3626,8 @@ function dayPlans(date){
     if(!dp||dp.t==='off'||dp.t==='pre') continue;      // a rest slot is not a session
     // Namespaced: a travel day already has its own `slot` ('day3'), and quietly
     // overwriting it moved the mobility block off the hinge day.
-    out.push(Object.assign({},dp,{sess:{monday,slot,home},moved:home!==date}));
+    // A standing move is the week's layout, not a one-off, so it is not marked moved.
+    out.push(Object.assign({},dp,{sess:{monday,slot,home},moved:home!==date&&sessMoved(monday,slot),standing:home!==date&&!sessMoved(monday,slot)}));
   }
   const rank=d=>stackKindOf(d)==='lift'?0:1;
   return out.sort((a,b)=>rank(a)-rank(b));
@@ -4630,6 +4690,8 @@ function pickPatch(pk,rest){
     // A week off lined up before it is the new program's first week (an Off insert).
     const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
     if(pk.offFirst) next.inserts=Object.assign({},next.inserts,{[next.startMonday]:'off'});
+    // Days moved for every week before it started (3.108).
+    if(pk.weekOrder&&Object.keys(pk.weekOrder).length) next.weekOrder=[{from:next.startMonday,map:Object.assign({},pk.weekOrder)}];
     // Its sessions, joining when it starts: where the Advanced-then-swap rule counts from.
     if(pk.cl&&pk.cl.fs){ next.hicCluster=pk.cl.fs.map(f=>({f,since:s0})); next.hicE=pk.cl.e }
     if(pk.bb){ const at=next.bridge?addDays(s0,7):s0;
@@ -5574,8 +5636,8 @@ function vTodayOf(){
   // brief, which is the first thing on the screen (3.73).
   const startBtn=sel===todayStr()&&!viewing&&(dp.t==='rm5'||dp.t==='test')
     ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&!previewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
-  if(moveOpen&&!viewing&&!previewing) h+=moveCard();
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&(!previewing||moveStdOk(sel))&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
+  if(moveOpen&&!viewing&&(!previewing||moveStdOk(sel))) h+=moveCard();
   if(previewing) h+=`<div class="banner info"><div class="small"><b>Lined up: ${esc(fpC.line)}.</b> It starts by itself ${fmtD(previewing.startMonday,true)}, and this is the day as it will be. Change it in Setup, under Programs.</div></div>`;
   h+=noteCard(sel);
   h+=aimsCard(sel);
@@ -5657,10 +5719,14 @@ function addonCard(date){
   if(list.length) h+=`<div class="note">These sit outside the program. They feed your conditioning minutes, your records and the climbing total; they do not change your maxes, the end-of-cycle review, or whether the program counts as followed.</div>`;
   return h+`</div>`;
 }
-let moveOpen=false;
+let moveOpen=false, moveAll=false;
+// Every week: a cycle week, in the program you are on or the one lined up next.
+function moveStdOk(date){ const wk=weekOf(date); return !!wk&&wk.kind==='cycle' }
 function moveCard(){
-  const here=dayPlans(sel), mon=mondayOf(sel);
+  const here=dayPlans(sel), mon=mondayOf(sel), std=moveStdOk(sel), all=std&&(moveAll||!!previewing);
   let h=`<div class="card"><div class="lift-h"><h3>Move a session</h3><button class="btn sm ghost" data-act="movex">Close</button></div>`;
+  if(std&&!previewing) h+=`<div class="seg wide"><button class="segb${all?'':' on'}" data-act="moveall" data-v="0" aria-pressed="${!all}">This week only</button><button class="segb${all?' on':''}" data-act="moveall" data-v="1" aria-pressed="${all}">Every week</button></div>`;
+  if(all) return h+moveStdBody(here,mon)+`</div>`;
   if(!here.length) h+=`<p class="note" style="margin:0">Nothing on ${DAYN[dow(sel)]} to move. Open the day a session is on and move it here.</p>`;
   here.forEach(dp=>{
     const ss=dp.sess, name=dp.short||'Session';
@@ -5680,6 +5746,28 @@ function moveCard(){
   if(isReordered(mon)) h+=`<div><button class="btn sm ghost" data-act="ordreset">Put this week back as it was</button></div>`;
   h+=plyoMovePicker(mon);
   return h+`</div>`;
+}
+/* Every week (3.108): where each of this week's sessions goes in every training week of
+   the program, from here on. The weekday buttons are this week's, with the same
+   warnings; the test, deload and Base Building weeks keep the book's layout. */
+function moveStdBody(here,mon){
+  const from=previewing?mon:stdFrom(mon), map=weekOrderAt(mon);
+  let h=previewing?`<p class="note" style="margin:0">For <b>${esc(progName())}</b>, lined up to start ${esc(fmtD(plan.startMonday,true))}: every training week of it. It is kept with the program and applies when it starts.</p>`
+    :`<p class="note" style="margin:0">Every training week of ${esc(progName())}, from the week of ${esc(fmtD(from,true))}. Test, deload and Base Building weeks keep their own layout.</p>`;
+  const list=here.filter(dp=>!dp.moved&&slotKey(dp.sess.monday,dp.sess.slot));
+  if(!list.length) h+=`<p class="note" style="margin:0">Nothing on ${DAYN[dow(sel)]} to move. Open the day a session is on.</p>`;
+  for(const dp of list){
+    const ss=dp.sess, name=dp.short||'Session', on=dow(sel);
+    h+=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><div class="row between"><b>${esc(name)}</b>${dp.standing?`<span class="small muted">Usually ${esc(DAYN[ss.slot])}</span>`:''}</div><div class="row wrap" style="gap:6px">`;
+    for(let d=0;d<7;d++){
+      const day=addDays(mon,d), w=d===on?[]:moveWarn(day,ss);
+      h+=`<button class="btn sm${d===on?' primary':''}" data-act="movestd" data-k="${esc(slotKey(ss.monday,ss.slot)||'')}" data-home="${d===ss.slot?1:0}" data-d="${d}" data-from="${esc(from)}" aria-pressed="${d===on}" title="${esc(w[0]||'')}">${esc(DAYN[d])}${w.length?' <span aria-hidden="true">\u26a0</span>':''}</button>`;
+    }
+    h+=`</div></div>`;
+  }
+  h+=`<div class="note">Swapping two days is two moves: move one, then open the other day and move it. A \u26a0 means it is allowed but worth knowing about \u2014 hold the button to read it.</div>`;
+  if(Object.keys(map).length) h+=`<div><button class="btn sm ghost" data-act="movestdclear" data-from="${esc(from)}">Put every week back as the program lays it out</button></div>`;
+  return h;
 }
 // Plyos ride along with whichever day you put them on, so they get their own picker
 // rather than taking part in the session shuffle above.
@@ -11555,7 +11643,7 @@ function guideChooser(){
   <p class="note">Two weeks rather than one is ours: one bad week is just a bad week. <b>Not now</b> asks again next week.</p>
   <h4 class="sub-h">What’s next, and when it starts</h4>
   <p><b>Help me choose what’s next</b> shows the books’ next step first: the same template again with new maxes, since TB I says to keep a cluster at least two blocks (p49), or the book’s own sequence where it has one. Something else opens the questions. Choose when it starts: <b>after the retest</b>, the book’s point to change (TB I p33), or <b>when the cycle under way ends</b>, which leaves this block untested so the next starts from the maxes you have then. Or <b>pick a date</b>: any week from next week on, starting on its Monday. Before the handover, the program you are on stops there without its retest; after it, it carries on with more cycles until then.</p>
-  <p><b>Lined up means scheduled.</b> From its first Monday the Plan and the calendar show the new program, and opening one of its days shows it as it will be. You cannot move those days until it starts. On that Monday it starts by itself, the first time you open the app that week: the program you are on is archived with everything in it, your maxes carry over, and Base Building or a week off lined up before it comes first. In the last week Today says what is coming, with <b>Put it off a week</b>, which moves it and your whole year back a week. With nothing lined up, Today offers the books’ next step, and doing nothing keeps your program going with another cycle. To start with a bridge week and a retest instead, use the form in Setup, under Programs.</p>
+  <p><b>Lined up means scheduled.</b> From its first Monday the Plan and the calendar show the new program, and opening one of its days shows it as it will be. Before it starts you can move a session for <b>every week</b> of it (Move\u2026 on one of its training days), and it is kept with the program; moving a single day waits until it starts. On that Monday it starts by itself, the first time you open the app that week: the program you are on is archived with everything in it, your maxes carry over, and Base Building or a week off lined up before it comes first. In the last week Today says what is coming, with <b>Put it off a week</b>, which moves it and your whole year back a week. With nothing lined up, Today offers the books’ next step, and doing nothing keeps your program going with another cycle. To start with a bridge week and a retest instead, use the form in Setup, under Programs.</p>
   <h4 class="sub-h">Changing program now</h4>
   <p>The books discourage it, so the app asks first. It shows their reasons, keep a cluster at least two blocks (TB I p49) and change after the retest (TB I p33), and offers to line the change up for when this one ends. If you need to switch now it asks what has changed and gives the books’ answer:</p>
   <ul class="tight">${Object.values(CHZ_WHY).map(x=>{const p=x.pick();return `<li><b>${esc(x.label)}</b>: ${p?esc(p.why[0][0])+` <span class="mono muted">${esc(p.why[0][1])}</span>`:'the book’s answer is to finish the block, and switching stays possible. <span class="mono muted">TB I p49</span>'}</li>`}).join('')}</ul>
@@ -11656,6 +11744,7 @@ function vGuideHtml(){
   <ul class="tight"><li><b>The lifting days go where the book's table puts them.</b> Operator on days 1, 3 and 5, Fighter on 1 and 4, Zulu on 1, 2, 4 and 5. Zulu's pairs sit together on purpose \u2014 A and B work different lifts.</li>
   <li><b>Conditioning fills what is left</b>, spread out where the week allows. That is a preference, not a rule: TB II says plainly that “your HIC and E can be done on any day … you can do two days in a row, or whatever. As long as you’re hitting your weekly minimums.” So the app arranges them apart and lets you put them together, with a note rather than a refusal.</li>
   <li><b>The default layout follows the book’s own principle</b> for arranging a week: “It’s not set in stone. As long as you adhere to the principles — one rest day. No back to back same sessions. Completed within 7 days.” So a protocol lays its week out with the strength days apart. Zulu’s A and B are different sessions, so they are allowed to touch, and are meant to.</li>
+  <li><b>Every week, or this week only.</b> On a training week, Move\u2026 asks which. <b>Every week</b> puts that session on that weekday in every training week of the program from here on, or of the program lined up next, before it starts. It moves the session, not the day: Green lays out a HIC week differently from an E week, and the SE still goes where you put it. To swap two days, move one, then the other. Test, deload and Base Building weeks keep their own layout, and <b>Put every week back</b> undoes it from that week on.</li>
   <li><b>Moving a session is one thing and it is never refused.</b> Pick the day, and that session happens on that day. Nothing else moves — not the day you took it from, not the day it lands on, not the rest of the week. A day can hold two sessions or none, and a day with none is a rest day. Move it into next week if that is when you will do it.</li>
   <li><b>You get told, not stopped.</b> Two lifting sessions on one day, or on consecutive days, is the one thing the book asks you not to do, so the app says so — do the heavier one first and cut the accessories on the second. It is a remark, not a veto: the week you can actually train beats the week that reads correctly.</li>
   <li><b>If it will not fit, a session rides along after the barbell work</b> rather than taking your rest day. Four lifting days and three conditioning sessions is seven, so Zulu + Black puts a HIC on day 1 \u2014 exactly what the book's own Black + Zulu week does.</li>
@@ -13182,6 +13271,16 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
   if(a==='move'){moveOpen=!moveOpen;render();return}
   if(a==='movex'){moveOpen=false;render();return}
+  if(a==='moveall'){moveAll=b.dataset.v==='1';render();return}
+  if(a==='movestd'||a==='movestdclear'){
+    offerUndo(a==='movestd'?'Moved for every week':'Every week put back',snapPlan());
+    const fp=futurePlan(), next=!!(fp&&sel>=fp.startMonday), k=b.dataset.k, d=+b.dataset.d, home=b.dataset.home==='1';
+    if(a==='movestd'){ if(next) setStandingNext(k,d,home); else setStanding(b.dataset.from,k,d,home) }
+    else { if(next) setStandingNext(0,'all'); else clearStanding(b.dataset.from) }
+    // Follow the session to its new day, so the sheet stays on it.
+    if(a==='movestd') sel=addDays(mondayOf(sel),d);
+    openWarm.clear(); openPx.clear(); render(); return;
+  }
   if(a==='moveto'){
     offerUndo('Session moved',snapPlan());
     moveSession(b.dataset.mon,+b.dataset.sl,b.dataset.to);

@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.108',date:'2026-11-15',title:"Move a session for every week",items:[
+    "Move… on a training week now asks: This week only, or Every week. Every week puts that session on that day in every training week of the program from here on.",
+    "It works on the program lined up next too, before it starts. Open one of its training days on the calendar, tap Move…, and the move goes with it.",
+    "It moves the session, not the weekday, so on Green the SE stays where you put it in both HIC and E weeks. To swap two days, move one, then the other.",
+    "Test, deload and Base Building weeks keep their own layout. Put every week back undoes it from that week on.",
+  ]},
   {v:'3.107',date:'2026-11-15',title:"A Choose tab",items:[
     "The program chooser has its own tab, Choose, between Plan and History.",
     "It asks one thing at a time with big buttons: what you're training for, how many days you can lift, then a few quick ones. Your last answers come back selected.",

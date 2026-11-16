@@ -11476,3 +11476,49 @@ test("the Choose tab asks one thing at a time and ends on one button", () => {
   a.match(x.vChoose(), /Step 1 of 3/, "and again from the top, last time's answers selected");
   a.equal(x.chz.a.goal, "endurance");
 });
+
+/* A move for every week (3.108). Asked 2026-11-15, after the coach had to say no: "In my
+   next cycle (Fighter) can you move the Friday E session to Saturday and the Saturday SE
+   session to Friday?" Move had only ever done one week. Now it does every training week
+   of the program, or of the one lined up, which keeps it until it starts. */
+test("a session moved for every week, in this program and in the one lined up", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.stempl = "fighter"; x.plan.cproto = "green"; x.bump();
+  const kinds = (m) => [0, 1, 2, 3, 4, 5, 6].map((d) => x.dayPlans(x.addDays(m, d)).map((p) => p.t === "se" ? "SE" : p.t === "hic" ? p.fmt : p.t === "lift" ? "L" : "").join("+"));
+  // Green lays out a HIC week and an E week differently, so the SE is not on the same
+  // weekday every week. A move is by session, so the same session moves every week.
+  const [w1, w2] = [kinds("2026-11-23"), kinds("2026-11-30")];
+  const keyOf = (m, t) => x.slotKey(m, kinds(m).indexOf(t));
+  a.equal(keyOf("2026-11-23", "SE"), keyOf("2026-11-30", "SE"), "the SE is one session");
+  const se = keyOf("2026-11-23", "SE");
+  a.ok(x.setStanding("2026-11-23", se, 4));
+  for (const m of ["2026-11-23", "2026-11-30", "2026-12-07"]) a.match(kinds(m)[4], /SE/, `${m}: the SE is on Friday`);
+  a.deepEqual(kinds("2026-11-16").filter(Boolean).length, w1.filter(Boolean).length, "a week before it keeps its layout");
+  const d = x.dayPlans("2026-11-27").find((p) => p.t === "se");
+  a.ok(d.standing && !d.moved, "the week's layout, not a one-off move");
+  // The Move sheet offers it, with the week's own warnings.
+  x.sel = "2026-11-27"; x.view = "today"; x.moveOpen = true; x.moveAll = true;
+  let h = x.vToday();
+  a.match(h, new RegExp(`data-act="movestd" data-k="${se}"`)); a.match(h, /Put every week back/);
+  a.ok(x.clearStanding("2026-11-30"));
+  a.deepEqual(kinds("2026-11-30"), w2, "put back from a week on");
+  a.match(kinds("2026-11-23")[4], /SE/, "and not before it");
+
+  // The next program, before it starts: kept on its queue item, applied from its start.
+  x.plan.weekOrder = []; x.bump();
+  x.chzOpen("next"); x.chz.full = true; x.chzSet("goal", "endurance"); x.chzSet("days", "2"); x.chz.start = "2026-12-07";
+  a.ok(x.chzSchedule());
+  // Its first training week: Base Building, if it comes first, keeps the book's layout.
+  const fut = (m) => x.withFuture(m, () => kinds(m));
+  let st = x.plan.nextPrograms[0].start;
+  while (x.withFuture(st, () => x.weekOf(st).kind) !== "cycle") st = x.addDays(st, 7);
+  const nk = x.withFuture(st, () => x.slotKey(st, fut(st).indexOf("SE")));
+  x.sel = x.addDays(st, fut(st).indexOf("SE"));
+  a.ok(x.withFuture(x.sel, () => x.moveStdOk(x.sel)), "Move is offered on a lined-up week");
+  a.match(x.vToday(), /data-act="move"/);
+  x.setStandingNext(nk, 4);
+  a.deepEqual(x.plan.nextPrograms[0].weekOrder, { [nk]: 4 });
+  for (const m of [st, x.addDays(st, 7)]) a.match(fut(m)[4], /SE/, "every week of it");
+  a.deepEqual(kinds("2026-11-30"), w2, "the program you are on is untouched");
+  x.setStandingNext(null, "all"); a.deepEqual(x.plan.nextPrograms[0].weekOrder, {});
+});

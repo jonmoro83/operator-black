@@ -446,6 +446,16 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='calm'){const v=+b.dataset.v;if(!v)calMonth=realToday().slice(0,7);else{const y=+calMonth.slice(0,4),m=+calMonth.slice(5,7)+v;calMonth=S(Date.UTC(y,m-1,1)).slice(0,7)}render();return}
   if(a==='move'){moveOpen=!moveOpen;render();return}
   if(a==='movex'){moveOpen=false;render();return}
+  if(a==='moveall'){moveAll=b.dataset.v==='1';render();return}
+  if(a==='movestd'||a==='movestdclear'){
+    offerUndo(a==='movestd'?'Moved for every week':'Every week put back',snapPlan());
+    const fp=futurePlan(), next=!!(fp&&sel>=fp.startMonday), k=b.dataset.k, d=+b.dataset.d, home=b.dataset.home==='1';
+    if(a==='movestd'){ if(next) setStandingNext(k,d,home); else setStanding(b.dataset.from,k,d,home) }
+    else { if(next) setStandingNext(0,'all'); else clearStanding(b.dataset.from) }
+    // Follow the session to its new day, so the sheet stays on it.
+    if(a==='movestd') sel=addDays(mondayOf(sel),d);
+    openWarm.clear(); openPx.clear(); render(); return;
+  }
   if(a==='moveto'){
     offerUndo('Session moved',snapPlan());
     moveSession(b.dataset.mon,+b.dataset.sl,b.dataset.to);
