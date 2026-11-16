@@ -17,6 +17,7 @@
 //   POST /api/calendar/on|off|rotate → turn the feed on, off, or change its address
 //   PUT  /api/calendar/ics        → store the feed body (the app generates it)
 //   GET  /api/coach/log           → your past questions and answers, newest first
+//   POST /api/coach/fill          → the program chooser's answers, read from a goal in your words
 //   POST /api/admin/catalog       → (admins) add or change a shared exercise
 //   DELETE /api/admin/catalog/<id> → (admins) drop one they added
 //   GET  /api/admin/users         → (admins) everyone, with counts and last activity
@@ -109,6 +110,7 @@ async function serve(request, env) {
     return json({ page: etag, deployedAt: meta.timestamp || null, tag: meta.tag || null }, 200, { "cache-control": "no-store" });
   }
   if (route === "coach" && request.method === "POST") return askCoach(request, env, user);
+  if (route === "coach/fill" && request.method === "POST") return fillChooser(request, env, user);
   if (route === "coach" && request.method === "GET") {
     const h = await coachHistory(env, user, 30);
     return json({ ...h, used: await coachUsed(env, user), cap: COACH_CAP,
@@ -1023,7 +1025,8 @@ async function coachUsed(env, user) {
   // A debrief is a call like any other and counts against the same cap.
   const row = await env.DB.prepare(
     `SELECT (SELECT COUNT(*) FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 1)
-          + (SELECT COUNT(*) FROM coach_debrief WHERE user = ?1 AND created_at >= ?2) AS n`
+          + (SELECT COUNT(*) FROM coach_debrief WHERE user = ?1 AND created_at >= ?2)
+          + (SELECT COUNT(*) FROM coach_fill WHERE user = ?1 AND at >= ?2 AND ok = 1) AS n`
   ).bind(user, since).first();
   return (row && row.n) || 0;
 }
@@ -1032,7 +1035,8 @@ async function coachUsed(env, user) {
 async function coachFailed(env, user) {
   const since = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1);
   const row = await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 0 AND tokens_in > 0"
+    `SELECT (SELECT COUNT(*) FROM coach_log WHERE user = ?1 AND asked_at >= ?2 AND ok = 0 AND tokens_in > 0)
+          + (SELECT COUNT(*) FROM coach_fill WHERE user = ?1 AND at >= ?2 AND ok = 0 AND tokens_in > 0) AS n`
   ).bind(user, since).first();
   return (row && row.n) || 0;
 }
@@ -1200,6 +1204,110 @@ async function askCoach(request, env, user) {
     used: used + 1,
     cap: COACH_CAP,
   }, 200, { "cache-control": "no-store" });
+}
+
+/* The program chooser, filled in from a goal in the person's own words: step 5 of the
+   chooser, and asked for again on 2026-11-15 ("describe something like a backcountry
+   ski trip, big hiking trip"). The model only sorts the words into the chooser's
+   answers, quoting the words each came from; the page's recommendProgram makes the
+   pick, so the pick is still the books', cited and testable, and works without this.
+   One call against a fixed schema at low effort: sorting, not advice. Every answer it
+   gives has to quote the person's own words, or it is dropped as unknown. */
+const FILL_Q = {
+  cond: ["yes", "no"], goal: ["general", "endurance", "run", "size", "minimal"], days: ["2", "3", "4"],
+  other: ["no", "yes"], exp: ["new", "some", "advanced"], barbell: ["yes", "no"], bb: ["no", "yes"], older: ["no", "yes"],
+};
+const FILL_EVENTS = ["none", "race", "event", "size", "strength"];
+const FILL_MAX = 1200;
+const FILL_SYSTEM = `You read what someone wants from their training and fill in a program chooser's questions from it. You do not recommend a program; the app does that from your answers, by the books (Tactical Barbell, Mountain Tactical Institute).
+
+For each question give a value and the exact words from their text it comes from, copied character for character. If their text does not say or clearly imply the answer, the value is "unknown" and the quote is "". Do not guess from what is typical.
+
+Questions:
+- cond: "no" only if they want lifting with no conditioning; "yes" if they want any endurance, running, hiking or fitness.
+- goal: "endurance" for long days on foot or skis and anything like them: hiking and backpacking trips, rucking, mountaineering, ski touring and backcountry skiing, adventure races, selection, expeditions, a long trek. "run" for a running race or getting faster at running. "size" for putting on muscle. "minimal" for the least time possible. "general" for all-round fitness with no one aim.
+- days: lifting days a week, only if they say or clearly imply a number.
+- other: "yes" if they already do something else hard every week: a fight gym, a team sport, climbing, a physical job.
+- exp: barbell experience. "new" for little or none, "some", "advanced" for years of serious lifting.
+- barbell: "no" only if they say they have no barbell or gym.
+- bb: "yes" only if they say they have done Tactical Barbell's Base Building.
+- older: "yes" if they are 40 or older, "no" if younger.
+
+event: the one thing on a date they are training for, if there is one. kind "race" for a running race from 5K to 10K; "event" for a trip, an expedition, selection, a test or any other day they have to be ready for, including a hiking or ski trip; "size" for a size goal by a date; "strength" for a strength test by a date; "none" if there is no date. date is YYYY-MM-DD: the day if they give one, the first of the month if they give only a month, worked out from today's date (given below) and always in the future; "" if there is no date. quote is the words that give the date.
+
+summary: one plain sentence saying what they are training for, in their terms.`;
+const FILL_SCHEMA = (() => {
+  const ans = (opts) => ({ type: "object", properties: { value: { type: "string", enum: [...opts, "unknown"] }, quote: { type: "string" } },
+    required: ["value", "quote"], additionalProperties: false });
+  return {
+    type: "object",
+    properties: {
+      answers: { type: "object", properties: Object.fromEntries(Object.entries(FILL_Q).map(([k, o]) => [k, ans(o)])),
+        required: Object.keys(FILL_Q), additionalProperties: false },
+      event: { type: "object", properties: { kind: { type: "string", enum: FILL_EVENTS }, date: { type: "string" }, quote: { type: "string" } },
+        required: ["kind", "date", "quote"], additionalProperties: false },
+      summary: { type: "string" },
+    },
+    required: ["answers", "event", "summary"], additionalProperties: false,
+  };
+})();
+// What the page is handed: only answers that are allowed values and quote the person,
+// and a date only when it is a real one ahead of today and within three years.
+function cleanFill(raw, aim, today) {
+  const low = aim.toLowerCase(), said = (q) => typeof q === "string" && q.trim().length > 1 && low.includes(q.trim().toLowerCase());
+  const answers = {};
+  for (const [k, opts] of Object.entries(FILL_Q)) {
+    const x = ((raw || {}).answers || {})[k] || {};
+    if (opts.includes(x.value) && said(x.quote)) answers[k] = { v: x.value, quote: x.quote.trim() };
+  }
+  const e = (raw || {}).event || {};
+  const event = FILL_EVENTS.includes(e.kind) && e.kind !== "none" && realDate(e.date) && e.date > today &&
+    Date.parse(e.date) - Date.parse(today) < 3 * 366 * 86400000 ? { kind: e.kind, date: e.date, quote: said(e.quote) ? e.quote.trim() : "" } : null;
+  return { answers, event, summary: String((raw || {}).summary || "").trim().slice(0, 300) };
+}
+async function fillChooser(request, env, user) {
+  if (!env.ANTHROPIC_API_KEY) return json({ error: "The coach is not configured. Set ANTHROPIC_API_KEY." }, 503);
+  const body = await request.json().catch(() => ({}));
+  const aim = String(body.aim || "").trim().slice(0, FILL_MAX);
+  if (!aim) return json({ error: "Say what you are training for." }, 400);
+  const used = await coachUsed(env, user);
+  if (used >= COACH_CAP) return json({ error: `That is ${COACH_CAP} coach calls this month, which is the cap. It resets on the 1st.` }, 429);
+  if ((await coachFailed(env, user)) >= COACH_CAP) return json({ error: "Too many coach calls have failed this month, so the coach is paused until the 1st." }, 429);
+  const said = String(body.today || "");
+  const today = realDate(said) && Math.abs(Date.parse(said) - Date.now()) < 2 * 86400000 ? said : new Date().toISOString().slice(0, 10);
+
+  const id = crypto.randomUUID();
+  const log = (ok, result, data) => env.DB.prepare(
+    `INSERT INTO coach_fill (id, user, at, aim, result, model, tokens_in, tokens_out, ok)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
+  ).bind(id, user, Date.now(), aim, JSON.stringify(result || {}), (data && data.model) || COACH_MODEL,
+    ((data && data.usage) || {}).input_tokens || 0, ((data && data.usage) || {}).output_tokens || 0, ok).run();
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: COACH_MODEL,
+        max_tokens: 2000,
+        system: FILL_SYSTEM,
+        output_config: { effort: "low", format: { type: "json_schema", schema: FILL_SCHEMA } },
+        messages: [{ role: "user", content: `Today is ${today}.\n\n<goal>${aim}</goal>` }],
+      }),
+    });
+  } catch { return json({ error: "The coach could not be reached. Try again." }, 502) }
+  if (!res.ok) return json({ error: "The coach could not be reached. Try again." }, 502);
+  const data = await res.json();
+  if (data.stop_reason === "refusal" || data.stop_reason === "max_tokens") {
+    await log(0, null, data);
+    return json({ error: "That goal could not be read. Answer the questions yourself, or try putting it another way." }, 502);
+  }
+  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+  const parsed = safeParse(text);
+  if (!parsed) { await log(0, null, data); return json({ error: "That goal could not be read. Try again." }, 502) }
+  const out = cleanFill(parsed, aim, today);
+  await log(1, out, data);
+  return json({ ...out, used: used + 1, cap: COACH_CAP }, 200, { "cache-control": "no-store" });
 }
 
 function logCoach(env, x) {

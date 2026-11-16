@@ -11203,3 +11203,47 @@ test("a planned year can start when the cycle ends, from the goal planner or You
   a.equal(x.yrBlocks()[0].start, "2026-12-28");
   a.ok(!x.yrStartAt("2027-01-04"), "only the two handovers");
 });
+
+/* ---------- the chooser from your own words (3.100) ----------
+Step 5, and asked again 2026-11-15: "describe what I want to achieve and let the app
+help me pick a program ... a backcountry ski trip, big hiking trip". The prototype's
+"C on top of B": the goal box over the questions, each answer tagged with where it came
+from, the pick still made by recommendProgram. Without the coach, plain B. */
+test("a goal in your own words fills in the chooser's answers, quoted, and the books still pick", () => {
+  const x = blackApp("2026-11-18");
+  x.coach.loaded = true; x.coach.configured = false;
+  x.chzOpen("add"); x.chz.at = 0;
+  a.doesNotMatch(x.programsCard(), /data-chzaim/, "no coach, no goal box: the questions alone");
+  x.coach.configured = true; x.coach.used = 0; x.coach.cap = 300;
+  let h = x.programsCard();
+  a.match(h, /What are you training for\?/); a.match(h, /data-act="chzmanual"/);
+  a.doesNotMatch(h, /From your goal|Assumed/, "no tags before a goal is read");
+  x.chz.aim = "Backcountry ski trip in March. I'm 44 and lift twice a week.";
+  x.chzSet("barbell", "yes");
+  a.ok(x.chzApply({
+    answers: { goal: { v: "endurance", quote: "Backcountry ski trip" }, days: { v: "2", quote: "lift twice a week" },
+      older: { v: "yes", quote: "I'm 44" }, barbell: { v: "no", quote: "x" }, bogus: { v: "1", quote: "y" } },
+    event: { kind: "event", date: "2027-03-01", quote: "in March" }, summary: "A ski touring trip in March.",
+  }));
+  a.deepEqual([x.chz.a.goal, x.chz.a.days, x.chz.a.older], ["endurance", "2", "yes"]);
+  a.equal(x.chz.a.barbell, "yes", "an answer you set yourself is not overwritten");
+  h = x.programsCard();
+  a.match(h, /From your goal<\/span> <span class="small muted" style="font-weight:400">“Backcountry ski trip”/);
+  a.match(h, /You set this/); a.match(h, /Assumed/);
+  a.match(h, /3 answers came from your goal/);
+  const pk = x.chzResult().picks[0];
+  a.deepEqual([pk.stempl, pk.cproto], ["fighter", "green"], "the books' pick for a two-day endurance goal");
+  a.equal(x.plan.programGoals.aim, x.chz.aim, "the goal is kept for the coach and next time");
+  a.equal(x.plan.programGoals.by, "2027-03-01");
+  // A dated goal offers the year planned back to it.
+  a.match(h, /data-act="chzyear"/); a.match(h, /selection or a test/);
+  a.ok(x.chzYear());
+  a.deepEqual([x.yg.goal, x.yg.date], ["event", "2027-03-01"]);
+  a.equal(x.chz, null);
+  // Answer the questions myself: plain B.
+  x.yg = null; x.chzOpen("now"); x.chz.manual = true;
+  a.doesNotMatch(x.programsCard(), /data-chzaim/);
+  // At the cap, plain B too.
+  x.chz.manual = false; x.coach.used = 300;
+  a.doesNotMatch(x.programsCard(), /data-chzaim/);
+});

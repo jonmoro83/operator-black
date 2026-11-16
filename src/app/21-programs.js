@@ -175,12 +175,28 @@ function pickCard(pk,btn){
 }
 function chooserSheet(btn){
   const a=chz.a, r=chzResult(), two=r.picks.length>1;
-  let h=`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
+  const tag=k=>{ const g=chzTag(k); return g?` <span class="chip${g.q?' blue':''}">${esc(g.t)}</span>${g.q?` <span class="small muted" style="font-weight:400">“${esc(g.q)}”</span>`:''}`:'' };
+  let h=chzGoalBox()+`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}${tag(q.k)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
   <h3>The books suggest</h3>${two?'<p class="note" style="margin:0">Two good paths for where you are: the book’s own, and ours. They differ in what they ask of you first.</p>':''}`;
   r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two)) });
   for(const [t,c] of r.notes) h+=`<div class="banner info"><div class="small">${esc(t)} <span class="mono muted">${esc(c)}</span></div></div>`;
   if(r.alts.length) h+=`<h3>Also fits</h3>`+r.alts.map((pk,j)=>pickCard(pk,pk.oms?'<div class="small muted">Set it up under OMS rotation in Setup → Programs.</div>':btn(pk,r.picks.length+j,false))).join('');
   return h;
+}
+/* The goal box on top of the questions (the prototype's C on top of B). Without the
+   coach, or after "Answer the questions myself", the sheet is the questions alone. */
+function chzGoalBox(){
+  if(!chz||chz.manual||!chzCoachOn()) return '';
+  const f=chz.fill||{}, res=f.res, e=res&&res.event, G=e&&YR_GOALS[CHZ_EVENT_GOAL[e.kind]];
+  let h=`<div class="stack" style="gap:6px;padding-bottom:8px"><label class="f">What are you training for?<textarea id="chz-aim" data-chzaim rows="3" placeholder="In your own words, e.g. a backcountry ski trip in March, or a week of big hiking days this summer">${esc(chz.aim||'')}</textarea></label>
+  <div class="row"><button class="btn${res?'':' primary'}" data-act="chzfill"${f.busy||!String(chz.aim||'').trim()?' disabled':''}>${f.busy?'Reading your goal\u2026':res?'Fill them in again':'Fill these in from my goal'}</button>${res?'':'<button class="btn ghost" data-act="chzmanual">Answer the questions myself</button>'}</div>`;
+  if(f.err) h+=`<div class="banner warn"><div class="small">${esc(f.err)}</div></div>`;
+  if(res){
+    const n=Object.keys(chz.from).length;
+    h+=`<p class="note" style="margin:0">${res.summary?esc(res.summary)+' ':''}${n?`${n} answer${n===1?'':'s'} came from your goal; the rest are assumed. Change any that aren\u2019t you.`:'Nothing in it answered the questions, so they are as assumed. Say more, or answer them yourself.'} The pick is the books\u2019, from these answers.</p>`;
+    if(G&&chz.ctx!=='wz') h+=`<div class="banner info"><div class="small"><b>A date to plan to: ${esc(fmtLong(e.date))}.</b> Your year can be worked back from it, as ${esc(G.label.toLowerCase())}.${e.quote?` <span class="muted">“${esc(e.quote)}”</span>`:''}</div><div><button class="btn sm" data-act="chzyear">Plan the year back from it</button></div></div>`;
+  }
+  return h+`</div>`;
 }
 function chzBtn(ctx){
   const sw=fmtD(chzStart(),true);
@@ -201,7 +217,7 @@ function chooserFlow(){
     h+=`<h3>After ${esc(cur)}</h3>${hs.length>1?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===st?' on':''}" data-act="chzstart" data-v="${x.start}" aria-pressed="${x.start===st}">${esc(x.label)} \u00b7 ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}
     <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick starts by itself then, and the Plan shows it from that week; nothing changes before.`}</p>`
       +pickCard(nx,`<button class="btn primary" data-act="chzlinebook">Line it up for ${sw}</button>`).replace(/<span class="chip blue">[^<]*<\/span>/,'<span class="chip blue">The books’ next step</span>')
-      +(c.full?chooserSheet(chzBtn('next')):`<button class="btn" data-act="chzfull">Something else: answer the questions</button>`);
+      +(c.full?chooserSheet(chzBtn('next')):`<button class="btn" data-act="chzfull">${chzCoachOn()?'Something else: describe your goal, or answer the questions':'Something else: answer the questions'}</button>`);
   } else if(c.ctx==='warn'){
     h+=`<h2>You’re ${wl} weeks from the end of this one</h2><div class="banner warn"><ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>Keep a cluster for at least two blocks before changing it. <span class="mono muted">TB I p49</span></li><li>The book’s best strength phase is two blocks between tests. Switching now leaves this block untested, so the next program starts from the maxes you have now. <span class="mono muted">TB I p33</span></li></ul></div>
     <button class="btn primary" data-act="chzctx" data-v="next">Line up the change for ${sw} instead</button><button class="btn" data-act="chzctx" data-v="reason">I need to switch now</button><button class="btn ghost" data-act="chzclose">Keep going with ${esc(cur)}</button>`;

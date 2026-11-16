@@ -229,11 +229,52 @@ let chz=null;
 function chzOpen(ctx){
   const saved=((plan.programGoals||{}).chooser)||{}, a=Object.assign({},CHZ_DEF);
   for(const q of CHZ_Q) if(q.opts.some(o=>o[0]===saved[q.k])) a[q.k]=saved[q.k];
-  return chz={ctx,a,full:ctx!=='next',used:null,reason:null,start:null};
+  return chz={ctx,a,full:ctx!=='next',used:null,reason:null,start:null,
+    aim:((plan.programGoals||{}).aim)||'',from:{},mine:{},fill:null,manual:false};
+}
+/* Filling the answers in from a goal in your own words (step 5; the prototype's "C on
+   top of B", 2026-11-15). The coach only sorts the words into answers, each quoting
+   what it came from (POST /api/coach/fill); recommendProgram still makes the pick.
+   An answer you tap afterwards is yours, and a later fill leaves it alone. */
+function chzCoachOn(){ coachLoad(); return !!(coach.configured&&!(coach.cap&&coach.used>=coach.cap)) }
+function chzFill(){
+  if(!chz||chz.fill&&chz.fill.busy) return false;
+  const aim=String(chz.aim||'').trim(); if(!aim) return false;
+  chz.fill={busy:true}; render();
+  api('POST','/coach/fill',{aim,today:realToday()})
+    .then(r=>{ coach.used=r.used; chzApply(r); render() })
+    .catch(e=>{ if(chz) chz.fill={err:(e&&e.message)||'That did not go through.'}; render() });
+  return true;
+}
+function chzApply(r){
+  if(!chz||!r) return false;
+  chz.from={};
+  for(const [k,x] of Object.entries(r.answers||{})){
+    if(chz.mine[k]||!CHZ_Q.some(q=>q.k===k&&q.opts.some(o=>o[0]===x.v))) continue;
+    chz.a[k]=x.v; chz.from[k]=x.quote;
+  }
+  chz.fill={res:r}; chz.used=null; chz.full=true;
+  const aim=String(chz.aim||'').trim();
+  mutatePlan(p=>{ p.programGoals=Object.assign({},p.programGoals,{aim},r.event&&r.event.date?{by:r.event.date}:{}) });
+  return true;
+}
+// Where an answer came from, once the goal has been read.
+function chzTag(k){
+  if(!chz||!chz.fill||!chz.fill.res) return null;
+  if(chz.mine[k]) return {t:'You set this'};
+  if(chz.from[k]) return {t:'From your goal',q:chz.from[k]};
+  return {t:'Assumed'};
+}
+// A dated goal: the year planned back to it, with the matching goal.
+const CHZ_EVENT_GOAL={race:'race',event:'event',size:'size',strength:'strength'};
+function chzYear(){
+  const e=chz&&chz.fill&&chz.fill.res&&chz.fill.res.event; if(!e||!CHZ_EVENT_GOAL[e.kind]) return false;
+  ygOpen(); yg.goal=CHZ_EVENT_GOAL[e.kind]; yg.date=e.date; chz=null; yrAdd=null; yrSel=-1;
+  return true;
 }
 function chzSet(k,v){
   const q=CHZ_Q.find(x=>x.k===k); if(!chz||!q||!q.opts.some(o=>o[0]===v)) return false;
-  chz.a[k]=v; chz.used=null; return true;
+  chz.a[k]=v; chz.mine[k]=true; delete chz.from[k]; chz.used=null; return true;
 }
 // The answers as recommendProgram reads them. In Programs there are maxes to go on,
 // which is what TB I's definition of a beginner is made of.

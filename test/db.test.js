@@ -27,7 +27,7 @@ const state = async (env, user, headers) => call(env, "state", { headers }, user
 
 test("every migration applies from scratch and leaves the tables the API reads", () => {
   const db = d1();
-  a.deepEqual(db.tables(), ["acc_catalog", "admin_log", "cal_feeds", "coach_debrief", "coach_log", "docs", "lib_chunk", "lib_doc", "reports"]);
+  a.deepEqual(db.tables(), ["acc_catalog", "admin_log", "cal_feeds", "coach_debrief", "coach_fill", "coach_log", "docs", "lib_chunk", "lib_doc", "reports"]);
   // 0002 moved docs to a (user, path) key; a second user with the same path must fit.
   db.rows("INSERT INTO docs (user, path, data, updated_at) VALUES ('a', 'plan/main', '{}', 1)");
   db.rows("INSERT INTO docs (user, path, data, updated_at) VALUES ('b', 'plan/main', '{}', 1)");

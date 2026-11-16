@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.100',date:'2026-11-15',title:"Say what you're training for",items:[
+    "The program chooser starts with a box: what are you training for? Write it your way, like a backcountry ski trip in March or a week of big hiking days this summer, and tap Fill these in from my goal.",
+    "The coach reads it and fills in the questions. Each answer it took from you says so and quotes your words. The rest are marked Assumed, and anything you tap yourself is marked You set this and stays as you set it. The program is still picked by the books from those answers, with the pages cited.",
+    "Give it a date and it offers to plan your year back from it, the same as Plan a year from a goal. Your goal is saved too, so the coach knows it.",
+    "It uses one of your coach calls for the month. Without the coach, or if you tap Answer the questions myself, the chooser is just the questions.",
+  ]},
   {v:'3.99',date:'2026-11-15',title:"Lined up means scheduled",items:[
     "A program you line up now shows in the Plan and the calendar from the week it starts. Line up Fighter with Green and the weeks after the handover show Base Building and Green, not more of what you're on. Open one of those days and you see it as it will be.",
     "It starts by itself on that Monday, the first time you open the app that week. Your current program is archived with everything in it and your maxes carry over. Today tells you when it's coming in the last week, and Put it off a week moves it, and the rest of your year, back a week.",

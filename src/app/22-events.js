@@ -51,6 +51,7 @@ document.addEventListener('input',e=>{
   // Re-rendering keeps the Add button's state honest; the fields carry ids so focus
   // and the caret survive it.
   // The question is held in memory, not the plan: it is not training data.
+  if(t.hasAttribute&&t.hasAttribute('data-chzaim')&&chz){ chz.aim=t.value; const btn=document.querySelector('[data-act="chzfill"]'); if(btn) btn.disabled=!t.value.trim()||!!(chz.fill&&chz.fill.busy); return; }
   if(t.dataset.coachq){ coach.q=t.value; const btn=document.querySelector('[data-act="coachask"]'); if(btn) btn.disabled=!t.value.trim()||coach.busy; return; }
   if(t.dataset.catnew){ catNew[t.dataset.catnew]=t.value; render(); return; }
   if(t.dataset.accnew){ accNew[t.dataset.accnew]=t.value; render(); return; }
@@ -330,6 +331,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicnow'){hicStartNow();return}
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
+  if(a==='chzfill'){chzFill();return}
+  if(a==='chzmanual'){if(chz)chz.manual=true;render();return}
+  if(a==='chzyear'){chzYear();render();return}
   if(a==='chzwz'){chzOpen('wz');render();return}
   if(a==='chzclose'){chz=null;render();return}
   if(a==='chznext'){chzOpen('next');render();return}

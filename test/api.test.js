@@ -396,7 +396,7 @@ statements src/api.js actually issues, over real rows. Narrow on purpose: it ans
 queries this code sends and throws on anything it does not recognise, so a new query
 cannot pass by being quietly ignored. */
 function fakeDB() {
-  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [], coachRows = [], debriefs = [];
+  const docs = [], feeds = [], adminLog = [], cat = [], libDoc = [], libChunk = [], coachRows = [], debriefs = [], fills = [];
   // A stand-in for FTS5 MATCH, honest about the only two shapes the code builds:
   // quoted terms joined by AND or by OR. Score is -(matches), so ordering ascending
   // puts the best first, which is the direction bm25() works in.
@@ -419,8 +419,13 @@ function fakeDB() {
     if (/^SELECT path, data FROM docs WHERE user = \?1 AND path >= \?2 AND path < \?3 ORDER BY path DESC LIMIT \?4$/.test(q))
       return docs.filter((d) => d.user === a[0] && d.path >= a[1] && d.path < a[2])
         .sort((x, y) => (x.path < y.path ? 1 : -1)).slice(0, a[3]).map((d) => ({ path: d.path, data: d.data }));
-    if (/^SELECT COUNT\(\*\) AS n FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 0 AND tokens_in > 0$/.test(q))
-      return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 0 && r.tokens_in > 0).length }];
+    if (/^SELECT \(SELECT COUNT\(\*\) FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 0 AND tokens_in > 0\) \+ \(SELECT COUNT\(\*\) FROM coach_fill WHERE user = \?1 AND at >= \?2 AND ok = 0 AND tokens_in > 0\) AS n$/.test(q))
+      return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 0 && r.tokens_in > 0).length
+        + fills.filter((r) => r.user === a[0] && r.at >= a[1] && r.ok === 0 && r.tokens_in > 0).length }];
+    if (/^INSERT INTO coach_fill/.test(q)) {
+      fills.push({ id: a[0], user: a[1], at: a[2], aim: a[3], result: a[4], model: a[5], tokens_in: a[6], tokens_out: a[7], ok: a[8] });
+      return [];
+    }
     if (/^SELECT COUNT\(\*\) AS n FROM docs WHERE user = \?1$/.test(q))
       return [{ n: docs.filter((d) => d.user === a[0]).length }];
     if (/^SELECT DISTINCT user FROM docs WHERE user != \?1$/.test(q))
@@ -445,9 +450,10 @@ function fakeDB() {
       docs.length = 0; docs.push(...keep);
       return [];
     }
-    if (/^SELECT \(SELECT COUNT\(\*\) FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 1\) \+ \(SELECT COUNT\(\*\) FROM coach_debrief WHERE user = \?1 AND created_at >= \?2\) AS n$/.test(q))
+    if (/^SELECT \(SELECT COUNT\(\*\) FROM coach_log WHERE user = \?1 AND asked_at >= \?2 AND ok = 1\) \+ \(SELECT COUNT\(\*\) FROM coach_debrief WHERE user = \?1 AND created_at >= \?2\) \+ \(SELECT COUNT\(\*\) FROM coach_fill WHERE user = \?1 AND at >= \?2 AND ok = 1\) AS n$/.test(q))
       return [{ n: coachRows.filter((r) => r.user === a[0] && r.asked_at >= a[1] && r.ok === 1).length
-        + debriefs.filter((r) => r.user === a[0] && r.created_at >= a[1]).length }];
+        + debriefs.filter((r) => r.user === a[0] && r.created_at >= a[1]).length
+        + fills.filter((r) => r.user === a[0] && r.at >= a[1] && r.ok === 1).length }];
     if (/^SELECT week FROM coach_debrief WHERE user = \?1 AND week = \?2$/.test(q))
       return debriefs.filter((r) => r.user === a[0] && r.week === a[1]).map((r) => ({ week: r.week }));
     if (/^INSERT OR IGNORE INTO coach_debrief/.test(q)) {
@@ -542,7 +548,7 @@ function fakeDB() {
   const seedLib = (d, cs) => { libDoc.push({ ...d, chunks: cs.length });
     for (const c of cs) libChunk.push({ doc: d.id, ...c }) };
   return {
-    docs, feeds, adminLog, cat, batches, seedLib, coachRows, debriefs,
+    docs, feeds, adminLog, cat, batches, seedLib, coachRows, debriefs, fills,
     prepare(sql) {
       // A statement can be run with or without parameters, like the real binding.
       const made = (args) => ({
@@ -2284,5 +2290,65 @@ test("the coach is handed the app's week ahead, so it starts from the day's reco
     await call2(env, "coach", { method: "POST", body: JSON.stringify({ q: "again" }) }, tok);
     const s2 = JSON.parse(sysText(globalThis.fetch.calls.at(-1).body).match(/<state>(.*?)<\/state>/s)[1]);
     a.equal(s2.weekAhead, undefined);
+  } finally { globalThis.fetch = orig }
+});
+
+/* The program chooser filled in from a goal in the person's words (step 5, asked again
+   2026-11-15: "describe something like a backcountry ski trip, big hiking trip"). The
+   model only sorts the words into the chooser's answers; the page picks the program. */
+test("a goal in your own words fills in the chooser, every answer quoting you", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const aim = "Backcountry ski trip in the Tetons in March. I'm 44, lift twice a week, have a full gym.";
+  const raw = {
+    answers: {
+      cond: { value: "yes", quote: "Backcountry ski trip" },
+      goal: { value: "endurance", quote: "Backcountry ski trip" },
+      days: { value: "2", quote: "lift twice a week" },
+      other: { value: "unknown", quote: "" },
+      exp: { value: "advanced", quote: "years of heavy lifting" },          // not in what they wrote: dropped
+      barbell: { value: "yes", quote: "full gym" },
+      bb: { value: "unknown", quote: "" },
+      older: { value: "yes", quote: "I'm 44" },
+    },
+    event: { kind: "event", date: "2027-03-01", quote: "in March" },
+    summary: "A ski touring trip in March.",
+  };
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic({ model: "claude-sonnet-5-5", stop_reason: "end_turn",
+    content: [{ type: "text", text: JSON.stringify(raw) }], usage: { input_tokens: 700, output_tokens: 200 } });
+  try {
+    const res = await call2(env, "coach/fill", { method: "POST", body: JSON.stringify({ aim, today: new Date().toISOString().slice(0, 10) }) }, tok);
+    a.equal(res.status, 200);
+    const body = await res.json();
+    a.deepEqual(Object.keys(body.answers).sort(), ["barbell", "cond", "days", "goal", "older"]);
+    a.deepEqual(body.answers.goal, { v: "endurance", quote: "Backcountry ski trip" });
+    a.equal(body.answers.exp, undefined, "an answer that does not quote them is not taken");
+    a.equal(body.event.kind, "event"); a.equal(body.event.quote, "in March");
+    const sent = globalThis.fetch.calls[0].body;
+    a.equal(sent.model, "claude-sonnet-5-5");
+    a.equal(sent.output_config.format.type, "json_schema", "a fixed schema, not free text");
+    a.equal(sent.output_config.effort, "low", "sorting, not advice");
+    a.ok(!sent.tools, "no searching: the books are applied by the page");
+    a.match(sent.system, /backcountry skiing/);
+    a.match(sent.messages[0].content, /<goal>Backcountry ski trip/);
+    a.equal(env.DB.fills.length, 1); a.equal(env.DB.fills[0].ok, 1);
+    a.equal(body.used, 1, "it counts against the coach's cap");
+    // Kept out of the conversation the coach replays.
+    a.equal(env.DB.coachRows.length, 0);
+  } finally { globalThis.fetch = orig }
+});
+
+test("a goal that cannot be read is an error, logged as failed, and an empty one is refused", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic({ model: "claude-sonnet-5-5", stop_reason: "refusal", content: [], usage: { input_tokens: 50, output_tokens: 0 } });
+  try {
+    let res = await call2(env, "coach/fill", { method: "POST", body: JSON.stringify({ aim: "a trip" }) }, tok);
+    a.equal(res.status, 502);
+    a.equal(env.DB.fills[0].ok, 0);
+    res = await call2(env, "coach/fill", { method: "POST", body: JSON.stringify({ aim: "  " }) }, tok);
+    a.equal(res.status, 400);
   } finally { globalThis.fetch = orig }
 });

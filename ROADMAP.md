@@ -46,7 +46,7 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
-- **The program chooser (asked 2026-11-15; steps one to four shipped in 3.93, 3.94 and 3.97).** Help picking
+- **The program chooser (asked 2026-11-15; all five steps shipped, 3.93 to 3.100).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
   path and StrongLifts side by side with a clear description of each; offer the chooser
@@ -61,7 +61,9 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   `plan.progPath` for TB I's beginner path; (4) "What's next" on Today in a program's
   last week (3.97, laid out like the OMS card: a second tap starts it, Not yet asks again
   next week; the queue itself went into Setup → Programs as Your year in 3.95); (5) the
-  coach fill-in, the one step left. Since 3.98 Your year and the goal planner offer the
+  coach fill-in (3.100: POST /api/coach/fill, one structured-output call at low effort,
+  every answer quoting the goal or dropped, logged in `coach_fill` and counted against
+  the cap; a dated goal offers Plan a year back to it). Since 3.98 Your year and the goal planner offer the
   same two starts as the chooser (when the cycle ends, after the retest), by request.
   Since 3.99 a lined-up program shows in the Plan and calendar from its start and starts
   by itself on that Monday (the user's call, after lining up Green and finding the Plan
