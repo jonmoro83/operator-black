@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.98',date:'2026-11-15',title:"Start your year when the cycle ends",items:[
+    "Your year and Plan a year from a goal can now start when the cycle you're on ends, not just after the retest. Pick one under Start the plan, and every block after it moves with it.",
+    "Planning from a goal counts its weeks from whichever you pick, so ending the cycle early gives you more room before the date. The catch, which the screen says too: the block you're on isn't retested, so the plan starts from the maxes you have then.",
+  ]},
   {v:'3.97',date:'2026-11-15',title:"What's next, on Today",items:[
     "In your program's last week, Today shows what comes next. If you've lined something up, start it from there: tap Start, then tap again to confirm. Your maxes carry over and the rest of your year moves along with it.",
     "Nothing lined up yet? Today offers the books' next step to line up, or opens the chooser for something else. If you do nothing, your program just carries on with another cycle.",

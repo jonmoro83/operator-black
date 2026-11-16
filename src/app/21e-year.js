@@ -4,9 +4,10 @@
 function yearSection(){
   if(newProg) return '';
   const bl=yrBlocks(), n=nextQueued(), sw=progSwitchMonday(), st=yrFirstStart();
-  const extra=bl.length&&st>sw?Math.round((D(st)-D(sw))/(7*864e5)):0;
+  const hb=progHandovers().filter(x=>x.start<=st).pop(), base=hb?hb.start:sw, extra=bl.length&&st>base?Math.round((D(st)-D(base))/(7*864e5)):0;
   let h=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><div class="lift-h"><h3>Your year</h3>${bl.length?`<span class="mono muted small">to ${esc(fmtLong(yrEnd()))}</span>`:''}</div>
   <div class="row between small"><span><b>${esc(progName())}</b> <span class="muted">now</span></span><span class="mono muted">${fmtD(plan.startMonday)} – ${fmtD(addDays(st,-1))}</span></div>`;
+  if(bl.length) h+=yrFromSeg(progHandovers(),st,'yrfrom',x=>x.start);
   if(extra) h+=`<div class="small muted">Runs ${extra} week${extra===1?'':'s'} past its handover, so the plan lands on your date.</div>`;
   if(!bl.length) h+=`<p class="note" style="margin:0">Nothing planned after it yet. Line up what comes next, or plan the year back from a goal.</p>`;
   if(yrAdd===0&&!bl.length) h+=yrAddSheet(0);
@@ -15,6 +16,13 @@ function yearSection(){
   else if(yrAdd==null) h+=`<div class="row"><button class="btn" data-act="yradd" data-i="${bl.length}">Add a block at the end</button><button class="btn" data-act="yrgoal">Plan a year from a goal…</button></div>`;
   h+=`<p class="note" style="margin:0">Only the first is lined up for real. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
   return h+`</div>`;
+}
+// Where the year starts, when there is a choice: the chooser's two handovers.
+function yrFromSeg(hs,on,act,val){
+  if(hs.length<2) return '';
+  const cyc=hs.find(x=>x.k==='cycle');
+  return `<div class="f"><span>Start the plan</span><div class="seg">${hs.map(x=>`<button class="segb${x.start===on?' on':''}" data-act="${act}" data-v="${esc(val(x))}" aria-pressed="${x.start===on}">${esc(x.label)} · ${esc(fmtD(x.start,true))}</button>`).join('')}</div></div>`
+    +(cyc&&cyc.start===on?`<p class="note" style="margin:0">This block will not be retested, so the plan starts from the maxes you have then. The book’s point to change is after the retest. <span class="mono muted">TB I p33</span></p>`:'');
 }
 function yrRow(b,n){
   const it=b.it, open=yrSel===b.i, first=n&&n.qi===b.i, i=b.i;
@@ -40,12 +48,12 @@ function yrAddSheet(i){
     +`<div class="row"><button class="btn" data-act="yraddoff" data-i="${i}">A week off</button><button class="btn" data-act="yraddchz" data-i="${i}">Something else: answer the questions</button><button class="btn ghost" data-act="yrclose">Cancel</button></div></div>`;
 }
 function ygSheet(){
-  const G=YR_GOALS[yg.goal], r=ygPlan(yg.goal,yg.date);
+  const G=YR_GOALS[yg.goal], r=ygPlan(yg.goal,yg.date,yg.from), hs=progHandovers(), fr=yrFrom(yg.from);
   let h=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><h3>What is the year for?</h3>
   <div class="seg">${Object.entries(YR_GOALS).map(([k,x])=>`<button class="segb${yg.goal===k?' on':''}" data-act="ygset" data-v="${k}" aria-pressed="${yg.goal===k}">${esc(x.label)}</button>`).join('')}</div>
-  <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`;
+  <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`+yrFromSeg(hs,fr.start,'ygfrom',h=>h.k);
   if(!r) return h+`</div>`;
-  h+=`<div class="small muted">${r.gap} weeks between the end of ${esc(progName())} (${fmtD(addDays(progSwitchMonday(),-1),true)}) and ${esc(G.name)}.</div>`;
+  h+=`<div class="small muted">${r.gap} weeks between ${fr.k==='cycle'?'the end of this cycle':'the end of '+esc(progName())} (${fmtD(addDays(fr.start,-1),true)}) and ${esc(G.name)}.</div>`;
   if(r.short) h+=`<div class="banner warn"><div class="small"><b>Shorter than the book’s shortest.</b> Even ${r.need} weeks does not fit in ${r.gap}. Pick a later date, or change program now. <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   else if(r.cut) h+=`<div class="banner warn"><div class="small"><b>Shortened to fit.</b> ${esc(r.cut)} <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   if(!r.short){

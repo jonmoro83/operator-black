@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.97", RELEASES_SRC="/releases.js?b=92e8a80711";
+const APP_VERSION="3.98", RELEASES_SRC="/releases.js?b=8efc3e3e9a";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4563,6 +4563,14 @@ function yrMove(i,d){ const q=yrItems(), j=i+d; if(!q[i]||j<0||j>=q.length) retu
 function yrRemove(i){ const q=yrItems(); if(!q[i]) return false; q.splice(i,1); yrSel=-1; yrSet(q); return true }
 function yrInsert(i,it){ const q=yrItems(); q.splice(Math.max(0,Math.min(i,q.length)),0,it); yrAdd=null; yrSet(q); return true }
 function yrOffBefore(i){ return yrInsert(i,{off:true}) }
+/* When the year starts: when the cycle under way ends, or after the retest, the same
+   two the chooser offers (progHandovers). Asked for 2026-11-15: "can I choose to start
+   the planned training after my current cycle?" */
+function yrFrom(k){ const hs=progHandovers(); return hs.find(h=>h.k===k)||hs[hs.length-1] }
+function yrStartAt(start){
+  const q=yrItems(); if(!q.length||!progHandovers().some(h=>h.start===start)) return false;
+  q[0]=Object.assign({},q[0],{start}); mutatePlan(p=>{p.nextPrograms=q}); return true;
+}
 function yrCycles(i,d){
   const q=yrItems(), it=q[i]; if(!it||it.off||itemFixed(it)) return false;
   const c=Math.max(1,Math.min(4,itemCycles(it)+d)); if(c===itemCycles(it)) return false;
@@ -4597,10 +4605,13 @@ const YR_GOALS={
     seq:()=>{const nx=chzBookNext();return [[{off:true},Object.assign(pickOf(nx),{why:nx.why[0]})]]},
     cut:'',cite:'TB I p49'},
 };
-function ygOpen(){ return yg={goal:(plan.yearGoal||{}).goal||'event',date:(plan.yearGoal||{}).date||addDays(yrFirstStart(),7*26+5)} }
-function ygPlan(goal,date){
+function ygOpen(){
+  const g=plan.yearGoal||{}, cyc=yrFrom('cycle');
+  return yg={goal:g.goal||'event',date:g.date||addDays(yrFirstStart(),7*26+5),from:g.from||(cyc.k==='cycle'&&yrFirstStart()===cyc.start?'cycle':'handover')};
+}
+function ygPlan(goal,date,fromK){
   const G=YR_GOALS[goal]; if(!G||!date) return null;
-  const from=progSwitchMonday(), gap=Math.max(0,Math.round((D(addDays(mondayOf(date),7))-D(from))/(7*864e5)));
+  const from=yrFrom(fromK).start, gap=Math.max(0,Math.round((D(addDays(mondayOf(date),7))-D(from))/(7*864e5)));
   const seqs=G.seq(), len=s=>s.reduce((t,it)=>t+itemWeeks(it),0);
   let k=seqs.findIndex(s=>len(s)<=gap); const short=k<0; if(short) k=seqs.length-1;
   const tail=seqs[k];
@@ -4614,8 +4625,8 @@ function ygPlan(goal,date){
 }
 // Taking it: the year is replaced, and the goal kept so planning again starts there.
 function ygUse(){
-  const r=yg&&ygPlan(yg.goal,yg.date); if(!r||r.short) return false;
-  mutatePlan(p=>{p.nextPrograms=r.items;p.yearGoal={goal:yg.goal,date:yg.date}});
+  const r=yg&&ygPlan(yg.goal,yg.date,yg.from); if(!r||r.short) return false;
+  mutatePlan(p=>{p.nextPrograms=r.items;p.yearGoal={goal:yg.goal,date:yg.date,from:yg.from}});
   yg=null; yrSel=-1; return true;
 }
 
@@ -12120,9 +12131,10 @@ function guideOms(){
 function yearSection(){
   if(newProg) return '';
   const bl=yrBlocks(), n=nextQueued(), sw=progSwitchMonday(), st=yrFirstStart();
-  const extra=bl.length&&st>sw?Math.round((D(st)-D(sw))/(7*864e5)):0;
+  const hb=progHandovers().filter(x=>x.start<=st).pop(), base=hb?hb.start:sw, extra=bl.length&&st>base?Math.round((D(st)-D(base))/(7*864e5)):0;
   let h=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><div class="lift-h"><h3>Your year</h3>${bl.length?`<span class="mono muted small">to ${esc(fmtLong(yrEnd()))}</span>`:''}</div>
   <div class="row between small"><span><b>${esc(progName())}</b> <span class="muted">now</span></span><span class="mono muted">${fmtD(plan.startMonday)} – ${fmtD(addDays(st,-1))}</span></div>`;
+  if(bl.length) h+=yrFromSeg(progHandovers(),st,'yrfrom',x=>x.start);
   if(extra) h+=`<div class="small muted">Runs ${extra} week${extra===1?'':'s'} past its handover, so the plan lands on your date.</div>`;
   if(!bl.length) h+=`<p class="note" style="margin:0">Nothing planned after it yet. Line up what comes next, or plan the year back from a goal.</p>`;
   if(yrAdd===0&&!bl.length) h+=yrAddSheet(0);
@@ -12131,6 +12143,13 @@ function yearSection(){
   else if(yrAdd==null) h+=`<div class="row"><button class="btn" data-act="yradd" data-i="${bl.length}">Add a block at the end</button><button class="btn" data-act="yrgoal">Plan a year from a goal…</button></div>`;
   h+=`<p class="note" style="margin:0">Only the first is lined up for real. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
   return h+`</div>`;
+}
+// Where the year starts, when there is a choice: the chooser's two handovers.
+function yrFromSeg(hs,on,act,val){
+  if(hs.length<2) return '';
+  const cyc=hs.find(x=>x.k==='cycle');
+  return `<div class="f"><span>Start the plan</span><div class="seg">${hs.map(x=>`<button class="segb${x.start===on?' on':''}" data-act="${act}" data-v="${esc(val(x))}" aria-pressed="${x.start===on}">${esc(x.label)} · ${esc(fmtD(x.start,true))}</button>`).join('')}</div></div>`
+    +(cyc&&cyc.start===on?`<p class="note" style="margin:0">This block will not be retested, so the plan starts from the maxes you have then. The book’s point to change is after the retest. <span class="mono muted">TB I p33</span></p>`:'');
 }
 function yrRow(b,n){
   const it=b.it, open=yrSel===b.i, first=n&&n.qi===b.i, i=b.i;
@@ -12156,12 +12175,12 @@ function yrAddSheet(i){
     +`<div class="row"><button class="btn" data-act="yraddoff" data-i="${i}">A week off</button><button class="btn" data-act="yraddchz" data-i="${i}">Something else: answer the questions</button><button class="btn ghost" data-act="yrclose">Cancel</button></div></div>`;
 }
 function ygSheet(){
-  const G=YR_GOALS[yg.goal], r=ygPlan(yg.goal,yg.date);
+  const G=YR_GOALS[yg.goal], r=ygPlan(yg.goal,yg.date,yg.from), hs=progHandovers(), fr=yrFrom(yg.from);
   let h=`<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><h3>What is the year for?</h3>
   <div class="seg">${Object.entries(YR_GOALS).map(([k,x])=>`<button class="segb${yg.goal===k?' on':''}" data-act="ygset" data-v="${k}" aria-pressed="${yg.goal===k}">${esc(x.label)}</button>`).join('')}</div>
-  <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`;
+  <label class="f">${esc(G.date)}<input type="date" id="yg-date" data-yg="date" value="${esc(yg.date)}"></label>`+yrFromSeg(hs,fr.start,'ygfrom',h=>h.k);
   if(!r) return h+`</div>`;
-  h+=`<div class="small muted">${r.gap} weeks between the end of ${esc(progName())} (${fmtD(addDays(progSwitchMonday(),-1),true)}) and ${esc(G.name)}.</div>`;
+  h+=`<div class="small muted">${r.gap} weeks between ${fr.k==='cycle'?'the end of this cycle':'the end of '+esc(progName())} (${fmtD(addDays(fr.start,-1),true)}) and ${esc(G.name)}.</div>`;
   if(r.short) h+=`<div class="banner warn"><div class="small"><b>Shorter than the book’s shortest.</b> Even ${r.need} weeks does not fit in ${r.gap}. Pick a later date, or change program now. <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   else if(r.cut) h+=`<div class="banner warn"><div class="small"><b>Shortened to fit.</b> ${esc(r.cut)} <span class="mono muted">${esc(r.cite)}</span></div></div>`;
   if(!r.short){
@@ -12566,6 +12585,8 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='yrgoal'){ygOpen();yrAdd=null;yrSel=-1;render();return}
   if(a==='ygset'){if(yg&&YR_GOALS[b.dataset.v])yg.goal=b.dataset.v;render();return}
   if(a==='yruse'){ygUse();render();return}
+  if(a==='ygfrom'){if(yg)yg.from=b.dataset.v==='cycle'?'cycle':'handover';render();return}
+  if(a==='yrfrom'){yrStartAt(b.dataset.v);render();return}
   if(a==='yrclose'){yrAdd=null;yg=null;render();return}
   if(a==='chzstart'){if(chz)chz.start=b.dataset.v;render();return}
   if(a==='hicsugno'){clSug=false;render();return}

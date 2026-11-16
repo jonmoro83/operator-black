@@ -11140,3 +11140,28 @@ test("Today offers what's next in the program's last week, and starts it on a se
   const y = blackApp("2027-02-09"); y.sel = "2027-02-09"; y.plan.oms = { on: true, end: "2027-02-14" }; y.bump();
   a.doesNotMatch(y.nextCard(), /chzlinebook/);
 });
+
+test("a planned year can start when the cycle ends, from the goal planner or Your year", () => {
+  // Asked 2026-11-15: "If I'm planning a year in advance can I choose to start the
+  // planned training after my current cycle?" The same two starts the chooser offers.
+  const x = blackApp("2026-11-18");
+  x.ygOpen(); x.yg.goal = "event"; x.yg.date = "2027-06-12";
+  a.equal(x.yg.from, "handover", "after the retest by default, the book's point");
+  let h = x.programsCard();
+  a.match(h, /data-act="ygfrom" data-v="cycle"/);
+  const late = x.ygPlan("event", "2027-06-12", "handover"), early = x.ygPlan("event", "2027-06-12", "cycle");
+  a.equal(early.gap - late.gap, 7, "seven weeks more from the end of cycle 1");
+  x.yg.from = "cycle";
+  h = x.programsCard();
+  a.match(h, /will not be retested/); a.match(h, /the end of this cycle \(Sun 12\/27\)/);
+  a.ok(x.ygUse());
+  a.equal(x.plan.yearGoal.from, "cycle");
+  a.equal(x.yrFirstStart() >= "2026-12-28" && x.yrFirstStart() < "2027-02-15", true);
+  // Your year: the same choice moves the whole plan.
+  a.ok(x.yrStartAt("2027-02-15"));
+  a.equal(x.yrFirstStart(), "2027-02-15");
+  a.match(x.programsCard(), /data-act="yrfrom" data-v="2026-12-28" aria-pressed="false"/);
+  a.ok(x.yrStartAt("2026-12-28"));
+  a.equal(x.yrBlocks()[0].start, "2026-12-28");
+  a.ok(!x.yrStartAt("2027-01-04"), "only the two handovers");
+});

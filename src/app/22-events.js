@@ -357,6 +357,8 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='yrgoal'){ygOpen();yrAdd=null;yrSel=-1;render();return}
   if(a==='ygset'){if(yg&&YR_GOALS[b.dataset.v])yg.goal=b.dataset.v;render();return}
   if(a==='yruse'){ygUse();render();return}
+  if(a==='ygfrom'){if(yg)yg.from=b.dataset.v==='cycle'?'cycle':'handover';render();return}
+  if(a==='yrfrom'){yrStartAt(b.dataset.v);render();return}
   if(a==='yrclose'){yrAdd=null;yg=null;render();return}
   if(a==='chzstart'){if(chz)chz.start=b.dataset.v;render();return}
   if(a==='hicsugno'){clSug=false;render();return}

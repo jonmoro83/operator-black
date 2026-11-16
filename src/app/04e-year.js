@@ -57,6 +57,14 @@ function yrMove(i,d){ const q=yrItems(), j=i+d; if(!q[i]||j<0||j>=q.length) retu
 function yrRemove(i){ const q=yrItems(); if(!q[i]) return false; q.splice(i,1); yrSel=-1; yrSet(q); return true }
 function yrInsert(i,it){ const q=yrItems(); q.splice(Math.max(0,Math.min(i,q.length)),0,it); yrAdd=null; yrSet(q); return true }
 function yrOffBefore(i){ return yrInsert(i,{off:true}) }
+/* When the year starts: when the cycle under way ends, or after the retest, the same
+   two the chooser offers (progHandovers). Asked for 2026-11-15: "can I choose to start
+   the planned training after my current cycle?" */
+function yrFrom(k){ const hs=progHandovers(); return hs.find(h=>h.k===k)||hs[hs.length-1] }
+function yrStartAt(start){
+  const q=yrItems(); if(!q.length||!progHandovers().some(h=>h.start===start)) return false;
+  q[0]=Object.assign({},q[0],{start}); mutatePlan(p=>{p.nextPrograms=q}); return true;
+}
 function yrCycles(i,d){
   const q=yrItems(), it=q[i]; if(!it||it.off||itemFixed(it)) return false;
   const c=Math.max(1,Math.min(4,itemCycles(it)+d)); if(c===itemCycles(it)) return false;
@@ -91,10 +99,13 @@ const YR_GOALS={
     seq:()=>{const nx=chzBookNext();return [[{off:true},Object.assign(pickOf(nx),{why:nx.why[0]})]]},
     cut:'',cite:'TB I p49'},
 };
-function ygOpen(){ return yg={goal:(plan.yearGoal||{}).goal||'event',date:(plan.yearGoal||{}).date||addDays(yrFirstStart(),7*26+5)} }
-function ygPlan(goal,date){
+function ygOpen(){
+  const g=plan.yearGoal||{}, cyc=yrFrom('cycle');
+  return yg={goal:g.goal||'event',date:g.date||addDays(yrFirstStart(),7*26+5),from:g.from||(cyc.k==='cycle'&&yrFirstStart()===cyc.start?'cycle':'handover')};
+}
+function ygPlan(goal,date,fromK){
   const G=YR_GOALS[goal]; if(!G||!date) return null;
-  const from=progSwitchMonday(), gap=Math.max(0,Math.round((D(addDays(mondayOf(date),7))-D(from))/(7*864e5)));
+  const from=yrFrom(fromK).start, gap=Math.max(0,Math.round((D(addDays(mondayOf(date),7))-D(from))/(7*864e5)));
   const seqs=G.seq(), len=s=>s.reduce((t,it)=>t+itemWeeks(it),0);
   let k=seqs.findIndex(s=>len(s)<=gap); const short=k<0; if(short) k=seqs.length-1;
   const tail=seqs[k];
@@ -108,7 +119,7 @@ function ygPlan(goal,date){
 }
 // Taking it: the year is replaced, and the goal kept so planning again starts there.
 function ygUse(){
-  const r=yg&&ygPlan(yg.goal,yg.date); if(!r||r.short) return false;
-  mutatePlan(p=>{p.nextPrograms=r.items;p.yearGoal={goal:yg.goal,date:yg.date}});
+  const r=yg&&ygPlan(yg.goal,yg.date,yg.from); if(!r||r.short) return false;
+  mutatePlan(p=>{p.nextPrograms=r.items;p.yearGoal={goal:yg.goal,date:yg.date,from:yg.from}});
   yg=null; yrSel=-1; return true;
 }

@@ -61,7 +61,8 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   `plan.progPath` for TB I's beginner path; (4) "What's next" on Today in a program's
   last week (3.97, laid out like the OMS card: a second tap starts it, Not yet asks again
   next week; the queue itself went into Setup → Programs as Your year in 3.95); (5) the
-  coach fill-in, the one step left.
+  coach fill-in, the one step left. Since 3.98 Your year and the goal planner offer the
+  same two starts as the chooser (when the cycle ends, after the retest), by request.
 - **Chooser prototype decided (2026-11-15, step 2):**
   https://claude.ai/artifact/XBpRgu4KS99RruH3T6AQkS. Four phone artboards: A one
   question at a time, B one sheet with a live pick and a pinned bar, C start from your
