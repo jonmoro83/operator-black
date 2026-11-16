@@ -83,6 +83,10 @@ function recWeek(monday){
 function hicPick(slot,week,hist,monday){
   const why=[], cat=hicTbCat, seq=[...week.slice().reverse(),...hist.map(h=>h.f)];
   const eWeek=week.some(f=>cat(f)==='E'), ePrev=hist.some(h=>h.d>=addDays(monday,-7)&&cat(h.f)==='E');
+  if(slot.eOk&&plan.hicThirdE&&week.length>=2){
+    why.push(['The third day is an E session for now, as you chose while conditioning felt too hard. Black asks for at least two HICs a week, and lets the third be an E.','TB II p59']);
+    return {f:hicE(),need:'E',why};
+  }
   if(slot.eOk&&!eWeek&&!ePrev&&week.length>=2){
     why.push(['An E session is due. Black asks for one at least every other week, and last week had none.','TB II p59']);
     why.push(['Repeat one or two E sessions you like. Variety matters less here.','TB II p85']);
@@ -103,6 +107,59 @@ function hicPick(slot,week,hist,monday){
   if(b&&b.advanced) why.push([hicGrad(f)?'You have done the Advanced version, which is when the book says to swap it for a new session.':'Keep it in rotation until you can do the Advanced version, then swap it for a new one.','TB II p187']);
   return {f,need:need||cat(f),why};
 }
+/* ---------- changing the sessions through the year ----------
+Asked 2026-11-15: "maybe modify them through the year based upon weekly check-ins". The
+user's calls: the weekly check-in asks how hard conditioning felt, and changes are
+suggested on Today for you to accept; nothing changes on its own. The rules:
+  - a session whose Advanced version you have done: swap it for one that meets the same
+    need and fits your kit (the book's, TB II p187)
+  - too hard two rated weeks running, on Black: the third day an E for now (p58–59);
+    too easy two running: back to three HICs, or try a session's Advanced version
+Two weeks, not one, is ours: one bad week is a bad week. */
+function hicNm(f){ const b=(HIC[f]||{}).book; return (b&&b.n?'#'+b.n+' ':'')+((HIC[f]||{}).name||f) }
+// The weekly ratings, newest first: {m (the Monday), v: 'easy' | 'right' | 'hard'}.
+function condFeels(n){
+  const out=[], m0=mondayOf(todayStr());
+  for(let i=0;i<(n||6);i++){ const m=addDays(m0,-7*i), v=(logs[m]||{}).wkfeel; if(['easy','right','hard'].includes(v)) out.push({m,v}) }
+  return out;
+}
+function condSuggest(){
+  const P=cprotoKey(); if(!CL_PROTOS.includes(P)) return [];
+  const out=[], cl=hicCluster(), fs=cl.map(c=>c.f), kit=kitHave();
+  for(const c of cl) if(hicGrad(c.f)){
+    const L=hicLike(hicTbCat(c.f),c.f,fs,10), to=[...L.books,...L.mti].find(k=>kitOk(k,kit));
+    if(to) out.push({id:'swap:'+c.f,kind:'swap',from:c.f,to,text:`Swap ${hicNm(c.f)} for ${hicNm(to)}`,
+      why:[`You have done ${hicNm(c.f)}’s Advanced version, which is when the book says to swap it for a new session. ${hicNm(to)} meets the same need and fits your kit.`,'TB II p187']});
+  }
+  const two=condFeels().slice(0,2), both=v=>two.length===2&&two.every(x=>x.v===v);
+  if(both('hard')){
+    if(P==='black'&&!plan.hicThirdE) out.push({id:'thirdE',kind:'thirdE',on:true,text:'Make the third conditioning day an E session for now',
+      why:['Conditioning has felt too hard two weeks running. Black asks for at least two HICs a week, and the third day can be an E.','TB II p58–59']});
+    else out.push({id:'basic',kind:'note',text:'Stay on the Basic versions, and keep the easy sessions easy',
+      why:['Conditioning has felt too hard two weeks running. Each session starts at its Basic version; the Advanced is where it ends, not where it begins.','TB II p187']});
+  }
+  if(both('easy')){
+    if(plan.hicThirdE) out.push({id:'thirdE-off',kind:'thirdE',on:false,text:'Back to a HIC on the third day',
+      why:['Conditioning has felt too easy two weeks running, so the third day can be a HIC again, with an E when one is due.','TB II p59']});
+    else { const f=fs.find(k=>((HIC[k]||{}).book||{}).advanced&&!hicGrad(k));
+      if(f) out.push({id:'adv:'+f,kind:'note',text:`Try ${hicNm(f)}’s Advanced version next time`,
+        why:['Conditioning has felt too easy two weeks running. The book progresses a session from its Basic version to its Advanced, then swaps it for a new one.','TB II p187']}); }
+  }
+  const off=plan.condDismiss||{}, m=mondayOf(todayStr());
+  return out.filter(s=>!off[s.id+'@'+m]);
+}
+function condAccept(id){
+  const s=condSuggest().find(x=>x.id===id); if(!s) return false;
+  const t=todayStr(), m=mondayOf(t);
+  mutatePlan(p=>{
+    if(s.kind==='swap') p.hicCluster=hicCluster().map(c=>c.f===s.from?{f:s.to,since:t}:c);
+    if(s.kind==='thirdE') p.hicThirdE=s.on;
+    p.condDismiss=Object.assign({},p.condDismiss,{[s.id+'@'+m]:true});
+  });
+  return true;
+}
+function condLater(id){ const m=mondayOf(todayStr()); mutatePlan(p=>{ p.condDismiss=Object.assign({},p.condDismiss,{[id+'@'+m]:true}) }); return true }
+
 /* Sessions that meet the same need as `f`: its TB category, nearest first by system,
    the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
 function hicLike(c,f,exclude,n){

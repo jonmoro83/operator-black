@@ -62,6 +62,7 @@ function vTodayOf(){
   h+=nextCard();
   h+=weekSummaryCard();
   h+=weeklyCard();
+  h+=condCard();
   h+=prCard(sel);
   h+=finishCard(sel,dp);
   h+=banners(wk,dp);

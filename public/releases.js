@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.105',date:'2026-11-15',title:"The chooser picks your sessions",items:[
+    "A pick on Black or Green now comes with its conditioning sessions: two or three HICs and an E session, chosen by the book's rules from your goal and the kit you have. They're shown on the pick and start with the program.",
+    "Green uses them too. Your E session runs on the E days, and the cluster takes turns on the every-other-week HIC. Weeks before the cluster joined keep the sessions they had.",
+    "The weekly check-in asks how the week's conditioning felt: too easy, about right or too hard.",
+    "From that and what you log, Today suggests changes for you to take or put off. You'll see a swap once you've done a session's Advanced version. Two weeks of too hard suggests an E on Black's third day. Two weeks of too easy suggests going back to a HIC on that day, or trying an Advanced version.",
+  ]},
   {v:'3.104',date:'2026-11-15',title:"One button to schedule it",items:[
     "The chooser now has one button pinned at the bottom of the screen that schedules what it picked: Schedule it from your date, Add it to your year, or Switch to it. Changing answers only changes the pick. Nothing goes on the calendar until you tap it.",
     "After you tap it, Setup tells you what was scheduled and when, with See it on the calendar, which opens the calendar on that month.",

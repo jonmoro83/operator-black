@@ -10853,7 +10853,10 @@ test("what's next is lined up for the handover, then started with its settings",
   x.newProg.arm = true; x.startProgram();
   a.equal(x.plan.stempl, "zulu"); a.equal(x.plan.startMonday, sw);
   a.deepEqual(x.plan.nextPrograms, [], "used up, and the rest of the queue (none) carried");
-  a.deepEqual(x.hicCluster().map((c) => c.f), ["gc1"], "the cluster carries into the new program");
+  // Since 3.105 the chooser picks the sessions too (asked 2026-11-15), so a program it
+  // picked brings its own cluster, shown on the pick before it is scheduled.
+  a.notDeepEqual(x.hicCluster().map((c) => c.f), ["gc1"], "the pick's sessions, not the old cluster");
+  a.ok(x.hicCluster().every((c) => c.since === sw), "joining when it starts");
   a.equal(x.plan.programGoals.aim, "315 squat", "and so do the goals");
 });
 
@@ -11327,4 +11330,71 @@ test("the chooser's pinned bar schedules the pick, and says where to see it", ()
   x.chzDone = null; x.chzOpen("now");
   a.match(x.programsCard(), /Switch to Fighter next week/);
   a.ok(x.chzSchedule()); a.ok(x.newProg); a.equal(x.chzDone, null);
+});
+
+/* ---------- the sessions, chosen and changed through the year (3.105) ----------
+Asked 2026-11-15: "I also want the chooser to choose the specific HIC and E sessions.
+Maybe modify them through the year based upon weekly check-ins." The user's calls: the
+books' rules pick (the coach's goal swaps come next); changes are suggested on Today
+and taken by you; the weekly check-in asks how hard conditioning felt. */
+test("the chooser's pick comes with its sessions, which go with it when it starts", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.kit = ["run", "ruck", "hill", "kb"]; x.bump();
+  x.chzOpen("next"); x.chz.full = true; x.chzSet("goal", "endurance"); x.chzSet("days", "2");
+  const pk = x.chzResult().picks[0];
+  a.equal(pk.cproto, "green"); a.ok(pk.cl && pk.cl.fs.length === 3);
+  a.equal(pk.cl.e, "m21", "a rucker's E for an endurance goal with a ruck");
+  const h = x.programsCard();
+  a.match(h, /Conditioning sessions/); a.match(h, /these in turn on the HIC weeks/);
+  x.chzSchedule();
+  a.deepEqual(x.plan.nextPrograms[0].cl.fs, pk.cl.fs);
+  // In the preview, and so on the calendar: Green's E days run the chosen E.
+  const st = x.plan.nextPrograms[0].start;
+  a.deepEqual(x.withFuture(st, () => [x.hicCluster().map((c) => c.f), x.hicE()]), [pk.cl.fs, "m21"]);
+  // A protocol with no sessions to choose has none on its pick.
+  x.chzOpen("now"); x.chzSet("cond", "no");
+  a.equal(x.chzResult().picks[0].cl, null);
+});
+
+test("Green runs your E session and your cluster in turn, from when the cluster joined", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.cproto = "green"; x.plan.stempl = "fighter"; x.bump();
+  const fmts = (mon) => x.CPROTO.green.sessions(x.weekOf(mon)).map((s) => s.fmt);
+  a.deepEqual(fmts("2026-11-23").slice(0, 3), ["liss", "liss", "map"], "no cluster of your own: as before");
+  x.plan.hicCluster = [{ f: "gc1", since: "2026-11-30" }, { f: "boo2", since: "2026-11-30" }]; x.plan.hicE = "mz2"; x.bump();
+  a.deepEqual(fmts("2026-11-23").slice(0, 3), ["liss", "liss", "map"], "a week before it joined keeps what it had");
+  a.deepEqual(fmts("2026-12-07").slice(0, 2), ["mz2", "mz2"]);
+  const hics = ["2026-11-30", "2026-12-07", "2026-12-14", "2026-12-21"].map((m) => fmts(m)[2]).filter((f) => f !== "mz2");
+  a.deepEqual([...new Set(hics)].sort(), ["boo2", "gc1"], "the HIC weeks take turns");
+});
+
+test("the weekly rating and what you log suggest changes, which you take or put off", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.kit = ["run", "kb"]; x.plan.hicCluster = [{ f: "gc1", since: "2026-11-16" }, { f: "boo2", since: "2026-11-16" }]; x.bump();
+  x.view = "today"; x.sel = "2026-11-18";
+  a.match(x.vToday(), /This week’s conditioning felt/, "asked in the weekly check-in");
+  a.deepEqual(x.condSuggest(), [], "nothing to suggest yet");
+  // Too hard two weeks running, on Black: the third day an E for now.
+  x.logs["2026-11-16"] = { date: "2026-11-16", wkfeel: "hard" };
+  x.logs["2026-11-09"] = { date: "2026-11-09", wkfeel: "hard" }; x.bump();
+  let ss = x.condSuggest();
+  a.deepEqual(ss.map((s) => s.id), ["thirdE"]); a.match(ss[0].why[1], /TB II p58/);
+  a.match(x.vToday(), /data-act="condok" data-id="thirdE"/);
+  a.ok(x.condAccept("thirdE")); a.equal(x.plan.hicThirdE, true);
+  const third = x.recWeek("2026-11-23").slots[2];
+  a.equal(third.need, "E", "the third day is an E"); a.match(third.why[0][0], /as you chose/);
+  // Too easy two running: back to a HIC on the third day.
+  x.logs["2026-11-16"].wkfeel = "easy"; x.logs["2026-11-09"].wkfeel = "easy"; x.bump();
+  a.deepEqual(x.condSuggest().map((s) => s.id), ["thirdE-off"]);
+  // Not now: gone until next week.
+  x.condLater("thirdE-off"); a.deepEqual(x.condSuggest(), []);
+  // Advanced done: swap it for one that meets the same need and fits the kit.
+  const adv = Object.keys(x.HIC).find((k) => x.HIC[k].book && x.HIC[k].book.advanced && x.hicTbCat(k) === "GC" && (x.HIC_KIT ? true : true));
+  x.plan.hicCluster = [{ f: adv, since: "2026-11-16" }, { f: "boo2", since: "2026-11-16" }];
+  x.logs["2026-11-17"] = { date: "2026-11-17", done: true, hic: { format: adv, ver: "advanced" } }; x.bump();
+  ss = x.condSuggest().filter((s) => s.kind === "swap");
+  a.equal(ss.length, 1); a.equal(ss[0].from, adv); a.equal(x.hicTbCat(ss[0].to), "GC");
+  a.ok(x.condAccept(ss[0].id));
+  a.deepEqual(x.plan.hicCluster.map((c) => c.f), [ss[0].to, "boo2"]);
+  a.equal(x.plan.hicCluster[0].since, "2026-11-18", "joining today");
 });

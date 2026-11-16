@@ -404,12 +404,17 @@ const CPROTO={
     blurb:'Endurance first. Easy aerobic work most days, a strength-endurance circuit each week, and one hard session every other week. Built for rucking, selection prep and long events. The book runs it alongside two lifting days, so it sits best with Fighter.',
     sessions:wk=>{
       const hicWeek=((wk&&wk.w||1)%2)===0;    // one hard session every other week
-      const E=note=>({t:'hic',fmt:'liss',short:'E',note});
+      // Your sessions, once you have chosen some (3.105): the E session on the E days,
+      // and the cluster in turn on the HIC weeks. From when the cluster joined, so a
+      // week already done keeps the sessions it had.
+      const cl=Array.isArray(plan.hicCluster)&&plan.hicCluster.length?hicCluster():null;
+      const own=!!cl&&!!wk&&wk.monday>=(cl.map(c=>c.since||'').sort()[0]||'');
+      const E=note=>({t:'hic',fmt:own?hicE():'liss',short:'E',note});
       const r=greenSeReps(wk);
       return [
         E('Conversational the whole way. Run, ruck, swim or ride \u2014 45 to 90 min.'),
         E('Easy again. Run-walk-run is still aerobic and still counts.'),
-        hicWeek?{t:'hic',fmt:'map',short:'HIC'}
+        hicWeek?{t:'hic',fmt:own?cl[Math.floor((wk.idx||0)/2)%cl.length].f:'map',short:'HIC'}
                :E('The long one. You have a rest day behind you, so push the duration.'),
         {t:'se',circuits:3,reps:r,short:'SE 3\u00d7'+r},
       ];

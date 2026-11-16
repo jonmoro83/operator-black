@@ -17,6 +17,16 @@ function weekRecap(mon){
 // The weekly check-in: measurements, once a week, at the start of the training week.
 // They are a weekly number, so asking for them in the daily check-in made them easy to
 // skip and easy to over-log. This stays up all week until it has been filled in.
+/* A change to your conditioning sessions, suggested from your weekly ratings and what
+   you have logged (04c-hic-rec.js). Nothing changes until you take it. */
+function condCard(){
+  if(viewing||sel!==todayStr()) return '';
+  const ss=condSuggest(); if(!ss.length) return '';
+  return `<div class="card"><div class="lift-h"><h3>Your conditioning sessions</h3><span class="chip blue">Suggested</span></div>
+  ${ss.map(s=>`<div class="stack" style="gap:6px"><b class="small">${esc(s.text)}</b><div class="small">${esc(s.why[0])} <span class="mono muted">${esc(s.why[1])}</span></div>
+  <div class="row">${s.kind==='note'?`<button class="btn sm" data-act="condlater" data-id="${esc(s.id)}">Got it</button>`:`<button class="btn sm primary" data-act="condok" data-id="${esc(s.id)}">${s.kind==='swap'?'Swap it':'Do it'}</button><button class="btn sm ghost" data-act="condlater" data-id="${esc(s.id)}">Not now</button>`}</div></div>`).join('')}
+  <div class="note">From your weekly check-in and what you have logged. Not now asks again next week. The sessions are in Setup, under the conditioning cluster.</div></div>`;
+}
 function weeklyCard(){
   if(viewing||sel!==todayStr()) return '';
   const t=todayStr(), mon=mondayOf(t);
@@ -28,7 +38,10 @@ function weeklyCard(){
   const prev=measBefore(mon), bfNow=thisWeek?navyBf(thisWeek.m,thisWeek.d):null, bfPrev=prev?navyBf(prev.m,prev.d):null;
   const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,today[k],prev&&prev.m[k]!=null?String(prev.m[k]):'')}</label>`;
   const since=prev?Math.round((D(mon)-D(prev.d))/864e5):null;
-  const body=()=>`<p class="note" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
+  // How hard the week's conditioning felt (3.105): what the suggestions on Today read.
+  const feel=cprotoKey()==='none'?'':(()=>{ const v=(logs[mon]||{}).wkfeel||'';
+    return `<div class="f"><span>This week’s conditioning felt</span><div class="seg">${[['easy','Too easy'],['right','About right'],['hard','Too hard']].map(([k,l])=>`<button class="segb${v===k?' on':''}" data-act="wkfeel" data-v="${k}" aria-pressed="${v===k}">${l}</button>`).join('')}</div></div>`})();
+  const body=()=>feel+`<p class="note" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
   <div class="grid3">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>`
     +(navyBf(today,t)!=null?`<div class="small">That puts you at <b class="mono">${r1(navyBf(today,t))}%</b> body fat${bfPrev!=null?`, ${navyBf(today,t)<bfPrev?'down':navyBf(today,t)>bfPrev?'up':'level'} ${navyBf(today,t)===bfPrev?'':r1(Math.abs(navyBf(today,t)-bfPrev))+' points '}since ${fmtD(prev.d)}`:''}.</div>`
       :!plan.height||!plan.sex?`<div class="note">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`

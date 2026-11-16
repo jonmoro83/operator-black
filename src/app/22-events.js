@@ -336,6 +336,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
   if(a==='chzfill'){chzFill();return}
+  if(a==='wkfeel'){const m=mondayOf(todayStr());setLog(m,'wkfeel',(logs[m]||{}).wkfeel===b.dataset.v?'':b.dataset.v);render();return}
+  if(a==='condok'){condAccept(b.dataset.id);render();return}
+  if(a==='condlater'){condLater(b.dataset.id);render();return}
   if(a==='chzschedule'){chzSchedule();render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
   if(a==='chzdoneok'){chzDone=null;render();return}
   if(a==='chzsee'){const s=chzDone&&chzDone.start;chzDone=null;planMode='cal';try{localStorage.setItem('ob.planmode',planMode)}catch(e){}if(s)calMonth=s.slice(0,7);goView('plan');return}

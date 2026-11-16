@@ -296,7 +296,18 @@ function chzInput(a,ctx){
   if(ctx&&ctx!=='wz'){ const m=carryMaxes(); o.bench=m.bench; o.squat=m.squat }
   return o;
 }
-function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx)); return Object.assign(r,{all:[...r.picks,...r.alts]}) }
+function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx));
+  for(const pk of [...r.picks,...r.alts]) if(!pk.oms) pk.cl=chzClusterFor(pk,chz.a);
+  return Object.assign(r,{all:[...r.picks,...r.alts]}) }
+/* The sessions a pick runs on, chosen with it (asked 2026-11-15: "I also want the
+   chooser to choose the specific HIC and E sessions"): a cluster and an E session from
+   your goal and the kit you have, by the book's rules (recommendCluster above). Black
+   recommends from it each day; Green runs its E and its every-other-week HIC from it. */
+const CL_PROTOS=['black','green'];
+function chzClusterFor(pk,a){
+  if(!pk||!CL_PROTOS.includes(pk.cproto)) return null; a=a||{};
+  return recommendCluster({kit:kitHave(),goal:a.goal==='endurance'?'endurance':a.other==='yes'?'combat':''});
+}
 function pickName(pk){ return pk.stempl?STEMPL[pk.stempl].name:CPROTO[pk.cproto].name }
 function pickLine(pk){
   const P=CPROTO[pk.cproto], cond=pk.cproto==='none'?'lifting only':pk.stempl?'with '+P.name:'';
@@ -310,7 +321,7 @@ function chzUseWz(pk){
   if(pk.stempl) wz.stempl=pk.stempl;
   wz.cproto=pk.cproto; wz.runFrom=pk.runFrom||1; wz.bb=!!pk.bb; wz.bbVer=pk.bb||''; wz.progPath=pk.path||'';
   if(pk.path==='tb1beg') wz.test=1;
-  wz.chooser=Object.assign({},chz.a);
+  wz.chooser=Object.assign({},chz.a); wz.cl=pk.cl||null;
   return true;
 }
 /* Where the program you are on naturally hands over: the Monday after its next retest,
@@ -350,6 +361,8 @@ function pickPatch(pk,rest){
     // A week off lined up before it is the new program's first week (an Off insert).
     const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
     if(pk.offFirst) next.inserts=Object.assign({},next.inserts,{[next.startMonday]:'off'});
+    // Its sessions, joining when it starts: where the Advanced-then-swap rule counts from.
+    if(pk.cl&&pk.cl.fs){ next.hicCluster=pk.cl.fs.map(f=>({f,since:s0})); next.hicE=pk.cl.e }
     if(pk.bb){ const at=next.bridge?addDays(s0,7):s0;
       next.inserts=Object.assign({},next.inserts,{[at]:'bb'});
       if(pk.bb!=='standard') next.bbVer=Object.assign({},next.bbVer,{[at]:pk.bb}); }
@@ -361,7 +374,8 @@ function pickPatch(pk,rest){
   };
 }
 function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=Array.isArray(pk.why[0])?pk.why[0]:pk.why;
-  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; if(pk.cproto==='mtirun') o.runFrom=pk.runFrom||1; return o }
+  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; if(pk.cproto==='mtirun') o.runFrom=pk.runFrom||1;
+  if(pk.cl&&pk.cl.fs) o.cl={fs:pk.cl.fs.slice(),e:pk.cl.e}; return o }
 // Lining one up: kept on the plan until its start, then offered.
 function chzLineUp(pk){
   if(!pk||pk.oms) return false;

@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.104", RELEASES_SRC="/releases.js?b=6ba52b98d8";
+const APP_VERSION="3.105", RELEASES_SRC="/releases.js?b=21983129c1";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -409,12 +409,17 @@ const CPROTO={
     blurb:'Endurance first. Easy aerobic work most days, a strength-endurance circuit each week, and one hard session every other week. Built for rucking, selection prep and long events. The book runs it alongside two lifting days, so it sits best with Fighter.',
     sessions:wk=>{
       const hicWeek=((wk&&wk.w||1)%2)===0;    // one hard session every other week
-      const E=note=>({t:'hic',fmt:'liss',short:'E',note});
+      // Your sessions, once you have chosen some (3.105): the E session on the E days,
+      // and the cluster in turn on the HIC weeks. From when the cluster joined, so a
+      // week already done keeps the sessions it had.
+      const cl=Array.isArray(plan.hicCluster)&&plan.hicCluster.length?hicCluster():null;
+      const own=!!cl&&!!wk&&wk.monday>=(cl.map(c=>c.since||'').sort()[0]||'');
+      const E=note=>({t:'hic',fmt:own?hicE():'liss',short:'E',note});
       const r=greenSeReps(wk);
       return [
         E('Conversational the whole way. Run, ruck, swim or ride \u2014 45 to 90 min.'),
         E('Easy again. Run-walk-run is still aerobic and still counts.'),
-        hicWeek?{t:'hic',fmt:'map',short:'HIC'}
+        hicWeek?{t:'hic',fmt:own?cl[Math.floor((wk.idx||0)/2)%cl.length].f:'map',short:'HIC'}
                :E('The long one. You have a rest day behind you, so push the duration.'),
         {t:'se',circuits:3,reps:r,short:'SE 3\u00d7'+r},
       ];
@@ -4093,6 +4098,10 @@ function recWeek(monday){
 function hicPick(slot,week,hist,monday){
   const why=[], cat=hicTbCat, seq=[...week.slice().reverse(),...hist.map(h=>h.f)];
   const eWeek=week.some(f=>cat(f)==='E'), ePrev=hist.some(h=>h.d>=addDays(monday,-7)&&cat(h.f)==='E');
+  if(slot.eOk&&plan.hicThirdE&&week.length>=2){
+    why.push(['The third day is an E session for now, as you chose while conditioning felt too hard. Black asks for at least two HICs a week, and lets the third be an E.','TB II p59']);
+    return {f:hicE(),need:'E',why};
+  }
   if(slot.eOk&&!eWeek&&!ePrev&&week.length>=2){
     why.push(['An E session is due. Black asks for one at least every other week, and last week had none.','TB II p59']);
     why.push(['Repeat one or two E sessions you like. Variety matters less here.','TB II p85']);
@@ -4113,6 +4122,59 @@ function hicPick(slot,week,hist,monday){
   if(b&&b.advanced) why.push([hicGrad(f)?'You have done the Advanced version, which is when the book says to swap it for a new session.':'Keep it in rotation until you can do the Advanced version, then swap it for a new one.','TB II p187']);
   return {f,need:need||cat(f),why};
 }
+/* ---------- changing the sessions through the year ----------
+Asked 2026-11-15: "maybe modify them through the year based upon weekly check-ins". The
+user's calls: the weekly check-in asks how hard conditioning felt, and changes are
+suggested on Today for you to accept; nothing changes on its own. The rules:
+  - a session whose Advanced version you have done: swap it for one that meets the same
+    need and fits your kit (the book's, TB II p187)
+  - too hard two rated weeks running, on Black: the third day an E for now (p58–59);
+    too easy two running: back to three HICs, or try a session's Advanced version
+Two weeks, not one, is ours: one bad week is a bad week. */
+function hicNm(f){ const b=(HIC[f]||{}).book; return (b&&b.n?'#'+b.n+' ':'')+((HIC[f]||{}).name||f) }
+// The weekly ratings, newest first: {m (the Monday), v: 'easy' | 'right' | 'hard'}.
+function condFeels(n){
+  const out=[], m0=mondayOf(todayStr());
+  for(let i=0;i<(n||6);i++){ const m=addDays(m0,-7*i), v=(logs[m]||{}).wkfeel; if(['easy','right','hard'].includes(v)) out.push({m,v}) }
+  return out;
+}
+function condSuggest(){
+  const P=cprotoKey(); if(!CL_PROTOS.includes(P)) return [];
+  const out=[], cl=hicCluster(), fs=cl.map(c=>c.f), kit=kitHave();
+  for(const c of cl) if(hicGrad(c.f)){
+    const L=hicLike(hicTbCat(c.f),c.f,fs,10), to=[...L.books,...L.mti].find(k=>kitOk(k,kit));
+    if(to) out.push({id:'swap:'+c.f,kind:'swap',from:c.f,to,text:`Swap ${hicNm(c.f)} for ${hicNm(to)}`,
+      why:[`You have done ${hicNm(c.f)}’s Advanced version, which is when the book says to swap it for a new session. ${hicNm(to)} meets the same need and fits your kit.`,'TB II p187']});
+  }
+  const two=condFeels().slice(0,2), both=v=>two.length===2&&two.every(x=>x.v===v);
+  if(both('hard')){
+    if(P==='black'&&!plan.hicThirdE) out.push({id:'thirdE',kind:'thirdE',on:true,text:'Make the third conditioning day an E session for now',
+      why:['Conditioning has felt too hard two weeks running. Black asks for at least two HICs a week, and the third day can be an E.','TB II p58–59']});
+    else out.push({id:'basic',kind:'note',text:'Stay on the Basic versions, and keep the easy sessions easy',
+      why:['Conditioning has felt too hard two weeks running. Each session starts at its Basic version; the Advanced is where it ends, not where it begins.','TB II p187']});
+  }
+  if(both('easy')){
+    if(plan.hicThirdE) out.push({id:'thirdE-off',kind:'thirdE',on:false,text:'Back to a HIC on the third day',
+      why:['Conditioning has felt too easy two weeks running, so the third day can be a HIC again, with an E when one is due.','TB II p59']});
+    else { const f=fs.find(k=>((HIC[k]||{}).book||{}).advanced&&!hicGrad(k));
+      if(f) out.push({id:'adv:'+f,kind:'note',text:`Try ${hicNm(f)}’s Advanced version next time`,
+        why:['Conditioning has felt too easy two weeks running. The book progresses a session from its Basic version to its Advanced, then swaps it for a new one.','TB II p187']}); }
+  }
+  const off=plan.condDismiss||{}, m=mondayOf(todayStr());
+  return out.filter(s=>!off[s.id+'@'+m]);
+}
+function condAccept(id){
+  const s=condSuggest().find(x=>x.id===id); if(!s) return false;
+  const t=todayStr(), m=mondayOf(t);
+  mutatePlan(p=>{
+    if(s.kind==='swap') p.hicCluster=hicCluster().map(c=>c.f===s.from?{f:s.to,since:t}:c);
+    if(s.kind==='thirdE') p.hicThirdE=s.on;
+    p.condDismiss=Object.assign({},p.condDismiss,{[s.id+'@'+m]:true});
+  });
+  return true;
+}
+function condLater(id){ const m=mondayOf(todayStr()); mutatePlan(p=>{ p.condDismiss=Object.assign({},p.condDismiss,{[id+'@'+m]:true}) }); return true }
+
 /* Sessions that meet the same need as `f`: its TB category, nearest first by system,
    the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
 function hicLike(c,f,exclude,n){
@@ -4441,7 +4503,18 @@ function chzInput(a,ctx){
   if(ctx&&ctx!=='wz'){ const m=carryMaxes(); o.bench=m.bench; o.squat=m.squat }
   return o;
 }
-function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx)); return Object.assign(r,{all:[...r.picks,...r.alts]}) }
+function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx));
+  for(const pk of [...r.picks,...r.alts]) if(!pk.oms) pk.cl=chzClusterFor(pk,chz.a);
+  return Object.assign(r,{all:[...r.picks,...r.alts]}) }
+/* The sessions a pick runs on, chosen with it (asked 2026-11-15: "I also want the
+   chooser to choose the specific HIC and E sessions"): a cluster and an E session from
+   your goal and the kit you have, by the book's rules (recommendCluster above). Black
+   recommends from it each day; Green runs its E and its every-other-week HIC from it. */
+const CL_PROTOS=['black','green'];
+function chzClusterFor(pk,a){
+  if(!pk||!CL_PROTOS.includes(pk.cproto)) return null; a=a||{};
+  return recommendCluster({kit:kitHave(),goal:a.goal==='endurance'?'endurance':a.other==='yes'?'combat':''});
+}
 function pickName(pk){ return pk.stempl?STEMPL[pk.stempl].name:CPROTO[pk.cproto].name }
 function pickLine(pk){
   const P=CPROTO[pk.cproto], cond=pk.cproto==='none'?'lifting only':pk.stempl?'with '+P.name:'';
@@ -4455,7 +4528,7 @@ function chzUseWz(pk){
   if(pk.stempl) wz.stempl=pk.stempl;
   wz.cproto=pk.cproto; wz.runFrom=pk.runFrom||1; wz.bb=!!pk.bb; wz.bbVer=pk.bb||''; wz.progPath=pk.path||'';
   if(pk.path==='tb1beg') wz.test=1;
-  wz.chooser=Object.assign({},chz.a);
+  wz.chooser=Object.assign({},chz.a); wz.cl=pk.cl||null;
   return true;
 }
 /* Where the program you are on naturally hands over: the Monday after its next retest,
@@ -4495,6 +4568,8 @@ function pickPatch(pk,rest){
     // A week off lined up before it is the new program's first week (an Off insert).
     const s0=pk.offFirst?addDays(next.startMonday,7):next.startMonday;
     if(pk.offFirst) next.inserts=Object.assign({},next.inserts,{[next.startMonday]:'off'});
+    // Its sessions, joining when it starts: where the Advanced-then-swap rule counts from.
+    if(pk.cl&&pk.cl.fs){ next.hicCluster=pk.cl.fs.map(f=>({f,since:s0})); next.hicE=pk.cl.e }
     if(pk.bb){ const at=next.bridge?addDays(s0,7):s0;
       next.inserts=Object.assign({},next.inserts,{[at]:'bb'});
       if(pk.bb!=='standard') next.bbVer=Object.assign({},next.bbVer,{[at]:pk.bb}); }
@@ -4506,7 +4581,8 @@ function pickPatch(pk,rest){
   };
 }
 function pickOf(pk){ const o={stempl:pk.stempl||null,cproto:pk.cproto,bb:pk.bb||'',path:pk.path||''}; if(pk.why&&pk.why[0]) o.why=Array.isArray(pk.why[0])?pk.why[0]:pk.why;
-  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; if(pk.cproto==='mtirun') o.runFrom=pk.runFrom||1; return o }
+  if(pk.cycles) o.cycles=pk.cycles; if(pk.weeks) o.weeks=pk.weeks; if(pk.cproto==='mtirun') o.runFrom=pk.runFrom||1;
+  if(pk.cl&&pk.cl.fs) o.cl={fs:pk.cl.fs.slice(),e:pk.cl.e}; return o }
 // Lining one up: kept on the plan until its start, then offered.
 function chzLineUp(pk){
   if(!pk||pk.oms) return false;
@@ -5446,6 +5522,7 @@ function vTodayOf(){
   h+=nextCard();
   h+=weekSummaryCard();
   h+=weeklyCard();
+  h+=condCard();
   h+=prCard(sel);
   h+=finishCard(sel,dp);
   h+=banners(wk,dp);
@@ -7940,7 +8017,8 @@ function wzFinish(){
     if(w.chooser) p.programGoals=Object.assign({},p.programGoals,{chooser:w.chooser});
     // Black's sessions, chosen with the program: a starting cluster from the kit your
     // main tool implies, unless you already have one.
-    if(w.chooser&&CPROTO[w.cproto].recommend&&!(Array.isArray(p.hicCluster)&&p.hicCluster.length)){
+    if(w.cl&&CL_PROTOS.includes(w.cproto)){ p.hicCluster=w.cl.fs.map(f=>({f,since:mondayOf(w.start)})); p.hicE=w.cl.e }
+    else if(w.chooser&&CPROTO[w.cproto].recommend&&!(Array.isArray(p.hicCluster)&&p.hicCluster.length)){
       const s=recommendCluster({kit:Array.isArray(p.kit)?p.kit:(MOD_KIT[w.cardio]||[]),goal:w.chooser.goal==='endurance'?'endurance':w.chooser.other==='yes'?'combat':''});
       p.hicCluster=s.fs.map(f=>({f,since:mondayOf(w.start)})); p.hicE=s.e;
     }
@@ -9489,6 +9567,16 @@ function weekRecap(mon){
 // The weekly check-in: measurements, once a week, at the start of the training week.
 // They are a weekly number, so asking for them in the daily check-in made them easy to
 // skip and easy to over-log. This stays up all week until it has been filled in.
+/* A change to your conditioning sessions, suggested from your weekly ratings and what
+   you have logged (04c-hic-rec.js). Nothing changes until you take it. */
+function condCard(){
+  if(viewing||sel!==todayStr()) return '';
+  const ss=condSuggest(); if(!ss.length) return '';
+  return `<div class="card"><div class="lift-h"><h3>Your conditioning sessions</h3><span class="chip blue">Suggested</span></div>
+  ${ss.map(s=>`<div class="stack" style="gap:6px"><b class="small">${esc(s.text)}</b><div class="small">${esc(s.why[0])} <span class="mono muted">${esc(s.why[1])}</span></div>
+  <div class="row">${s.kind==='note'?`<button class="btn sm" data-act="condlater" data-id="${esc(s.id)}">Got it</button>`:`<button class="btn sm primary" data-act="condok" data-id="${esc(s.id)}">${s.kind==='swap'?'Swap it':'Do it'}</button><button class="btn sm ghost" data-act="condlater" data-id="${esc(s.id)}">Not now</button>`}</div></div>`).join('')}
+  <div class="note">From your weekly check-in and what you have logged. Not now asks again next week. The sessions are in Setup, under the conditioning cluster.</div></div>`;
+}
 function weeklyCard(){
   if(viewing||sel!==todayStr()) return '';
   const t=todayStr(), mon=mondayOf(t);
@@ -9500,7 +9588,10 @@ function weeklyCard(){
   const prev=measBefore(mon), bfNow=thisWeek?navyBf(thisWeek.m,thisWeek.d):null, bfPrev=prev?navyBf(prev.m,prev.d):null;
   const f=(k,l)=>`<label class="f">${l} <small>(${unit})</small>${numIn('meas.'+k,today[k],prev&&prev.m[k]!=null?String(prev.m[k]):'')}</label>`;
   const since=prev?Math.round((D(mon)-D(prev.d))/864e5):null;
-  const body=()=>`<p class="note" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
+  // How hard the week's conditioning felt (3.105): what the suggestions on Today read.
+  const feel=cprotoKey()==='none'?'':(()=>{ const v=(logs[mon]||{}).wkfeel||'';
+    return `<div class="f"><span>This week’s conditioning felt</span><div class="seg">${[['easy','Too easy'],['right','About right'],['hard','Too hard']].map(([k,l])=>`<button class="segb${v===k?' on':''}" data-act="wkfeel" data-v="${k}" aria-pressed="${v===k}">${l}</button>`).join('')}</div></div>`})();
+  const body=()=>feel+`<p class="note" style="margin:0">Measurements once a week, same time of day, relaxed: waist at the navel, neck below the larynx, hips at the widest point.</p>
   <div class="grid3">${f('neck','Neck')}${f('waist','Waist')}${f('hip','Hips')}</div>`
     +(navyBf(today,t)!=null?`<div class="small">That puts you at <b class="mono">${r1(navyBf(today,t))}%</b> body fat${bfPrev!=null?`, ${navyBf(today,t)<bfPrev?'down':navyBf(today,t)>bfPrev?'up':'level'} ${navyBf(today,t)===bfPrev?'':r1(Math.abs(navyBf(today,t)-bfPrev))+' points '}since ${fmtD(prev.d)}`:''}.</div>`
       :!plan.height||!plan.sex?`<div class="note">Add your height and sex in Setup \u2192 About you and these turn into a body-fat estimate. They are worth tracking either way.</div>`
@@ -10500,7 +10591,14 @@ function whyList(why){ return `<ul class="small" style="margin:0;padding-left:18
 function pickCard(pk,btn){
   const T=pk.stempl&&STEMPL[pk.stempl], src=pickSrc(pk);
   return `<div class="card" style="background:var(--bg)"><div class="lift-h"><h2>${esc(pk.oms?'The OMS rotation':pickName(pk))}</h2><span class="chip${src==='Ours'?'':' blue'}">${esc(src)}</span></div>
-  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${btn}</div>`;
+  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${pk.cl?pickSessions(pk):''}${btn}</div>`;
+}
+// The sessions that come with a pick: what its conditioning days will be.
+function pickSessions(pk){
+  const tag=f=>`<span class="chip">${esc(hicTbCat(f))}</span>${hicMti(f)?' <span class="chip blue">MTI</span>':''}`;
+  return `<div class="stack" style="gap:4px"><span class="small" style="font-weight:700">Conditioning sessions</span>
+  <ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px">${pk.cl.fs.map(f=>`<li>${esc(hicNm(f))} ${tag(f)}</li>`).join('')}<li>${esc(hicNm(pk.cl.e))} <span class="chip">E</span></li></ul>
+  <p class="note" style="margin:0">${pk.cproto==='green'?'Your E session on the E days, and these in turn on the HIC weeks.':'Each conditioning day recommends one of these and says why.'} Two or three HICs and an E, each kept until you can do its Advanced version, then swapped (TB II p187), mixed by kind (p112), and only ones you have the kit for. Kit is in Setup, under the conditioning cluster.</p></div>`;
 }
 function chooserSheet(btn){
   const a=chz.a, r=chzResult(), two=r.picks.length>1;
@@ -10898,11 +10996,12 @@ function templateCard(){
    and an E session, each run until you can do its Advanced version and then swapped.
    The day's recommendation rotates through them; see 04c-hic-rec.js. */
 function hicClusterCard(){
-  if(!CPROTO[cprotoKey()].recommend) return '';
+  if(!CL_PROTOS.includes(cprotoKey())) return '';
   const cl=hicCluster(), E=hicE();
   const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
   const lastOf=f=>{const ds=Object.keys(logs).filter(d=>((logs[d].hic||{}).format||(logs[d].hic||logs[d].done?effFmt(d):''))===f&&d<=todayStr()).sort();return ds.length?ds[ds.length-1]:null};
   let h=`<div class="card"><div class="lift-h"><h2>Conditioning cluster</h2><span class="chip light">${cl.length} HIC + E</span></div>
+  ${cprotoKey()==='green'?'<p class="note" style="margin:0"><b>On Green</b> your E session runs on the E days and these take turns on the every-other-week HIC.</p>':''}
   <p class="note" style="margin:0">Black leaves the sessions to you (TB II p59). The book\u2019s preferred way to choose them is a cluster: two or three HICs and an E session. Run each at its Basic version until you can do the Advanced, then swap it for a new one (p187). Mix aerobic/anaerobic sessions with general conditioning; avoid only one kind (p112). Each conditioning day recommends one and says why, and you can always pick something else.</p>`;
   if(hicWaiting()) h+=`<div class="banner info"><div class="small">Starts ${esc(fmtD(plan.hicRecFrom,true))}. Sessions you have already logged this week keep what they were.</div><div><button class="btn sm" data-act="hicnow">Start this week</button></div></div>`;
   for(const c of cl){
@@ -11361,6 +11460,14 @@ function guideChooser(){
   ${row('40 or older','The same pick, with the Ageless Athlete preset (training max, a recovery week after every three) and Old Warhorse as another choice','Ageless Athlete p28, p140, p143')}
   </tbody></table></div>
   <p class="note">Black with conditioning is the default, because the book says most people belong on it (TB II p19), and Base Building comes first unless you have done it. A reason marked <b>Ours</b> is the app’s, not a book’s.</p>
+  <h4 class="sub-h">The sessions</h4>
+  <p>A pick on Black or Green comes with its conditioning sessions: two or three HICs and an E session, shown on the pick. They are chosen by the book’s rules: a cluster kept until you can do each session’s Advanced version, then swapped (TB II p187); aerobic/anaerobic and general conditioning both (p112); nothing from power development (p164); and only sessions you have the kit for. An endurance goal puts running, rucking and hill sessions first, and a fight gym puts bag and sledge sessions first; which wins when several fit is ours. They join when the program starts. On Black each conditioning day recommends one of them; on Green your E session runs on the E days and the cluster takes turns on the every-other-week HIC. Change them any time in Setup, under the conditioning cluster, where your kit is too.</p>
+  <h4 class="sub-h">Changing them through the year</h4>
+  <p>The weekly check-in asks how the week’s conditioning felt: too easy, about right or too hard. From that and what you log, Today suggests a change when one is due, and nothing changes until you take it:</p>
+  <ul class="tight"><li><b>Advanced done</b>: swap that session for one that meets the same need and fits your kit. <span class="mono muted">TB II p187</span></li>
+  <li><b>Too hard two weeks running</b>: on Black, make the third conditioning day an E session for now, since Black asks for at least two HICs a week. On Green, stay on the Basic versions. <span class="mono muted">TB II p58–59, p187</span></li>
+  <li><b>Too easy two weeks running</b>: back to a HIC on the third day, or try a session’s Advanced version. <span class="mono muted">TB II p59, p187</span></li></ul>
+  <p class="note">Two weeks rather than one is ours: one bad week is just a bad week. <b>Not now</b> asks again next week.</p>
   <h4 class="sub-h">What’s next, and when it starts</h4>
   <p><b>Help me choose what’s next</b> shows the books’ next step first: the same template again with new maxes, since TB I says to keep a cluster at least two blocks (p49), or the book’s own sequence where it has one. Something else opens the questions. Choose when it starts: <b>after the retest</b>, the book’s point to change (TB I p33), or <b>when the cycle under way ends</b>, which leaves this block untested so the next starts from the maxes you have then. Or <b>pick a date</b>: any week from next week on, starting on its Monday. Before the handover, the program you are on stops there without its retest; after it, it carries on with more cycles until then.</p>
   <p><b>Lined up means scheduled.</b> From its first Monday the Plan and the calendar show the new program, and opening one of its days shows it as it will be. You cannot move those days until it starts. On that Monday it starts by itself, the first time you open the app that week: the program you are on is archived with everything in it, your maxes carry over, and Base Building or a week off lined up before it comes first. In the last week Today says what is coming, with <b>Put it off a week</b>, which moves it and your whole year back a week. With nothing lined up, Today offers the books’ next step, and doing nothing keeps your program going with another cycle. To start with a bridge week and a retest instead, use the form in Setup, under Programs.</p>
@@ -12792,6 +12899,9 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
   if(a==='chzfill'){chzFill();return}
+  if(a==='wkfeel'){const m=mondayOf(todayStr());setLog(m,'wkfeel',(logs[m]||{}).wkfeel===b.dataset.v?'':b.dataset.v);render();return}
+  if(a==='condok'){condAccept(b.dataset.id);render();return}
+  if(a==='condlater'){condLater(b.dataset.id);render();return}
   if(a==='chzschedule'){chzSchedule();render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
   if(a==='chzdoneok'){chzDone=null;render();return}
   if(a==='chzsee'){const s=chzDone&&chzDone.start;chzDone=null;planMode='cal';try{localStorage.setItem('ob.planmode',planMode)}catch(e){}if(s)calMonth=s.slice(0,7);goView('plan');return}

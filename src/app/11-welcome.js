@@ -147,7 +147,8 @@ function wzFinish(){
     if(w.chooser) p.programGoals=Object.assign({},p.programGoals,{chooser:w.chooser});
     // Black's sessions, chosen with the program: a starting cluster from the kit your
     // main tool implies, unless you already have one.
-    if(w.chooser&&CPROTO[w.cproto].recommend&&!(Array.isArray(p.hicCluster)&&p.hicCluster.length)){
+    if(w.cl&&CL_PROTOS.includes(w.cproto)){ p.hicCluster=w.cl.fs.map(f=>({f,since:mondayOf(w.start)})); p.hicE=w.cl.e }
+    else if(w.chooser&&CPROTO[w.cproto].recommend&&!(Array.isArray(p.hicCluster)&&p.hicCluster.length)){
       const s=recommendCluster({kit:Array.isArray(p.kit)?p.kit:(MOD_KIT[w.cardio]||[]),goal:w.chooser.goal==='endurance'?'endurance':w.chooser.other==='yes'?'combat':''});
       p.hicCluster=s.fs.map(f=>({f,since:mondayOf(w.start)})); p.hicE=s.e;
     }

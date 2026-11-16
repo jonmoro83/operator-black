@@ -172,7 +172,14 @@ function whyList(why){ return `<ul class="small" style="margin:0;padding-left:18
 function pickCard(pk,btn){
   const T=pk.stempl&&STEMPL[pk.stempl], src=pickSrc(pk);
   return `<div class="card" style="background:var(--bg)"><div class="lift-h"><h2>${esc(pk.oms?'The OMS rotation':pickName(pk))}</h2><span class="chip${src==='Ours'?'':' blue'}">${esc(src)}</span></div>
-  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${btn}</div>`;
+  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${pk.cl?pickSessions(pk):''}${btn}</div>`;
+}
+// The sessions that come with a pick: what its conditioning days will be.
+function pickSessions(pk){
+  const tag=f=>`<span class="chip">${esc(hicTbCat(f))}</span>${hicMti(f)?' <span class="chip blue">MTI</span>':''}`;
+  return `<div class="stack" style="gap:4px"><span class="small" style="font-weight:700">Conditioning sessions</span>
+  <ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px">${pk.cl.fs.map(f=>`<li>${esc(hicNm(f))} ${tag(f)}</li>`).join('')}<li>${esc(hicNm(pk.cl.e))} <span class="chip">E</span></li></ul>
+  <p class="note" style="margin:0">${pk.cproto==='green'?'Your E session on the E days, and these in turn on the HIC weeks.':'Each conditioning day recommends one of these and says why.'} Two or three HICs and an E, each kept until you can do its Advanced version, then swapped (TB II p187), mixed by kind (p112), and only ones you have the kit for. Kit is in Setup, under the conditioning cluster.</p></div>`;
 }
 function chooserSheet(btn){
   const a=chz.a, r=chzResult(), two=r.picks.length>1;
@@ -570,11 +577,12 @@ function templateCard(){
    and an E session, each run until you can do its Advanced version and then swapped.
    The day's recommendation rotates through them; see 04c-hic-rec.js. */
 function hicClusterCard(){
-  if(!CPROTO[cprotoKey()].recommend) return '';
+  if(!CL_PROTOS.includes(cprotoKey())) return '';
   const cl=hicCluster(), E=hicE();
   const nm=k=>esc((HIC[k].book&&HIC[k].book.n?'#'+HIC[k].book.n+' ':'')+HIC[k].name);
   const lastOf=f=>{const ds=Object.keys(logs).filter(d=>((logs[d].hic||{}).format||(logs[d].hic||logs[d].done?effFmt(d):''))===f&&d<=todayStr()).sort();return ds.length?ds[ds.length-1]:null};
   let h=`<div class="card"><div class="lift-h"><h2>Conditioning cluster</h2><span class="chip light">${cl.length} HIC + E</span></div>
+  ${cprotoKey()==='green'?'<p class="note" style="margin:0"><b>On Green</b> your E session runs on the E days and these take turns on the every-other-week HIC.</p>':''}
   <p class="note" style="margin:0">Black leaves the sessions to you (TB II p59). The book\u2019s preferred way to choose them is a cluster: two or three HICs and an E session. Run each at its Basic version until you can do the Advanced, then swap it for a new one (p187). Mix aerobic/anaerobic sessions with general conditioning; avoid only one kind (p112). Each conditioning day recommends one and says why, and you can always pick something else.</p>`;
   if(hicWaiting()) h+=`<div class="banner info"><div class="small">Starts ${esc(fmtD(plan.hicRecFrom,true))}. Sessions you have already logged this week keep what they were.</div><div><button class="btn sm" data-act="hicnow">Start this week</button></div></div>`;
   for(const c of cl){
@@ -1033,6 +1041,14 @@ function guideChooser(){
   ${row('40 or older','The same pick, with the Ageless Athlete preset (training max, a recovery week after every three) and Old Warhorse as another choice','Ageless Athlete p28, p140, p143')}
   </tbody></table></div>
   <p class="note">Black with conditioning is the default, because the book says most people belong on it (TB II p19), and Base Building comes first unless you have done it. A reason marked <b>Ours</b> is the app’s, not a book’s.</p>
+  <h4 class="sub-h">The sessions</h4>
+  <p>A pick on Black or Green comes with its conditioning sessions: two or three HICs and an E session, shown on the pick. They are chosen by the book’s rules: a cluster kept until you can do each session’s Advanced version, then swapped (TB II p187); aerobic/anaerobic and general conditioning both (p112); nothing from power development (p164); and only sessions you have the kit for. An endurance goal puts running, rucking and hill sessions first, and a fight gym puts bag and sledge sessions first; which wins when several fit is ours. They join when the program starts. On Black each conditioning day recommends one of them; on Green your E session runs on the E days and the cluster takes turns on the every-other-week HIC. Change them any time in Setup, under the conditioning cluster, where your kit is too.</p>
+  <h4 class="sub-h">Changing them through the year</h4>
+  <p>The weekly check-in asks how the week’s conditioning felt: too easy, about right or too hard. From that and what you log, Today suggests a change when one is due, and nothing changes until you take it:</p>
+  <ul class="tight"><li><b>Advanced done</b>: swap that session for one that meets the same need and fits your kit. <span class="mono muted">TB II p187</span></li>
+  <li><b>Too hard two weeks running</b>: on Black, make the third conditioning day an E session for now, since Black asks for at least two HICs a week. On Green, stay on the Basic versions. <span class="mono muted">TB II p58–59, p187</span></li>
+  <li><b>Too easy two weeks running</b>: back to a HIC on the third day, or try a session’s Advanced version. <span class="mono muted">TB II p59, p187</span></li></ul>
+  <p class="note">Two weeks rather than one is ours: one bad week is just a bad week. <b>Not now</b> asks again next week.</p>
   <h4 class="sub-h">What’s next, and when it starts</h4>
   <p><b>Help me choose what’s next</b> shows the books’ next step first: the same template again with new maxes, since TB I says to keep a cluster at least two blocks (p49), or the book’s own sequence where it has one. Something else opens the questions. Choose when it starts: <b>after the retest</b>, the book’s point to change (TB I p33), or <b>when the cycle under way ends</b>, which leaves this block untested so the next starts from the maxes you have then. Or <b>pick a date</b>: any week from next week on, starting on its Monday. Before the handover, the program you are on stops there without its retest; after it, it carries on with more cycles until then.</p>
   <p><b>Lined up means scheduled.</b> From its first Monday the Plan and the calendar show the new program, and opening one of its days shows it as it will be. You cannot move those days until it starts. On that Monday it starts by itself, the first time you open the app that week: the program you are on is archived with everything in it, your maxes carry over, and Base Building or a week off lined up before it comes first. In the last week Today says what is coming, with <b>Put it off a week</b>, which moves it and your whole year back a week. With nothing lined up, Today offers the books’ next step, and doing nothing keeps your program going with another cycle. To start with a bridge week and a retest instead, use the form in Setup, under Programs.</p>

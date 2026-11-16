@@ -46,6 +46,17 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
+- **The chooser picks the sessions, and they change through the year (asked
+  2026-11-15).** The user's calls: the books' rules pick the cluster first, and the
+  coach can then suggest swaps for a written goal ("Both"); changes are suggested on
+  Today and taken by you; the weekly check-in asks how hard conditioning felt. Shipped
+  in 3.105: picks carry `cl` ({fs, e}) into `pickPatch`, Green runs `hicE()` and the
+  cluster in turn, `wkfeel` on the Monday's log, `condSuggest()` (Advanced done → swap,
+  p187; two weeks too hard → Black's third day an E, p58–59; two too easy → back, or
+  try Advanced). **Still to do:** the coach's goal-specific swaps in the chooser (a
+  backcountry ski trip asking for uphill and step-up work, from MTI's articles), each
+  quoted and accepted one by one.
+
 - **The program chooser (asked 2026-11-15; all five steps shipped, 3.93 to 3.100).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the
   books as much as possible; where a beginner has a real choice, offer TB I's beginner
