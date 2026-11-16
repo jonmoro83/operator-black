@@ -11247,3 +11247,29 @@ test("a goal in your own words fills in the chooser's answers, quoted, and the b
   x.chz.manual = false; x.coach.used = 300;
   a.doesNotMatch(x.programsCard(), /data-chzaim/);
 });
+
+test("Start over clears the goal, the answers and the tags, and they do not come back", () => {
+  // Asked 2026-11-15: "I need to be able to reset the chooser if I didn't enter the
+  // right information."
+  const x = blackApp("2026-11-18");
+  x.coach.loaded = true; x.coach.configured = true; x.coach.used = 0; x.coach.cap = 300;
+  x.plan.programGoals = { aim: "315 squat", chooser: { days: "4" } }; x.bump();
+  x.chzOpen("now");
+  a.equal(x.chz.a.days, "4", "last time's answers came back");
+  a.match(x.programsCard(), /data-act="chzreset">Start over/);
+  x.chz.aim = "ski trip in March"; x.chzSet("older", "yes");
+  x.chzApply({ answers: { goal: { v: "endurance", quote: "ski trip" } }, event: null, summary: "" });
+  a.equal(x.plan.programGoals.aim, "ski trip in March");
+  a.ok(x.chzReset());
+  a.deepEqual(x.chz.a, { cond: "yes", goal: "general", days: "3", other: "no", exp: "some", barbell: "yes", bb: "no", older: "no" });
+  a.equal(x.chz.aim, ""); a.equal(x.chzTag("goal"), null, "no tags");
+  a.equal(x.plan.programGoals.chooser, undefined, "forgotten");
+  a.equal(x.plan.programGoals.aim, "", "the goal the chooser saved goes");
+  a.doesNotMatch(x.programsCard(), /data-act="chzreset"/, "nothing to start over from");
+  x.chz = null; x.chzOpen("now");
+  a.equal(x.chz.a.days, "3", "and the old answers do not come back");
+  // A goal typed in Setup, not by the chooser, stays.
+  x.plan.programGoals = { aim: "315 squat" }; x.bump();
+  x.chzOpen("now"); x.chzSet("days", "2"); x.chzReset();
+  a.equal(x.plan.programGoals.aim, "315 squat");
+});

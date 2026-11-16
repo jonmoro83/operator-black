@@ -332,6 +332,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
   if(a==='chzfill'){chzFill();return}
+  if(a==='chzreset'){chzReset();render();return}
   if(a==='chzmanual'){if(chz)chz.manual=true;render();return}
   if(a==='chzyear'){chzYear();render();return}
   if(a==='chzwz'){chzOpen('wz');render();return}

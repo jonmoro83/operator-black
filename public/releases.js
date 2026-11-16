@@ -6,6 +6,9 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.102',date:'2026-11-15',title:"Start the chooser over",items:[
+    "Put the wrong thing in the chooser? Start over clears your goal and puts every answer back to its usual value, and the chooser forgets your last answers so they don't come back next time. The goal saved in Setup goes too if the chooser put it there.",
+  ]},
   {v:'3.101',date:'2026-11-15',title:"The chooser, in the Guide",items:[
     "The Guide has a new section, Choosing a program. It covers where the chooser is, describing your goal and what the tags mean, every question, how the books pick for each kind of answer with the pages, what's next and when it starts, changing program now, Your year, the week off, and planning a year from a goal.",
   ]},

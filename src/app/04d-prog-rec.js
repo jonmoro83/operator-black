@@ -258,6 +258,19 @@ function chzApply(r){
   mutatePlan(p=>{ p.programGoals=Object.assign({},p.programGoals,{aim},r.event&&r.event.date?{by:r.event.date}:{}) });
   return true;
 }
+/* Starting over, for answers or a goal that went in wrong (asked 2026-11-15): every
+   answer back to the commonest, the goal box empty, the tags gone, and last time's
+   answers forgotten so they do not come back next time. The goal in Setup goes too when
+   it is the one this chooser saved; one typed there by hand is left alone. */
+function chzReset(){
+  if(!chz) return false;
+  const aim=String(chz.aim||'').trim(), g=plan.programGoals||{}, mine=!!(aim&&g.aim===aim&&chz.fill&&chz.fill.res);
+  if(chz.ctx==='wz'&&wz) wz.chooser=null;
+  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null});
+  mutatePlan(p=>{ const o=Object.assign({},p.programGoals); delete o.chooser; if(mine){o.aim='';o.by=''} p.programGoals=o });
+  return true;
+}
+function chzDirty(){ return !!chz&&(!!chz.fill||String(chz.aim||'').trim()!==''||CHZ_Q.some(q=>chz.a[q.k]!==CHZ_DEF[q.k])) }
 // Where an answer came from, once the goal has been read.
 function chzTag(k){
   if(!chz||!chz.fill||!chz.fill.res) return null;

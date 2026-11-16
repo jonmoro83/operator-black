@@ -176,7 +176,7 @@ function pickCard(pk,btn){
 function chooserSheet(btn){
   const a=chz.a, r=chzResult(), two=r.picks.length>1;
   const tag=k=>{ const g=chzTag(k); return g?` <span class="chip${g.q?' blue':''}">${esc(g.t)}</span>${g.q?` <span class="small muted" style="font-weight:400">“${esc(g.q)}”</span>`:''}`:'' };
-  let h=chzGoalBox()+`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}${tag(q.k)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
+  let h=chzGoalBox()+(chzDirty()?`<div class="row"><button class="btn sm ghost" data-act="chzreset">Start over</button><span class="small muted">Clears your goal and every answer.</span></div>`:'')+`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}${tag(q.k)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
   <h3>The books suggest</h3>${two?'<p class="note" style="margin:0">Two good paths for where you are: the book’s own, and ours. They differ in what they ask of you first.</p>':''}`;
   r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two)) });
   for(const [t,c] of r.notes) h+=`<div class="banner info"><div class="small">${esc(t)} <span class="mono muted">${esc(c)}</span></div></div>`;
@@ -1005,6 +1005,7 @@ function guideChooser(){
   <li><b>Assumed</b> marks one your goal did not answer, left at its usual value. Check these.</li>
   <li><b>You set this</b> marks one you tapped yourself. Filling in again leaves it alone.</li></ul>
   <p>Give a date and it offers <b>Plan the year back from it</b>, which opens Plan a year from a goal at that date. Your goal is saved in Setup, so the coach knows it later. Reading it uses one of your coach calls for the month, and what you write is sent to the coach to read. Without the coach, at the month’s cap, or after <b>Answer the questions myself</b>, the chooser is just the questions.</p>
+  <p><b>Start over</b> appears once you have written a goal or changed an answer. It empties the goal box, puts every answer back to its usual value, clears the tags, and forgets your last answers so they do not come back next time. The goal in Setup is cleared too if the chooser saved it; one you typed there yourself stays.</p>
   <h4 class="sub-h">The questions</h4>
   <dl class="kv">${CHZ_Q.map(q=>`<dt>${esc(q.q)}</dt><dd>${q.opts.map(o=>esc(o[1])).join(' · ')}</dd>`).join('')}</dl>
   <p class="note">Each starts at the commonest answer, and last time’s answers come back when you open it again. In Setup, where your maxes are known, they count toward whether you are a beginner: TB I defines one by strength, not by years.</p>
