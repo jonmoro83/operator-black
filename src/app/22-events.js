@@ -336,6 +336,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
   if(a==='chzfill'){chzFill();return}
+  if(a==='chzswap'){chzSwapAsk();return}
+  if(a==='chzswaptake'){chzSwapTake(+b.dataset.i,b.dataset.on==='1');render();return}
+  if(a==='clswap'){clSwapAsk();return}
+  if(a==='clswaptake'){clSwapTake(+b.dataset.i,b.dataset.on==='1');render();return}
   if(a==='wkfeel'){const m=mondayOf(todayStr());setLog(m,'wkfeel',(logs[m]||{}).wkfeel===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='condok'){condAccept(b.dataset.id);render();return}
   if(a==='condlater'){condLater(b.dataset.id);render();return}

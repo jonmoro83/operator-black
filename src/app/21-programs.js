@@ -169,10 +169,28 @@ function programsCard(){
    `btn` says what taking a pick does where it was opened. */
 function pickSrc(pk){ const b=pk.stempl?STEMPL[pk.stempl].book:CPROTO[pk.cproto].book; return b==='ours'?'Ours':b.replace(/^TB(\d)$/,(m,n)=>'TB '+['','I','II','III'][n]) }
 function whyList(why){ return `<ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">${why.map(([t,c])=>`<li>${esc(t)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span></li>`).join('')}</ul>` }
-function pickCard(pk,btn){
+function pickCard(pk,btn,extra){
   const T=pk.stempl&&STEMPL[pk.stempl], src=pickSrc(pk);
   return `<div class="card" style="background:var(--bg)"><div class="lift-h"><h2>${esc(pk.oms?'The OMS rotation':pickName(pk))}</h2><span class="chip${src==='Ours'?'':' blue'}">${esc(src)}</span></div>
-  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${pk.cl?pickSessions(pk):''}${btn}</div>`;
+  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${pk.cl?pickSessions(pk):''}${extra||''}${btn}</div>`;
+}
+/* The coach's swaps for your goal (3.106), drawn the same in the chooser and in Setup.
+   `st` is {busy, err, res, taken}; `base` the cluster they were asked about, so a swap
+   whose session is no longer in it is not offered. Each is taken on its own. */
+function swapList(st,base,aim,ask,take){
+  const inBase=k=>base.fs.includes(k)||base.e===k;
+  if(!st) return `<div class="row"><button class="btn sm" data-act="${ask}">Suggest swaps for my goal</button><span class="small muted">The coach reads “${esc(aim.length>60?aim.slice(0,57)+'…':aim)}”.</span></div>`;
+  if(st.busy) return `<div class="small muted">Asking the coach…</div>`;
+  if(st.err) return `<div class="banner warn"><div class="small">${esc(st.err)}</div><div><button class="btn sm" data-act="${ask}">Try again</button></div></div>`;
+  const sw=(st.res.swaps||[]).map((s,i)=>[s,i]).filter(([s])=>inBase(s.out)||st.taken[s.out]===s.in);
+  return `<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:8px"><span class="small" style="font-weight:700">For your goal <span class="chip blue">Coach</span></span>
+  ${sw.length?sw.map(([s,i])=>{ const on=st.taken[s.out]===s.in;
+    return `<div class="stack" style="gap:4px"><span class="small"><b>${esc(hicNm(s.out))}</b> → <b>${esc(hicNm(s.in))}</b> <span class="chip">${esc(hicTbCat(s.in))}</span>${hicMti(s.in)?' <span class="chip blue">MTI</span>':''}</span>
+    <span class="small muted">“${esc(s.quote)}”</span><span class="small">${esc(s.why)}</span>
+    <div class="row"><button class="btn sm${on?'':' primary'}" data-act="${take}" data-i="${i}" data-on="${on?0:1}" aria-pressed="${on}">${on?'Taken — undo':'Take this swap'}</button></div></div>` }).join('')
+  :'<div class="small">The coach would keep these as they are for that goal.</div>'}
+  ${st.res.note?`<p class="note" style="margin:0">${esc(st.res.note)}</p>`:''}
+  <div class="note">The coach’s suggestions, not the book’s rules: each quotes your goal and says why. Only sessions you have the kit for, and the mix of kinds is kept.</div></div>`;
 }
 // The sessions that come with a pick: what its conditioning days will be.
 function pickSessions(pk){
@@ -186,7 +204,8 @@ function chooserSheet(btn){
   const tag=k=>{ const g=chzTag(k); return g?` <span class="chip${g.q?' blue':''}">${esc(g.t)}</span>${g.q?` <span class="small muted" style="font-weight:400">“${esc(g.q)}”</span>`:''}`:'' };
   let h=chzGoalBox()+(chzDirty()?`<div class="row"><button class="btn sm ghost" data-act="chzreset">Start over</button><span class="small muted">Clears your goal and every answer.</span></div>`:'')+`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}${tag(q.k)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
   <h3>The books suggest</h3>${two?'<p class="note" style="margin:0">Two good paths for where you are: the book’s own, and ours. They differ in what they ask of you first.</p>':''}`;
-  r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two)) });
+  const aim=String(chz.aim||(plan.programGoals||{}).aim||'').trim();
+  r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two),!i&&pk.cl&&aim&&chzCoachOn()?swapList(chz.sw,chzClusterFor(pk,chz.a),aim,'chzswap','chzswaptake'):'') });
   for(const [t,c] of r.notes) h+=`<div class="banner info"><div class="small">${esc(t)} <span class="mono muted">${esc(c)}</span></div></div>`;
   if(r.alts.length) h+=`<h3>Also fits</h3>`+r.alts.map((pk,j)=>pickCard(pk,pk.oms?'<div class="small muted">Set it up under OMS rotation in Setup → Programs.</div>':btn(pk,r.picks.length+j,false))).join('');
   return h;
@@ -595,6 +614,7 @@ function hicClusterCard(){
   <label class="f">E session<select id="p-hicE" data-pbind="hicE">${Object.keys(HIC).filter(k=>hicTbCat(k)==='E').map(k=>`<option value="${esc(k)}"${k===E?' selected':''}>${nm(k)}${hicMti(k)?' · MTI':''}</option>`).join('')}</select></label>
   <div class="note">Black asks for an E at least every other week; the last session of the week becomes one when it is due. Without a cluster of your own, the app starts you on its three interval shapes, MAP, Anaerobic and Threshold, because they run on whatever equipment you have.</div>
   ${clSug?clusterSuggest(nm):'<div class="row"><button class="btn sm" data-act="hicsug">Suggest a cluster</button></div>'}
+  ${clSwapAim()&&chzCoachOn()?swapList(clSw,{fs:cl.map(c=>c.f),e:E},clSwapAim(),'clswap','clswaptake'):''}
   <div class="small muted">Ours: the starting cluster, and the order the rules are applied in. The rules themselves are the book\u2019s.</div></div>`;
   return h;
 }
@@ -1043,6 +1063,8 @@ function guideChooser(){
   <p class="note">Black with conditioning is the default, because the book says most people belong on it (TB II p19), and Base Building comes first unless you have done it. A reason marked <b>Ours</b> is the app’s, not a book’s.</p>
   <h4 class="sub-h">The sessions</h4>
   <p>A pick on Black or Green comes with its conditioning sessions: two or three HICs and an E session, shown on the pick. They are chosen by the book’s rules: a cluster kept until you can do each session’s Advanced version, then swapped (TB II p187); aerobic/anaerobic and general conditioning both (p112); nothing from power development (p164); and only sessions you have the kit for. An endurance goal puts running, rucking and hill sessions first, and a fight gym puts bag and sledge sessions first; which wins when several fit is ours. They join when the program starts. On Black each conditioning day recommends one of them; on Green your E session runs on the E days and the cluster takes turns on the every-other-week HIC. Change them any time in Setup, under the conditioning cluster, where your kit is too.</p>
+  <h4 class="sub-h">Swaps for your goal</h4>
+  <p>Once you have written what you are training for, <b>Suggest swaps for my goal</b> asks the coach for up to three changes to those sessions: a hill session for a ski tour, a loaded E for a long hike. Each quotes the words of your goal it serves and says why, naming an MTI article or a book passage where one supports it. The app checks every swap: only sessions you have the kit for, a HIC for a HIC and an E for an E, and the mix of kinds kept. Take them one at a time. In the chooser a taken swap goes in with the program; in Setup, under the conditioning cluster, it changes the cluster at once, and <b>undo</b> puts it back. It counts as one coach call.</p>
   <h4 class="sub-h">Changing them through the year</h4>
   <p>The weekly check-in asks how the week’s conditioning felt: too easy, about right or too hard. From that and what you log, Today suggests a change when one is due, and nothing changes until you take it:</p>
   <ul class="tight"><li><b>Advanced done</b>: swap that session for one that meets the same need and fits your kit. <span class="mono muted">TB II p187</span></li>

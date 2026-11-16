@@ -262,11 +262,27 @@ function chzApply(r){
    answer back to the commonest, the goal box empty, the tags gone, and last time's
    answers forgotten so they do not come back next time. The goal in Setup goes too when
    it is the one this chooser saved; one typed there by hand is left alone. */
+// Asking the coach for swaps for the pick that the bar schedules.
+function chzSwapAsk(){
+  if(!chz||chz.sw&&chz.sw.busy) return false;
+  const pk=chzResult().picks[0], aim=String(chz.aim||(plan.programGoals||{}).aim||'').trim();
+  if(!pk||!pk.cl||!aim) return false;
+  const base={fs:pk.cl.fs,e:pk.cl.e};
+  chz.sw={busy:true,taken:{}}; render();
+  swapAsk(aim,base).then(r=>{ coach.used=r.used; if(chz) chz.sw={res:r,taken:{}}; render() })
+    .catch(e=>{ if(chz) chz.sw={err:(e&&e.message)||'That did not go through.',taken:{}}; render() });
+  return true;
+}
+function chzSwapTake(i,on){
+  const s=chz&&chz.sw&&chz.sw.res&&chz.sw.res.swaps[i]; if(!s) return false;
+  const t=Object.assign({},chz.sw.taken); if(on) t[s.out]=s.in; else delete t[s.out];
+  chz.sw.taken=t; return true;
+}
 function chzReset(){
   if(!chz) return false;
   const aim=String(chz.aim||'').trim(), g=plan.programGoals||{}, mine=!!(aim&&g.aim===aim&&chz.fill&&chz.fill.res);
   if(chz.ctx==='wz'&&wz) wz.chooser=null;
-  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null});
+  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null,sw:null});
   mutatePlan(p=>{ const o=Object.assign({},p.programGoals); delete o.chooser; if(mine){o.aim='';o.by=''} p.programGoals=o });
   return true;
 }
@@ -297,7 +313,7 @@ function chzInput(a,ctx){
   return o;
 }
 function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx));
-  for(const pk of [...r.picks,...r.alts]) if(!pk.oms) pk.cl=chzClusterFor(pk,chz.a);
+  for(const pk of [...r.picks,...r.alts]) if(!pk.oms){ pk.cl=chzClusterFor(pk,chz.a); if(pk.cl&&chz.sw&&chz.sw.taken) pk.cl=Object.assign({},pk.cl,swapApply(pk.cl,chz.sw.taken)) }
   return Object.assign(r,{all:[...r.picks,...r.alts]}) }
 /* The sessions a pick runs on, chosen with it (asked 2026-11-15: "I also want the
    chooser to choose the specific HIC and E sessions"): a cluster and an E session from

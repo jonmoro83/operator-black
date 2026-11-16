@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.105", RELEASES_SRC="/releases.js?b=21983129c1";
+const APP_VERSION="3.106", RELEASES_SRC="/releases.js?b=5abd2629fe";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4175,6 +4175,52 @@ function condAccept(id){
 }
 function condLater(id){ const m=mondayOf(todayStr()); mutatePlan(p=>{ p.condDismiss=Object.assign({},p.condDismiss,{[id+'@'+m]:true}) }); return true }
 
+/* The coach's swaps for a goal (3.106): the other half of "Both". The books' rules pick
+   the cluster; the coach proposes changes for a goal in your words, from sessions you
+   have the kit for (POST /api/coach/sessions), each quoting the goal and saying why.
+   Taken one at a time, in the chooser before a program starts or in Setup on the one
+   you are on. */
+function swapCands(cl){
+  const kit=kitHave(), inCl=new Set([...cl.fs,cl.e]);
+  return Object.keys(HIC).filter(k=>{
+    const c=hicTbCat(k), b=HIC[k].book||{};
+    if(!['AA','GC','E'].includes(c)||inCl.has(k)||k==='free'||k==='fobbit'||HIC[k].runPlan||b.cat==='challenge') return false;
+    return HIC_KIT[k]?kitOk(k,kit):true;          // the app's own shapes run on any tool
+  }).map(k=>{ const x=HIC[k], b=x.book||{};
+    return {k,name:hicNm(k),cat:hicTbCat(k),about:[b.lines?b.lines.join('; '):x.sess,b.gear?'Needs: '+b.gear:'',b.src==='mti'&&b.a?'MTI: '+b.a:''].filter(Boolean).join(' · ')} });
+}
+function swapAsk(aim,cl){
+  const cluster=[...cl.fs.map(k=>({k,name:hicNm(k),cat:hicTbCat(k)})),{k:cl.e,name:hicNm(cl.e),cat:'E'}];
+  return api('POST','/coach/sessions',{aim,cluster,candidates:swapCands(cl)});
+}
+// The same in Setup, on the cluster you have: a swap taken there changes it at once,
+// joining today. The goal is the one you wrote in the chooser.
+let clSw=null;
+function clSwapAim(){ return String((plan.programGoals||{}).aim||'').trim() }
+function clSwapAsk(){
+  const aim=clSwapAim(); if(!aim||clSw&&clSw.busy) return false;
+  clSw={busy:true,taken:{}}; render();
+  swapAsk(aim,{fs:hicCluster().map(c=>c.f),e:hicE()})
+    .then(r=>{ coach.used=r.used; clSw={res:r,taken:{}}; render() })
+    .catch(e=>{ clSw={err:(e&&e.message)||'That did not go through.',taken:{}}; render() });
+  return true;
+}
+function clSwapTake(i,on){
+  const s=clSw&&clSw.res&&clSw.res.swaps[i]; if(!s) return false;
+  const from=on?s.out:s.in, to=on?s.in:s.out, t=todayStr();
+  mutatePlan(p=>{
+    if(hicE()===from) p.hicE=to;
+    else p.hicCluster=hicCluster().map(c=>c.f===from?{f:to,since:t}:c);
+  });
+  const tk=Object.assign({},clSw.taken); if(on) tk[s.out]=s.in; else delete tk[s.out]; clSw.taken=tk;
+  return true;
+}
+// A cluster with the taken swaps applied: {fs, e}.
+function swapApply(cl,taken){
+  const t=taken||{};
+  return {fs:cl.fs.map(f=>t[f]||f),e:t[cl.e]||cl.e};
+}
+
 /* Sessions that meet the same need as `f`: its TB category, nearest first by system,
    the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
 function hicLike(c,f,exclude,n){
@@ -4469,11 +4515,27 @@ function chzApply(r){
    answer back to the commonest, the goal box empty, the tags gone, and last time's
    answers forgotten so they do not come back next time. The goal in Setup goes too when
    it is the one this chooser saved; one typed there by hand is left alone. */
+// Asking the coach for swaps for the pick that the bar schedules.
+function chzSwapAsk(){
+  if(!chz||chz.sw&&chz.sw.busy) return false;
+  const pk=chzResult().picks[0], aim=String(chz.aim||(plan.programGoals||{}).aim||'').trim();
+  if(!pk||!pk.cl||!aim) return false;
+  const base={fs:pk.cl.fs,e:pk.cl.e};
+  chz.sw={busy:true,taken:{}}; render();
+  swapAsk(aim,base).then(r=>{ coach.used=r.used; if(chz) chz.sw={res:r,taken:{}}; render() })
+    .catch(e=>{ if(chz) chz.sw={err:(e&&e.message)||'That did not go through.',taken:{}}; render() });
+  return true;
+}
+function chzSwapTake(i,on){
+  const s=chz&&chz.sw&&chz.sw.res&&chz.sw.res.swaps[i]; if(!s) return false;
+  const t=Object.assign({},chz.sw.taken); if(on) t[s.out]=s.in; else delete t[s.out];
+  chz.sw.taken=t; return true;
+}
 function chzReset(){
   if(!chz) return false;
   const aim=String(chz.aim||'').trim(), g=plan.programGoals||{}, mine=!!(aim&&g.aim===aim&&chz.fill&&chz.fill.res);
   if(chz.ctx==='wz'&&wz) wz.chooser=null;
-  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null});
+  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null,sw:null});
   mutatePlan(p=>{ const o=Object.assign({},p.programGoals); delete o.chooser; if(mine){o.aim='';o.by=''} p.programGoals=o });
   return true;
 }
@@ -4504,7 +4566,7 @@ function chzInput(a,ctx){
   return o;
 }
 function chzResult(){ const r=recommendProgram(chzInput(chz.a,chz.ctx));
-  for(const pk of [...r.picks,...r.alts]) if(!pk.oms) pk.cl=chzClusterFor(pk,chz.a);
+  for(const pk of [...r.picks,...r.alts]) if(!pk.oms){ pk.cl=chzClusterFor(pk,chz.a); if(pk.cl&&chz.sw&&chz.sw.taken) pk.cl=Object.assign({},pk.cl,swapApply(pk.cl,chz.sw.taken)) }
   return Object.assign(r,{all:[...r.picks,...r.alts]}) }
 /* The sessions a pick runs on, chosen with it (asked 2026-11-15: "I also want the
    chooser to choose the specific HIC and E sessions"): a cluster and an E session from
@@ -10588,10 +10650,28 @@ function programsCard(){
    `btn` says what taking a pick does where it was opened. */
 function pickSrc(pk){ const b=pk.stempl?STEMPL[pk.stempl].book:CPROTO[pk.cproto].book; return b==='ours'?'Ours':b.replace(/^TB(\d)$/,(m,n)=>'TB '+['','I','II','III'][n]) }
 function whyList(why){ return `<ul class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">${why.map(([t,c])=>`<li>${esc(t)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span></li>`).join('')}</ul>` }
-function pickCard(pk,btn){
+function pickCard(pk,btn,extra){
   const T=pk.stempl&&STEMPL[pk.stempl], src=pickSrc(pk);
   return `<div class="card" style="background:var(--bg)"><div class="lift-h"><h2>${esc(pk.oms?'The OMS rotation':pickName(pk))}</h2><span class="chip${src==='Ours'?'':' blue'}">${esc(src)}</span></div>
-  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${pk.cl?pickSessions(pk):''}${btn}</div>`;
+  ${pk.oms?'':`<div class="small muted">${esc(pickLine(pk))}</div>${T?`<p class="note" style="margin:0">${esc(T.blurb)}</p>`:''}`}${whyList(pk.why)}${pk.cl?pickSessions(pk):''}${extra||''}${btn}</div>`;
+}
+/* The coach's swaps for your goal (3.106), drawn the same in the chooser and in Setup.
+   `st` is {busy, err, res, taken}; `base` the cluster they were asked about, so a swap
+   whose session is no longer in it is not offered. Each is taken on its own. */
+function swapList(st,base,aim,ask,take){
+  const inBase=k=>base.fs.includes(k)||base.e===k;
+  if(!st) return `<div class="row"><button class="btn sm" data-act="${ask}">Suggest swaps for my goal</button><span class="small muted">The coach reads “${esc(aim.length>60?aim.slice(0,57)+'…':aim)}”.</span></div>`;
+  if(st.busy) return `<div class="small muted">Asking the coach…</div>`;
+  if(st.err) return `<div class="banner warn"><div class="small">${esc(st.err)}</div><div><button class="btn sm" data-act="${ask}">Try again</button></div></div>`;
+  const sw=(st.res.swaps||[]).map((s,i)=>[s,i]).filter(([s])=>inBase(s.out)||st.taken[s.out]===s.in);
+  return `<div class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:8px"><span class="small" style="font-weight:700">For your goal <span class="chip blue">Coach</span></span>
+  ${sw.length?sw.map(([s,i])=>{ const on=st.taken[s.out]===s.in;
+    return `<div class="stack" style="gap:4px"><span class="small"><b>${esc(hicNm(s.out))}</b> → <b>${esc(hicNm(s.in))}</b> <span class="chip">${esc(hicTbCat(s.in))}</span>${hicMti(s.in)?' <span class="chip blue">MTI</span>':''}</span>
+    <span class="small muted">“${esc(s.quote)}”</span><span class="small">${esc(s.why)}</span>
+    <div class="row"><button class="btn sm${on?'':' primary'}" data-act="${take}" data-i="${i}" data-on="${on?0:1}" aria-pressed="${on}">${on?'Taken — undo':'Take this swap'}</button></div></div>` }).join('')
+  :'<div class="small">The coach would keep these as they are for that goal.</div>'}
+  ${st.res.note?`<p class="note" style="margin:0">${esc(st.res.note)}</p>`:''}
+  <div class="note">The coach’s suggestions, not the book’s rules: each quotes your goal and says why. Only sessions you have the kit for, and the mix of kinds is kept.</div></div>`;
 }
 // The sessions that come with a pick: what its conditioning days will be.
 function pickSessions(pk){
@@ -10605,7 +10685,8 @@ function chooserSheet(btn){
   const tag=k=>{ const g=chzTag(k); return g?` <span class="chip${g.q?' blue':''}">${esc(g.t)}</span>${g.q?` <span class="small muted" style="font-weight:400">“${esc(g.q)}”</span>`:''}`:'' };
   let h=chzGoalBox()+(chzDirty()?`<div class="row"><button class="btn sm ghost" data-act="chzreset">Start over</button><span class="small muted">Clears your goal and every answer.</span></div>`:'')+`<div class="stack" style="gap:0">${CHZ_Q.map((q,j)=>`<div class="stack" style="gap:6px;padding:8px 0;${j?'border-top:1px solid var(--line)':''}"><span class="small" style="font-weight:700">${esc(q.q)}${tag(q.k)}</span><div class="seg">${q.opts.map(([v,l])=>`<button class="segb${a[q.k]===v?' on':''}" data-act="chz" data-k="${q.k}" data-v="${v}" aria-pressed="${a[q.k]===v}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>
   <h3>The books suggest</h3>${two?'<p class="note" style="margin:0">Two good paths for where you are: the book’s own, and ours. They differ in what they ask of you first.</p>':''}`;
-  r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two)) });
+  const aim=String(chz.aim||(plan.programGoals||{}).aim||'').trim();
+  r.picks.forEach((pk,i)=>{ h+=pickCard(pk,btn(pk,i,two),!i&&pk.cl&&aim&&chzCoachOn()?swapList(chz.sw,chzClusterFor(pk,chz.a),aim,'chzswap','chzswaptake'):'') });
   for(const [t,c] of r.notes) h+=`<div class="banner info"><div class="small">${esc(t)} <span class="mono muted">${esc(c)}</span></div></div>`;
   if(r.alts.length) h+=`<h3>Also fits</h3>`+r.alts.map((pk,j)=>pickCard(pk,pk.oms?'<div class="small muted">Set it up under OMS rotation in Setup → Programs.</div>':btn(pk,r.picks.length+j,false))).join('');
   return h;
@@ -11014,6 +11095,7 @@ function hicClusterCard(){
   <label class="f">E session<select id="p-hicE" data-pbind="hicE">${Object.keys(HIC).filter(k=>hicTbCat(k)==='E').map(k=>`<option value="${esc(k)}"${k===E?' selected':''}>${nm(k)}${hicMti(k)?' · MTI':''}</option>`).join('')}</select></label>
   <div class="note">Black asks for an E at least every other week; the last session of the week becomes one when it is due. Without a cluster of your own, the app starts you on its three interval shapes, MAP, Anaerobic and Threshold, because they run on whatever equipment you have.</div>
   ${clSug?clusterSuggest(nm):'<div class="row"><button class="btn sm" data-act="hicsug">Suggest a cluster</button></div>'}
+  ${clSwapAim()&&chzCoachOn()?swapList(clSw,{fs:cl.map(c=>c.f),e:E},clSwapAim(),'clswap','clswaptake'):''}
   <div class="small muted">Ours: the starting cluster, and the order the rules are applied in. The rules themselves are the book\u2019s.</div></div>`;
   return h;
 }
@@ -11462,6 +11544,8 @@ function guideChooser(){
   <p class="note">Black with conditioning is the default, because the book says most people belong on it (TB II p19), and Base Building comes first unless you have done it. A reason marked <b>Ours</b> is the app’s, not a book’s.</p>
   <h4 class="sub-h">The sessions</h4>
   <p>A pick on Black or Green comes with its conditioning sessions: two or three HICs and an E session, shown on the pick. They are chosen by the book’s rules: a cluster kept until you can do each session’s Advanced version, then swapped (TB II p187); aerobic/anaerobic and general conditioning both (p112); nothing from power development (p164); and only sessions you have the kit for. An endurance goal puts running, rucking and hill sessions first, and a fight gym puts bag and sledge sessions first; which wins when several fit is ours. They join when the program starts. On Black each conditioning day recommends one of them; on Green your E session runs on the E days and the cluster takes turns on the every-other-week HIC. Change them any time in Setup, under the conditioning cluster, where your kit is too.</p>
+  <h4 class="sub-h">Swaps for your goal</h4>
+  <p>Once you have written what you are training for, <b>Suggest swaps for my goal</b> asks the coach for up to three changes to those sessions: a hill session for a ski tour, a loaded E for a long hike. Each quotes the words of your goal it serves and says why, naming an MTI article or a book passage where one supports it. The app checks every swap: only sessions you have the kit for, a HIC for a HIC and an E for an E, and the mix of kinds kept. Take them one at a time. In the chooser a taken swap goes in with the program; in Setup, under the conditioning cluster, it changes the cluster at once, and <b>undo</b> puts it back. It counts as one coach call.</p>
   <h4 class="sub-h">Changing them through the year</h4>
   <p>The weekly check-in asks how the week’s conditioning felt: too easy, about right or too hard. From that and what you log, Today suggests a change when one is due, and nothing changes until you take it:</p>
   <ul class="tight"><li><b>Advanced done</b>: swap that session for one that meets the same need and fits your kit. <span class="mono muted">TB II p187</span></li>
@@ -12899,6 +12983,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='hicsug'){clSug=true;render();return}
   if(a==='chz'){chzSet(b.dataset.k,b.dataset.v);render();return}
   if(a==='chzfill'){chzFill();return}
+  if(a==='chzswap'){chzSwapAsk();return}
+  if(a==='chzswaptake'){chzSwapTake(+b.dataset.i,b.dataset.on==='1');render();return}
+  if(a==='clswap'){clSwapAsk();return}
+  if(a==='clswaptake'){clSwapTake(+b.dataset.i,b.dataset.on==='1');render();return}
   if(a==='wkfeel'){const m=mondayOf(todayStr());setLog(m,'wkfeel',(logs[m]||{}).wkfeel===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='condok'){condAccept(b.dataset.id);render();return}
   if(a==='condlater'){condLater(b.dataset.id);render();return}

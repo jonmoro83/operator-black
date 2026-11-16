@@ -53,9 +53,11 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   in 3.105: picks carry `cl` ({fs, e}) into `pickPatch`, Green runs `hicE()` and the
   cluster in turn, `wkfeel` on the Monday's log, `condSuggest()` (Advanced done → swap,
   p187; two weeks too hard → Black's third day an E, p58–59; two too easy → back, or
-  try Advanced). **Still to do:** the coach's goal-specific swaps in the chooser (a
-  backcountry ski trip asking for uphill and step-up work, from MTI's articles), each
-  quoted and accepted one by one.
+  try Advanced). The coach's goal swaps shipped in 3.106: `POST /api/coach/sessions`
+  takes the cluster and the kit-fit candidates from the page, searches the books and
+  MTI's articles for the goal, and returns up to three swaps, each checked server-side
+  (keys sent, like for like, goal quoted, AA/GC mix kept alone and together). Taken one
+  by one in the chooser (`chz.sw`) or in Setup (`clSw`, applied at once, undoable).
 
 - **The program chooser (asked 2026-11-15; all five steps shipped, 3.93 to 3.100).** Help picking
   the template, the protocol and, on Black, the cluster. The user's decisions: follow the

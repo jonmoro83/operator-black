@@ -18,6 +18,7 @@
 //   PUT  /api/calendar/ics        → store the feed body (the app generates it)
 //   GET  /api/coach/log           → your past questions and answers, newest first
 //   POST /api/coach/fill          → the program chooser's answers, read from a goal in your words
+//   POST /api/coach/sessions      → swaps that suit a goal, for a cluster of conditioning sessions
 //   POST /api/admin/catalog       → (admins) add or change a shared exercise
 //   DELETE /api/admin/catalog/<id> → (admins) drop one they added
 //   GET  /api/admin/users         → (admins) everyone, with counts and last activity
@@ -111,6 +112,7 @@ async function serve(request, env) {
   }
   if (route === "coach" && request.method === "POST") return askCoach(request, env, user);
   if (route === "coach/fill" && request.method === "POST") return fillChooser(request, env, user);
+  if (route === "coach/sessions" && request.method === "POST") return suggestSessions(request, env, user);
   if (route === "coach" && request.method === "GET") {
     const h = await coachHistory(env, user, 30);
     return json({ ...h, used: await coachUsed(env, user), cap: COACH_CAP,
@@ -1308,6 +1310,99 @@ async function fillChooser(request, env, user) {
   const out = cleanFill(parsed, aim, today);
   await log(1, out, data);
   return json({ ...out, used: used + 1, cap: COACH_CAP }, 200, { "cache-control": "no-store" });
+}
+
+/* Swaps that make a conditioning cluster suit a goal in the person's words: the coach's
+   half of "Both" (2026-11-15). The books' rules have already picked the cluster; this
+   only proposes changes, from sessions the page says they have the kit for, each quoting
+   the goal it serves. The page shows them one by one to take or leave. The session list
+   comes from the page because the catalog is the page's; the server checks every swap
+   against it, so nothing outside it can come back. */
+const SW_MAX = 3;
+const SW_SYSTEM = `You suggest changes to a conditioning cluster so it suits what someone is training for. The cluster was picked by Tactical Barbell's rules: two or three HIC sessions and one E (easy, steady) session, kept until each can be done at its Advanced version (TB II p187), with aerobic/anaerobic and general conditioning both (TB II p112).
+
+Suggest at most ${SW_MAX} swaps, and none if the cluster already suits the goal. Each swap takes one session out of the cluster and puts one candidate in:
+- "out" is a key from the current cluster; "in" is a key from the candidates. An E session swaps only for an E candidate; a HIC only for a HIC candidate (aerobic/anaerobic, AA, or general conditioning, GC).
+- Keep the mix: after your swaps the HICs must still include at least one AA and at least one GC.
+- "quote" is the exact words of their goal that the swap serves, copied character for character.
+- "why" is one or two plain sentences on what the new session does for that goal. If a passage in <articles> or <library> supports it, say what it says and name it; otherwise say it is your judgement. Do not invent studies or page numbers.
+
+note: one plain sentence on the cluster as a whole for this goal, or "" if there is nothing to add.`;
+async function suggestSessions(request, env, user) {
+  if (!env.ANTHROPIC_API_KEY) return json({ error: "The coach is not configured. Set ANTHROPIC_API_KEY." }, 503);
+  const body = await request.json().catch(() => ({}));
+  const aim = String(body.aim || "").trim().slice(0, FILL_MAX);
+  if (!aim) return json({ error: "Say what you are training for first." }, 400);
+  const key = (s) => /^[a-z0-9]{1,24}$/.test(String(s)) ? String(s) : null;
+  const cats = ["AA", "GC", "E"];
+  const cand = (Array.isArray(body.candidates) ? body.candidates : []).slice(0, 120)
+    .map((c) => ({ k: key(c && c.k), name: String((c && c.name) || "").slice(0, 80), cat: c && c.cat, about: String((c && c.about) || "").slice(0, 220) }))
+    .filter((c) => c.k && cats.includes(c.cat));
+  const cur = (Array.isArray(body.cluster) ? body.cluster : []).slice(0, 4)
+    .map((c) => ({ k: key(c && c.k), name: String((c && c.name) || "").slice(0, 80), cat: c && c.cat }))
+    .filter((c) => c.k && cats.includes(c.cat));
+  if (!cur.length || !cand.length) return json({ error: "There is no cluster to change." }, 400);
+  const used = await coachUsed(env, user);
+  if (used >= COACH_CAP) return json({ error: `That is ${COACH_CAP} coach calls this month, which is the cap. It resets on the 1st.` }, 429);
+  if ((await coachFailed(env, user)) >= COACH_CAP) return json({ error: "Too many coach calls have failed this month, so the coach is paused until the 1st." }, 429);
+
+  const [lib, art] = await Promise.all([libSearch(env, ftsQuery(aim), 4), libSearch(env, ftsQuery(aim), 6, "articles")]);
+  const line = (c) => `${c.k} | ${c.cat} | ${c.name}${c.about ? " | " + c.about : ""}`;
+  const content = `<goal>${aim}</goal>\n\n<cluster>\n${cur.map(line).join("\n")}\n</cluster>\n\n<candidates>\n${cand.map(line).join("\n")}\n</candidates>\n\n` +
+    `<library>${(lib.hits || []).map(passageOf).join("\n") || "(nothing in the books matched)"}</library>\n<articles>${(art.hits || []).map(passageOf).join("\n") || "(no MTI article matched)"}</articles>`;
+  const schema = {
+    type: "object",
+    properties: {
+      swaps: { type: "array", items: { type: "object", properties: {
+        out: { type: "string", enum: cur.map((c) => c.k) }, in: { type: "string", enum: cand.map((c) => c.k) },
+        quote: { type: "string" }, why: { type: "string" } }, required: ["out", "in", "quote", "why"], additionalProperties: false } },
+      note: { type: "string" },
+    },
+    required: ["swaps", "note"], additionalProperties: false,
+  };
+  const id = crypto.randomUUID();
+  const log = (ok, result, data) => env.DB.prepare(
+    `INSERT INTO coach_fill (id, user, at, aim, result, model, tokens_in, tokens_out, ok)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
+  ).bind(id, user, Date.now(), aim, JSON.stringify(result || {}), (data && data.model) || COACH_MODEL,
+    ((data && data.usage) || {}).input_tokens || 0, ((data && data.usage) || {}).output_tokens || 0, ok).run();
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: COACH_MODEL, max_tokens: 3000, system: SW_SYSTEM,
+        output_config: { effort: "medium", format: { type: "json_schema", schema } },
+        messages: [{ role: "user", content }] }),
+    });
+  } catch { return json({ error: "The coach could not be reached. Try again." }, 502) }
+  if (!res.ok) return json({ error: "The coach could not be reached. Try again." }, 502);
+  const data = await res.json();
+  const parsed = data.stop_reason === "refusal" || data.stop_reason === "max_tokens" ? null
+    : safeParse((data.content || []).filter((c) => c.type === "text").map((c) => c.text).join(""));
+  if (!parsed) { await log(0, null, data); return json({ error: "The coach could not suggest anything for that goal. Try again." }, 502) }
+  // Every swap checked: a real key on each side, the same kind, each session used once,
+  // the goal really quoted, and the mix kept.
+  const low = aim.toLowerCase(), catOf = new Map([...cur, ...cand].map((c) => [c.k, c.cat])), out = [], took = new Set();
+  const hics = cur.filter((c) => c.cat !== "E"), has = (k) => hics.some((c) => c.cat === k);
+  const mixOk = (ws) => { const cs = hics.map((c) => { const w = ws.find((x) => x.out === c.k); return w ? catOf.get(w.in) : c.cat });
+    return (!has("AA") || cs.includes("AA")) && (!has("GC") || cs.includes("GC")) };
+  for (const s of (Array.isArray(parsed.swaps) ? parsed.swaps : [])) {
+    const a = catOf.get(s.out), b = catOf.get(s.in);
+    if (!cur.some((c) => c.k === s.out) || !cand.some((c) => c.k === s.in) || took.has(s.out) || took.has(s.in)) continue;
+    if ((a === "E") !== (b === "E")) continue;
+    const q = String(s.quote || "").trim();
+    if (q.length < 2 || !low.includes(q.toLowerCase())) continue;
+    // Taken alone or with the ones before it, since the page lets each be taken alone.
+    if (a !== "E" && !(mixOk([s]) && mixOk([...out, s]))) continue;
+    out.push({ out: s.out, in: s.in, quote: q, why: String(s.why || "").trim().slice(0, 500) });
+    took.add(s.out); took.add(s.in);
+    if (out.length >= SW_MAX) break;
+  }
+  const result = { kind: "sessions", swaps: out, note: String(parsed.note || "").trim().slice(0, 300),
+    cites: [...(lib.hits || []), ...(art.hits || [])].map((h) => ({ doc: h.doc, ref: h.ref })) };
+  await log(1, result, data);
+  return json({ ...result, used: used + 1, cap: COACH_CAP }, 200, { "cache-control": "no-store" });
 }
 
 function logCoach(env, x) {

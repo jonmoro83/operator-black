@@ -11398,3 +11398,36 @@ test("the weekly rating and what you log suggest changes, which you take or put 
   a.deepEqual(x.plan.hicCluster.map((c) => c.f), [ss[0].to, "boo2"]);
   a.equal(x.plan.hicCluster[0].since, "2026-11-18", "joining today");
 });
+
+/* The coach's swaps (3.106): the second half of "Both". Shown on the pick the bar
+   schedules once you have written a goal, and in Setup on the cluster you have; each
+   taken on its own, none applied until you take it. */
+test("the coach's swaps go on the pick one by one, and into Setup's cluster at once", () => {
+  const x = blackApp("2026-11-18");
+  x.plan.kit = ["run", "ruck", "hill", "kb"]; x.coach.configured = true; x.coach.loaded = true; x.bump();
+  x.chzOpen("next"); x.chz.full = true; x.chzSet("goal", "endurance"); x.chzSet("days", "2");
+  x.chz.aim = "A backcountry ski trip in March";
+  const pk = x.chzResult().picks[0], base = pk.cl;
+  a.match(x.programsCard(), /data-act="chzswap"/, "offered once there is a goal");
+  const cand = x.swapCands(base);
+  a.ok(cand.every((c) => !base.fs.includes(c.k) && c.k !== base.e), "not what is already in it");
+  a.ok(cand.every((c) => !x.HIC_KIT[c.k] || x.kitOk(c.k, x.kitHave())), "only kit you have");
+  const to = cand.find((c) => c.cat === x.hicTbCat(base.fs[0])).k;
+  x.chz.sw = { res: { swaps: [{ out: base.fs[0], in: to, quote: "backcountry ski trip", why: "Uphill." }], note: "" }, taken: {} };
+  let h = x.programsCard();
+  a.match(h, /“backcountry ski trip”/); a.match(h, /Take this swap/);
+  a.deepEqual(x.chzResult().picks[0].cl.fs, base.fs, "nothing changes until you take it");
+  x.chzSwapTake(0, true);
+  a.equal(x.chzResult().picks[0].cl.fs[0], to);
+  a.match(x.programsCard(), /Taken — undo/);
+  x.chzSchedule();
+  a.equal(x.plan.nextPrograms[0].cl.fs[0], to, "scheduled with the swap");
+  // Setup: on the cluster you have, with the goal you wrote.
+  x.plan.programGoals = { aim: "A backcountry ski trip in March" };
+  x.plan.hicCluster = [{ f: "gc1", since: "2026-11-02" }, { f: "boo2", since: "2026-11-02" }]; x.plan.hicE = "liss"; x.bump();
+  x.clSw = { res: { swaps: [{ out: "liss", in: "m21", quote: "ski trip", why: "Loaded." }, { out: "boo2", in: "stdhills", quote: "ski trip", why: "Hills." }], note: "" }, taken: {} };
+  x.clSwapTake(1, true);
+  a.deepEqual(x.plan.hicCluster.map((c) => [c.f, c.since]), [["gc1", "2026-11-02"], ["stdhills", "2026-11-18"]]);
+  x.clSwapTake(0, true); a.equal(x.plan.hicE, "m21");
+  x.clSwapTake(1, false); a.equal(x.plan.hicCluster[1].f, "boo2", "undo puts it back");
+});

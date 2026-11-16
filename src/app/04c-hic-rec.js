@@ -160,6 +160,52 @@ function condAccept(id){
 }
 function condLater(id){ const m=mondayOf(todayStr()); mutatePlan(p=>{ p.condDismiss=Object.assign({},p.condDismiss,{[id+'@'+m]:true}) }); return true }
 
+/* The coach's swaps for a goal (3.106): the other half of "Both". The books' rules pick
+   the cluster; the coach proposes changes for a goal in your words, from sessions you
+   have the kit for (POST /api/coach/sessions), each quoting the goal and saying why.
+   Taken one at a time, in the chooser before a program starts or in Setup on the one
+   you are on. */
+function swapCands(cl){
+  const kit=kitHave(), inCl=new Set([...cl.fs,cl.e]);
+  return Object.keys(HIC).filter(k=>{
+    const c=hicTbCat(k), b=HIC[k].book||{};
+    if(!['AA','GC','E'].includes(c)||inCl.has(k)||k==='free'||k==='fobbit'||HIC[k].runPlan||b.cat==='challenge') return false;
+    return HIC_KIT[k]?kitOk(k,kit):true;          // the app's own shapes run on any tool
+  }).map(k=>{ const x=HIC[k], b=x.book||{};
+    return {k,name:hicNm(k),cat:hicTbCat(k),about:[b.lines?b.lines.join('; '):x.sess,b.gear?'Needs: '+b.gear:'',b.src==='mti'&&b.a?'MTI: '+b.a:''].filter(Boolean).join(' · ')} });
+}
+function swapAsk(aim,cl){
+  const cluster=[...cl.fs.map(k=>({k,name:hicNm(k),cat:hicTbCat(k)})),{k:cl.e,name:hicNm(cl.e),cat:'E'}];
+  return api('POST','/coach/sessions',{aim,cluster,candidates:swapCands(cl)});
+}
+// The same in Setup, on the cluster you have: a swap taken there changes it at once,
+// joining today. The goal is the one you wrote in the chooser.
+let clSw=null;
+function clSwapAim(){ return String((plan.programGoals||{}).aim||'').trim() }
+function clSwapAsk(){
+  const aim=clSwapAim(); if(!aim||clSw&&clSw.busy) return false;
+  clSw={busy:true,taken:{}}; render();
+  swapAsk(aim,{fs:hicCluster().map(c=>c.f),e:hicE()})
+    .then(r=>{ coach.used=r.used; clSw={res:r,taken:{}}; render() })
+    .catch(e=>{ clSw={err:(e&&e.message)||'That did not go through.',taken:{}}; render() });
+  return true;
+}
+function clSwapTake(i,on){
+  const s=clSw&&clSw.res&&clSw.res.swaps[i]; if(!s) return false;
+  const from=on?s.out:s.in, to=on?s.in:s.out, t=todayStr();
+  mutatePlan(p=>{
+    if(hicE()===from) p.hicE=to;
+    else p.hicCluster=hicCluster().map(c=>c.f===from?{f:to,since:t}:c);
+  });
+  const tk=Object.assign({},clSw.taken); if(on) tk[s.out]=s.in; else delete tk[s.out]; clSw.taken=tk;
+  return true;
+}
+// A cluster with the taken swaps applied: {fs, e}.
+function swapApply(cl,taken){
+  const t=taken||{};
+  return {fs:cl.fs.map(f=>t[f]||f),e:t[cl.e]||cl.e};
+}
+
 /* Sessions that meet the same need as `f`: its TB category, nearest first by system,
    the books' and MTI's apart. Not the cluster, not challenge sessions, not E. */
 function hicLike(c,f,exclude,n){

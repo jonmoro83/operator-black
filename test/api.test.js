@@ -2352,3 +2352,41 @@ test("a goal that cannot be read is an error, logged as failed, and an empty one
     a.equal(res.status, 400);
   } finally { globalThis.fetch = orig }
 });
+
+/* The coach's swaps for a goal (3.106): the other half of "Both" (2026-11-15). The
+   books' rules picked the cluster; the coach only proposes changes, and every one is
+   checked against what the page sent before it is passed on. */
+test("swaps for a goal are checked: real sessions, same kind, the goal quoted, the mix kept", async () => {
+  const k = await setupKeys(); const env = await coachEnv();
+  const tok = await mint(k.a);
+  const aim = "Backcountry ski trip in March, lots of climbing on skins.";
+  const cluster = [{ k: "boo2", name: "Boo 2", cat: "AA" }, { k: "gc1", name: "GC 1", cat: "GC" }, { k: "fast5", name: "Fast 5", cat: "AA" }, { k: "liss", name: "LISS", cat: "E" }];
+  const candidates = [{ k: "stdhills", name: "Standard Hills", cat: "AA" }, { k: "gc10", name: "GC 10", cat: "GC" }, { k: "m21", name: "Ruck", cat: "E" }, { k: "mvest", name: "Vest", cat: "GC" }, { k: "shorthills", name: "Short Hills", cat: "AA" }];
+  const raw = { note: "Uphill work suits a ski tour.", swaps: [
+    { out: "fast5", in: "stdhills", quote: "lots of climbing on skins", why: "Hills build the climbing legs." },
+    { out: "liss", in: "m21", quote: "Backcountry ski trip", why: "A loaded steady session, like a pack on a tour." },
+    { out: "gc1", in: "shorthills", quote: "Backcountry ski trip", why: "Would leave no GC in the cluster." },   // breaks the mix
+    { out: "gc1", in: "m21", quote: "Backcountry", why: "A HIC for an E." },                              // wrong kind
+    { out: "gc1", in: "gc10", quote: "a marathon", why: "Not what they wrote." },                         // not a quote
+  ] };
+  const orig = globalThis.fetch;
+  globalThis.fetch = fakeAnthropic({ model: "claude-sonnet-5-5", stop_reason: "end_turn",
+    content: [{ type: "text", text: JSON.stringify(raw) }], usage: { input_tokens: 900, output_tokens: 200 } });
+  try {
+    const res = await call2(env, "coach/sessions", { method: "POST", body: JSON.stringify({ aim, cluster, candidates }) }, tok);
+    a.equal(res.status, 200);
+    const body = await res.json();
+    a.deepEqual(body.swaps.map((s) => [s.out, s.in]), [["fast5", "stdhills"], ["liss", "m21"]]);
+    a.equal(body.note, "Uphill work suits a ski tour.");
+    const sent = globalThis.fetch.calls[0].body;
+    a.deepEqual(sent.output_config.format.schema.properties.swaps.items.properties.in.enum, ["stdhills", "gc10", "m21", "mvest", "shorthills"], "only the sessions sent");
+    a.match(sent.messages[0].content, /<candidates>\nstdhills \| AA/);
+    a.match(sent.system, /TB II p187/);
+    a.equal(env.DB.fills.length, 1, "logged with the chooser's coach calls"); a.equal(body.used, 1);
+    // Nothing to change, or nothing to choose from, is refused before the coach is asked.
+    const r2 = await call2(env, "coach/sessions", { method: "POST", body: JSON.stringify({ aim, cluster: [], candidates }) }, tok);
+    a.equal(r2.status, 400);
+    const r3 = await call2(env, "coach/sessions", { method: "POST", body: JSON.stringify({ aim: " ", cluster, candidates }) }, tok);
+    a.equal(r3.status, 400);
+  } finally { globalThis.fetch = orig }
+});

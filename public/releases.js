@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.106',date:'2026-11-15',title:"Swaps for your goal",items:[
+    "Once you've written what you're training for, Suggest swaps for my goal asks the coach for up to three changes to your conditioning sessions, like hills for a ski tour or a loaded E for a big hiking trip.",
+    "Each swap quotes your goal and says why. The app keeps only sessions you have the kit for, swaps like for like, and keeps the mix of kinds.",
+    "Take them one at a time, in the chooser before the program starts or in Setup on the sessions you're running now. Undo puts one back.",
+  ]},
   {v:'3.105',date:'2026-11-15',title:"The chooser picks your sessions",items:[
     "A pick on Black or Green now comes with its conditioning sessions: two or three HICs and an E session, chosen by the book's rules from your goal and the kit you have. They're shown on the pick and start with the program.",
     "Green uses them too. Your E session runs on the E days, and the cluster takes turns on the every-other-week HIC. Weeks before the cluster joined keep the sessions they had.",
