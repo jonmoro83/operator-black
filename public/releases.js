@@ -6,6 +6,12 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.107',date:'2026-11-15',title:"A Choose tab",items:[
+    "The program chooser has its own tab, Choose, between Plan and History.",
+    "It asks one thing at a time with big buttons: what you're training for, how many days you can lift, then a few quick ones. Your last answers come back selected.",
+    "The last screen shows the books' pick, when it starts, and one button to schedule it. Why this, the conditioning sessions, the other path and anything else that fits are folded underneath.",
+    "Setup's Help me choose and Change program now buttons, Add in Your year, and Today's card all open the tab.",
+  ]},
   {v:'3.106',date:'2026-11-15',title:"Swaps for your goal",items:[
     "Once you've written what you're training for, Suggest swaps for my goal asks the coach for up to three changes to your conditioning sessions, like hills for a ski tour or a loaded E for a big hiking trip.",
     "Each swap quotes your goal and says why. The app keeps only sessions you have the kit for, swaps like for like, and keeps the mix of kinds.",

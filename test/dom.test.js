@@ -24,10 +24,10 @@ test("the app boots into a real DOM and draws Today", () => {
   a.ok(x.$('#nav button[data-view="admin"]').hidden, "the Admin tab is hidden until the server says otherwise");
 });
 
-test("six tabs show on the bar; Coach is in the account menu, and Guide is in both", () => {
+test("seven tabs show on the bar (Choose since 3.107); Coach is in the account menu, and Guide is in both", () => {
   const x = ready();
   const shown = x.$$("#nav button").filter((b) => !b.hidden).map((b) => b.dataset.view);
-  a.deepEqual(shown, ["today", "status", "plan", "history", "setup", "guide"]);
+  a.deepEqual(shown, ["today", "status", "plan", "choose", "history", "setup", "guide"]);
   const menu = x.$$('#acct-m [role="menuitem"]').map((b) => b.dataset.view || b.id);
   a.deepEqual(menu, ["setup", "coach", "guide", "releases", "acct-out"]);
 });

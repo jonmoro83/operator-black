@@ -3170,7 +3170,9 @@ test("the Admin tab is in the markup but hidden until the server says you are on
   // width, and came back by request: it is the reference for the programs and the
   // lifts, and a menu is not where anybody looks for that. The row scrolls instead.
   // Coach moved to the account menu in 3.70 so the row fits a phone without scrolling.
-  a.deepEqual(tabs, ["today", "status", "plan", "history", "setup", "guide", "admin"], "admin is last");
+  // Choose joined in 3.107 by request ("It needs to be its own tab"), between Plan and
+  // History, the user's call from the prototype.
+  a.deepEqual(tabs, ["today", "status", "plan", "choose", "history", "setup", "guide", "admin"], "admin is last");
   const acct = html.slice(html.indexOf('id="acct-m"'), html.indexOf('<nav id="nav"'));
   a.match(acct, /data-view="guide"/, "and the menu route is kept, since it has been there a week");
   a.match(acct, /data-view="coach"/, "Coach is reached from the menu");
@@ -10825,17 +10827,29 @@ test("the welcome setup opens on the chooser, and a pick carries through to Star
   a.match(y.vWelcome(), /data-act="chzwz"/);
 });
 
+/* The chooser moved out of Setup into its own tab in 3.107 (asked 2026-11-15: "It needs
+   to be its own tab and much more user friendly"), one question at a time. Tests that
+   read what the chooser says read every step of the tab at once. */
+function chooseAll(x) {
+  if (!x.chz && x.chzDone) return x.vChoose();
+  x.vChoose(); if (!x.chz) return "";
+  const st = x.chz.step; let h = "";
+  for (let i = 0; i <= 3; i++) { x.chz.step = i; h += x.vChoose() }
+  x.chz.step = st; return h;
+}
+
 test("what's next is lined up for the handover, then started with its settings", () => {
   const x = blackApp("2026-11-18");
   const sw = x.progSwitchMonday();
   a.equal(sw, "2027-02-15", "the Monday after the retest that ends two cycles");
   a.equal(x.progWeeksLeft(), 13);
   x.chzOpen("next");
-  const h = x.programsCard();
+  const h = chooseAll(x);
   a.match(h, /The books’ next step/); a.match(h, /TB I p49/, "the same again, by the book");
-  a.match(h, /data-act="chzfull"/);
+  // The tab always asks (3.107); the books' next step is offered beside the first question.
+  a.match(h, /What are you training for\?/);
   x.chz.full = true; x.chzSet("days", "4");
-  a.match(x.programsCard(), /Line it up for/);
+  a.match(chooseAll(x), /data-act="chzschedule">Schedule /, "one button that schedules the pick");
   const i = x.chzResult().all.findIndex((p) => p.stempl === "zulu");
   a.ok(x.chzUse(i));
   a.equal(x.chz, null);
@@ -10866,12 +10880,12 @@ test("changing mid-program: the books' reasons, a stated reason, then the form's
   x.chzOpen("warn");
   a.equal(x.chz.a.days, "2", "last time's answers come back");
   a.equal(x.chz.a.exp, "some", "only valid ones");
-  let h = x.programsCard();
+  let h = chooseAll(x);
   a.match(h, /13 weeks from the end/);
   a.match(h, /TB I p49/); a.match(h, /TB I p33/);
   a.match(h, /data-act="chzctx" data-v="next">Line up the change/, "lining it up is the main button");
   x.chz.ctx = "reason"; x.chz.reason = "event";
-  h = x.programsCard();
+  h = chooseAll(x);
   a.match(h, /Fighter/); a.match(h, /TB II p69, p71/);
   a.ok(x.chzSwitch(x.CHZ_WHY.event.pick()));
   a.equal(x.newProg.start, "2026-11-23", "next week");
@@ -10879,7 +10893,7 @@ test("changing mid-program: the books' reasons, a stated reason, then the form's
   a.match(x.programsCard(), /Archive and start/, "the form's own confirmation still stands");
   // Wanting something different has no program: the book says finish the block.
   x.newProg = null; x.chzOpen("reason"); x.chz.reason = "other";
-  a.match(x.programsCard(), /finish the block/);
+  a.match(chooseAll(x), /finish the block/);
   a.equal(x.CHZ_WHY.other.pick(), null);
   // In the last week before the handover there is nothing to warn about.
   x.setToday("2027-02-09"); x.bump();
@@ -10896,7 +10910,7 @@ test("a lined-up program can start when the cycle ends or after the retest, and 
   x.chzOpen("next");
   a.equal(x.chzStart(), "2027-02-15", "the book's point by default");
   x.chz.start = "2026-12-28";
-  const h = x.programsCard();
+  const h = chooseAll(x);
   a.match(h, /data-act="chzstart" data-v="2026-12-28" aria-pressed="true"/);
   a.match(h, /will not be retested/);
   a.match(h, /Line it up for Mon 12\/28/);
@@ -11021,7 +11035,7 @@ test("adding to the year: the books' next step, a week off, or the chooser", () 
   let h = x.programsCard();
   a.match(h, /The books’ next step/); a.match(h, /data-act="yraddchz"/);
   x.chzOpen("add").at = 0; x.yrAdd = null;
-  h = x.programsCard();
+  h = chooseAll(x);
   a.match(h, /Add to your year/);
   x.chzSet("days", "4");
   const i = x.chzResult().all.findIndex((p) => p.stempl === "zulu");
@@ -11216,9 +11230,10 @@ test("a goal in your own words fills in the chooser's answers, quoted, and the b
   const x = blackApp("2026-11-18");
   x.coach.loaded = true; x.coach.configured = false;
   x.chzOpen("add"); x.chz.at = 0;
-  a.doesNotMatch(x.programsCard(), /data-chzaim/, "no coach, no goal box: the questions alone");
+  a.doesNotMatch(chooseAll(x), /data-chzaim/, "no coach, no goal box: the questions alone");
   x.coach.configured = true; x.coach.used = 0; x.coach.cap = 300;
-  let h = x.programsCard();
+  x.chz.say = true; // behind "Or describe it in your own words" on the tab
+  let h = chooseAll(x);
   a.match(h, /What are you training for\?/); a.match(h, /data-act="chzmanual"/);
   a.doesNotMatch(h, /From your goal|Assumed/, "no tags before a goal is read");
   x.chz.aim = "Backcountry ski trip in March. I'm 44 and lift twice a week.";
@@ -11230,7 +11245,7 @@ test("a goal in your own words fills in the chooser's answers, quoted, and the b
   }));
   a.deepEqual([x.chz.a.goal, x.chz.a.days, x.chz.a.older], ["endurance", "2", "yes"]);
   a.equal(x.chz.a.barbell, "yes", "an answer you set yourself is not overwritten");
-  h = x.programsCard();
+  h = chooseAll(x);
   a.match(h, /From your goal<\/span> <span class="small muted" style="font-weight:400">“Backcountry ski trip”/);
   a.match(h, /You set this/); a.match(h, /Assumed/);
   a.match(h, /3 answers came from your goal/);
@@ -11245,10 +11260,10 @@ test("a goal in your own words fills in the chooser's answers, quoted, and the b
   a.equal(x.chz, null);
   // Answer the questions myself: plain B.
   x.yg = null; x.chzOpen("now"); x.chz.manual = true;
-  a.doesNotMatch(x.programsCard(), /data-chzaim/);
+  a.doesNotMatch(chooseAll(x), /data-chzaim/);
   // At the cap, plain B too.
   x.chz.manual = false; x.coach.used = 300;
-  a.doesNotMatch(x.programsCard(), /data-chzaim/);
+  a.doesNotMatch(chooseAll(x), /data-chzaim/);
 });
 
 test("Start over clears the goal, the answers and the tags, and they do not come back", () => {
@@ -11259,7 +11274,7 @@ test("Start over clears the goal, the answers and the tags, and they do not come
   x.plan.programGoals = { aim: "315 squat", chooser: { days: "4" } }; x.bump();
   x.chzOpen("now");
   a.equal(x.chz.a.days, "4", "last time's answers came back");
-  a.match(x.programsCard(), /data-act="chzreset">Start over/);
+  a.match(chooseAll(x), /data-act="chzreset">Start over/);
   x.chz.aim = "ski trip in March"; x.chzSet("older", "yes");
   x.chzApply({ answers: { goal: { v: "endurance", quote: "ski trip" } }, event: null, summary: "" });
   a.equal(x.plan.programGoals.aim, "ski trip in March");
@@ -11268,7 +11283,7 @@ test("Start over clears the goal, the answers and the tags, and they do not come
   a.equal(x.chz.aim, ""); a.equal(x.chzTag("goal"), null, "no tags");
   a.equal(x.plan.programGoals.chooser, undefined, "forgotten");
   a.equal(x.plan.programGoals.aim, "", "the goal the chooser saved goes");
-  a.doesNotMatch(x.programsCard(), /data-act="chzreset"/, "nothing to start over from");
+  a.doesNotMatch(chooseAll(x), /data-act="chzreset"/, "nothing to start over from");
   x.chz = null; x.chzOpen("now");
   a.equal(x.chz.a.days, "3", "and the old answers do not come back");
   // A goal typed in Setup, not by the chooser, stays.
@@ -11282,14 +11297,14 @@ test("a start date of your own, from the chooser, Your year and the goal planner
   // chooser too." Any Monday from next week on; the handovers stay as the quick picks.
   const x = blackApp("2026-11-18");
   x.chzOpen("next");
-  let h = x.programsCard();
+  let h = chooseAll(x);
   a.match(h, /data-startpick="chzstart"/); a.match(h, /min="2026-11-23"/);
   a.ok(!x.progStartOk("2026-11-16"), "not this week, which has begun");
   a.ok(!x.progStartOk("2026-12-02"), "a Monday, not a Wednesday");
   a.ok(x.progStartOk("2026-12-07"));
   x.chz.start = "2026-12-07";
   a.equal(x.chzStart(), "2026-12-07");
-  h = x.programsCard();
+  h = chooseAll(x);
   a.match(h, /Partway through/, "before the handover: said what it costs"); a.match(h, /Line it up for Mon 12\/7/);
   x.chzLineUp(x.chzBookNext());
   a.equal(x.plan.nextPrograms[0].start, "2026-12-07");
@@ -11310,10 +11325,10 @@ test("the chooser's pinned bar schedules the pick, and says where to see it", ()
   // prototype's pinned bar (B), with one button, then a way to the calendar.
   const x = blackApp("2026-11-18");
   x.chzOpen("next");
-  let h = x.programsCard();
+  let h = chooseAll(x);
   a.match(h, /class="chz-bar"/); a.match(h, /data-act="chzschedule">Schedule Operator from Mon 2\/15/, "the books' next step until you ask for something else");
   x.chz.full = true; x.chzSet("goal", "endurance"); x.chzSet("days", "2"); x.chz.start = "2026-12-07";
-  h = x.programsCard();
+  h = chooseAll(x);
   a.match(h, /data-act="chzschedule">Schedule Fighter from Mon 12\/7/, "the answers' pick, live");
   a.ok(x.chzSchedule());
   a.deepEqual([x.plan.nextPrograms[0].cproto, x.plan.nextPrograms[0].start], ["green", "2026-12-07"]);
@@ -11323,12 +11338,12 @@ test("the chooser's pinned bar schedules the pick, and says where to see it", ()
   a.equal(x.withFuture("2026-12-08", () => x.weekOf("2026-12-07").kind), "bb", "and it is on the calendar");
   // Adding to the year: the same bar, saying when it lands.
   x.chzDone = null; x.chzOpen("add"); x.chz.at = 1;
-  a.match(x.programsCard(), /data-act="chzschedule">Add Fighter to your year/, "last time's answers came back");
+  a.match(chooseAll(x), /data-act="chzschedule">Add Fighter to your year/, "last time's answers came back");
   a.ok(x.chzSchedule());
   a.equal(x.plan.nextPrograms.length, 2); a.ok(x.chzDone.start > "2026-12-07");
   // Changing now still goes through the form's own second tap.
   x.chzDone = null; x.chzOpen("now");
-  a.match(x.programsCard(), /Switch to Fighter next week/);
+  a.match(chooseAll(x), /Switch to Fighter next week/);
   a.ok(x.chzSchedule()); a.ok(x.newProg); a.equal(x.chzDone, null);
 });
 
@@ -11344,7 +11359,7 @@ test("the chooser's pick comes with its sessions, which go with it when it start
   const pk = x.chzResult().picks[0];
   a.equal(pk.cproto, "green"); a.ok(pk.cl && pk.cl.fs.length === 3);
   a.equal(pk.cl.e, "m21", "a rucker's E for an endurance goal with a ruck");
-  const h = x.programsCard();
+  const h = chooseAll(x);
   a.match(h, /Conditioning sessions/); a.match(h, /these in turn on the HIC weeks/);
   x.chzSchedule();
   a.deepEqual(x.plan.nextPrograms[0].cl.fs, pk.cl.fs);
@@ -11408,18 +11423,18 @@ test("the coach's swaps go on the pick one by one, and into Setup's cluster at o
   x.chzOpen("next"); x.chz.full = true; x.chzSet("goal", "endurance"); x.chzSet("days", "2");
   x.chz.aim = "A backcountry ski trip in March";
   const pk = x.chzResult().picks[0], base = pk.cl;
-  a.match(x.programsCard(), /data-act="chzswap"/, "offered once there is a goal");
+  a.match(chooseAll(x), /data-act="chzswap"/, "offered once there is a goal");
   const cand = x.swapCands(base);
   a.ok(cand.every((c) => !base.fs.includes(c.k) && c.k !== base.e), "not what is already in it");
   a.ok(cand.every((c) => !x.HIC_KIT[c.k] || x.kitOk(c.k, x.kitHave())), "only kit you have");
   const to = cand.find((c) => c.cat === x.hicTbCat(base.fs[0])).k;
   x.chz.sw = { res: { swaps: [{ out: base.fs[0], in: to, quote: "backcountry ski trip", why: "Uphill." }], note: "" }, taken: {} };
-  let h = x.programsCard();
+  let h = chooseAll(x);
   a.match(h, /“backcountry ski trip”/); a.match(h, /Take this swap/);
   a.deepEqual(x.chzResult().picks[0].cl.fs, base.fs, "nothing changes until you take it");
   x.chzSwapTake(0, true);
   a.equal(x.chzResult().picks[0].cl.fs[0], to);
-  a.match(x.programsCard(), /Taken — undo/);
+  a.match(chooseAll(x), /Taken — undo/);
   x.chzSchedule();
   a.equal(x.plan.nextPrograms[0].cl.fs[0], to, "scheduled with the swap");
   // Setup: on the cluster you have, with the goal you wrote.
@@ -11430,4 +11445,34 @@ test("the coach's swaps go on the pick one by one, and into Setup's cluster at o
   a.deepEqual(x.plan.hicCluster.map((c) => [c.f, c.since]), [["gc1", "2026-11-02"], ["stdhills", "2026-11-18"]]);
   x.clSwapTake(0, true); a.equal(x.plan.hicE, "m21");
   x.clSwapTake(1, false); a.equal(x.plan.hicCluster[1].f, "boo2", "undo puts it back");
+});
+
+/* The Choose tab (3.107). Asked 2026-11-15: "The chooser is way too cumbersome. It
+   needs to be its own tab and much more user friendly." The user picked A from the
+   prototype, one question at a time, as a tab between Plan and History. */
+test("the Choose tab asks one thing at a time and ends on one button", () => {
+  const x = blackApp("2026-11-18");
+  x.view = "choose"; x.chz = null;
+  let h = x.vChoose();
+  a.match(h, /Step 1 of 3/); a.match(h, /data-act="chzgoal" data-v="endurance"/);
+  a.doesNotMatch(h, /data-act="chzschedule"/, "nothing to schedule until the answer");
+  // A fight gym is a tile, and it answers two questions.
+  x.chzSetTile("fight");
+  a.deepEqual([x.chz.a.goal, x.chz.a.other], ["general", "yes"]);
+  x.chzSetTile("endurance");
+  a.deepEqual([x.chz.a.goal, x.chz.a.other], ["endurance", "no"], "another tile takes it back");
+  x.chz.step = 1; a.match(x.vChoose(), /How many days a week can you lift/);
+  x.chzSet("days", "2");
+  x.chz.step = 2; h = x.vChoose();
+  for (const k of x.CHZ_QUICK) a.match(h, new RegExp(`data-k="${k}"`));
+  x.chz.step = 3; h = x.vChoose();
+  a.match(h, /Your program/); a.match(h, /<h2 class="chz-pick">Fighter<\/h2>/);
+  a.match(h, /data-act="chzschedule">Schedule Fighter from/);
+  a.match(h, /data-startpick="chzstart"/, "when it starts, on the same screen");
+  a.ok(x.chzSchedule());
+  h = x.vChoose();
+  a.match(h, /Scheduled/); a.match(h, /data-act="chzdoneok">Choose again/);
+  x.chzDone = null; x.chz = null;
+  a.match(x.vChoose(), /Step 1 of 3/, "and again from the top, last time's answers selected");
+  a.equal(x.chz.a.goal, "endurance");
 });

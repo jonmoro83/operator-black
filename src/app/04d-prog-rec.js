@@ -242,7 +242,7 @@ function chzFill(){
   const aim=String(chz.aim||'').trim(); if(!aim) return false;
   chz.fill={busy:true}; render();
   api('POST','/coach/fill',{aim,today:realToday()})
-    .then(r=>{ coach.used=r.used; chzApply(r); render() })
+    .then(r=>{ coach.used=r.used; chzApply(r); if(chz&&chz.tab&&chz.fill&&chz.fill.res) chz.step=3; render() })
     .catch(e=>{ if(chz) chz.fill={err:(e&&e.message)||'That did not go through.'}; render() });
   return true;
 }
@@ -282,7 +282,7 @@ function chzReset(){
   if(!chz) return false;
   const aim=String(chz.aim||'').trim(), g=plan.programGoals||{}, mine=!!(aim&&g.aim===aim&&chz.fill&&chz.fill.res);
   if(chz.ctx==='wz'&&wz) wz.chooser=null;
-  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null,sw:null});
+  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null,sw:null,step:0,say:false});
   mutatePlan(p=>{ const o=Object.assign({},p.programGoals); delete o.chooser; if(mine){o.aim='';o.by=''} p.programGoals=o });
   return true;
 }

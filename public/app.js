@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.106", RELEASES_SRC="/releases.js?b=5abd2629fe";
+const APP_VERSION="3.107", RELEASES_SRC="/releases.js?b=9993642fea";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -4495,7 +4495,7 @@ function chzFill(){
   const aim=String(chz.aim||'').trim(); if(!aim) return false;
   chz.fill={busy:true}; render();
   api('POST','/coach/fill',{aim,today:realToday()})
-    .then(r=>{ coach.used=r.used; chzApply(r); render() })
+    .then(r=>{ coach.used=r.used; chzApply(r); if(chz&&chz.tab&&chz.fill&&chz.fill.res) chz.step=3; render() })
     .catch(e=>{ if(chz) chz.fill={err:(e&&e.message)||'That did not go through.'}; render() });
   return true;
 }
@@ -4535,7 +4535,7 @@ function chzReset(){
   if(!chz) return false;
   const aim=String(chz.aim||'').trim(), g=plan.programGoals||{}, mine=!!(aim&&g.aim===aim&&chz.fill&&chz.fill.res);
   if(chz.ctx==='wz'&&wz) wz.chooser=null;
-  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null,sw:null});
+  Object.assign(chz,{a:Object.assign({},CHZ_DEF),aim:'',from:{},mine:{},fill:null,manual:false,used:null,sw:null,step:0,say:false});
   mutatePlan(p=>{ const o=Object.assign({},p.programGoals); delete o.chooser; if(mine){o.aim='';o.by=''} p.programGoals=o });
   return true;
 }
@@ -5553,7 +5553,7 @@ function renderMain(){
   const m=document.getElementById('main');
   m.classList.toggle('ro',!!viewing);
   if(wz&&!viewing){ if(!morph(m,vWelcome())&&aid){const el=document.getElementById(aid);if(el)el.focus({preventScroll:true})} return }
-  const html=copyBox()+archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,setup:vSetup,coach:vCoach,guide:vGuide,admin:vAdmin}[view]||vToday)();
+  const html=copyBox()+archiveBanner()+(['status','plan','history'].includes(view)?programPicker():'')+({today:vToday,status:vStatus,plan:vPlan,releases:vReleases,history:vHistory,choose:vChoose,setup:vSetup,coach:vCoach,guide:vGuide,admin:vAdmin}[view]||vToday)();
   // Only the fallback path needs focus putting back; morph never took it away.
   if(!morph(m,html)&&aid){const el=document.getElementById(aid); if(el){el.focus({preventScroll:true}); try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
   showToast();
@@ -10631,8 +10631,8 @@ function programsCard(){
   if(chzDone) h+=`<div class="banner info"><div class="small"><b>Scheduled: ${esc(chzDone.line)}, from ${esc(fmtD(chzDone.start,true))}.</b> It is on the Plan and the calendar from that week, and starts by itself that Monday.</div><div class="row"><button class="btn sm primary" data-act="chzsee">See it on the calendar</button><button class="btn sm ghost" data-act="chzdoneok">OK</button></div></div>`;
   h+=omsSetup();
   h+=yearSection();
-  if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
-  else if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
+  // The chooser is its own tab (3.107); these open it.
+  if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
   else {
     const carried=activeLifts().filter(k=>cm[k]!=null).map(k=>esc(liftName(k))+' '+(isBW(k)?'+':'')+n(cm[k])).join(' · ')||'no maxes yet';
     h+=`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">
@@ -11513,11 +11513,12 @@ function guideMti(){
 function guideChooser(){
   const row=(a,b,c)=>`<tr><td class="small"><b>${a}</b></td><td class="small">${b}</td><td class="small mono muted">${c}</td></tr>`;
   return `<div class="card guide"><h3>Choosing a program</h3>
-  <p>The chooser picks a strength template and a conditioning protocol for you, by the books. It asks a few questions, shows the books’ pick with every reason and page, and lists anything else that fits. Where a beginner has a real choice it shows both, said plainly. You can open it in four places:</p>
-  <ul class="tight"><li><b>Welcome setup</b>, in the Program step: <b>Help me choose</b> sets the template and protocol for you to check.</li>
-  <li><b>Setup, under Programs</b>: <b>Help me choose what’s next</b> lines up what follows the program you are on.</li>
-  <li><b>Change program now…</b>, in the same place, for a change before this one ends.</li>
-  <li><b>Your year</b>, below it: <b>Add</b> puts a program anywhere in your plan.</li></ul>
+  <p>The chooser picks a strength template and a conditioning protocol for you, by the books. It has its own tab, <b>Choose</b>, and asks one thing at a time:</p>
+  <ul class="tight"><li><b>What you are training for</b>: six big buttons, or <b>Or describe it in your own words</b> for the coach to read.</li>
+  <li><b>How many days a week you can lift</b>.</li>
+  <li><b>A few quick ones</b>: a barbell, your experience, Base Building, your age, other hard training, and whether to schedule conditioning.</li>
+  <li><b>Your program</b>: the books’ pick, when it starts, and one button that schedules it. Why this, its conditioning sessions, the other path where there is one, and anything else that fits are folded under it.</li></ul>
+  <p>Last time’s answers come back selected, so going again is Next, Next, Next. The tab chooses what follows the program you are on. It also opens from Setup (<b>Help me choose what’s next</b>, <b>Change program now…</b>), from <b>Add</b> in Your year, and from Today’s card. The welcome setup keeps its own copy in the Program step.</p>
   <h4 class="sub-h">Say what you’re training for</h4>
   <p>The chooser starts with a box: write what you are training for in your own words (a backcountry ski trip in March, a week of big hiking days this summer, a 10K, more muscle) and tap <b>Fill these in from my goal</b>. The coach reads it and fills in the questions below. It only sorts your words into answers; it does not pick the program. Every answer it gives quotes the words it came from, or it is not used.</p>
   <ul class="tight"><li><b>From your goal</b> marks an answer the coach took from you, with your words beside it.</li>
@@ -12645,6 +12646,94 @@ function withFuture(date,fn){
   finally{ fpC.wc=wcache; fpC.mc=mcache; plan=was.plan; planV=was.planV; wcache=was.wcache; mcache=was.mcache; previewing=null }
 }
 
+/* ---------- the Choose tab (3.107) ----------
+Asked 2026-11-15: "The chooser is way too cumbersome. It needs to be its own tab and
+much more user friendly." The user chose, from the prototype, A, one question at a
+time, as a tab between Plan and History. Three short steps with big buttons, then one
+screen with the program, when it starts, and the one button that schedules it. The
+reasons, the other paths and the coach's swaps sit behind links on that screen.
+The chooser underneath is the same (04d-prog-rec.js); this is how it is asked. Last
+time's answers come back selected, so going again is Next, Next, Next. */
+const CHZ_TILES=[
+  ['general','All-round','Strength and conditioning both'],
+  ['endurance','An endurance event','A ski tour, a big hike, selection, a long ruck'],
+  ['run','Running','A race, or running better'],
+  ['size','Getting bigger','Muscle first'],
+  ['fight','A fight gym or sport','Hard training somewhere else too'],
+  ['minimal','Least time','Keep what you have'],
+];
+// Step 2's questions, in the order a person knows the answers.
+const CHZ_QUICK=['barbell','exp','bb','older','other','cond'];
+function chzTile(a){ return a.other==='yes'&&a.goal==='general'?'fight':a.goal }
+function chzSetTile(v){
+  if(!chz) return false;
+  if(v==='fight'){ chzSet('goal','general'); chzSet('other','yes') }
+  else { const was=chzTile(chz.a); chzSet('goal',v); if(was==='fight') chzSet('other','no') }
+  return true;
+}
+// The tab opens on what follows the current program unless something else asked.
+function chzTab(){
+  if(!chz||chz.ctx==='wz') chzOpen('next');
+  if(!chz.tab){ chz.tab=true; chz.step=0 }
+  if(chz.ctx==='next') chz.full=true;
+  return chz;
+}
+function vChoose(){
+  if(viewing) return `<div class="card"><p class="note" style="margin:0">Go back to your current program to choose what comes next.</p></div>`;
+  if(chzDone&&!chz) return `<div class="card"><h2>Scheduled</h2><div class="small"><b>${esc(chzDone.line)}</b>, from ${esc(fmtD(chzDone.start,true))}. It is on the Plan and the calendar from that week, and starts by itself that Monday.</div>
+    <div class="row"><button class="btn primary" data-act="chzsee">See it on the calendar</button><button class="btn ghost" data-act="chzdoneok">Choose again</button></div></div>`;
+  const c=chzTab();
+  if(c.ctx==='warn'||c.ctx==='reason') return `<div class="card">${chooserFlow()}</div>`;
+  const head=c.ctx==='now'?'Change program now':c.ctx==='add'?'Add to your year':`After ${esc(progName())}`;
+  const dots=`<div class="chz-dots" aria-label="${c.step<3?'Step '+(c.step+1)+' of 3':'Your program'}">${[0,1,2,3].map(i=>`<i class="${i<=c.step?'on':''}"></i>`).join('')}<span class="small muted">${c.step<3?'Step '+(c.step+1)+' of 3':'Your program'}</span></div>`;
+  const back=c.step?`<button class="btn" data-act="chzstep" data-v="${c.step-1}">Back</button>`:'';
+  const bar=(main)=>`<div class="chz-bar"><div class="row" style="flex-wrap:nowrap">${back}${main}</div></div>`;
+  const over=chzDirty()?`<button class="btn ghost sm" data-act="chzreset">Start over</button>`:'';
+  let h=`<div class="row between" style="padding:0 2px"><h3>${head}</h3>${over}</div>`+dots;
+  if(c.step===0){
+    const nx=c.ctx==='next'?chzBookNext():null;
+    h+=`<h2 class="chz-q">What are you training for?</h2>${chzTagLine('goal')}
+    <div class="chz-tiles">${CHZ_TILES.map(([k,l,s])=>`<button class="chz-tile${chzTile(c.a)===k?' on':''}" data-act="chzgoal" data-v="${k}" aria-pressed="${chzTile(c.a)===k}"><b>${esc(l)}</b><span>${esc(s)}</span></button>`).join('')}</div>`;
+    if(chzCoachOn()) h+=c.say||c.fill?`<div class="card">${chzGoalBox()||'<p class="note" style="margin:0">Answering the questions yourself.</p>'}</div>`:`<div><button class="btn ghost" data-act="chzsay">Or describe it in your own words</button></div>`;
+    if(nx&&!nx.oms) h+=`<div class="banner info"><div class="small"><b>The books’ next step after ${esc(progName())}:</b> ${esc(pickLine(nx))}.${nx.why.map(([t,c])=>` ${esc(t)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span>`).join('')}</div><div><button class="btn sm" data-act="chzlinebook">Line it up</button></div></div>`;
+    return h+bar(`<button class="btn primary" style="flex:1" data-act="chzstep" data-v="1">Next</button>`);
+  }
+  if(c.step===1){
+    h+=`<h2 class="chz-q">How many days a week can you lift?</h2>${chzTagLine('days')}
+    <div class="seg wide chz-big">${['2','3','4'].map(v=>`<button class="segb${c.a.days===v?' on':''}" data-act="chz" data-k="days" data-v="${v}" aria-pressed="${c.a.days===v}">${v}</button>`).join('')}</div>
+    <p class="note" style="margin:0">Barbell days only. Conditioning goes on the other days.</p>`;
+    return h+bar(`<button class="btn primary" style="flex:1" data-act="chzstep" data-v="2">Next</button>`);
+  }
+  if(c.step===2){
+    h+=`<h2 class="chz-q">A few quick ones</h2><div class="stack" style="gap:10px">${CHZ_QUICK.map(k=>{ const q=CHZ_Q.find(x=>x.k===k);
+      return `<div class="card" style="gap:6px"><span class="small" style="font-weight:700">${esc(q.q)}</span>${chzTagLine(k)}<div class="seg wide">${q.opts.map(([v,l])=>`<button class="segb${c.a[k]===v?' on':''}" data-act="chz" data-k="${k}" data-v="${v}" aria-pressed="${c.a[k]===v}">${esc(l)}</button>`).join('')}</div></div>` }).join('')}</div>`;
+    return h+bar(`<button class="btn primary" style="flex:1" data-act="chzstep" data-v="3">See my program</button>`);
+  }
+  return h+chzAnswer()+`<div class="row">${back}</div>`;
+}
+// Where an answer came from, when the coach filled it in from your goal.
+function chzTagLine(k){ const g=chzTag(k); return g?`<div class="small"><span class="chip${g.q?' blue':''}">${esc(g.t)}</span>${g.q?` <span class="small muted" style="font-weight:400">“${esc(g.q)}”</span>`:''}</div>`:'' }
+function chzAnswer(){
+  const c=chz, r=chzResult(), pk=r.picks[0], btn=chzBtn(c.ctx);
+  if(!pk) return `<div class="card"><p class="note" style="margin:0">Nothing fits those answers. Go back and change one.</p></div>`;
+  const src=pickSrc(pk), aim=String(c.aim||(plan.programGoals||{}).aim||'').trim();
+  let h=`<div class="card"><div class="row between"><span class="small muted">The books suggest</span><span class="chip${src==='Ours'?'':' blue'}">${esc(src)}</span></div>
+  <h2 class="chz-pick">${esc(pickName(pk))}</h2><div class="small">${esc(pickLine(pk))}</div>
+  ${pk.why[0]?`<div class="small">${esc(pk.why[0][0])} <span class="mono muted">${esc(pk.why[0][1]==='ours'?'Ours.':pk.why[0][1])}</span></div>`:''}
+  ${pk.why.length>1?`<details class="plain"><summary class="small"><b>Why this</b></summary><div style="margin-top:6px">${whyList(pk.why)}</div></details>`:''}
+  ${pk.cl?`<details class="plain"${c.sw?' open':''}><summary class="small"><b>Conditioning sessions</b> (${pk.cl.fs.length} + E)</summary><div class="stack" style="gap:8px;margin-top:6px">${pickSessions(pk)}${aim&&chzCoachOn()?swapList(c.sw,chzClusterFor(pk,c.a),aim,'chzswap','chzswaptake'):''}</div></details>`:''}
+  </div>`;
+  if(r.picks.length>1){ const p2=r.picks[1];
+    h+=`<div class="card"><span class="small muted">Or the other path</span><h2>${esc(pickName(p2))}</h2><div class="small">${esc(pickLine(p2))}</div>${p2.why[0]?`<div class="small">${esc(p2.why[0][0])} <span class="mono muted">${esc(p2.why[0][1]==='ours'?'Ours.':p2.why[0][1])}</span></div>`:''}${btn(p2,1,true)}</div>` }
+  for(const [t,cite] of r.notes) h+=`<div class="banner info"><div class="small">${esc(t)} <span class="mono muted">${esc(cite)}</span></div></div>`;
+  if(r.alts.length) h+=`<details class="plain card"><summary><b>Also fits</b> <span class="small muted">${r.alts.length} more</span></summary><div class="stack" style="gap:10px;margin-top:10px">${r.alts.map((a,j)=>`<div class="stack" style="gap:4px"><b>${esc(a.oms?'The OMS rotation':pickName(a))}</b>${a.oms?'<div class="small muted">Set it up under OMS rotation in Setup.</div>':`<div class="small">${esc(pickLine(a))}</div>${btn(a,r.picks.length+j,false)}`}</div>`).join('')}</div></details>`;
+  if(c.ctx==='next'){ const st=chzStart();
+    h+=`<div class="card">${yrFromSeg(progHandovers(),st,'chzstart',x=>x.start,'When it starts')}<p class="note" style="margin:0">It starts by itself that Monday, and the Plan shows it from then. Nothing changes before.</p></div>
+    <div><button class="btn ghost" data-act="chznow">I need to change now instead</button></div>`;
+  } else if(c.ctx==='now') h+=`<p class="note" style="margin:0">The new program starts next week, with your maxes carried over. You confirm it on the next screen.</p>`;
+  return h+chzBar();
+}
+
 /* ---------------- copying something out of the app ----------------
 Five buttons all did `if(navigator.clipboard) ... .then(done,()=>{})`, which means that
 where the clipboard is missing or refuses, the button does nothing at all: no copy, no
@@ -12990,7 +13079,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wkfeel'){const m=mondayOf(todayStr());setLog(m,'wkfeel',(logs[m]||{}).wkfeel===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='condok'){condAccept(b.dataset.id);render();return}
   if(a==='condlater'){condLater(b.dataset.id);render();return}
-  if(a==='chzschedule'){chzSchedule();render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
+  if(a==='chzschedule'){chzSchedule();if(newProg&&view==='choose')view='setup';render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
   if(a==='chzdoneok'){chzDone=null;render();return}
   if(a==='chzsee'){const s=chzDone&&chzDone.start;chzDone=null;planMode='cal';try{localStorage.setItem('ob.planmode',planMode)}catch(e){}if(s)calMonth=s.slice(0,7);goView('plan');return}
   if(a==='chzreset'){chzReset();render();return}
@@ -12998,19 +13087,22 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzyear'){chzYear();render();return}
   if(a==='chzwz'){chzOpen('wz');render();return}
   if(a==='chzclose'){chz=null;render();return}
-  if(a==='chznext'){chzOpen('next');render();return}
-  if(a==='chznow'){chzOpen(progWeeksLeft()>1?'warn':'now');render();return}
+  if(a==='chznext'){chzOpen('next');goView('choose');return}
+  if(a==='chznow'){chzOpen(progWeeksLeft()>1?'warn':'now');goView('choose');return}
+  if(a==='chzgoal'){chzSetTile(b.dataset.v);render();return}
+  if(a==='chzstep'){if(chz){chz.step=Math.max(0,Math.min(3,+b.dataset.v))}render();window.scrollTo(0,0);return}
+  if(a==='chzsay'){if(chz)chz.say=true;render();return}
   if(a==='chzctx'){if(chz){chz.ctx=b.dataset.v;chz.full=chz.ctx!=='next'}render();return}
   if(a==='chzfull'){if(chz)chz.full=true;render();return}
   if(a==='chzreason'){if(chz&&CHZ_WHY[b.dataset.v])chz.reason=b.dataset.v;render();return}
-  if(a==='chzuse'){chzUse(+b.dataset.i);render();return}
+  if(a==='chzuse'){chzUse(+b.dataset.i);if(newProg&&view==='choose')view='setup';render();return}
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
-  if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
+  if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());if(newProg&&view==='choose')view='setup';render();return}
   if(a==='nextstart'){nextStart();render();return}
   if(a==='nextlater'){nextLater();render();return}
   if(a==='nextsnooze'){mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
   if(a==='nextseen'){nextBegun=null;render();return}
-  if(a==='nextchoose'||a==='nextchange'){if(a==='nextchoose')chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
+  if(a==='nextchoose'||a==='nextchange'){chzOpen('next');goView('choose');return}
   if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
@@ -13020,7 +13112,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='yradd'){yrAdd=+b.dataset.i;yrSel=-1;yg=null;render();return}
   if(a==='yraddbook'){const i=+b.dataset.i;yrInsert(i,pickOf(yrBookAfter(i)));return}
   if(a==='yraddoff'){yrInsert(+b.dataset.i,{off:true});return}
-  if(a==='yraddchz'){chzOpen('add').at=+b.dataset.i;yrAdd=null;render();return}
+  if(a==='yraddchz'){chzOpen('add').at=+b.dataset.i;yrAdd=null;goView('choose');return}
   if(a==='yrgoal'){ygOpen();yrAdd=null;yrSel=-1;render();return}
   if(a==='ygset'){if(yg&&YR_GOALS[b.dataset.v])yg.goal=b.dataset.v;render();return}
   if(a==='yruse'){ygUse();render();return}

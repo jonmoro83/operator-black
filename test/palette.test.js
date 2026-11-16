@@ -67,9 +67,9 @@ test("the tab bar sits at the bottom of the page, out of the header, with an ico
   a.ok(nav && nav.parentElement === x.document.body, "a direct child of the body, fixed by CSS");
   a.match(css, /#nav\{position:fixed;left:0;right:0;bottom:0;/, "fixed to the bottom");
   const tabs = x.$$("#nav button");
-  a.deepEqual(tabs.map((b) => b.dataset.view), ["today", "status", "plan", "history", "setup", "guide", "admin"]);
+  a.deepEqual(tabs.map((b) => b.dataset.view), ["today", "status", "plan", "choose", "history", "setup", "guide", "admin"]);
   for (const b of tabs) a.ok(b.querySelector("svg"), `${b.dataset.view} has an icon`);
-  a.equal(tabs.filter((b) => !b.hidden).length, 6);
+  a.equal(tabs.filter((b) => !b.hidden).length, 7);
   // Things that used to sit on the bottom edge now sit above the bar.
   a.match(css, /#bars\{position:fixed;left:0;right:0;bottom:calc\(58px \+ env\(safe-area-inset-bottom,0px\)\)/, "the rest and timer bars");
   a.match(css, /\.wrap\{[^}]*padding-block:0 calc\(84px \+ env\(safe-area-inset-bottom,0px\)\)/, "the page leaves room for it");

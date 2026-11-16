@@ -343,7 +343,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='wkfeel'){const m=mondayOf(todayStr());setLog(m,'wkfeel',(logs[m]||{}).wkfeel===b.dataset.v?'':b.dataset.v);render();return}
   if(a==='condok'){condAccept(b.dataset.id);render();return}
   if(a==='condlater'){condLater(b.dataset.id);render();return}
-  if(a==='chzschedule'){chzSchedule();render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
+  if(a==='chzschedule'){chzSchedule();if(newProg&&view==='choose')view='setup';render();if(newProg){const f=document.getElementById('np-name');if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'})}return}
   if(a==='chzdoneok'){chzDone=null;render();return}
   if(a==='chzsee'){const s=chzDone&&chzDone.start;chzDone=null;planMode='cal';try{localStorage.setItem('ob.planmode',planMode)}catch(e){}if(s)calMonth=s.slice(0,7);goView('plan');return}
   if(a==='chzreset'){chzReset();render();return}
@@ -351,19 +351,22 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzyear'){chzYear();render();return}
   if(a==='chzwz'){chzOpen('wz');render();return}
   if(a==='chzclose'){chz=null;render();return}
-  if(a==='chznext'){chzOpen('next');render();return}
-  if(a==='chznow'){chzOpen(progWeeksLeft()>1?'warn':'now');render();return}
+  if(a==='chznext'){chzOpen('next');goView('choose');return}
+  if(a==='chznow'){chzOpen(progWeeksLeft()>1?'warn':'now');goView('choose');return}
+  if(a==='chzgoal'){chzSetTile(b.dataset.v);render();return}
+  if(a==='chzstep'){if(chz){chz.step=Math.max(0,Math.min(3,+b.dataset.v))}render();window.scrollTo(0,0);return}
+  if(a==='chzsay'){if(chz)chz.say=true;render();return}
   if(a==='chzctx'){if(chz){chz.ctx=b.dataset.v;chz.full=chz.ctx!=='next'}render();return}
   if(a==='chzfull'){if(chz)chz.full=true;render();return}
   if(a==='chzreason'){if(chz&&CHZ_WHY[b.dataset.v])chz.reason=b.dataset.v;render();return}
-  if(a==='chzuse'){chzUse(+b.dataset.i);render();return}
+  if(a==='chzuse'){chzUse(+b.dataset.i);if(newProg&&view==='choose')view='setup';render();return}
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
-  if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
+  if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());if(newProg&&view==='choose')view='setup';render();return}
   if(a==='nextstart'){nextStart();render();return}
   if(a==='nextlater'){nextLater();render();return}
   if(a==='nextsnooze'){mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
   if(a==='nextseen'){nextBegun=null;render();return}
-  if(a==='nextchoose'||a==='nextchange'){if(a==='nextchoose')chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
+  if(a==='nextchoose'||a==='nextchange'){chzOpen('next');goView('choose');return}
   if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
@@ -373,7 +376,7 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='yradd'){yrAdd=+b.dataset.i;yrSel=-1;yg=null;render();return}
   if(a==='yraddbook'){const i=+b.dataset.i;yrInsert(i,pickOf(yrBookAfter(i)));return}
   if(a==='yraddoff'){yrInsert(+b.dataset.i,{off:true});return}
-  if(a==='yraddchz'){chzOpen('add').at=+b.dataset.i;yrAdd=null;render();return}
+  if(a==='yraddchz'){chzOpen('add').at=+b.dataset.i;yrAdd=null;goView('choose');return}
   if(a==='yrgoal'){ygOpen();yrAdd=null;yrSel=-1;render();return}
   if(a==='ygset'){if(yg&&YR_GOALS[b.dataset.v])yg.goal=b.dataset.v;render();return}
   if(a==='yruse'){ygUse();render();return}

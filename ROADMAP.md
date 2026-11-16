@@ -46,6 +46,13 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
 
 ## Next up
 
+- **The chooser is its own tab (asked 2026-11-15: "way too cumbersome. It needs to be
+  its own tab and much more user friendly").** The user picked prototype A, one question
+  at a time, as a tab between Plan and History. Shipped in 3.107: `vChoose()` in
+  21f-choose.js, steps on `chz.step` (goal tiles, lifting days, quick ones, the answer),
+  the pinned bar unchanged. Setup's buttons, Your year's Add and Today's card open it;
+  the welcome setup keeps the inline sheet.
+
 - **The chooser picks the sessions, and they change through the year (asked
   2026-11-15).** The user's calls: the books' rules pick the cluster first, and the
   coach can then suggest swaps for a written goal ("Both"); changes are suggested on

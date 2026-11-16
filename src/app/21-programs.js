@@ -150,8 +150,8 @@ function programsCard(){
   if(chzDone) h+=`<div class="banner info"><div class="small"><b>Scheduled: ${esc(chzDone.line)}, from ${esc(fmtD(chzDone.start,true))}.</b> It is on the Plan and the calendar from that week, and starts by itself that Monday.</div><div class="row"><button class="btn sm primary" data-act="chzsee">See it on the calendar</button><button class="btn sm ghost" data-act="chzdoneok">OK</button></div></div>`;
   h+=omsSetup();
   h+=yearSection();
-  if(!newProg&&chz&&chz.ctx!=='wz') h+=chooserFlow();
-  else if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
+  // The chooser is its own tab (3.107); these open it.
+  if(!newProg) h+=`<div class="row"><button class="btn primary" data-act="chznext">${nextQueued()?'Choose something else to follow':'Help me choose what\u2019s next'}</button><button class="btn" data-act="chznow">Change program now\u2026</button><button class="btn ghost" data-act="wzrerun">Run welcome setup again</button></div>`;
   else {
     const carried=activeLifts().filter(k=>cm[k]!=null).map(k=>esc(liftName(k))+' '+(isBW(k)?'+':'')+n(cm[k])).join(' · ')||'no maxes yet';
     h+=`<div class="stack" style="gap:10px;border-top:1px solid var(--line);padding-top:12px">
@@ -1032,11 +1032,12 @@ function guideMti(){
 function guideChooser(){
   const row=(a,b,c)=>`<tr><td class="small"><b>${a}</b></td><td class="small">${b}</td><td class="small mono muted">${c}</td></tr>`;
   return `<div class="card guide"><h3>Choosing a program</h3>
-  <p>The chooser picks a strength template and a conditioning protocol for you, by the books. It asks a few questions, shows the books’ pick with every reason and page, and lists anything else that fits. Where a beginner has a real choice it shows both, said plainly. You can open it in four places:</p>
-  <ul class="tight"><li><b>Welcome setup</b>, in the Program step: <b>Help me choose</b> sets the template and protocol for you to check.</li>
-  <li><b>Setup, under Programs</b>: <b>Help me choose what’s next</b> lines up what follows the program you are on.</li>
-  <li><b>Change program now…</b>, in the same place, for a change before this one ends.</li>
-  <li><b>Your year</b>, below it: <b>Add</b> puts a program anywhere in your plan.</li></ul>
+  <p>The chooser picks a strength template and a conditioning protocol for you, by the books. It has its own tab, <b>Choose</b>, and asks one thing at a time:</p>
+  <ul class="tight"><li><b>What you are training for</b>: six big buttons, or <b>Or describe it in your own words</b> for the coach to read.</li>
+  <li><b>How many days a week you can lift</b>.</li>
+  <li><b>A few quick ones</b>: a barbell, your experience, Base Building, your age, other hard training, and whether to schedule conditioning.</li>
+  <li><b>Your program</b>: the books’ pick, when it starts, and one button that schedules it. Why this, its conditioning sessions, the other path where there is one, and anything else that fits are folded under it.</li></ul>
+  <p>Last time’s answers come back selected, so going again is Next, Next, Next. The tab chooses what follows the program you are on. It also opens from Setup (<b>Help me choose what’s next</b>, <b>Change program now…</b>), from <b>Add</b> in Your year, and from Today’s card. The welcome setup keeps its own copy in the Program step.</p>
   <h4 class="sub-h">Say what you’re training for</h4>
   <p>The chooser starts with a box: write what you are training for in your own words (a backcountry ski trip in March, a week of big hiking days this summer, a 10K, more muscle) and tap <b>Fill these in from my goal</b>. The coach reads it and fills in the questions below. It only sorts your words into answers; it does not pick the program. Every answer it gives quotes the words it came from, or it is not used.</p>
   <ul class="tight"><li><b>From your goal</b> marks an answer the coach took from you, with your words beside it.</li>
