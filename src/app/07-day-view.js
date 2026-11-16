@@ -37,7 +37,9 @@ function renderMain(){
   showToast();
 }
 
-function vToday(){
+// A day on or after the lined-up program's start is drawn as it will be (21e-year.js).
+function vToday(){ return withFuture(sel>realToday()?sel:null,vTodayOf) }
+function vTodayOf(){
   const t=todayStr(), wk=weekOf(sel), dp=dayPlan(sel), mon=mondayOf(sel);
   let h=`<div class="dnav"><button class="btn sm ghost" data-act="go" data-date="${addDays(sel,-1)}" aria-label="Previous day">‹</button><h2>${fmtLong(sel)}</h2>${sel!==t?`<button class="btn sm" data-act="go" data-date="${t}">Today</button>`:''}<button class="btn sm ghost" data-act="go" data-date="${addDays(sel,1)}" aria-label="Next day">›</button></div>`;
   h+=`<div class="week">`;
@@ -50,8 +52,9 @@ function vToday(){
   // brief, which is the first thing on the screen (3.73).
   const startBtn=sel===todayStr()&&!viewing&&(dp.t==='rm5'||dp.t==='test')
     ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
-  if(moveOpen&&!viewing) h+=moveCard();
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&!previewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
+  if(moveOpen&&!viewing&&!previewing) h+=moveCard();
+  if(previewing) h+=`<div class="banner info"><div class="small"><b>Lined up: ${esc(fpC.line)}.</b> It starts by itself ${fmtD(previewing.startMonday,true)}, and this is the day as it will be. Change it in Setup, under Programs.</div></div>`;
   h+=noteCard(sel);
   h+=aimsCard(sel);
   h+=debriefCard();

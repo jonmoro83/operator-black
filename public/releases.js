@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.99',date:'2026-11-15',title:"Lined up means scheduled",items:[
+    "A program you line up now shows in the Plan and the calendar from the week it starts. Line up Fighter with Green and the weeks after the handover show Base Building and Green, not more of what you're on. Open one of those days and you see it as it will be.",
+    "It starts by itself on that Monday, the first time you open the app that week. Your current program is archived with everything in it and your maxes carry over. Today tells you when it's coming in the last week, and Put it off a week moves it, and the rest of your year, back a week.",
+    "Those future weeks can't be moved or changed from the Plan until they start. Change what's lined up in Setup, under Programs.",
+  ]},
   {v:'3.98',date:'2026-11-15',title:"Start your year when the cycle ends",items:[
     "Your year and Plan a year from a goal can now start when the cycle you're on ends, not just after the retest. Pick one under Start the plan, and every block after it moves with it.",
     "Planning from a goal counts its weeks from whichever you pick, so ending the cycle early gives you more room before the date. The catch, which the screen says too: the block you're on isn't retested, so the plan starts from the maxes you have then.",

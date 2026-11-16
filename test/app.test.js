@@ -11109,36 +11109,74 @@ test("choosing running: the chooser's goal, Setup's entry week, and a race in th
   a.equal(x.chzBookNext().cproto, "black");
 });
 
-/* ---------- What's next on Today (3.97) ----------
+/* ---------- What's next on Today (3.97, 3.99) ----------
 Step 4 of the chooser. The prototype's call (2026-11-15): a lined-up program shows on
-the Programs card and, in the last week, on Today. Laid out like the OMS card, by our
-choice: a second tap starts it, Not yet asks again next week. */
-test("Today offers what's next in the program's last week, and starts it on a second tap", () => {
+the Programs card and, in the last week, on Today. Then, the same day, after lining up
+Fighter with Green and finding the Plan still on Operator with Black: show it from its
+start, and start it by itself on that Monday ("Show it, start by itself"). */
+test("Today says what's next in the last week, and a lined-up program starts by itself on its Monday", () => {
   const x = blackApp("2026-11-18");
   x.view = "today"; x.sel = "2026-11-18";
-  a.doesNotMatch(x.vToday(), /data-act="nextgo"|data-act="chzlinebook"/, "weeks to go: nothing on Today");
-  // The last week, nothing lined up: the books' next step to line up.
+  a.doesNotMatch(x.vToday(), /Lined up|Nothing lined up/, "weeks to go: nothing on Today");
+  // The last week, nothing lined up: the books' next step to line up, or Not yet.
   x.setToday("2027-02-09"); x.sel = "2027-02-09"; x.bump();
   let h = x.vToday();
   a.match(h, /Nothing lined up/); a.match(h, /data-act="chzlinebook"/); a.match(h, /TB I p49/);
   a.match(h, /data-act="nextchoose"/);
-  x.chzLineUp(x.chzBookNext()); x.bump();
+  x.plan.nextSnooze = "2027-02-08"; x.bump();
+  a.doesNotMatch(x.vToday(), /Nothing lined up/);
+  x.chzLineUp({ stempl: "fighter", cproto: "green", bb: "standard", why: [["Green.", "TB II p69"]] });
+  x.plan.nextPrograms.push({ off: true }, { stempl: "zulu", cproto: "black", bb: "", path: "" }); x.bump();
   h = x.vToday();
-  a.match(h, /Lined up/); a.match(h, /data-act="nextgo">Start /);
-  // Not yet: gone for this week, back the next.
-  x.plan.nextSnooze = x.mondayOf("2027-02-09"); x.bump();
-  a.doesNotMatch(x.vToday(), /data-act="nextgo"/);
-  x.plan.nextSnooze = null;
-  x.plan.nextPrograms[0].stempl = "zulu"; x.plan.nextPrograms.push({ off: true }, { stempl: "fighter", cproto: "green", bb: "", path: "" }); x.bump();
-  a.match(x.vToday(), /Start Zulu/);
-  a.ok(x.nextGo());
-  a.equal(x.plan.startMonday, "2027-02-15"); a.equal(x.plan.stempl, "zulu");
-  a.equal(x.newProg, null, "no form left open");
-  a.deepEqual(x.plan.nextPrograms.map((it) => it.off ? "off" : it.stempl), ["off", "fighter"], "the rest of the year carries");
-  a.ok(x.plan.nextPrograms[0].start, "pinned to when Zulu ends");
-  // On the OMS rotation its own card asks instead.
+  a.match(h, /Lined up/, "a lined-up program is never snoozed out of sight"); a.match(h, /starts by itself/);
+  a.doesNotMatch(h, /data-act="nextgo"/, "no button to start it: it starts itself");
+  a.match(h, /data-act="nextlater">Put it off a week/);
+  // Put off: the year moves a week.
+  a.ok(x.nextLater());
+  a.equal(x.plan.nextPrograms[0].start, "2027-02-22");
+  a.ok(!x.nextAuto(), "not before its Monday");
+  x.plan.nextPrograms[0].start = "2027-02-15"; x.bump();
+  // On its Monday, the first sync starts it.
+  x.setToday("2027-02-15"); x.sel = "2027-02-15"; x.bump();
+  a.ok(x.nextAuto());
+  a.equal(x.plan.startMonday, "2027-02-15");
+  a.deepEqual([x.plan.stempl, x.plan.cproto], ["fighter", "green"]);
+  a.equal(x.weekOf("2027-02-15").kind, "bb", "Base Building first");
+  a.deepEqual(x.plan.nextPrograms.map((it) => it.off ? "off" : it.stempl), ["off", "zulu"], "the rest of the year carries");
+  a.ok(x.plan.nextPrograms[0].start, "pinned to when it ends");
+  a.match(x.vToday(), /started today/);
+  a.ok(!x.nextAuto(), "once");
+  // On the OMS rotation its own card asks instead, and nothing starts by itself.
   const y = blackApp("2027-02-09"); y.sel = "2027-02-09"; y.plan.oms = { on: true, end: "2027-02-14" }; y.bump();
   a.doesNotMatch(y.nextCard(), /chzlinebook/);
+});
+
+test("a lined-up program shows in the Plan, the calendar and on its days before it starts", () => {
+  const x = blackApp("2026-11-18");
+  x.chzLineUp({ stempl: "fighter", cproto: "green", bb: "standard" });
+  x.plan.nextPrograms[0].start = "2026-12-28"; x.bump();
+  a.equal(x.cprotoKey(), "black", "the program you are on is untouched");
+  a.equal(x.withFuture("2026-12-29", () => x.cprotoKey()), "green");
+  a.equal(x.withFuture("2026-12-22", () => x.cprotoKey()), "black", "before its start, the current one");
+  a.equal(x.withFuture("2026-12-29", () => x.weekOf("2026-12-28").kind), "bb");
+  a.equal(x.weekOf("2026-12-28").kind, "cycle", "and the swap is undone");
+  // The Plan's weeks: the current program up to the handover, then the lined-up one.
+  x.planMode = "list";
+  const pl = x.vPlanList();
+  a.match(pl, /Lined up/); a.match(pl, /Starts by itself Mon 12\/28/);
+  const after = pl.slice(pl.indexOf("Starts by itself"));
+  a.doesNotMatch(after, /data-act="insert"/, "its weeks are not changed from the Plan yet");
+  // The calendar: its days open, they do not move.
+  x.calMonth = "2027-01";
+  const cal = x.calCard();
+  a.match(cal, /Lined up/);
+  a.match(cal, /data-act="open" data-date="2027-01-05"/);
+  a.doesNotMatch(cal, /data-act="calpick" data-date="2027-01-05"/);
+  // A day of it: as it will be, with no Move.
+  x.sel = "2026-12-29"; x.view = "today";
+  const d = x.vToday();
+  a.match(d, /this is the day as it will be/);
+  a.doesNotMatch(d, /data-act="move"/);
 });
 
 test("a planned year can start when the cycle ends, from the goal planner or Your year", () => {

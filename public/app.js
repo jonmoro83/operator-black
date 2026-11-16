@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.98", RELEASES_SRC="/releases.js?b=8efc3e3e9a";
+const APP_VERSION="3.99", RELEASES_SRC="/releases.js?b=9090e7733e";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -5009,6 +5009,7 @@ async function connect(){
     }
     loaded=true;
     if(!viewing&&freezePast()) render();
+    if(!viewing&&nextAuto()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
     // Then re-check what the server holds: after a restart mid-session the page has to
     // pick its alerts back up, and a cancel made while offline still has to land.
@@ -5342,7 +5343,9 @@ function renderMain(){
   showToast();
 }
 
-function vToday(){
+// A day on or after the lined-up program's start is drawn as it will be (21e-year.js).
+function vToday(){ return withFuture(sel>realToday()?sel:null,vTodayOf) }
+function vTodayOf(){
   const t=todayStr(), wk=weekOf(sel), dp=dayPlan(sel), mon=mondayOf(sel);
   let h=`<div class="dnav"><button class="btn sm ghost" data-act="go" data-date="${addDays(sel,-1)}" aria-label="Previous day">‹</button><h2>${fmtLong(sel)}</h2>${sel!==t?`<button class="btn sm" data-act="go" data-date="${t}">Today</button>`:''}<button class="btn sm ghost" data-act="go" data-date="${addDays(sel,1)}" aria-label="Next day">›</button></div>`;
   h+=`<div class="week">`;
@@ -5355,8 +5358,9 @@ function vToday(){
   // brief, which is the first thing on the screen (3.73).
   const startBtn=sel===todayStr()&&!viewing&&(dp.t==='rm5'||dp.t==='test')
     ?`<button class="btn sm primary" style="margin-left:auto" data-act="lsstart">${lg(sel).done?'Reopen session':'Start session'}</button>`:'';
-  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
-  if(moveOpen&&!viewing) h+=moveCard();
+  h+=`<div class="wkline"><b>${wt.t}</b><span class="chip ${wt.cls}">${wt.chip}</span>${dp.plyo||dp.t==='plyobase'?`<span class="small muted">Plyo: ${plyoPhase(wk).name} · ~${dp.plyoCut||(lg(sel).plyo||{}).cut?Math.round(plyoPhase(wk).target/2):plyoPhase(wk).target} contacts</span>`:''}${wk.inserted?'<span class="chip">Added</span>':''}${isReordered(mon)?'<span class="chip blue">Days moved</span>':''}${startBtn}${!viewing&&!previewing&&dp.t!=='pre'?`<button class="btn sm ghost"${startBtn?'':' style="margin-left:auto"'} data-act="move">Move…</button>`:''}</div>`;
+  if(moveOpen&&!viewing&&!previewing) h+=moveCard();
+  if(previewing) h+=`<div class="banner info"><div class="small"><b>Lined up: ${esc(fpC.line)}.</b> It starts by itself ${fmtD(previewing.startMonday,true)}, and this is the day as it will be. Change it in Setup, under Programs.</div></div>`;
   h+=noteCard(sel);
   h+=aimsCard(sel);
   h+=debriefCard();
@@ -10445,7 +10449,7 @@ function chooserFlow(){
     const nx=chzBookNext();
     const st=chzStart(), hk=(hs.find(x=>x.start===st)||{}).k;
     h+=`<h3>After ${esc(cur)}</h3>${hs.length>1?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===st?' on':''}" data-act="chzstart" data-v="${x.start}" aria-pressed="${x.start===st}">${esc(x.label)} \u00b7 ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}
-    <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick is lined up for then; nothing changes before.`}</p>`
+    <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick starts by itself then, and the Plan shows it from that week; nothing changes before.`}</p>`
       +pickCard(nx,`<button class="btn primary" data-act="chzlinebook">Line it up for ${sw}</button>`).replace(/<span class="chip blue">[^<]*<\/span>/,'<span class="chip blue">The books’ next step</span>')
       +(c.full?chooserSheet(chzBtn('next')):`<button class="btn" data-act="chzfull">Something else: answer the questions</button>`);
   } else if(c.ctx==='warn'){
@@ -10492,6 +10496,13 @@ function beginProgram(np,patch){
   let id='p-'+plan.startMonday.replace(/-/g,''); while(programs[id]) id+='b';
   programs[id]={id,name:oldName,startMonday:plan.startMonday,end,archivedAt:realToday(),plan:clone(plan)};
   queueWrite('programs/'+id,()=>programs[id]);
+  plan=planFor(np,patch); planV++; queueWrite('plan/main',()=>plan);
+  return null;
+}
+/* The plan a new program starts on: your settings and maxes carried, then the caller's
+   patch. Pure, so the lined-up program can be drawn before it starts (21e-year.js). */
+function planFor(np,patch){
+  const start=mondayOf(np.start||realToday());
   const cm=carryMaxes(), keep={}; for(const k of PREF_KEYS) if(plan[k]!==undefined) keep[k]=clone(plan[k]);
   const next=deepMerge(clone(DEF),keep);
   next.startMonday=start; next.programName=np.name||('Block '+((plan.programSeq||1)+1)); next.programSeq=(plan.programSeq||1)+1;
@@ -10500,8 +10511,7 @@ function beginProgram(np,patch){
   // A program started by hand while the rotation is on takes its place in it by its
   // template, or stands outside it; either way the old block's end date does not follow it.
   if(patch) patch(next); else omsRebase(next);
-  plan=next; planV++; queueWrite('plan/main',()=>plan);
-  return null;
+  return next;
 }
 
 /* ---------------- rearranging in the calendar ----------------
@@ -10542,16 +10552,19 @@ function calCard(){
     ? `Carrying <b>${esc(dayPlanSlot(addDays(calMove.monday,calMove.slot),calMove.slot).short||'Session')}</b>. Tap the day to do it on \u2014 any day, any week. Nothing else will move.`
     : 'Drag a session to another day, or tap it and then tap where it should go. Only what you move moves; a day can hold more than one, and a day with none is a rest day.'}</div>${calMove?`<div class="row"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
   h+=`<div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
-  for(let r=0;r<rows;r++){
-    const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null;
+  // From its first Monday, the lined-up program: drawn as it will be, not movable yet.
+  for(let r=0;r<rows;r++) h+=withFuture(addDays(start,r*7),()=>{
+    const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null, fut=!!previewing;
+    let h=fut&&mon===previewing.startMonday?`<div class="cal-w"><span class="chip blue">Lined up</span><b>${esc(fpC.line)}</b></div>`:'';
     h+=`<div class="cal-w">${wt?`<b>${esc(wt.t)}</b><span class="chip ${wt.cls}">${esc(wt.chip)}</span>${isReordered(mon)?'<span class="chip blue">days moved</span>':''}`:'<span class="muted">Before the program starts</span>'}</div>`;
     for(let i=0;i<7;i++){
       const d=addDays(mon,i), ss=dayPlans(d), out=d<first||d>last, st=sessState(d,t);
       const picked=!!(calMove&&calMove.from===d), moved=ss.some(x=>x.moved);
       const lbl=ss.length?ss.map(x=>x.short||'Session').join(' + '):'';
-      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!calMove?' sel':''}${picked?' picked':''}${moved?' shifted':''}" data-act="${live?'calpick':'open'}" data-date="${d}" aria-label="${fmtLong(d)} ${esc(lbl)}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(lbl)}</span><span class="dot ${calMove?'':st}"></span></button>`;
+      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!calMove?' sel':''}${picked?' picked':''}${moved?' shifted':''}" data-act="${live&&!fut?'calpick':'open'}" data-date="${d}" aria-label="${fmtLong(d)} ${esc(lbl)}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(lbl)}</span><span class="dot ${calMove?'':st}"></span></button>`;
     }
-  }
+    return h;
+  });
   h+=`</div>`;
   if(!calMove) h+=`<div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span></div>`;
   return h+`</div>`;
@@ -10560,29 +10573,44 @@ function vPlan(){
   const head=`<div class="card" style="padding:10px 12px"><div class="seg">${[['list','Weeks'],['cal','Calendar']].map(([v,l])=>`<button class="segb${planMode===v?' on':''}" data-act="planmode" data-v="${v}">${l}</button>`).join('')}</div></div>`;
   return head+(planMode==='cal'?calCard():vPlanList());
 }
+function planRow(wk,ti,fut){
+  const wt=weekTitle(wk), past=wk.idx<ti, cur=wk.idx===ti;
+  let done=0,tot=0; for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),p=dayPlan(dd); if(p.t!=='off'){tot++; if(lg(dd).done) done++}}
+  const hol=[];for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),x=holidayOn(dd);if(x)hol.push(x)}
+  let h='', sub=[];
+  if(wk.kind==='cycle') sub.push('Plyo: '+plyoPhase(wk).name);
+  if(wk.kind==='cycle'&&wk.w===1){const m=maxFor(wk.cycle);sub.push(activeLifts().map(k=>m[k]?n(m[k].v):'—').join(' / '))}
+  if(hol.length) sub.push('⚑ '+hol.join(', '));
+  let menu='';
+  if(!past&&!fut){
+    const opts=[];
+    if(wk.kind==='bb') opts.push(`<button class="btn sm" data-act="bbremove" data-monday="${wk.monday}">Remove the whole block</button>`);
+    else if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
+    else if(wk.rule) opts.push(`<button class="btn sm" data-act="skip" data-rule="${wk.rule}">Skip this ${wk.kind==='test'?'retest':'deload'}</button>`);
+    if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="mass">Base Building · TB III · 6 weeks</button>`);
+    if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','bridge3','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',bridge3:'Bridge · TB III',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
+    menu=`<details class="menu"><summary>Change</summary><div class="pop">${opts.join('')}</div></details>`;
+  }
+  h+=`<div class="wk-row${cur?' cur':''}${past?' past':''}"><div class="wk-date">${fmtD(wk.monday)}–${fmtD(addDays(wk.monday,6))}</div><div class="wk-main"><div class="row" style="gap:8px"><span class="t">${wt.t}</span><span class="chip ${wt.cls}">${wt.chip}</span>${wk.inserted?'<span class="chip">Added</span>':''}</div>${sub.length?`<div class="small muted">${esc(sub.join(' · '))}</div>`:''}</div><div class="row" style="gap:6px;justify-content:flex-end">${done?`<span class="small mono muted">${done}/${tot}</span>`:''}${menu}</div></div>`;
+  return h;
+}
 function vPlanList(){
   const t=todayStr(), ti=Math.max(0,idxOf(t)), list=weeks(ti+planShow+2), from=Math.max(0,ti-4), to=ti+planShow;
   let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="note" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
+  const fs=(futurePlan()||{}).startMonday;
   for(let i=from;i<=to&&i<list.length;i++){
-    const wk=list[i], wt=weekTitle(wk), past=wk.idx<ti, cur=wk.idx===ti;
-    let done=0,tot=0; for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),p=dayPlan(dd); if(p.t!=='off'){tot++; if(lg(dd).done) done++}}
-    const hol=[];for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),x=holidayOn(dd);if(x)hol.push(x)}
-    let sub=[];
-    if(wk.kind==='cycle') sub.push('Plyo: '+plyoPhase(wk).name);
-    if(wk.kind==='cycle'&&wk.w===1){const m=maxFor(wk.cycle);sub.push(activeLifts().map(k=>m[k]?n(m[k].v):'—').join(' / '))}
-    if(hol.length) sub.push('⚑ '+hol.join(', '));
-    let menu='';
-    if(!past){
-      const opts=[];
-      if(wk.kind==='bb') opts.push(`<button class="btn sm" data-act="bbremove" data-monday="${wk.monday}">Remove the whole block</button>`);
-      else if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
-      else if(wk.rule) opts.push(`<button class="btn sm" data-act="skip" data-rule="${wk.rule}">Skip this ${wk.kind==='test'?'retest':'deload'}</button>`);
-      if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="mass">Base Building · TB III · 6 weeks</button>`);
-      if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','bridge3','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',bridge3:'Bridge · TB III',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
-      menu=`<details class="menu"><summary>Change</summary><div class="pop">${opts.join('')}</div></details>`;
-    }
-    h+=`<div class="wk-row${cur?' cur':''}${past?' past':''}"><div class="wk-date">${fmtD(wk.monday)}–${fmtD(addDays(wk.monday,6))}</div><div class="wk-main"><div class="row" style="gap:8px"><span class="t">${wt.t}</span><span class="chip ${wt.cls}">${wt.chip}</span>${wk.inserted?'<span class="chip">Added</span>':''}</div>${sub.length?`<div class="small muted">${esc(sub.join(' · '))}</div>`:''}</div><div class="row" style="gap:6px;justify-content:flex-end">${done?`<span class="small mono muted">${done}/${tot}</span>`:''}${menu}</div></div>`;
+    if(fs&&list[i].monday>=fs) break;
+    h+=planRow(list[i],ti,false);
   }
+  // From the handover, the lined-up program's weeks: drawn as they will be, changed in
+  // Setup → Programs until it starts.
+  const end=list[Math.min(to,list.length-1)].monday;
+  if(fs&&end>=fs) h+=withFuture(fs,()=>{
+    const L=weeks(idxOf(end)+2);
+    let g=`<div class="wk-row"><div class="wk-main"><div class="row" style="gap:8px"><span class="chip blue">Lined up</span><b>${esc(fpC.line)}</b></div><div class="small muted">Starts by itself ${fmtD(fs,true)}.</div></div></div>`;
+    for(let k=idxOf(fs);k>=0&&k<L.length&&L[k].monday<=end;k++) g+=planRow(L[k],-1,true);
+    return g;
+  });
   h+=`</div><div class="row"><button class="btn" data-act="more">Show 26 more weeks</button></div>`;
   const sk=Object.keys(plan.skips||{}).filter(k=>plan.skips[k]);
   if(sk.length) h+=`<div class="card"><h3>Skipped</h3><div class="row">${sk.map(k=>{const [kind,c]=k.split('@');return `<button class="btn sm" data-act="unskip" data-rule="${k}">Restore ${kind==='test'?'retest':'deload'} after Cycle ${c}</button>`}).join('')}</div></div>`;
@@ -12141,7 +12169,7 @@ function yearSection(){
   for(const b of bl){ h+=yrRow(b,n); if(yrAdd===b.i+1) h+=yrAddSheet(b.i+1) }
   if(yg) h+=ygSheet();
   else if(yrAdd==null) h+=`<div class="row"><button class="btn" data-act="yradd" data-i="${bl.length}">Add a block at the end</button><button class="btn" data-act="yrgoal">Plan a year from a goal…</button></div>`;
-  h+=`<p class="note" style="margin:0">Only the first is lined up for real. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
+  h+=`<p class="note" style="margin:0">The first starts by itself on its Monday, and the Plan shows it from then. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
   return h+`</div>`;
 }
 // Where the year starts, when there is a choice: the chooser's two handovers.
@@ -12192,38 +12220,79 @@ function ygSheet(){
 }
 /* What's next, on Today in the program's last week: step 4 of the chooser, and the
    prototype's call (2026-11-15) that a lined-up program shows "in the last week, on
-   Today". Laid out like the OMS card: start it from here with a second tap, or Not yet,
-   which asks again next week. With nothing lined up, the books' next step is offered to
-   line up, and doing nothing keeps the program going. The rotation has its own card. */
-let nextArm=false, nextErr=null;
+   Today". A lined-up program starts by itself on its Monday (the user's call the same
+   day, after lining up Fighter with Green and finding the Plan still showing Operator):
+   the card says when, and Put it off moves it, and the year behind it, a week later.
+   With nothing lined up, the books' next step is offered to line up, and doing nothing
+   keeps the program going. The OMS rotation has its own card. */
+let nextErr=null, nextBegun=null;
 function nextCard(){
   if(viewing||sel!==todayStr()||newProg||omsState().on) return '';
-  const t=realToday(); if(plan.nextSnooze===mondayOf(t)) return '';
-  const n=nextQueued(), cur=esc(progName());
+  const t=realToday(), cur=esc(progName());
+  if(nextBegun) return `<div class="card"><div class="lift-h"><h3>${esc(nextBegun.name)} started today</h3><span class="chip blue">New program</span></div>
+    <p class="small" style="margin:0"><b>${esc(nextBegun.line)}</b>, as you lined it up. ${esc(nextBegun.was)} is archived with everything in it, under Setup, Programs, and your maxes carried over.</p>
+    <div class="row"><button class="btn ghost" data-act="nextseen">OK</button></div></div>`;
+  const n=nextQueued();
   if(n){
     if(!nextDue()) return '';
-    const st=n.start<mondayOf(t)?mondayOf(t):n.start, nm=esc(pickName(n));
-    return `<div class="card"><div class="lift-h"><h3>${cur} ${st<=t?'has reached its handover':'hands over '+fmtD(st,true)}</h3><span class="chip blue">Lined up</span></div>
-    <p class="small" style="margin:0">Next: ${n.offFirst?'a week off, then ':''}<b>${esc(pickLine(n))}</b>, from ${fmtD(st,true)}.${n.why?` ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1]==='ours'?'Ours.':n.why[1])}</span>`:''}</p>
-    <p class="note" style="margin:0">${cur} is archived with everything in it, and your maxes carry over.</p>
+    const st=n.start<mondayOf(t)?mondayOf(t):n.start;
+    return `<div class="card"><div class="lift-h"><h3>${cur} hands over ${fmtD(st,true)}</h3><span class="chip blue">Lined up</span></div>
+    <p class="small" style="margin:0">Next: ${n.offFirst?'a week off, then ':''}<b>${esc(pickLine(n))}</b>. It starts by itself that Monday.${n.why?` ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1]==='ours'?'Ours.':n.why[1])}</span>`:''}</p>
+    <p class="note" style="margin:0">${cur} is archived with everything in it, and your maxes carry over. The Plan already shows it.</p>
     ${nextErr?`<div class="banner warn"><div class="small">${esc(nextErr)}</div></div>`:''}
-    <div class="row"><button class="btn primary" data-act="nextgo">${nextArm?'Tap again to confirm':'Start '+nm}</button><button class="btn ghost" data-act="nextlater">Not yet</button></div>
-    <div class="note">Not yet asks again next week. To change it, or start with a bridge week and a retest, go to Setup, under Programs.</div></div>`;
+    <div class="row"><button class="btn" data-act="nextlater">Put it off a week</button><button class="btn ghost" data-act="nextchange">Change it</button></div></div>`;
   }
+  if(plan.nextSnooze===mondayOf(t)) return '';
   const sw=progSwitchMonday(); if(t<addDays(sw,-7)) return '';
   const nx=chzBookNext();
   return `<div class="card"><div class="lift-h"><h3>${cur} hands over ${fmtD(sw,true)}</h3><span class="chip">Nothing lined up</span></div>
   <p class="small" style="margin:0">The books’ next step: <b>${esc(pickLine(nx))}</b>.${nx.why.map(([x,c])=>` ${esc(x)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span>`).join('')}</p>
-  <div class="row"><button class="btn primary" data-act="chzlinebook">Line it up</button><button class="btn" data-act="nextchoose">Choose something else</button><button class="btn ghost" data-act="nextlater">Not yet</button></div>
+  <div class="row"><button class="btn primary" data-act="chzlinebook">Line it up</button><button class="btn" data-act="nextchoose">Choose something else</button><button class="btn ghost" data-act="nextsnooze">Not yet</button></div>
   <div class="note">With nothing lined up, ${cur} carries on with another cycle.</div></div>`;
 }
-function nextGo(){
+// Put off: the whole year moves a week, and the program you are on runs that week longer.
+function nextLater(){
+  const q=yrItems(); if(!q.length) return false;
+  const n=nextQueued(), st=n.start<mondayOf(realToday())?mondayOf(realToday()):n.start;
+  q[0]=Object.assign({},q[0],{start:addDays(st,7)}); mutatePlan(p=>{p.nextPrograms=q}); return true;
+}
+/* Starting it, on its Monday. Run after every sync (05-persistence.js), so it happens
+   the first time the app is opened that week, on whichever device. */
+function nextAuto(){
+  const n=nextQueued();
+  if(viewing||wz||newProg||omsState().on||!n||realToday()<n.start) return false;
+  const was=progName();
   if(!nextStart()) return false;
   const pk=newProg.pick, err=beginProgram(newProg,pickPatch(pk,yrItems().slice(pk.qi+1)));
-  newProg=null; nextArm=false; nextErr=err;
-  if(err){ render(); return false }
-  sel=realToday(); view='today'; render(); window.scrollTo(0,0);
-  return true;
+  newProg=null; nextErr=err;
+  if(err) return false;
+  nextBegun={name:progName(),line:pickLine(pk),was};
+  sel=realToday(); return true;
+}
+/* The lined-up program, drawn before it starts: the plan it will be, built the way
+   starting it builds it, swapped in to draw any day from its first Monday on. It keeps
+   its own schedule caches across swaps, so a month of days does not rebuild either
+   schedule once per day. */
+let fpC={key:''}, previewing=null;
+function futurePlan(){
+  if(viewing||omsState().on) return null;
+  const n=nextQueued(); if(!n) return null;
+  const start=n.start<mondayOf(realToday())?mondayOf(realToday()):n.start;
+  if(start<=plan.startMonday) return null;
+  const key=planV+'|'+start+'|'+JSON.stringify(plan.nextPrograms);
+  if(fpC.key!==key){
+    const p=planFor({name:'Block '+((plan.programSeq||1)+1),start,mode:'carry'},pickPatch(n,yrItems().slice(n.qi+1)));
+    fpC={key,p,line:pickLine(n),v:'f'+key,wc:{v:null,list:[]},mc:{v:null,m:{}}};
+  }
+  return fpC.p;
+}
+function withFuture(date,fn){
+  if(previewing) return fn();
+  const fp=futurePlan(); if(!fp||!date||date<fp.startMonday) return fn();
+  const was={plan,planV,wcache,mcache};
+  plan=fp; planV=fpC.v; wcache=fpC.wc; mcache=fpC.mc; previewing=fp;
+  try{ return fn() }
+  finally{ fpC.wc=wcache; fpC.mc=mcache; plan=was.plan; planV=was.planV; wcache=was.wcache; mcache=was.mcache; previewing=null }
 }
 
 /* ---------------- copying something out of the app ----------------
@@ -12569,9 +12638,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
   if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
   if(a==='nextstart'){nextStart();render();return}
-  if(a==='nextlater'){nextArm=false;mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
-  if(a==='nextgo'){if(!nextArm){nextArm=true;render();setTimeout(()=>{if(nextArm){nextArm=false;render()}},4000);return} nextGo();return}
-  if(a==='nextchoose'){chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
+  if(a==='nextlater'){nextLater();render();return}
+  if(a==='nextsnooze'){mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
+  if(a==='nextseen'){nextBegun=null;render();return}
+  if(a==='nextchoose'||a==='nextchange'){if(a==='nextchoose')chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
   if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
@@ -12796,7 +12866,7 @@ function calDragEnd(){
 document.addEventListener('pointerdown',e=>{
   if(viewing||e.button) return;
   const c=e.target.closest&&e.target.closest('.cal-d');
-  if(!c||c.disabled||!c.dataset.date) return;
+  if(!c||c.disabled||!c.dataset.date||c.dataset.act!=='calpick') return;   // the lined-up program's days are not movable yet
   if(!calMove&&!dayPlans(c.dataset.date).length) return;   // nothing on that day to pick up
   calDrag.id=e.pointerId; calDrag.from=c.dataset.date; calDrag.x=e.clientX; calDrag.y=e.clientY; calDrag.on=false;
 });
@@ -12823,7 +12893,7 @@ document.addEventListener('pointerup',e=>{
   if(calDrag.id!==e.pointerId) return;
   const from=calDrag.from, cell=calDrag.on?calCell(e.clientX,e.clientY):null;
   if(!calDragEnd()) return;                       // never moved: let the click handler have it
-  if(cell&&cell.dataset.date&&cell.dataset.date!==from) calTarget(cell.dataset.date);
+  if(cell&&cell.dataset.date&&cell.dataset.date!==from&&cell.dataset.act==='calpick') calTarget(cell.dataset.date);
   else { calMove=null; render() }
 });
 document.addEventListener('pointercancel',()=>{ if(calDragEnd()){ calMove=null; render() } });

@@ -294,6 +294,7 @@ async function connect(){
     }
     loaded=true;
     if(!viewing&&freezePast()) render();
+    if(!viewing&&nextAuto()) render();
     flushAll(); if(!anyPending()) setStatus('Saved');
     // Then re-check what the server holds: after a restart mid-session the page has to
     // pick its alerts back up, and a cancel made while offline still has to land.

@@ -63,6 +63,9 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   next week; the queue itself went into Setup → Programs as Your year in 3.95); (5) the
   coach fill-in, the one step left. Since 3.98 Your year and the goal planner offer the
   same two starts as the chooser (when the cycle ends, after the retest), by request.
+  Since 3.99 a lined-up program shows in the Plan and calendar from its start and starts
+  by itself on that Monday (the user's call, after lining up Green and finding the Plan
+  still on Black); Put it off moves the year a week. Today's Start button is gone.
 - **Chooser prototype decided (2026-11-15, step 2):**
   https://claude.ai/artifact/XBpRgu4KS99RruH3T6AQkS. Four phone artboards: A one
   question at a time, B one sheet with a live pick and a pinned bar, C start from your

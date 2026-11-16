@@ -341,9 +341,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='chzlinebook'){chzLineUp(chzBookNext());render();return}
   if(a==='chzswitchwhy'){if(chz&&chz.reason)chzSwitch(CHZ_WHY[chz.reason].pick());render();return}
   if(a==='nextstart'){nextStart();render();return}
-  if(a==='nextlater'){nextArm=false;mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
-  if(a==='nextgo'){if(!nextArm){nextArm=true;render();setTimeout(()=>{if(nextArm){nextArm=false;render()}},4000);return} nextGo();return}
-  if(a==='nextchoose'){chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
+  if(a==='nextlater'){nextLater();render();return}
+  if(a==='nextsnooze'){mutatePlan(p=>{p.nextSnooze=mondayOf(realToday())});return}
+  if(a==='nextseen'){nextBegun=null;render();return}
+  if(a==='nextchoose'||a==='nextchange'){if(a==='nextchoose')chzOpen('next');goView('setup');const c=document.getElementById('programs');if(c&&c.scrollIntoView)c.scrollIntoView({block:'start'});return}
   if(a==='runfrom'){mutatePlan(p=>{p.runFrom=+b.dataset.v});return}
   if(a==='yrsel'){const i=+b.dataset.i;yrSel=yrSel===i?-1:i;yrAdd=null;render();return}
   if(a==='yrmv'){yrMove(+b.dataset.i,+b.dataset.v);return}
@@ -568,7 +569,7 @@ function calDragEnd(){
 document.addEventListener('pointerdown',e=>{
   if(viewing||e.button) return;
   const c=e.target.closest&&e.target.closest('.cal-d');
-  if(!c||c.disabled||!c.dataset.date) return;
+  if(!c||c.disabled||!c.dataset.date||c.dataset.act!=='calpick') return;   // the lined-up program's days are not movable yet
   if(!calMove&&!dayPlans(c.dataset.date).length) return;   // nothing on that day to pick up
   calDrag.id=e.pointerId; calDrag.from=c.dataset.date; calDrag.x=e.clientX; calDrag.y=e.clientY; calDrag.on=false;
 });
@@ -595,7 +596,7 @@ document.addEventListener('pointerup',e=>{
   if(calDrag.id!==e.pointerId) return;
   const from=calDrag.from, cell=calDrag.on?calCell(e.clientX,e.clientY):null;
   if(!calDragEnd()) return;                       // never moved: let the click handler have it
-  if(cell&&cell.dataset.date&&cell.dataset.date!==from) calTarget(cell.dataset.date);
+  if(cell&&cell.dataset.date&&cell.dataset.date!==from&&cell.dataset.act==='calpick') calTarget(cell.dataset.date);
   else { calMove=null; render() }
 });
 document.addEventListener('pointercancel',()=>{ if(calDragEnd()){ calMove=null; render() } });

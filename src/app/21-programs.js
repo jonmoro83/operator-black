@@ -199,7 +199,7 @@ function chooserFlow(){
     const nx=chzBookNext();
     const st=chzStart(), hk=(hs.find(x=>x.start===st)||{}).k;
     h+=`<h3>After ${esc(cur)}</h3>${hs.length>1?`<div class="seg">${hs.map(x=>`<button class="segb${x.start===st?' on':''}" data-act="chzstart" data-v="${x.start}" aria-pressed="${x.start===st}">${esc(x.label)} \u00b7 ${esc(fmtD(x.start,true))}</button>`).join('')}</div>`:''}
-    <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick is lined up for then; nothing changes before.`}</p>`
+    <p class="note" style="margin:0">${hk==='cycle'?'This block will not be retested, so the next program starts from the maxes you have then. The book\u2019s point to change is after the retest. <span class="mono muted">TB I p33</span>':`It hands over on ${sw}${wl>0?`, ${wl} week${wl===1?'':'s'} from now`:''}. What you pick starts by itself then, and the Plan shows it from that week; nothing changes before.`}</p>`
       +pickCard(nx,`<button class="btn primary" data-act="chzlinebook">Line it up for ${sw}</button>`).replace(/<span class="chip blue">[^<]*<\/span>/,'<span class="chip blue">The books’ next step</span>')
       +(c.full?chooserSheet(chzBtn('next')):`<button class="btn" data-act="chzfull">Something else: answer the questions</button>`);
   } else if(c.ctx==='warn'){
@@ -246,6 +246,13 @@ function beginProgram(np,patch){
   let id='p-'+plan.startMonday.replace(/-/g,''); while(programs[id]) id+='b';
   programs[id]={id,name:oldName,startMonday:plan.startMonday,end,archivedAt:realToday(),plan:clone(plan)};
   queueWrite('programs/'+id,()=>programs[id]);
+  plan=planFor(np,patch); planV++; queueWrite('plan/main',()=>plan);
+  return null;
+}
+/* The plan a new program starts on: your settings and maxes carried, then the caller's
+   patch. Pure, so the lined-up program can be drawn before it starts (21e-year.js). */
+function planFor(np,patch){
+  const start=mondayOf(np.start||realToday());
   const cm=carryMaxes(), keep={}; for(const k of PREF_KEYS) if(plan[k]!==undefined) keep[k]=clone(plan[k]);
   const next=deepMerge(clone(DEF),keep);
   next.startMonday=start; next.programName=np.name||('Block '+((plan.programSeq||1)+1)); next.programSeq=(plan.programSeq||1)+1;
@@ -254,8 +261,7 @@ function beginProgram(np,patch){
   // A program started by hand while the rotation is on takes its place in it by its
   // template, or stands outside it; either way the old block's end date does not follow it.
   if(patch) patch(next); else omsRebase(next);
-  plan=next; planV++; queueWrite('plan/main',()=>plan);
-  return null;
+  return next;
 }
 
 /* ---------------- rearranging in the calendar ----------------
@@ -296,16 +302,19 @@ function calCard(){
     ? `Carrying <b>${esc(dayPlanSlot(addDays(calMove.monday,calMove.slot),calMove.slot).short||'Session')}</b>. Tap the day to do it on \u2014 any day, any week. Nothing else will move.`
     : 'Drag a session to another day, or tap it and then tap where it should go. Only what you move moves; a day can hold more than one, and a day with none is a rest day.'}</div>${calMove?`<div class="row"><button class="btn sm ghost" data-act="calcancel">Cancel</button></div>`:''}</div>`;
   h+=`<div class="cal"><div class="cal-h">${DAYN.map(d=>`<span>${d[0]}</span>`).join('')}</div>`;
-  for(let r=0;r<rows;r++){
-    const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null;
+  // From its first Monday, the lined-up program: drawn as it will be, not movable yet.
+  for(let r=0;r<rows;r++) h+=withFuture(addDays(start,r*7),()=>{
+    const mon=addDays(start,r*7), wk=weekOf(mon), wt=wk?weekTitle(wk):null, fut=!!previewing;
+    let h=fut&&mon===previewing.startMonday?`<div class="cal-w"><span class="chip blue">Lined up</span><b>${esc(fpC.line)}</b></div>`:'';
     h+=`<div class="cal-w">${wt?`<b>${esc(wt.t)}</b><span class="chip ${wt.cls}">${esc(wt.chip)}</span>${isReordered(mon)?'<span class="chip blue">days moved</span>':''}`:'<span class="muted">Before the program starts</span>'}</div>`;
     for(let i=0;i<7;i++){
       const d=addDays(mon,i), ss=dayPlans(d), out=d<first||d>last, st=sessState(d,t);
       const picked=!!(calMove&&calMove.from===d), moved=ss.some(x=>x.moved);
       const lbl=ss.length?ss.map(x=>x.short||'Session').join(' + '):'';
-      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!calMove?' sel':''}${picked?' picked':''}${moved?' shifted':''}" data-act="${live?'calpick':'open'}" data-date="${d}" aria-label="${fmtLong(d)} ${esc(lbl)}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(lbl)}</span><span class="dot ${calMove?'':st}"></span></button>`;
+      h+=`<button class="cal-d${out?' out':''}${d===t?' today':''}${d===sel&&!calMove?' sel':''}${picked?' picked':''}${moved?' shifted':''}" data-act="${live&&!fut?'calpick':'open'}" data-date="${d}" aria-label="${fmtLong(d)} ${esc(lbl)}"><span class="n">${+d.slice(8)}</span><span class="l">${esc(lbl)}</span><span class="dot ${calMove?'':st}"></span></button>`;
     }
-  }
+    return h;
+  });
   h+=`</div>`;
   if(!calMove) h+=`<div class="row small muted" style="gap:12px"><span><i class="lg done"></i>done</span><span><i class="lg missed"></i>missed</span></div>`;
   return h+`</div>`;
@@ -314,29 +323,44 @@ function vPlan(){
   const head=`<div class="card" style="padding:10px 12px"><div class="seg">${[['list','Weeks'],['cal','Calendar']].map(([v,l])=>`<button class="segb${planMode===v?' on':''}" data-act="planmode" data-v="${v}">${l}</button>`).join('')}</div></div>`;
   return head+(planMode==='cal'?calCard():vPlanList());
 }
+function planRow(wk,ti,fut){
+  const wt=weekTitle(wk), past=wk.idx<ti, cur=wk.idx===ti;
+  let done=0,tot=0; for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),p=dayPlan(dd); if(p.t!=='off'){tot++; if(lg(dd).done) done++}}
+  const hol=[];for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),x=holidayOn(dd);if(x)hol.push(x)}
+  let h='', sub=[];
+  if(wk.kind==='cycle') sub.push('Plyo: '+plyoPhase(wk).name);
+  if(wk.kind==='cycle'&&wk.w===1){const m=maxFor(wk.cycle);sub.push(activeLifts().map(k=>m[k]?n(m[k].v):'—').join(' / '))}
+  if(hol.length) sub.push('⚑ '+hol.join(', '));
+  let menu='';
+  if(!past&&!fut){
+    const opts=[];
+    if(wk.kind==='bb') opts.push(`<button class="btn sm" data-act="bbremove" data-monday="${wk.monday}">Remove the whole block</button>`);
+    else if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
+    else if(wk.rule) opts.push(`<button class="btn sm" data-act="skip" data-rule="${wk.rule}">Skip this ${wk.kind==='test'?'retest':'deload'}</button>`);
+    if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="mass">Base Building · TB III · 6 weeks</button>`);
+    if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','bridge3','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',bridge3:'Bridge · TB III',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
+    menu=`<details class="menu"><summary>Change</summary><div class="pop">${opts.join('')}</div></details>`;
+  }
+  h+=`<div class="wk-row${cur?' cur':''}${past?' past':''}"><div class="wk-date">${fmtD(wk.monday)}–${fmtD(addDays(wk.monday,6))}</div><div class="wk-main"><div class="row" style="gap:8px"><span class="t">${wt.t}</span><span class="chip ${wt.cls}">${wt.chip}</span>${wk.inserted?'<span class="chip">Added</span>':''}</div>${sub.length?`<div class="small muted">${esc(sub.join(' · '))}</div>`:''}</div><div class="row" style="gap:6px;justify-content:flex-end">${done?`<span class="small mono muted">${done}/${tot}</span>`:''}${menu}</div></div>`;
+  return h;
+}
 function vPlanList(){
   const t=todayStr(), ti=Math.max(0,idxOf(t)), list=weeks(ti+planShow+2), from=Math.max(0,ti-4), to=ti+planShow;
   let h=`<div class="card" style="gap:6px"><h2>Plan</h2><p class="note" style="margin:0">Cycles run back to back forever. Deload every ${+plan.deloadEvery?plan.deloadEvery+' cycle'+(plan.deloadEvery>1?'s':''):'— (off)'} · retest every ${+plan.testEvery?plan.testEvery+' cycle'+(plan.testEvery>1?'s':''):'— (off)'}. Add a deload, retest or off week anywhere; everything after it shifts back a week.</p></div><div class="card" style="gap:0;padding-block:4px">`;
+  const fs=(futurePlan()||{}).startMonday;
   for(let i=from;i<=to&&i<list.length;i++){
-    const wk=list[i], wt=weekTitle(wk), past=wk.idx<ti, cur=wk.idx===ti;
-    let done=0,tot=0; for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),p=dayPlan(dd); if(p.t!=='off'){tot++; if(lg(dd).done) done++}}
-    const hol=[];for(let d=0;d<7;d++){const dd=addDays(wk.monday,d),x=holidayOn(dd);if(x)hol.push(x)}
-    let sub=[];
-    if(wk.kind==='cycle') sub.push('Plyo: '+plyoPhase(wk).name);
-    if(wk.kind==='cycle'&&wk.w===1){const m=maxFor(wk.cycle);sub.push(activeLifts().map(k=>m[k]?n(m[k].v):'—').join(' / '))}
-    if(hol.length) sub.push('⚑ '+hol.join(', '));
-    let menu='';
-    if(!past){
-      const opts=[];
-      if(wk.kind==='bb') opts.push(`<button class="btn sm" data-act="bbremove" data-monday="${wk.monday}">Remove the whole block</button>`);
-      else if(wk.inserted) opts.push(`<button class="btn sm" data-act="uninsert" data-monday="${wk.monday}">Remove this week</button>`);
-      else if(wk.rule) opts.push(`<button class="btn sm" data-act="skip" data-rule="${wk.rule}">Skip this ${wk.kind==='test'?'retest':'deload'}</button>`);
-      if(!wk.inserted) opts.push(`<span class="lbl">Start here instead</span><button class="btn sm" data-act="bbadd" data-monday="${wk.monday}" data-ver="standard">Base Building · 8 weeks</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="strength">Base Building · strength-first</button><button class="btn sm ghost" data-act="bbadd" data-monday="${wk.monday}" data-ver="mass">Base Building · TB III · 6 weeks</button>`);
-      if(!wk.inserted) opts.push(`<span class="lbl">Insert this week</span>${['deload','test','bridge3','travel','off'].map(k=>`<button class="btn sm" data-act="insert" data-kind="${k}" data-monday="${wk.monday}">${{deload:'Deload',test:'Retest',bridge3:'Bridge · TB III',travel:'Travel',off:'Off week'}[k]}</button>`).join('')}`);
-      menu=`<details class="menu"><summary>Change</summary><div class="pop">${opts.join('')}</div></details>`;
-    }
-    h+=`<div class="wk-row${cur?' cur':''}${past?' past':''}"><div class="wk-date">${fmtD(wk.monday)}–${fmtD(addDays(wk.monday,6))}</div><div class="wk-main"><div class="row" style="gap:8px"><span class="t">${wt.t}</span><span class="chip ${wt.cls}">${wt.chip}</span>${wk.inserted?'<span class="chip">Added</span>':''}</div>${sub.length?`<div class="small muted">${esc(sub.join(' · '))}</div>`:''}</div><div class="row" style="gap:6px;justify-content:flex-end">${done?`<span class="small mono muted">${done}/${tot}</span>`:''}${menu}</div></div>`;
+    if(fs&&list[i].monday>=fs) break;
+    h+=planRow(list[i],ti,false);
   }
+  // From the handover, the lined-up program's weeks: drawn as they will be, changed in
+  // Setup → Programs until it starts.
+  const end=list[Math.min(to,list.length-1)].monday;
+  if(fs&&end>=fs) h+=withFuture(fs,()=>{
+    const L=weeks(idxOf(end)+2);
+    let g=`<div class="wk-row"><div class="wk-main"><div class="row" style="gap:8px"><span class="chip blue">Lined up</span><b>${esc(fpC.line)}</b></div><div class="small muted">Starts by itself ${fmtD(fs,true)}.</div></div></div>`;
+    for(let k=idxOf(fs);k>=0&&k<L.length&&L[k].monday<=end;k++) g+=planRow(L[k],-1,true);
+    return g;
+  });
   h+=`</div><div class="row"><button class="btn" data-act="more">Show 26 more weeks</button></div>`;
   const sk=Object.keys(plan.skips||{}).filter(k=>plan.skips[k]);
   if(sk.length) h+=`<div class="card"><h3>Skipped</h3><div class="row">${sk.map(k=>{const [kind,c]=k.split('@');return `<button class="btn sm" data-act="unskip" data-rule="${k}">Restore ${kind==='test'?'retest':'deload'} after Cycle ${c}</button>`}).join('')}</div></div>`;

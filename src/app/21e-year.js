@@ -14,7 +14,7 @@ function yearSection(){
   for(const b of bl){ h+=yrRow(b,n); if(yrAdd===b.i+1) h+=yrAddSheet(b.i+1) }
   if(yg) h+=ygSheet();
   else if(yrAdd==null) h+=`<div class="row"><button class="btn" data-act="yradd" data-i="${bl.length}">Add a block at the end</button><button class="btn" data-act="yrgoal">Plan a year from a goal…</button></div>`;
-  h+=`<p class="note" style="margin:0">Only the first is lined up for real. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
+  h+=`<p class="note" style="margin:0">The first starts by itself on its Monday, and the Plan shows it from then. The rest are your plan: each starts from what the one before leaves you, and you can change any of them until it starts.</p>`;
   return h+`</div>`;
 }
 // Where the year starts, when there is a choice: the chooser's two handovers.
@@ -65,36 +65,77 @@ function ygSheet(){
 }
 /* What's next, on Today in the program's last week: step 4 of the chooser, and the
    prototype's call (2026-11-15) that a lined-up program shows "in the last week, on
-   Today". Laid out like the OMS card: start it from here with a second tap, or Not yet,
-   which asks again next week. With nothing lined up, the books' next step is offered to
-   line up, and doing nothing keeps the program going. The rotation has its own card. */
-let nextArm=false, nextErr=null;
+   Today". A lined-up program starts by itself on its Monday (the user's call the same
+   day, after lining up Fighter with Green and finding the Plan still showing Operator):
+   the card says when, and Put it off moves it, and the year behind it, a week later.
+   With nothing lined up, the books' next step is offered to line up, and doing nothing
+   keeps the program going. The OMS rotation has its own card. */
+let nextErr=null, nextBegun=null;
 function nextCard(){
   if(viewing||sel!==todayStr()||newProg||omsState().on) return '';
-  const t=realToday(); if(plan.nextSnooze===mondayOf(t)) return '';
-  const n=nextQueued(), cur=esc(progName());
+  const t=realToday(), cur=esc(progName());
+  if(nextBegun) return `<div class="card"><div class="lift-h"><h3>${esc(nextBegun.name)} started today</h3><span class="chip blue">New program</span></div>
+    <p class="small" style="margin:0"><b>${esc(nextBegun.line)}</b>, as you lined it up. ${esc(nextBegun.was)} is archived with everything in it, under Setup, Programs, and your maxes carried over.</p>
+    <div class="row"><button class="btn ghost" data-act="nextseen">OK</button></div></div>`;
+  const n=nextQueued();
   if(n){
     if(!nextDue()) return '';
-    const st=n.start<mondayOf(t)?mondayOf(t):n.start, nm=esc(pickName(n));
-    return `<div class="card"><div class="lift-h"><h3>${cur} ${st<=t?'has reached its handover':'hands over '+fmtD(st,true)}</h3><span class="chip blue">Lined up</span></div>
-    <p class="small" style="margin:0">Next: ${n.offFirst?'a week off, then ':''}<b>${esc(pickLine(n))}</b>, from ${fmtD(st,true)}.${n.why?` ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1]==='ours'?'Ours.':n.why[1])}</span>`:''}</p>
-    <p class="note" style="margin:0">${cur} is archived with everything in it, and your maxes carry over.</p>
+    const st=n.start<mondayOf(t)?mondayOf(t):n.start;
+    return `<div class="card"><div class="lift-h"><h3>${cur} hands over ${fmtD(st,true)}</h3><span class="chip blue">Lined up</span></div>
+    <p class="small" style="margin:0">Next: ${n.offFirst?'a week off, then ':''}<b>${esc(pickLine(n))}</b>. It starts by itself that Monday.${n.why?` ${esc(n.why[0])} <span class="mono muted">${esc(n.why[1]==='ours'?'Ours.':n.why[1])}</span>`:''}</p>
+    <p class="note" style="margin:0">${cur} is archived with everything in it, and your maxes carry over. The Plan already shows it.</p>
     ${nextErr?`<div class="banner warn"><div class="small">${esc(nextErr)}</div></div>`:''}
-    <div class="row"><button class="btn primary" data-act="nextgo">${nextArm?'Tap again to confirm':'Start '+nm}</button><button class="btn ghost" data-act="nextlater">Not yet</button></div>
-    <div class="note">Not yet asks again next week. To change it, or start with a bridge week and a retest, go to Setup, under Programs.</div></div>`;
+    <div class="row"><button class="btn" data-act="nextlater">Put it off a week</button><button class="btn ghost" data-act="nextchange">Change it</button></div></div>`;
   }
+  if(plan.nextSnooze===mondayOf(t)) return '';
   const sw=progSwitchMonday(); if(t<addDays(sw,-7)) return '';
   const nx=chzBookNext();
   return `<div class="card"><div class="lift-h"><h3>${cur} hands over ${fmtD(sw,true)}</h3><span class="chip">Nothing lined up</span></div>
   <p class="small" style="margin:0">The books’ next step: <b>${esc(pickLine(nx))}</b>.${nx.why.map(([x,c])=>` ${esc(x)} <span class="mono muted">${esc(c==='ours'?'Ours.':c)}</span>`).join('')}</p>
-  <div class="row"><button class="btn primary" data-act="chzlinebook">Line it up</button><button class="btn" data-act="nextchoose">Choose something else</button><button class="btn ghost" data-act="nextlater">Not yet</button></div>
+  <div class="row"><button class="btn primary" data-act="chzlinebook">Line it up</button><button class="btn" data-act="nextchoose">Choose something else</button><button class="btn ghost" data-act="nextsnooze">Not yet</button></div>
   <div class="note">With nothing lined up, ${cur} carries on with another cycle.</div></div>`;
 }
-function nextGo(){
+// Put off: the whole year moves a week, and the program you are on runs that week longer.
+function nextLater(){
+  const q=yrItems(); if(!q.length) return false;
+  const n=nextQueued(), st=n.start<mondayOf(realToday())?mondayOf(realToday()):n.start;
+  q[0]=Object.assign({},q[0],{start:addDays(st,7)}); mutatePlan(p=>{p.nextPrograms=q}); return true;
+}
+/* Starting it, on its Monday. Run after every sync (05-persistence.js), so it happens
+   the first time the app is opened that week, on whichever device. */
+function nextAuto(){
+  const n=nextQueued();
+  if(viewing||wz||newProg||omsState().on||!n||realToday()<n.start) return false;
+  const was=progName();
   if(!nextStart()) return false;
   const pk=newProg.pick, err=beginProgram(newProg,pickPatch(pk,yrItems().slice(pk.qi+1)));
-  newProg=null; nextArm=false; nextErr=err;
-  if(err){ render(); return false }
-  sel=realToday(); view='today'; render(); window.scrollTo(0,0);
-  return true;
+  newProg=null; nextErr=err;
+  if(err) return false;
+  nextBegun={name:progName(),line:pickLine(pk),was};
+  sel=realToday(); return true;
+}
+/* The lined-up program, drawn before it starts: the plan it will be, built the way
+   starting it builds it, swapped in to draw any day from its first Monday on. It keeps
+   its own schedule caches across swaps, so a month of days does not rebuild either
+   schedule once per day. */
+let fpC={key:''}, previewing=null;
+function futurePlan(){
+  if(viewing||omsState().on) return null;
+  const n=nextQueued(); if(!n) return null;
+  const start=n.start<mondayOf(realToday())?mondayOf(realToday()):n.start;
+  if(start<=plan.startMonday) return null;
+  const key=planV+'|'+start+'|'+JSON.stringify(plan.nextPrograms);
+  if(fpC.key!==key){
+    const p=planFor({name:'Block '+((plan.programSeq||1)+1),start,mode:'carry'},pickPatch(n,yrItems().slice(n.qi+1)));
+    fpC={key,p,line:pickLine(n),v:'f'+key,wc:{v:null,list:[]},mc:{v:null,m:{}}};
+  }
+  return fpC.p;
+}
+function withFuture(date,fn){
+  if(previewing) return fn();
+  const fp=futurePlan(); if(!fp||!date||date<fp.startMonday) return fn();
+  const was={plan,planV,wcache,mcache};
+  plan=fp; planV=fpC.v; wcache=fpC.wc; mcache=fpC.mc; previewing=fp;
+  try{ return fn() }
+  finally{ fpC.wc=wcache; fpC.mc=mcache; plan=was.plan; planV=was.planV; wcache=was.wcache; mcache=was.mcache; previewing=null }
 }
