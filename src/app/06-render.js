@@ -26,7 +26,7 @@ function oddBand(bind){
   if(b==='meas.neck') return L(8,25);
   if(b==='meas.waist') return L(20,70);
   if(b==='meas.hip') return L(25,80);
-  if(/^maxes\./.test(b)||/^test\.[a-z]+\.w$/.test(b)||/^lifts\.[a-z0-9]+\.used$/.test(b)) return W(0,1200);
+  if(/^maxes\./.test(b)||/^test\.[a-z]+\.(more\.\d+\.)?w$/.test(b)||/^lifts\.[a-z0-9]+\.used$/.test(b)) return W(0,1200);
   return null;
 }
 function oddNote(bind,val){

@@ -46,8 +46,12 @@ function liftsCsv(){
     }
     for(const [k,t] of Object.entries(L.test||{})){
       if(!t||t.w==null||t.w==='') continue;
-      const reps=t.r||(dp.t==='rm5'?5:1), e=estMax(k,t.w,reps,d);
-      rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',dp.t==='rm5'?'5RM test':'test','',reps,'','','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      const def=dp.t==='rm5'?5:1, kind=dp.t==='rm5'?'5RM test':'test';
+      for(const [x,lbl] of [[t,kind],...testMore(t).map((x,i)=>[x,kind+' heavier '+(i+1)])]){
+        if(x.w==null||x.w==='') continue;
+        const reps=x.r!=null&&x.r!==''?+x.r:def, e=estMax(k,x.w,reps,d);
+        rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',lbl,'',reps,'','','','','','',x.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      }
     }
   });
   return csvText(rows);

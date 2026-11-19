@@ -104,6 +104,19 @@ function estMax(k,w,r,date){
   if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;const e=e1rm(bw+ +w,r);return e==null?null:e-bw}
   return e1rm(w,r);
 }
+// A test day's result is the set logged in test.<lift>.w/r, plus any heavier sets taken
+// after it in test.<lift>.more. The lift's tested max is the best estimate among them, so
+// a missed heavier set (0 reps) costs nothing and the number already earned stands.
+function testMore(t){const M=(t||{}).more;return Array.isArray(M)?M.map(x=>x||{}):M?Object.keys(M).reduce((a,i)=>(a[+i]=M[i]||{},a),[]).map(x=>x||{}):[]}
+function testBest(k,t,defReps,date){
+  let best=null;
+  for(const x of [t||{},...testMore(t)]){
+    if(x.w==null||x.w==='') continue;
+    const r=x.r!=null&&x.r!==''?+x.r:defReps, e=estMax(k,x.w,r,date);
+    if(e!=null&&(!best||e>best.e)) best={w:+x.w,r,e};
+  }
+  return best;
+}
 function fmtLoad(k,w){return isBW(k)?(w>0?'+'+n(w):'BW'):n(w)}
 function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
 function tier(p){return p<=75?'light':p>=90?'heavy':'mid'}

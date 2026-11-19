@@ -210,7 +210,7 @@ function finishCard(date,dp){
       const x=(L.lifts||{})[k]||{}, t=((L.test||{})[k])||{};
       if(dp.t==='lift'&&wk){const r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;
         bits.push(`${liftName(k,date)} ${dn}/${nS}${r.sMax>nS?'+':''}${ground(x)?' · ground':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
-      else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
+      else if(t.w!=null&&t.w!==''){const b=testBest(k,t,dp.t==='rm5'?5:1,date)||{w:+t.w,r:t.r||'?'}; bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,b.w):n(b.w)} × ${b.r}${testMore(t).length?' (best of '+(testMore(t).length+1)+')':''}`)}
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }

@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-11-15.
+Update it as things ship. Last updated 2026-11-18.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -45,6 +45,13 @@ screen lock, the background-timer question, the confirmed beep and calendar, the
 check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the app open.
 
 ## Next up
+
+- **Heavier sets on test day (asked 2026-11-18: "add extra sets at a heavier weight during
+  test weeks if they feel they can safely go up in weight when testing a 1RM").** Shipped
+  in 3.109: `test.<lift>.more` [{target, w, r}] after the test set; `testBest` picks the
+  best estimate for weekResults, records, CSV and the summaries, so a miss (0 reps) never
+  lowers it. Day card offers + Heavier set once a result is in; session mode adds a `more`
+  step after the lift's test, keeps the saved card up to offer it, and rests 5 min.
 
 - **Move a session for every week (asked 2026-11-15, after the coach had to decline:
   "In my next cycle (Fighter) can you move the Friday E session to Saturday and the

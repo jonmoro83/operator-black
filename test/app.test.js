@@ -10179,6 +10179,64 @@ test("the plan reads a test set the way Tactical Barbell I does", () => {
   a.equal(x.attemptNext("squat", d, { w: 315, r: 1 }, false), "", "a heavy single is its own answer");
 });
 
+// --- heavier sets on a test day (3.109) -----------------------------------------------------
+// Asked 2026-11-18: "add extra sets at a heavier weight during test weeks if they feel they
+// can safely go up in weight when testing a 1RM". Optional, offered once the test set is in,
+// and the best of them is the result; a miss never lowers it.
+function testDay(x, t) {
+  x.plan.startMonday = "2026-09-07"; x.plan.bridge = false; x.bump();
+  const wk = x.weeks().find((w) => w.kind === "test");
+  const day = [0, 1, 2, 3, 4, 5, 6].map((i) => x.addDays(wk.monday, i)).find((d) => x.dayPlan(d).t === t && x.dayPlan(d).lifts.includes("squat"));
+  x.setToday(day);
+  return { wk, day };
+}
+
+test("a heavier set after a test single is offered once the single is in, and the best one counts", () => {
+  const x = app({ now: "2026-10-19" });
+  const { wk, day } = testDay(x, "test");
+  a.doesNotMatch(x.testCard("squat", 1, false), /Heavier set/, "nothing to go up from yet");
+
+  x.setLog(day, "test.squat.w", 300); x.setLog(day, "test.squat.r", 1); x.bump();
+  a.match(x.testCard("squat", 1, false), /data-act="testmore" data-k="squat">\+ Heavier set at 305 lb/);
+  a.match(x.testCard("squat", 1, false), /Only if the last one moved fast/);
+
+  x.setLog(day, "test.squat.more", [{ target: 305, w: 310, r: 1 }]); x.bump();
+  a.equal(x.testBest("squat", x.lg(day).test.squat, 1, day).w, 310);
+  a.equal(x.weekResults(wk, "test").squat, 310, "Feed results forward takes the heavier set");
+  a.match(x.testCard("squat", 1, false), /Best est\. 1RM/);
+  a.match(x.testCard("squat", 1, false), /Heavier set at 315 lb/, "the next one goes up from the last weight lifted");
+
+  // A miss, logged as 0 reps, says nothing about the max.
+  x.setLog(day, "test.squat.more", [{ w: 310, r: 1 }, { w: 320, r: 0 }]); x.bump();
+  a.equal(x.weekResults(wk, "test").squat, 310);
+  a.match(x.testCard("squat", 1, false), /Missed/);
+  a.match(x.liftsCsv(), /test heavier 2/, "every attempt is in the export");
+});
+
+test("session mode puts a heavier set straight after the lift's test, behind a five-minute rest", () => {
+  const x = app({ now: "2026-10-19" });
+  const { day } = testDay(x, "test");
+  x.ls = { date: day, i: 0, warm: false };
+  const steps = () => x.lsSteps(day);
+  x.ls.i = steps().findIndex((s) => s.type === "test" && s.k === "squat");
+  x.lsAct("tsave", { dataset: {} });
+  const saved = x.ls.i;
+  a.equal(steps()[saved].type, "test", "the card stays up once saved, so the offer can be seen");
+  a.match(x.lsTestCard(steps()[saved]), /data-ls="tmore"/);
+
+  x.lsAct("tmore", { dataset: {} });
+  const st = steps()[x.ls.i];
+  a.equal(st.type, "more"); a.equal(st.k, "squat"); a.equal(st.j, 0);
+  a.equal(st.w, +x.lg(day).test.squat.w + x.plan.round.squat, "aimed one increment up");
+  a.ok(x.rest && x.rest.end - Date.now() >= 5 * 60 * 1000 - 2000, "the book's five minutes");
+  a.equal(steps()[x.ls.i - 1].type, "test", "right after the test it follows");
+
+  x.lsAct("tsave", { dataset: {} });
+  a.equal(x.lg(day).test.squat.more[0].w, st.w, "saving takes the target, as the test set does");
+  a.equal(x.lsStepDone(st), true);
+  a.match(x.lsTestCard(steps()[x.ls.i]), /data-ls="tmore"/, "and it can go again");
+});
+
 // --- the OMS rotation (3.82) ---------------------------------------------------------------
 test("OMS is off unless it is switched on, and off changes nothing", () => {
   const x = app({ now: "2026-11-12" });

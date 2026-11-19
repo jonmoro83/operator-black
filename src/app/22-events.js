@@ -572,6 +572,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}
   if(a==='unskip'){replan('Week restored',p=>{delete p.skips[b.dataset.rule]});return}
   if(a==='more'){planShow+=26;render();return}
+  if(a==='testmore'||a==='testmorerm'){
+    const k=b.dataset.k, T=(lg(sel).test||{})[k]||{}, M=testMore(T).map(x=>Object.assign({},x));
+    if(a==='testmore') M.push({target:testNextW(k,T)}); else M.splice(+b.dataset.i,1);
+    setLog(sel,'test.'+k+'.more',M);render();return}
   if(a==='applytest'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test'),nc=wk.nextCycle;if(!nc)return;offerUndo('Results applied to Cycle '+nc,snapPlan());mutatePlan(p=>{p.cycleMaxes[nc]=Object.assign({},p.cycleMaxes[nc]||{},res)});return}
   if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}

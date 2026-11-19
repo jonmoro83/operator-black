@@ -22,8 +22,8 @@ function prList(){
     const xs=[];
     for(const [d,L] of Object.entries(logs)){
       const t=(L.test||{})[k]; if(!t||t.w==null||t.w==='') continue;
-      const e=estMax(k,t.w,t.r||(dayPlan(d).t==='rm5'?5:1),d);
-      if(e!=null) xs.push({d,v:floorTo(e,plan.round[k])});
+      const b=testBest(k,t,dayPlan(d).t==='rm5'?5:1,d);
+      if(b) xs.push({d,v:floorTo(b.e,plan.round[k])});
     }
     add('lift:'+k,esc(liftName(k))+' 1RM',u(),xs,v=>(isBW(k)?'+':'')+n(v));
   }

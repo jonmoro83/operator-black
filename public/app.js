@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.108", RELEASES_SRC="/releases.js?b=59530de994";
+const APP_VERSION="3.109", RELEASES_SRC="/releases.js?b=9e97111fff";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -3148,6 +3148,19 @@ function estMax(k,w,r,date){
   if(isBW(k)){const bw=bwFor(date||sel);if(!bw)return null;const e=e1rm(bw+ +w,r);return e==null?null:e-bw}
   return e1rm(w,r);
 }
+// A test day's result is the set logged in test.<lift>.w/r, plus any heavier sets taken
+// after it in test.<lift>.more. The lift's tested max is the best estimate among them, so
+// a missed heavier set (0 reps) costs nothing and the number already earned stands.
+function testMore(t){const M=(t||{}).more;return Array.isArray(M)?M.map(x=>x||{}):M?Object.keys(M).reduce((a,i)=>(a[+i]=M[i]||{},a),[]).map(x=>x||{}):[]}
+function testBest(k,t,defReps,date){
+  let best=null;
+  for(const x of [t||{},...testMore(t)]){
+    if(x.w==null||x.w==='') continue;
+    const r=x.r!=null&&x.r!==''?+x.r:defReps, e=estMax(k,x.w,r,date);
+    if(e!=null&&(!best||e>best.e)) best={w:+x.w,r,e};
+  }
+  return best;
+}
 function fmtLoad(k,w){return isBW(k)?(w>0?'+'+n(w):'BW'):n(w)}
 function mult(){return plan.basis==='tm'?(+plan.tmPct||90)/100:1}
 function tier(p){return p<=75?'light':p>=90?'heavy':'mid'}
@@ -5331,7 +5344,7 @@ function oddBand(bind){
   if(b==='meas.neck') return L(8,25);
   if(b==='meas.waist') return L(20,70);
   if(b==='meas.hip') return L(25,80);
-  if(/^maxes\./.test(b)||/^test\.[a-z]+\.w$/.test(b)||/^lifts\.[a-z0-9]+\.used$/.test(b)) return W(0,1200);
+  if(/^maxes\./.test(b)||/^test\.[a-z]+\.(more\.\d+\.)?w$/.test(b)||/^lifts\.[a-z0-9]+\.used$/.test(b)) return W(0,1200);
   return null;
 }
 function oddNote(bind,val){
@@ -5794,7 +5807,7 @@ function finishCard(date,dp){
       const x=(L.lifts||{})[k]||{}, t=((L.test||{})[k])||{};
       if(dp.t==='lift'&&wk){const r=rx(wk,k),nS=r.s,dn=(x.sets||[]).filter(Boolean).length;
         bits.push(`${liftName(k,date)} ${dn}/${nS}${r.sMax>nS?'+':''}${ground(x)?' · ground':''}`); if(dn<nS) gaps.push(`${liftName(k)}: ${nS-dn} set${nS-dn>1?'s':''} unticked`);}
-      else if(t.w!=null&&t.w!=='') bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,+t.w):n(t.w)} × ${t.r||'?'}`);
+      else if(t.w!=null&&t.w!==''){const b=testBest(k,t,dp.t==='rm5'?5:1,date)||{w:+t.w,r:t.r||'?'}; bits.push(`${liftName(k,date)} ${isBW(k)?fmtLoad(k,b.w):n(b.w)} × ${b.r}${testMore(t).length?' (best of '+(testMore(t).length+1)+')':''}`)}
     }
     const w=(L.warmup||[]).filter(Boolean).length; if(w) bits.push(`warm-up ${w} done`);
   }
@@ -6776,19 +6789,37 @@ function attemptBlock(k,isRm5){
   return h;
 }
 function testCard(k,defReps,isRm5){
-  const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=estMax(k,T.w,reps,sel), cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);
+  const T=(lg(sel).test||{})[k]||{}, b=testBest(k,T,defReps,sel), e=b?b.e:null, cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);
   const ap=attemptPlan(k,sel,isRm5), est=ap?ap.first:null, planned=!!(ap&&ap.rec&&ap.pred!==ap.cur);
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${isRm5?'5RM · 2 in reserve':'Heavy single'}${isBW(k)?' · added weight':''}</span></div>
-  <div class="grid4"><label class="f">Target${numIn('test.'+k+'.target',T.target,est?n(est):'')}</label><label class="f">Result weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
+  <div class="grid4"><label class="f">Target${numIn('test.'+k+'.target',T.target,est?n(est):'')}</label><label class="f">Result weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">${testMore(T).length?'Best est. 1RM':'Est. 1RM'}<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
+  ${testMoreLog(k,T,defReps)}
   ${warmupLog(k,testRamp(k,tgt,isRm5),tgt!=null?`Calculated from a target of ${isBW(k)?fmtLoad(k,tgt):n(tgt)} ${u()}${T.target?'':T.w?' (your result)':planned?' (from the attempt plan)':' (from your current max)'}.`:'')}
   ${attemptBlock(k,isRm5)}
   <div class="small muted">${isRm5?'If the bar slows, you have found your number. Bad day: take the lower number.':'Work up in singles. Stop when the bar slows.'}${cur!=null?(currentMax(k)==null?' Last program’s max: ':' Current max: ')+'<span class="mono">'+(isBW(k)?'+':'')+n(cur)+'</span>.':''}${k==='pull'?' Note the machine and pin setting.':''}${isBW(k)?' Enter the weight you added (0 for bodyweight). Uses your latest bodyweight.':''}</div></div>`;
 }
+/* Heavier sets after the test set, for a day it moved well enough to go up. They are
+   optional and offered only once the first result is in: the book's test is the set
+   logged above, and these are the user's call on the day. The best of them all is the
+   result; a miss logged as 0 reps estimates nothing, so it never lowers the number. */
+function testNextW(k,T){
+  const xs=[T,...testMore(T)].filter(x=>x.w!=null&&x.w!==''), last=xs[xs.length-1];
+  return last?+last.w+(+plan.round[k]||5):null;
+}
+function testMoreLog(k,T,defReps){
+  if(T.w==null||T.w==='') return '';
+  const M=testMore(T), f=v=>isBW(k)?fmtLoad(k,v):n(v);
+  const rows=M.map((x,i)=>{const e=x.w!=null&&x.w!==''?estMax(k,x.w,x.r!=null&&x.r!==''?x.r:defReps,sel):null;
+    return `<div class="grid4"><label class="f">Heavier set ${i+1}${numIn('test.'+k+'.more.'+i+'.w',x.w,x.target!=null?n(x.target):'')}</label><label class="f">Reps${numIn('test.'+k+'.more.'+i+'.r',x.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e!=null?(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):x.r===0?'Missed':'—'}</div></label><div style="display:flex;align-items:flex-end"><button class="btn sm ghost" data-act="testmorerm" data-k="${k}" data-i="${i}" aria-label="Remove heavier set ${i+1}">Remove</button></div></div>`}).join('');
+  const nx=testNextW(k,T);
+  return rows+`<div class="ls-row"><button class="btn sm ghost" data-act="testmore" data-k="${k}">+ Heavier set${nx!=null?' at '+f(nx)+' '+u():''}</button></div>
+  <div class="note">Only if the last one moved fast and your form held. Rest five minutes first. Missed it? Enter 0 reps: your best set stands.</div>`;
+}
 function currentMax(k){const wk=weekOf(sel);if(!wk)return null;const c=wk.kind==='cycle'?wk.cycle:wk.refCycle;const m=maxFor(c)[k];return m?m.v:null}
 function bestPullups(){let b=null;for(const [d,L] of Object.entries(logs)) if(d<sel&&L.pullups&&(!b||+L.pullups>b.v)) b={d,v:+L.pullups};return b?`<div class="small muted">Previous best: <span class="mono">${b.v}</span> on ${fmtD(b.d,true)}</div>`:''}
 function weekResults(wk,field){
-  const out={};for(let i=0;i<7;i++){const d=addDays(wk.monday,i),T=(lg(d)[field])||{};for(const k of LK){const t=T[k];if(t&&t.w!=null&&t.w!==''){const def=dayPlan(d).t==='rm5'?5:1;const e=estMax(k,t.w,t.r||def,d);if(e)out[k]=floorTo(e,plan.round[k])}}}
+  const out={};for(let i=0;i<7;i++){const d=addDays(wk.monday,i),T=(lg(d)[field])||{};for(const k of LK){const t=T[k];if(t&&t.w!=null&&t.w!==''){const b=testBest(k,t,dayPlan(d).t==='rm5'?5:1,d);if(b)out[k]=floorTo(b.e,plan.round[k])}}}
   return out;
 }
 function applyCard(wk){
@@ -8342,6 +8373,7 @@ function lsSteps(date){
       const {tgt}=testTargetOn(date,k,isRm5);
       if(ls&&ls.warm!==false&&tgt!=null) testRamp(k,tgt,isRm5).forEach((x,j,a)=>steps.push({k,type:'warm',j,n:a.length,w:warmW(date,k,j,x.w),r:x.r,lbl:x.lbl}));
       steps.push({k,type:'test',isRm5,w:tgt,r:isRm5?5:1});
+      testMore(((lg(date).test||{})[k])||{}).forEach((x,j)=>steps.push({k,type:'more',j,isRm5,w:x.target!=null?+x.target:null,r:isRm5?5:1}));
     }
     if(dp.pullups) steps.push({type:'pullups'});
     steps.unshift({type:'gwarm'}); steps.push({type:'mob'});
@@ -8376,13 +8408,14 @@ function lsStepDone(st){
   if(st.type==='work') return !!((L.sets||[])[st.j]);
   if(st.type==='acc') return [st.slot,st.pair].filter(Boolean).every(sl=>accDone(ls.date,sl));
   if(st.type==='test'){const t=((lg(ls.date).test||{})[st.k])||{};return t.w!=null&&t.w!==''}
+  if(st.type==='more'){const x=testMore((lg(ls.date).test||{})[st.k])[st.j]||{};return x.w!=null&&x.w!==''}
   if(st.type==='pullups') return lg(ls.date).pullups!=null&&lg(ls.date).pullups!=='';
   return false;
 }
 function wuListFor(date,k){const W=((lg(date).lifts||{})[k]||{}).warmup;return Array.isArray(W)?W:W?Object.keys(W).reduce((a,i)=>(a[+i]=W[i],a),[]):[]}
 function lsFirstOpen(){const st=lsSteps(ls.date);
-  if(!st.some(x=>['warm','work','test','pullups','acc'].includes(x.type)&&lsStepDone(x))) return 0;
-  const i=st.findIndex(x=>['warm','work','test','pullups','acc'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
+  if(!st.some(x=>['warm','work','test','more','pullups','acc'].includes(x.type)&&lsStepDone(x))) return 0;
+  const i=st.findIndex(x=>['warm','work','test','more','pullups','acc'].includes(x.type)&&!x.opt&&!lsStepDone(x));return i<0?st.length-1:i}
 function lsStart(){ ls={date:sel,i:0,warm:true}; ls.i=lsFirstOpen(); LS.set('ob.ls',ls); unlockAudio(); syncScreen(); lsShow(); }
 function lsClose(){ ls=null; LS.set('ob.ls',null); syncScreen(); lsShow(); render(); }
 function lsShow(){
@@ -8412,11 +8445,29 @@ function lsAfter(L){
   <label class="f">Anything hurt?<div class="seg">${PAINS.map(([v,l])=>`<button class="segb${L.pain===v?' on':''}" data-ls="spain" data-v="${v}">${l}</button>`).join('')}</div></label>
   ${L.pain&&L.pain!=='none'?`<label class="f">Where<div class="seg">${Object.entries(PAIN_AT).map(([k,x])=>`<button class="segb${painAt(L).includes(k)?' on':''}" data-ls="spainat" data-v="${k}">${x.name}</button>`).join('')}</div></label>`:''}`;
 }
+// The test set and any heavier set after it (08-checkin.js) share one card. A heavier
+// set's fields live under test.<lift>.more.<j>, so the inputs carry that prefix.
+function lsTestAt(st){const T=((lg(ls.date).test||{})[st.k])||{};return st.type==='more'?testMore(T)[st.j]||{}:T}
+function lsTestCard(st){
+  const k=st.k, t=lsTestAt(st), bar=isBarbell(k), pre=st.type==='more'?'more.'+st.j+'.':'', saved=lsStepDone(st);
+  const e=estMax(k,t.w,t.r!=null&&t.r!==''?t.r:st.r,ls.date), T=((lg(ls.date).test||{})[k])||{};
+  const last=st.type==='more'?st.j===testMore(T).length-1:!testMore(T).length, nx=testNextW(k,T);
+  return `<div class="ls-card"><div class="ls-lift">${esc(liftName(k))}</div>
+      <div class="ls-kind work">${st.type==='more'?`Heavier set ${st.j+1} · only if the last one moved fast`:st.isRm5?'5-rep max · leave 2 reps in reserve':'Heavy single · stop when the bar slows'}${saved?' · ✓ saved':''}</div>
+      ${st.w!=null?`<div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()} target</small></span></div>
+      ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
+      <div class="ls-row"><button class="btn sm" data-ls="t-">Target −${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="t+">Target +${n(plan.round[k]||5)}</button></div>`:`<label class="f">Your target ${st.isRm5?'for 5 reps':'single'} (${u()})<input type="number" inputmode="decimal" step="any" id="ls-tt" data-lsin="${pre}target" data-k="${k}" placeholder="e.g. what you think you can do with 2 reps left"></label><div class="note">No max to aim from yet. Enter a target and the warm-up ramp is calculated from it, or just work up and log what you get.</div>`}
+      <div class="grid3"><label class="f">Weight lifted<input type="number" inputmode="decimal" step="any" id="ls-tw" data-lsin="${pre}w" data-k="${k}" value="${t.w??''}" placeholder="${st.w!=null?n(st.w):''}"></label><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-tr" data-lsin="${pre}r" data-k="${k}" value="${t.r??''}" placeholder="${st.r}"></label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e!=null?(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):t.r===0?'Missed':'—'}</div></label></div>
+      ${isBW(k)?'<div class="small muted">Enter the weight you added (0 for bodyweight).</div>':''}
+      ${st.type==='more'?'<div class="small muted">Rest five minutes first. Missed it? Enter 0 reps: your best set stands.</div>':''}
+      ${saved&&last?`<div class="ls-row"><button class="btn sm ghost" data-ls="tmore">+ Heavier set${nx!=null?' at '+(isBW(k)?fmtLoad(k,nx):n(nx))+' '+u():''}</button></div><div class="small muted">Felt like there was more? Only go up if it moved fast and your form held.</div>`:''}
+    </div>`;
+}
 function lsRender(){
   const box=document.getElementById('ls-in'); if(!ls||!box) return;
   const steps=lsSteps(ls.date); if(!steps.length){lsClose();return}
   ls.i=Math.min(Math.max(0,ls.i),steps.length-1);
-  const st=steps[ls.i], wk=weekOf(ls.date), dp=dayPlan(ls.date), done=steps.filter(x=>['warm','work','test','pullups','acc'].includes(x.type)&&lsStepDone(x)).length, total=steps.filter(x=>['warm','work','test','pullups','acc'].includes(x.type)).length;
+  const st=steps[ls.i], wk=weekOf(ls.date), dp=dayPlan(ls.date), done=steps.filter(x=>['warm','work','test','more','pullups','acc'].includes(x.type)&&lsStepDone(x)).length, total=steps.filter(x=>['warm','work','test','more','pullups','acc'].includes(x.type)).length;
   let h=`<div class="ls-top"><span>${esc(dp.short||'')} · ${esc(weekTitle(wk).t)}</span><button class="btn sm ghost" data-ls="close">Close</button></div><div class="ls-prog"><i style="width:${total?100*done/total:0}%"></i></div>`;
   h+=lsRestHtml();
   if(st.type==='warm'||st.type==='work'){
@@ -8433,16 +8484,9 @@ function lsRender(){
     </div>`;
     h+=`<button class="btn primary ls-done" data-ls="done">${isDone?'Done ✓ · next':'Done'}</button>`;
     if(next&&(next.type==='warm'||next.type==='work')) h+=`<div class="small muted" style="text-align:center">Next: ${esc(liftName(next.k))} · ${next.type==='warm'?'warm-up':'set '+(next.j+1)} · ${isBW(next.k)?fmtLoad(next.k,next.w):n(next.w)} × ${next.r}</div>`;
-  } else if(st.type==='test'){
-    const k=st.k, t=((lg(ls.date).test||{})[k])||{}, bar=isBarbell(k), reps=t.r||st.r, e=estMax(k,t.w,reps,ls.date), next=steps[ls.i+1];
-    h+=`<div class="ls-card"><div class="ls-lift">${esc(liftName(k))}</div>
-      <div class="ls-kind work">${st.isRm5?'5-rep max · leave 2 reps in reserve':'Heavy single · stop when the bar slows'}${lsStepDone(st)?' · ✓ saved':''}</div>
-      ${st.w!=null?`<div><span class="ls-w">${isBW(k)?fmtLoad(k,st.w):n(st.w)}<small>${isBW(k)?(st.w>0?u()+' added':'bodyweight'):u()} target</small></span></div>
-      ${bar?plateSvg(st.w,true)+`<div class="plates">${esc(plates(st.w))}</div>`:''}
-      <div class="ls-row"><button class="btn sm" data-ls="t-">Target −${n(plan.round[k]||5)}</button><button class="btn sm" data-ls="t+">Target +${n(plan.round[k]||5)}</button></div>`:`<label class="f">Your target ${st.isRm5?'for 5 reps':'single'} (${u()})<input type="number" inputmode="decimal" step="any" id="ls-tt" data-lsin="target" data-k="${k}" placeholder="e.g. what you think you can do with 2 reps left"></label><div class="note">No max to aim from yet. Enter a target and the warm-up ramp is calculated from it, or just work up and log what you get.</div>`}
-      <div class="grid3"><label class="f">Weight lifted<input type="number" inputmode="decimal" step="any" id="ls-tw" data-lsin="w" data-k="${k}" value="${t.w??''}" placeholder="${st.w!=null?n(st.w):''}"></label><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-tr" data-lsin="r" data-k="${k}" value="${t.r??''}" placeholder="${st.r}"></label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e!=null?(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):'—'}</div></label></div>
-      ${isBW(k)?'<div class="small muted">Enter the weight you added (0 for bodyweight).</div>':''}
-    </div><button class="btn primary ls-done" data-ls="tsave">${lsStepDone(st)?'Saved ✓ · next':'Save result'}</button>`;
+  } else if(st.type==='test'||st.type==='more'){
+    const next=steps[ls.i+1];
+    h+=lsTestCard(st)+`<button class="btn primary ls-done" data-ls="tsave">${lsStepDone(st)?'Saved ✓ · next':'Save result'}</button>`;
     if(next&&next.type==='warm') h+=`<div class="small muted" style="text-align:center">Next: ${esc(liftName(next.k))} warm-ups</div>`;
   } else if(st.type==='pullups'){
     h+=`<div class="ls-card"><div class="ls-lift">Max pull-ups</div><div class="small muted">One all-out set, full hang to chin over bar.</div><label class="f">Reps<input type="number" inputmode="numeric" step="1" id="ls-pu" data-lsin="pullups" value="${lg(ls.date).pullups??''}"></label></div><button class="btn primary ls-done" data-ls="next">Next</button>`;
@@ -8470,7 +8514,7 @@ function lsRender(){
     <button class="btn primary ls-done" data-ls="done">${allDone?'Done \u2713 \u00b7 next':'Done'}</button>`;
   } else if(st.test){
     const L=lg(ls.date), isRm5=dp.t==='rm5';
-    const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},e=estMax(k,t.w,t.r||(isRm5?5:1),ls.date);return `<tr><td>${esc(liftName(k))}</td><td class="n">${t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r||(isRm5?5:1)):'—'}</td><td class="n">${e!=null?'≈ '+(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
+    const rows=dp.lifts.map(k=>{const t=((L.test||{})[k])||{},b=testBest(k,t,isRm5?5:1,ls.date),m=testMore(t).length;return `<tr><td>${esc(liftName(k))}</td><td class="n">${b?(isBW(k)?fmtLoad(k,b.w):n(b.w))+' × '+b.r+(m?` <span class="small muted">best of ${m+1}</span>`:''):t.w!=null&&t.w!==''?(isBW(k)?fmtLoad(k,+t.w):n(t.w))+' × '+(t.r??'?'):'—'}</td><td class="n">${b?'≈ '+(isBW(k)?'+':'')+n(floorTo(b.e,plan.round[k])):''}</td></tr>`}).join('')+(dp.pullups?`<tr><td>Pull-ups</td><td class="n">${L.pullups??'—'}</td><td></td></tr>`:'');
     h+=`<div class="ls-card"><div class="ls-lift">Test results</div><div class="tbl-wrap"><table><thead><tr><th>Lift</th><th class="n">Result</th><th class="n">Est. 1RM</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="small muted">${isRm5?'Sunday turns these into your maxes (Today → Sunday → Save as my maxes).':'Use “Feed results forward” on Saturday’s card to set next cycle’s maxes.'}</div>
       <label class="f">Session RPE<div class="seg">${[6,7,8,9,10].map(v=>`<button class="segb${+L.rpe===v?' on':''}" data-ls="rpe" data-v="${v}">${v}</button>`).join('')}</div></label>${lsAfter(L)}</div>
@@ -8573,15 +8617,26 @@ function lsAct(a,b){
   if(a==='spain'){ const v=b.dataset.v, same=lg(ls.date).pain===v; setLog(ls.date,'pain',same?null:v); if(!same&&v==='none') setLog(ls.date,'painAt',[]); return lsRender() }
   if(a==='spainat'){ const k=b.dataset.v, cur=painAt(lg(ls.date)); setLog(ls.date,'painAt',cur.includes(k)?cur.filter(y=>y!==k):[...cur,k]); return lsRender() }
   if(a==='finish'){ if(!lg(ls.date).done) setLog(ls.date,'done',true); stopRest(); say('Session done. Nice work.'); return lsClose() }
-  if(a==='t-'||a==='t+'){ const inc=+plan.round[st.k]||5, base=st.w!=null?st.w:0; setLog(ls.date,'test.'+st.k+'.target',Math.max(isBW(st.k)?-500:+plan.bar||0,base+(a==='t+'?inc:-inc))); return lsRender() }
+  if(a==='t-'||a==='t+'){ const inc=+plan.round[st.k]||5, base=st.w!=null?st.w:0; setLog(ls.date,'test.'+st.k+'.'+(st.type==='more'?'more.'+st.j+'.':'')+'target',Math.max(isBW(st.k)?-500:+plan.bar||0,base+(a==='t+'?inc:-inc))); return lsRender() }
+  // A heavier set goes in straight after this lift's last attempt, behind the book's
+  // five-minute rest, and the walkthrough moves onto it.
+  if(a==='tmore'){
+    const T=((lg(ls.date).test||{})[st.k])||{}, M=testMore(T).map(x=>Object.assign({},x)), nx=testNextW(st.k,T);
+    M.push({target:nx}); setLog(ls.date,'test.'+st.k+'.more',M);
+    startRest(st.k,liftName(st.k)+' · heavier set',Math.max(restMins(st.k),5)*60,'Rest · before a heavier '+liftName(st.k));
+    return go(lsSteps(ls.date).findIndex(x=>x.type==='more'&&x.k===st.k&&x.j===M.length-1));
+  }
   if(a==='tsave'){
     if(lsStepDone(st)) return go(ls.i+1);
-    const t=((lg(ls.date).test||{})[st.k])||{};
-    if((t.w==null||t.w==='')&&st.w!=null) setLog(ls.date,'test.'+st.k+'.w',st.w);
-    if(t.r==null||t.r==='') setLog(ls.date,'test.'+st.k+'.r',st.r);
+    const t=lsTestAt(st), at='test.'+st.k+'.'+(st.type==='more'?'more.'+st.j+'.':'');
+    if((t.w==null||t.w==='')&&st.w!=null) setLog(ls.date,at+'w',st.w);
+    if(t.r==null||t.r==='') setLog(ls.date,at+'r',st.r);
     if(!lsStepDone(st)){ const inp=document.getElementById('ls-tw'); if(inp) inp.focus(); return }
     const next=lsSteps(ls.date)[ls.i+1];
     if(next&&(next.type==='warm'||next.type==='test')) startRest(st.k,liftName(next.k)+' · '+(next.type==='warm'?'warm-up 1':'test'),Math.max(restMins(st.k),3)*60,'Rest · after '+liftName(st.k)+' test');
+    // The lift's last attempt stays up once saved, with the offer of a heavier set on it.
+    // Saved ✓ · next moves on as before.
+    if(!(next&&next.type==='more'&&next.k===st.k)) return lsRender();
     return go(ls.i+1);
   }
   if(a==='done'){
@@ -9627,8 +9682,8 @@ function prList(){
     const xs=[];
     for(const [d,L] of Object.entries(logs)){
       const t=(L.test||{})[k]; if(!t||t.w==null||t.w==='') continue;
-      const e=estMax(k,t.w,t.r||(dayPlan(d).t==='rm5'?5:1),d);
-      if(e!=null) xs.push({d,v:floorTo(e,plan.round[k])});
+      const b=testBest(k,t,dayPlan(d).t==='rm5'?5:1,d);
+      if(b) xs.push({d,v:floorTo(b.e,plan.round[k])});
     }
     add('lift:'+k,esc(liftName(k))+' 1RM',u(),xs,v=>(isBW(k)?'+':'')+n(v));
   }
@@ -10550,8 +10605,12 @@ function liftsCsv(){
     }
     for(const [k,t] of Object.entries(L.test||{})){
       if(!t||t.w==null||t.w==='') continue;
-      const reps=t.r||(dp.t==='rm5'?5:1), e=estMax(k,t.w,reps,d);
-      rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',dp.t==='rm5'?'5RM test':'test','',reps,'','','','','','',t.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      const def=dp.t==='rm5'?5:1, kind=dp.t==='rm5'?'5RM test':'test';
+      for(const [x,lbl] of [[t,kind],...testMore(t).map((x,i)=>[x,kind+' heavier '+(i+1)])]){
+        if(x.w==null||x.w==='') continue;
+        const reps=x.r!=null&&x.r!==''?+x.r:def, e=estMax(k,x.w,reps,d);
+        rows.push([d,prog,week,dp.short||'',liftName(k,d),VARS[k]?varRef(k):'',lbl,'',reps,'','','','','','',x.w,reps,e!=null?Math.round(e*10)/10:'','']);
+      }
     }
   });
   return csvText(rows);
@@ -13397,6 +13456,10 @@ document.getElementById('main').addEventListener('click',e=>{
   if(a==='skip'){replan('Week skipped',p=>{p.skips[b.dataset.rule]=true});return}
   if(a==='unskip'){replan('Week restored',p=>{delete p.skips[b.dataset.rule]});return}
   if(a==='more'){planShow+=26;render();return}
+  if(a==='testmore'||a==='testmorerm'){
+    const k=b.dataset.k, T=(lg(sel).test||{})[k]||{}, M=testMore(T).map(x=>Object.assign({},x));
+    if(a==='testmore') M.push({target:testNextW(k,T)}); else M.splice(+b.dataset.i,1);
+    setLog(sel,'test.'+k+'.more',M);render();return}
   if(a==='applytest'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test'),nc=wk.nextCycle;if(!nc)return;offerUndo('Results applied to Cycle '+nc,snapPlan());mutatePlan(p=>{p.cycleMaxes[nc]=Object.assign({},p.cycleMaxes[nc]||{},res)});return}
   if(a==='savemaxes'){const wk=weekOf(b.dataset.monday),res=weekResults(wk,'test');offerUndo('Maxes saved',snapPlan());mutatePlan(p=>{Object.assign(p.maxes,res)});return}
   if(a==='calc5'){mutatePlan(p=>{for(const k of LK) if(calc5[k]) p.maxes[k]=floorTo(calc5[k]/.87,p.round[k])});calc5={};return}

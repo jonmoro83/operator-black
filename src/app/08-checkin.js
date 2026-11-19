@@ -647,19 +647,37 @@ function attemptBlock(k,isRm5){
   return h;
 }
 function testCard(k,defReps,isRm5){
-  const T=(lg(sel).test||{})[k]||{}, reps=T.r||defReps, e=estMax(k,T.w,reps,sel), cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);
+  const T=(lg(sel).test||{})[k]||{}, b=testBest(k,T,defReps,sel), e=b?b.e:null, cur=currentMax(k)??((plan.prevMaxes||{})[k]??null);
   const ap=attemptPlan(k,sel,isRm5), est=ap?ap.first:null, planned=!!(ap&&ap.rec&&ap.pred!==ap.cur);
   const tgt=T.target!=null&&T.target!==''?+T.target:(T.w!=null&&T.w!==''?+T.w:est);
   return `<div class="card"><div class="lift-h"><span class="lift-name">${esc(liftName(k))}</span><span class="rx">${isRm5?'5RM · 2 in reserve':'Heavy single'}${isBW(k)?' · added weight':''}</span></div>
-  <div class="grid4"><label class="f">Target${numIn('test.'+k+'.target',T.target,est?n(est):'')}</label><label class="f">Result weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
+  <div class="grid4"><label class="f">Target${numIn('test.'+k+'.target',T.target,est?n(est):'')}</label><label class="f">Result weight${numIn('test.'+k+'.w',T.w,'')}</label><label class="f">Reps${numIn('test.'+k+'.r',T.r,String(defReps))}</label><label class="f">${testMore(T).length?'Best est. 1RM':'Est. 1RM'}<div class="big" style="font-size:34px">${e?n(floorTo(e,plan.round[k])):'—'}</div></label></div>
+  ${testMoreLog(k,T,defReps)}
   ${warmupLog(k,testRamp(k,tgt,isRm5),tgt!=null?`Calculated from a target of ${isBW(k)?fmtLoad(k,tgt):n(tgt)} ${u()}${T.target?'':T.w?' (your result)':planned?' (from the attempt plan)':' (from your current max)'}.`:'')}
   ${attemptBlock(k,isRm5)}
   <div class="small muted">${isRm5?'If the bar slows, you have found your number. Bad day: take the lower number.':'Work up in singles. Stop when the bar slows.'}${cur!=null?(currentMax(k)==null?' Last program’s max: ':' Current max: ')+'<span class="mono">'+(isBW(k)?'+':'')+n(cur)+'</span>.':''}${k==='pull'?' Note the machine and pin setting.':''}${isBW(k)?' Enter the weight you added (0 for bodyweight). Uses your latest bodyweight.':''}</div></div>`;
 }
+/* Heavier sets after the test set, for a day it moved well enough to go up. They are
+   optional and offered only once the first result is in: the book's test is the set
+   logged above, and these are the user's call on the day. The best of them all is the
+   result; a miss logged as 0 reps estimates nothing, so it never lowers the number. */
+function testNextW(k,T){
+  const xs=[T,...testMore(T)].filter(x=>x.w!=null&&x.w!==''), last=xs[xs.length-1];
+  return last?+last.w+(+plan.round[k]||5):null;
+}
+function testMoreLog(k,T,defReps){
+  if(T.w==null||T.w==='') return '';
+  const M=testMore(T), f=v=>isBW(k)?fmtLoad(k,v):n(v);
+  const rows=M.map((x,i)=>{const e=x.w!=null&&x.w!==''?estMax(k,x.w,x.r!=null&&x.r!==''?x.r:defReps,sel):null;
+    return `<div class="grid4"><label class="f">Heavier set ${i+1}${numIn('test.'+k+'.more.'+i+'.w',x.w,x.target!=null?n(x.target):'')}</label><label class="f">Reps${numIn('test.'+k+'.more.'+i+'.r',x.r,String(defReps))}</label><label class="f">Est. 1RM<div class="big" style="font-size:34px">${e!=null?(isBW(k)?'+':'')+n(floorTo(e,plan.round[k])):x.r===0?'Missed':'—'}</div></label><div style="display:flex;align-items:flex-end"><button class="btn sm ghost" data-act="testmorerm" data-k="${k}" data-i="${i}" aria-label="Remove heavier set ${i+1}">Remove</button></div></div>`}).join('');
+  const nx=testNextW(k,T);
+  return rows+`<div class="ls-row"><button class="btn sm ghost" data-act="testmore" data-k="${k}">+ Heavier set${nx!=null?' at '+f(nx)+' '+u():''}</button></div>
+  <div class="note">Only if the last one moved fast and your form held. Rest five minutes first. Missed it? Enter 0 reps: your best set stands.</div>`;
+}
 function currentMax(k){const wk=weekOf(sel);if(!wk)return null;const c=wk.kind==='cycle'?wk.cycle:wk.refCycle;const m=maxFor(c)[k];return m?m.v:null}
 function bestPullups(){let b=null;for(const [d,L] of Object.entries(logs)) if(d<sel&&L.pullups&&(!b||+L.pullups>b.v)) b={d,v:+L.pullups};return b?`<div class="small muted">Previous best: <span class="mono">${b.v}</span> on ${fmtD(b.d,true)}</div>`:''}
 function weekResults(wk,field){
-  const out={};for(let i=0;i<7;i++){const d=addDays(wk.monday,i),T=(lg(d)[field])||{};for(const k of LK){const t=T[k];if(t&&t.w!=null&&t.w!==''){const def=dayPlan(d).t==='rm5'?5:1;const e=estMax(k,t.w,t.r||def,d);if(e)out[k]=floorTo(e,plan.round[k])}}}
+  const out={};for(let i=0;i<7;i++){const d=addDays(wk.monday,i),T=(lg(d)[field])||{};for(const k of LK){const t=T[k];if(t&&t.w!=null&&t.w!==''){const b=testBest(k,t,dayPlan(d).t==='rm5'?5:1,d);if(b)out[k]=floorTo(b.e,plan.round[k])}}}
   return out;
 }
 function applyCard(wk){

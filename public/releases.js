@@ -6,6 +6,11 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.109',date:'2026-11-18',title:"Heavier sets on test day",items:[
+    "Once a test set is logged, + Heavier set lets you go up one plate jump and try again, on the day's card and in session mode. It's there for days the bar moved fast and your form held, not something the week asks for.",
+    "Session mode keeps the card up after you save a test, so you can choose. Going heavier starts a five-minute rest and puts the new set straight after the one you just did.",
+    "Your best attempt is the result: it's what Feed results forward, Save as my maxes and Records use. Missed one? Enter 0 reps and the number you already earned stands.",
+  ]},
   {v:'3.108',date:'2026-11-15',title:"Move a session for every week",items:[
     "Move… on a training week now asks: This week only, or Every week. Every week puts that session on that day in every training week of the program from here on.",
     "It works on the program lined up next too, before it starts. Open one of its training days on the calendar, tap Move…, and the move goes with it.",
