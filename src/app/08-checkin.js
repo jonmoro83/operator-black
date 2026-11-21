@@ -680,6 +680,20 @@ function weekResults(wk,field){
   const out={};for(let i=0;i<7;i++){const d=addDays(wk.monday,i),T=(lg(d)[field])||{};for(const k of LK){const t=T[k];if(t&&t.w!=null&&t.w!==''){const b=testBest(k,t,dayPlan(d).t==='rm5'?5:1,d);if(b)out[k]=floorTo(b.e,plan.round[k])}}}
   return out;
 }
+/* Feed results forward and Save as my maxes copy the week's results once. A result that
+   changes afterwards, a heavier set most often, carries through to any max still holding
+   the old one, so the next cycle does not stay on the number the day started with. A max
+   that differs from the old result was typed in, and is left alone. */
+function testFed(date){const wk=weekOf(date);return wk?weekResults(wk,'test'):null}
+function testFollow(date,was){
+  const wk=weekOf(date), now=weekResults(wk,'test'), nc=wk.nextCycle, cm=(nc&&(plan.cycleMaxes||{})[nc])||{}, conv=dayPlan(date).t==='rm5';
+  const ks=LK.filter(k=>was[k]!=null&&now[k]!=null&&now[k]!==was[k]);
+  const cyc=ks.filter(k=>cm[k]!=null&&cm[k]!==''&&+cm[k]===was[k]), base=conv?ks.filter(k=>plan.maxes[k]!=null&&plan.maxes[k]!==''&&+plan.maxes[k]===was[k]):[];
+  if(!cyc.length&&!base.length) return;
+  for(const k of cyc) plan.cycleMaxes[nc][k]=now[k];
+  for(const k of base) plan.maxes[k]=now[k];
+  planV++; queueWrite('plan/main',()=>plan);
+}
 function applyCard(wk){
   const res=weekResults(wk,'test'), nc=wk.nextCycle, cur=nc?(plan.cycleMaxes[nc]||{}):{};
   const rows=activeLifts().map(k=>{const proj=nc?maxFor(nc)[k]:null;return `<tr><td>${esc(liftName(k))}</td><td class="n">${res[k]!=null?n(res[k]):'—'}</td><td class="n">${proj?n(proj.v):'—'}</td></tr>`}).join('');

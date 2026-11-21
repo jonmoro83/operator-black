@@ -2,7 +2,7 @@
 "use strict";
 // Stamped by build.js from public/releases.js: the newest release, and the address the
 // What's new page loads the notes from. Do not edit here.
-const APP_VERSION="3.109", RELEASES_SRC="/releases.js?b=9e97111fff";
+const APP_VERSION="3.110", RELEASES_SRC="/releases.js?b=41a169eaca";
 /* ---------------- program templates ----------------
 Two independent choices, which is how the books actually present it. TB II's sample weeks
 are headed "Black + Zulu", "Black + Operator", "Black + Fighter": the strength template
@@ -5186,7 +5186,7 @@ function migrate(write){
   for(const [id,P] of Object.entries(programs)) if(JSON.stringify(P)!==before['programs/'+id]) queueWrite('programs/'+id,()=>programs[id]);
   return true;
 }
-function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; if(path!=='hic.format'&&(path==='done'||path.startsWith('hic'))) hicStamp(date); setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); }
+function setLog(date,path,v){ if(readOnly()) return; if(!logs[date]) logs[date]={date}; if(path!=='hic.format'&&(path==='done'||path.startsWith('hic'))) hicStamp(date); const was=path.startsWith('test.')?testFed(date):null; setPath(logs[date],path,v); logsV++; queueWrite('logs/'+date,()=>logs[date]); if(was) testFollow(date,was); }
 function setPlan(path,v){ if(readOnly()) return; setPath(plan,path,v); planV++; queueWrite('plan/main',()=>plan); }
 function mutatePlan(fn){ if(readOnly()) return; fn(plan); planV++; queueWrite('plan/main',()=>plan); render(); }
 
@@ -6821,6 +6821,20 @@ function bestPullups(){let b=null;for(const [d,L] of Object.entries(logs)) if(d<
 function weekResults(wk,field){
   const out={};for(let i=0;i<7;i++){const d=addDays(wk.monday,i),T=(lg(d)[field])||{};for(const k of LK){const t=T[k];if(t&&t.w!=null&&t.w!==''){const b=testBest(k,t,dayPlan(d).t==='rm5'?5:1,d);if(b)out[k]=floorTo(b.e,plan.round[k])}}}
   return out;
+}
+/* Feed results forward and Save as my maxes copy the week's results once. A result that
+   changes afterwards, a heavier set most often, carries through to any max still holding
+   the old one, so the next cycle does not stay on the number the day started with. A max
+   that differs from the old result was typed in, and is left alone. */
+function testFed(date){const wk=weekOf(date);return wk?weekResults(wk,'test'):null}
+function testFollow(date,was){
+  const wk=weekOf(date), now=weekResults(wk,'test'), nc=wk.nextCycle, cm=(nc&&(plan.cycleMaxes||{})[nc])||{}, conv=dayPlan(date).t==='rm5';
+  const ks=LK.filter(k=>was[k]!=null&&now[k]!=null&&now[k]!==was[k]);
+  const cyc=ks.filter(k=>cm[k]!=null&&cm[k]!==''&&+cm[k]===was[k]), base=conv?ks.filter(k=>plan.maxes[k]!=null&&plan.maxes[k]!==''&&+plan.maxes[k]===was[k]):[];
+  if(!cyc.length&&!base.length) return;
+  for(const k of cyc) plan.cycleMaxes[nc][k]=now[k];
+  for(const k of base) plan.maxes[k]=now[k];
+  planV++; queueWrite('plan/main',()=>plan);
 }
 function applyCard(wk){
   const res=weekResults(wk,'test'), nc=wk.nextCycle, cur=nc?(plan.cycleMaxes[nc]||{}):{};

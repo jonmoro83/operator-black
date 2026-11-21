@@ -1,7 +1,7 @@
 # Roadmap
 
 What's built, what's open, and what might come next for the Operator + Black app.
-Update it as things ship. Last updated 2026-11-18.
+Update it as things ship. Last updated 2026-11-21.
 
 This file is the working record, written for whoever is building. The user-facing
 summary of each release lives in `public/releases.js` and shows up in the app under
@@ -52,6 +52,10 @@ check of 2026-10-02, the plyo PDF, interval alert lateness, and alerts with the 
   best estimate for weekResults, records, CSV and the summaries, so a miss (0 reps) never
   lowers it. Day card offers + Heavier set once a result is in; session mode adds a `more`
   step after the lift's test, keeps the saved card up to offer it, and rests 5 min.
+  3.110 (reported 2026-11-21: heavier sets not reaching Status's next-cycle 1RM): Feed
+  results forward copies once, so a result changed afterwards left the cycle max on the
+  first set. `setLog` on a `test.` path now calls `testFollow`, which moves a next-cycle
+  max (or, on a 5RM day, a base max) that still equals the old result to the new one.
 
 - **Move a session for every week (asked 2026-11-15, after the coach had to decline:
   "In my next cycle (Fighter) can you move the Friday E session to Saturday and the

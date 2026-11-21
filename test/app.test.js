@@ -10213,6 +10213,28 @@ test("a heavier set after a test single is offered once the single is in, and th
   a.match(x.liftsCsv(), /test heavier 2/, "every attempt is in the export");
 });
 
+// Reported 2026-11-21: "The extra sets on a test day are not being taken into account on the
+// status screen when showing 1RM for the next cycle." Status reads the cycle's saved max, which
+// Feed results forward had copied before the heavier sets were in.
+test("a heavier set logged after Feed results forward moves the next cycle's max with it", () => {
+  const x = app({ now: "2026-10-19" });
+  const { wk, day } = testDay(x, "test");
+  const nc = wk.nextCycle;
+  x.setLog(day, "test.squat.w", 300); x.setLog(day, "test.squat.r", 1); x.bump();
+  x.plan.cycleMaxes[nc] = Object.assign({}, x.plan.cycleMaxes[nc] || {}, x.weekResults(wk, "test")); x.bump();
+  a.equal(x.maxFor(nc).squat.v, 300);
+
+  x.setLog(day, "test.squat.more", [{ target: 305 }]); x.setLog(day, "test.squat.more.0.w", 310); x.bump();
+  a.equal(x.maxFor(nc).squat.v, 310, "the max follows the best set");
+  x.setLog(day, "test.squat.more.1.w", 320); x.setLog(day, "test.squat.more.1.r", 0); x.bump();
+  a.equal(x.maxFor(nc).squat.v, 310, "a miss leaves it where it was");
+
+  // A max typed in for the cycle is the lifter's call, not the test's.
+  x.plan.cycleMaxes[nc].squat = 295; x.bump();
+  x.setLog(day, "test.squat.more.0.w", 315); x.bump();
+  a.equal(x.maxFor(nc).squat.v, 295);
+});
+
 test("session mode puts a heavier set straight after the lift's test, behind a five-minute rest", () => {
   const x = app({ now: "2026-10-19" });
   const { day } = testDay(x, "test");

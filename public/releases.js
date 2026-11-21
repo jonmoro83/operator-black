@@ -6,6 +6,10 @@
 // package.json's version has to match the top entry (a test enforces it, and the deploy
 // tag carries it), so the two move together.
 const RELEASES=[
+  {v:'3.110',date:'2026-11-21',title:"Heavier sets reach next cycle",items:[
+    "A heavier set logged after you've fed results forward now moves next cycle's max too, so Status and the weights you train on show your best attempt, not the first one.",
+    "The same goes for changing a result's weight or reps afterwards. A max you typed in yourself stays as you set it.",
+  ]},
   {v:'3.109',date:'2026-11-18',title:"Heavier sets on test day",items:[
     "Once a test set is logged, + Heavier set lets you go up one plate jump and try again, on the day's card and in session mode. It's there for days the bar moved fast and your form held, not something the week asks for.",
     "Session mode keeps the card up after you save a test, so you can choose. Going heavier starts a five-minute rest and puts the new set straight after the one you just did.",
